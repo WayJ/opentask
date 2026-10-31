@@ -35,7 +35,7 @@ date: 2026-10-31
 |---|---|---|
 | S4 | started | 契约 API 层 + 字段映射（Issue ↔ 通用任务模型）。编号修订 2026-10-31：原 S1，因 sprint id 全树唯一规则（E1 已物化 S1–S3），E2 stubs 顺延为 S4–S6。go 决定 2026-10-31：用户常设授权「依次推进把E1和E2全部开发完」+「无人值守自行规划」；D6 模拟 Jira 模式、D7 并列路由、D8 软删除、D9 复用 access_token、D10 updated_since 游标均已 ADR 定案；形状三问由 D12 裁定（/tasks 挂根、assignee 字符串+metadata.username、labels↔tags）。sprint 级验收目标：① `GET/POST /tasks` 与 `GET/PATCH/DELETE /tasks/{id}` 可用且字段符合通用任务模型 ② 过滤/分页/updated_since 增量游标可用且重复拉取不重复 ③ CRUD 全路径 + 游标边界有单元测试 ④ 导入图零缺失维持。2026-10-31 started，evidence: `docs/superpowers/sprints/2026-10-31-S4-plan.md` |
 | S5 | ready | 状态映射配置 + 鉴权接入 + 能力检查端点。编号修订 2026-10-31：原 S2，同上。go 决定 2026-10-31：用户常设授权 + 明确要求 sprint 级 worktree 并行；S4 已交付契约层与默认状态表，本 sprint 将其配置化并补齐 D9 鉴权（API Key Bearer 与 OAuth2 client credentials 两模式）与 `GET /capabilities` 端点；sprint 级验收目标：① 状态映射可经配置调整且往返正确（epic DoD 6）② access_token 鉴权两模式可用（401 语义独立可辨识）③ /capabilities 返回端点支持与契约版本 ④ tests/tasks 扩展鉴权与映射用例全绿 |
-| S6 | planned | OpenAPI 文档生成 + 错误语义 + 契约测试与 Orca 侧端到端联调。编号修订 2026-10-31：原 S3，同上 |
+| S6 | started | OpenAPI 文档生成 + 错误语义 + 契约测试与 Orca 侧端到端联调。编号修订 2026-10-31：原 S3，同上。go 决定 2026-10-31：用户指示「继续推进整体迭代」；S4 契约层与 S5 鉴权/映射/capabilities 已落地 main（fb6df35），S6 是 E2 收官前置；受 HC1 约束（错误码沿用 CONTRACT_AUTH_* 命名）。sprint 级验收目标：① 契约 OpenAPI spec 生成且随代码发布、字段与实现一致（epic DoD 7）② 401/403/503 三类错误独立错误码与可读消息（DoD 8）③ 契约测试补全错误路径 ④ Orca 自定义任务源注册联调用例执行并留证（DoD 1——若本机无 Orca 侧注册环境则记录 blocked 项与替代证据）。2026-10-31 started，evidence: `docs/superpowers/sprints/2026-10-31-S6-plan.md` |
 
 ## Decisions (ADR)
 
