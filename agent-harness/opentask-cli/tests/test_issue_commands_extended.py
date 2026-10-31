@@ -30,7 +30,7 @@ class TestIssueBatchCommand:
         """测试批量获取 issues"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.batch_get_issues = async_mock({
                 "issues": [
@@ -67,7 +67,7 @@ class TestIssueBatchCommand:
         """测试 batch 命令 JSON 模式"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.batch_get_issues = async_mock({
                 "issues": [
@@ -91,7 +91,7 @@ class TestIssueMyCommand:
         """测试列出我的 issues"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_me = async_mock({
                 "id": "user-1",
@@ -114,7 +114,7 @@ class TestIssueMyCommand:
         """测试未认证状态"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_me = async_mock(None)  # 无用户信息
             mock_client_class.return_value = mock_client
@@ -128,7 +128,7 @@ class TestIssueMyCommand:
         """测试 --open-only 标志"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_me = async_mock({
                 "id": "user-1",
@@ -158,7 +158,7 @@ class TestIssueCreateEdgeCases:
         """测试最小参数创建"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.create_issue = async_mock({
                 "id": "new-1",
@@ -177,7 +177,7 @@ class TestIssueCreateEdgeCases:
         """测试完整参数创建"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.create_issue = async_mock({
                 "id": "new-1",
@@ -203,7 +203,7 @@ class TestIssueCreateEdgeCases:
         """测试使用 active_project_id"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.create_issue = async_mock({
                 "id": "new-1",
@@ -228,7 +228,7 @@ class TestIssueShowEdgeCases:
         """测试根据 Issue Code 显示"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_issue = async_mock({
                 "id": "uuid-1",
@@ -249,7 +249,7 @@ class TestIssueShowEdgeCases:
         """测试根据 UUID 显示"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_issue = async_mock({
                 "id": "5ee3420e-2d69-4509-9ae7-524e8c40d6d1",
@@ -269,7 +269,7 @@ class TestIssueShowEdgeCases:
         """测试显示带评论的 issue"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_issue = async_mock({
                 "id": "1",
@@ -289,7 +289,7 @@ class TestIssueShowEdgeCases:
         """测试 issue show JSON 模式"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_issue = async_mock({
                 "id": "1",
@@ -324,7 +324,7 @@ class TestIssueListEdgeCases:
         """测试所有过滤器组合"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.list_issues = async_mock({
                 "rows": [
@@ -349,7 +349,7 @@ class TestIssueListEdgeCases:
         """测试空结果"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.list_issues = async_mock({
                 "rows": [],

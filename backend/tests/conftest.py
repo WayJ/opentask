@@ -12,6 +12,13 @@ import os
 # 测试环境 JWT 密钥（必须在 opentask 模块导入前设置，jwt_utils 在 import 时读取）
 os.environ.setdefault("AUTH_SECRET_KEY", "test-only-secret-key-do-not-use-in-prod")
 
+# 应用侧数据库必须指向测试库：repositories.base 在 import 时创建模块级引擎，
+# 引擎 URL 取自 config.database_dsn_async（env POSTGRES_DATABASE > yaml database.postgres.database）。
+# 必须在导入任何 opentask 模块之前固定，否则应用会读写开发库 opentask，
+# 测试通过 test_session 播种的用户对应用不可见（登录链 401 / 用户不存在级联）。
+TEST_DB_NAME = os.getenv("POSTGRES_TEST_DATABASE", "opentask_test")
+os.environ.setdefault("POSTGRES_DATABASE", TEST_DB_NAME)
+
 # 跳过已废弃的测试模块（引用不存在的旧路径）
 collect_ignore = [
     "agent_task/test_agent_task_service.py",
@@ -26,37 +33,63 @@ import asyncio
 from typing import AsyncGenerator, Generator
 from unittest import mock
 from datetime import timedelta, datetime
+from urllib.parse import quote_plus
 
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from fastapi.testclient import TestClient
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
 
-from opentask.app import App
-from opentask.models.base import DBModel
-from opentask.repositories.base import get_session
 from opentask.config import config
-from opentask.models.user.model import UserModel
-from opentask.models.tag.model import Tag  # 导入 Tag 模型，确保它被包含在 metadata 中
-from opentask.jwt_utils import create_access_token
 
 
 # ============================================================================
 # 测试数据库配置
 # ============================================================================
 
-TEST_DB_HOST = config.mysql_host
-TEST_DB_PORT = config.mysql_port
-TEST_DB_USER = config.mysql_user
-TEST_DB_PASSWORD = config.mysql_password
-TEST_DB_NAME = os.getenv("MYSQL_TEST_DATABASE", "opentask_test")
+TEST_DB_HOST = config.postgres_host
+TEST_DB_PORT = config.postgres_port
+TEST_DB_USER = config.postgres_user
+TEST_DB_PASSWORD = config.postgres_password
 
-from urllib.parse import quote_plus
 encoded_password = quote_plus(TEST_DB_PASSWORD)
-TEST_DATABASE_URL = f"mysql+aiomysql://{TEST_DB_USER}:{encoded_password}@{TEST_DB_HOST}:{TEST_DB_PORT}/{TEST_DB_NAME}"
+TEST_DATABASE_URL = f"postgresql+asyncpg://{TEST_DB_USER}:{encoded_password}@{TEST_DB_HOST}:{TEST_DB_PORT}/{TEST_DB_NAME}"
+
+
+# ============================================================================
+# 重绑应用侧引擎（asyncpg 跨事件循环复用根修）
+#
+# pytest-asyncio 为每个测试函数创建独立事件循环，而 repositories.base 的模块级
+# 引擎默认带连接池：池中连接在上一个事件循环中创建、被下一个循环签出复用时，
+# 违反 asyncpg「单连接同一时刻只允许一个操作」的约束，抛出
+# InterfaceError("cannot perform operation: another operation is in progress")
+# （经 auth.get_current_user 的用户查询触发，auth.py 记录后转 401/500）。
+#
+# 处理：在导入 opentask.app（连带全部 service/api 模块）之前，把模块级引擎重绑为
+# 指向测试库的 NullPool 引擎——每次会话签出新连接、归还即关闭，天然无跨循环复用。
+# 服务模块 `from opentask.repositories.base import SessionCreator` 在此后导入，
+# 拿到的即重绑后的 SessionMaker。
+# ============================================================================
+
+from opentask.repositories import base as _repo_base
+
+_APP_TEST_ENGINE = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
+_repo_base.engine = _APP_TEST_ENGINE
+_repo_base.SessionCreator = async_sessionmaker(
+    bind=_APP_TEST_ENGINE, autocommit=False, autoflush=False, expire_on_commit=False
+)
+
+# 以下 opentask 导入必须放在引擎重绑之后（导入即冻结 SessionCreator 引用）
+from opentask.app import App
+from opentask.models.base import DBModel
+from opentask.repositories.base import get_session
+from opentask.models.user.model import UserModel
+from opentask.models.tag.model import Tag  # 导入 Tag 模型，确保它被包含在 metadata 中
+from opentask.jwt_utils import create_access_token
 
 
 # ============================================================================
@@ -102,6 +135,42 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 # Fixtures: 数据库引擎
 # ============================================================================
 
+async def _seed_test_users(engine: AsyncEngine) -> None:
+    """幂等播种测试用户（TEST_USERS）到测试库。
+
+    登录链（/api/auth/login、/api/auth/login-local）与 JWT 认证
+    （get_current_user 按 username/name 查用户）都依赖库中存在这些用户；
+    在 fixture 里创建，不依赖外部 SQL。
+    """
+    from passlib.context import CryptContext
+    from sqlalchemy import select
+
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+    session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with session_maker() as session:
+        # 用户中心基线（权限点 + 系统角色）：与 main.lifespan 的幂等播种一致。
+        # 角色表为空时 RbacService 的存量角色桥接失败 → 数据范围退化为 SELF，
+        # 项目/需求等列表接口会被部门过滤为空（ASGITransport 不跑 lifespan，需在此补种）。
+        from opentask.services.user_center.seed import seed_user_center
+        await seed_user_center(session)
+
+        for login_name, spec in TEST_USERS.items():
+            result = await session.execute(
+                select(UserModel).where(UserModel.username == login_name)
+            )
+            if result.scalar_one_or_none() is None:
+                session.add(UserModel(
+                    name=login_name,
+                    username=login_name,
+                    password_hash=pwd_context.hash(spec["password"]),
+                    role="admin" if spec["is_superuser"] else "developer",
+                    status=1,
+                    token_version=0,
+                ))
+        await session.commit()
+
+
 @pytest_asyncio.fixture(scope="session")
 async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
     """创建测试数据库引擎（会话级）
@@ -114,9 +183,6 @@ async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
         TEST_DATABASE_URL,
         echo=False,
         poolclass=NullPool,  # 禁用连接池，避免 reset 问题
-        connect_args={
-            "charset": "utf8mb4",
-        }
     )
 
     # 创建所有必要的表（仅一次）
@@ -129,6 +195,9 @@ async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
         import logging
         logging.error(f"Table creation failed: {e}", exc_info=True)
         raise
+
+    # 播种测试用户（登录链 / JWT 认证依赖）
+    await _seed_test_users(engine)
 
     yield engine
 
@@ -189,8 +258,18 @@ def app():
     return App()
 
 
+@pytest_asyncio.fixture(scope="session")
+async def seeded_users(test_engine: AsyncEngine) -> AsyncGenerator[AsyncEngine, None]:
+    """确保测试库表结构与种子用户（admin/jiangwei）就绪。
+
+    供只走 HTTP 客户端、不直接使用 test_session 的 API 测试依赖；
+    播种逻辑在 test_engine 内完成（幂等）。
+    """
+    yield test_engine
+
+
 @pytest.fixture
-async def test_client(app) -> AsyncGenerator[AsyncClient, None]:
+async def test_client(app, seeded_users) -> AsyncGenerator[AsyncClient, None]:
     """创建测试 HTTP 客户端"""
     async with AsyncClient(
         transport=ASGITransport(app=app),
@@ -234,11 +313,12 @@ async def test_requirement(test_session: AsyncSession):
 
     requirement = Requirement(
         id=str(uuid.uuid4()),
-        code=f"TEST-REQ-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        code=f"TEST-REQ-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:8]}",
         title="测试需求",
         description="这是一个测试需求",
         status="draft",
         priority="medium",
+        tags=[],  # tags 列 NOT NULL（JSON 类型），缺省会触发约束冲突
         created_by="test_user",
         created_at=datetime.utcnow()
     )

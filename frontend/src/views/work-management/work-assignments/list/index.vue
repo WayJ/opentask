@@ -1,62 +1,62 @@
-<template>
-  <div class="work-assignments-list">
-    <n-page-header title="工作安排" @back="handleBack" />
-    <n-card class="mt-4">
-      <template #header>
-        <div class="flex justify-between items-center">
-          <span>工作安排列表</span>
-          <n-button type="primary" @click="handleCreate">分配工作</n-button>
-        </div>
-      </template>
-
-      <!-- 筛选器 -->
-      <n-space class="mb-4">
-        <n-select
-          v-model:value="filters.assignee_id"
-          placeholder="筛选被分配人"
-          clearable
-          style="width: 200px"
-        />
-        <n-date-picker
-          v-model:value="filters.week_start"
-          type="date"
-          placeholder="筛选周次"
-          clearable
-          style="width: 200px"
-        />
-        <n-button @click="handleFilter">查询</n-button>
-      </n-space>
-
-      <n-data-table
-        :columns="columns"
-        :data="assignments"
-        :loading="loading"
-        :pagination="pagination"
-      />
-    </n-card>
-  </div>
-</template>
-
 <script setup lang="ts">
-import { ref, onMounted, h, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import {
-  NButton, NTag, NButtonGroup, NSelect, NDatePicker, NSpace,
-  useMessage, type DataTableColumns
-} from 'naive-ui'
-import { getWorkAssignments, type WorkAssignment } from '@/service/api/work-management'
+import { computed, h, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
+import { type DataTableColumns, NButton, NButtonGroup, NDatePicker, NSelect, NSpace, NTag, useMessage } from 'naive-ui';
+import { type WorkAssignment, getWorkAssignments } from '@/service/api/work-management';
 
-const router = useRouter()
-const message = useMessage()
+const router = useRouter();
+const message = useMessage();
 
-const loading = ref(false)
-const assignments = ref<WorkAssignment[]>([])
-const pagination = ref({ pageSize: 20 })
+const loading = ref(false);
+const assignments = ref<WorkAssignment[]>([]);
+const pagination = ref({ pageSize: 20 });
 
 const filters = ref({
   assignee_id: '',
   week_start: null
-})
+});
+
+const fetchAssignments = async () => {
+  loading.value = true;
+  try {
+    const params = {
+      assignee_id: filters.value.assignee_id || undefined,
+      week_start: filters.value.week_start ? filters.value.week_start.toISOString().split('T')[0] : undefined
+    };
+    const data = await getWorkAssignments(params);
+    assignments.value = data || [];
+  } catch {
+    message.error('加载失败');
+  } finally {
+    loading.value = false;
+  }
+};
+
+const handleFilter = () => {
+  fetchAssignments();
+};
+
+const handleCreate = () => router.push('/work-management/work-assignments/create');
+
+const handleView = (id: string) => router.push(`/work-management/work-assignments/${id}`);
+
+const handleDelete = (_id: string) => {
+  window.$dialog?.warning({
+    title: '确认删除',
+    content: '确定要删除此工作安排吗？',
+    positiveText: '删除',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        // 待接入：调用删除 API
+        message.success('删除成功');
+        fetchAssignments();
+      } catch {
+        message.error('删除失败');
+      }
+    }
+  });
+};
 
 const columns = computed<DataTableColumns<WorkAssignment>>([
   { title: '工作内容', key: 'title' },
@@ -72,9 +72,9 @@ const columns = computed<DataTableColumns<WorkAssignment>>([
         in_progress: { type: 'info', label: '进行中' },
         completed: { type: 'success', label: '已完成' },
         blocked: { type: 'error', label: '阻塞' }
-      }
-      const status = statusMap[row.status] || { type: 'default', label: row.status }
-      return h(NTag, { type: status.type }, () => status.label)
+      };
+      const status = statusMap[row.status] || { type: 'default', label: row.status };
+      return h(NTag, { type: status.type }, () => status.label);
     }
   },
   {
@@ -85,9 +85,9 @@ const columns = computed<DataTableColumns<WorkAssignment>>([
         high: { type: 'success', label: '高质量' },
         low: { type: 'warning', label: '低质量' },
         unknown: { type: 'default', label: '未评估' }
-      }
-      const quality = qualityMap[row.quality] || { type: 'default', label: row.quality }
-      return h(NTag, { type: quality.type }, () => quality.label)
+      };
+      const quality = qualityMap[row.quality] || { type: 'default', label: row.quality };
+      return h(NTag, { type: quality.type }, () => quality.label);
     }
   },
   {
@@ -95,62 +95,55 @@ const columns = computed<DataTableColumns<WorkAssignment>>([
     key: 'is_overdue',
     render: (row: WorkAssignment) => {
       if (row.is_overdue) {
-        return h(NTag, { type: 'error' }, () => `延期 ${row.overdue_days} 天`)
+        return h(NTag, { type: 'error' }, () => `延期 ${row.overdue_days} 天`);
       }
-      return h('span', {}, '-')
+      return h('span', {}, '-');
     }
   },
   {
     title: '操作',
     key: 'actions',
-    render: (row: WorkAssignment) => h(NButtonGroup, [
-      h(NButton, { size: 'small', onClick: () => handleView(row.id) }, () => '详情'),
-      h(NButton, { size: 'small', type: 'error', onClick: () => handleDelete(row.id) }, () => '删除')
-    ])
+    render: (row: WorkAssignment) =>
+      h(NButtonGroup, [
+        h(NButton, { size: 'small', onClick: () => handleView(row.id) }, () => '详情'),
+        h(NButton, { size: 'small', type: 'error', onClick: () => handleDelete(row.id) }, () => '删除')
+      ])
   }
-])
+]);
 
-const fetchAssignments = async () => {
-  loading.value = true
-  try {
-    const params = {
-      assignee_id: filters.value.assignee_id || undefined,
-      week_start: filters.value.week_start ? filters.value.week_start.toISOString().split('T')[0] : undefined
-    }
-    const data = await getWorkAssignments(params)
-    assignments.value = data || []
-  } catch (error) {
-    message.error('加载失败')
-  } finally {
-    loading.value = false
-  }
-}
+const handleBack = () => router.back();
 
-const handleFilter = () => {
-  fetchAssignments()
-}
-
-const handleCreate = () => router.push('/work-management/work-assignments/create')
-
-const handleView = (id: string) => router.push(`/work-management/work-assignments/${id}`)
-
-const handleDelete = async (id: string) => {
-  const dialog = window.confirm('确定要删除此工作安排吗？')
-  if (!dialog) return
-
-  try {
-    // TODO: 调用删除 API
-    message.success('删除成功')
-    fetchAssignments()
-  } catch (error) {
-    message.error('删除失败')
-  }
-}
-
-const handleBack = () => router.back()
-
-onMounted(fetchAssignments)
+onMounted(fetchAssignments);
 </script>
+
+<template>
+  <div class="work-assignments-list">
+    <NPageHeader title="工作安排" @back="handleBack" />
+    <NCard class="mt-4">
+      <template #header>
+        <div class="flex items-center justify-between">
+          <span>工作安排列表</span>
+          <NButton type="primary" @click="handleCreate">分配工作</NButton>
+        </div>
+      </template>
+
+      <!-- 筛选器 -->
+      <NSpace class="mb-4">
+        <NSelect v-model:value="filters.assignee_id" placeholder="筛选被分配人" clearable style="width: 200px" />
+        <NDatePicker
+          v-model:value="filters.week_start"
+          type="date"
+          placeholder="筛选周次"
+          clearable
+          style="width: 200px"
+        />
+        <NButton @click="handleFilter">查询</NButton>
+      </NSpace>
+
+      <NDataTable :columns="columns" :data="assignments" :loading="loading" :pagination="pagination" />
+    </NCard>
+  </div>
+</template>
 
 <style scoped>
 .work-assignments-list {

@@ -30,7 +30,7 @@ async def test_create_top_level_task_syncs_to_mission_center(test_session):
     # 先创建一个测试需求
     requirement = Requirement(
         id=str(uuid.uuid4()),
-        code=f"TEST-REQ-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        code=f"TEST-REQ-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:8]}",
         title="测试需求",
         description="用于测试任务同步",
         status="draft",
@@ -107,7 +107,7 @@ async def test_create_child_task_does_not_sync_to_mission_center(test_session):
     # 先创建一个测试需求
     requirement = Requirement(
         id=str(uuid.uuid4()),
-        code=f"TEST-REQ-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        code=f"TEST-REQ-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:8]}",
         title="测试需求2",
         description="用于测试子任务不同步",
         status="draft",

@@ -40,6 +40,7 @@ class TaskResponse(BaseModel):
     deadline: Optional[str]
     metadata: Dict[str, Any]
     requirements: List[str]
+    link_data: Optional[List[str]] = None  # 源对象关联（如 requirement:{id}），from-comment 响应回传
     # 🎯 新增字段
     acceptance_criteria: Optional[List[str]] = None
     reward: Optional[int] = None

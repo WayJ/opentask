@@ -6,7 +6,7 @@ No external dependencies required.
 import json
 import pytest
 from unittest.mock import Mock, patch
-from opentask.utils.api_client import VibeKingClient, APIError
+from opentask.utils.api_client import OpenTaskClient, APIError
 from opentask.utils.config import Config
 from opentask.utils.repl_skin import ReplSkin
 
@@ -20,31 +20,31 @@ class TestAPIClient:
 
     def test_client_init(self):
         """Test client initialization."""
-        client = VibeKingClient("http://test.com")
+        client = OpenTaskClient("http://test.com")
         assert client.base_url == "http://test.com"
         assert client.token is None
 
     def test_client_init_with_token(self):
         """Test client initialization with token."""
-        client = VibeKingClient("http://test.com", token="test_token")
+        client = OpenTaskClient("http://test.com", token="test_token")
         assert client.token == "test_token"
 
     def test_get_headers_without_token(self):
         """Test header generation without token."""
-        client = VibeKingClient("http://test.com")
+        client = OpenTaskClient("http://test.com")
         headers = client._get_headers()
         assert headers["Content-Type"] == "application/json"
         assert "Authorization" not in headers
 
     def test_get_headers_with_token(self):
         """Test header generation with token."""
-        client = VibeKingClient("http://test.com", token="test_token")
+        client = OpenTaskClient("http://test.com", token="test_token")
         headers = client._get_headers()
         assert headers["Authorization"] == "Bearer test_token"
 
     def test_handle_response_success(self):
         """Test successful response handling."""
-        client = VibeKingClient("http://test.com")
+        client = OpenTaskClient("http://test.com")
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
@@ -58,7 +58,7 @@ class TestAPIClient:
 
     def test_handle_response_error(self):
         """Test error response handling."""
-        client = VibeKingClient("http://test.com")
+        client = OpenTaskClient("http://test.com")
         mock_response = Mock()
         mock_response.status_code = 400
         mock_response.json.return_value = {
@@ -75,7 +75,7 @@ class TestAPIClient:
     @pytest.mark.asyncio
     async def test_list_projects(self):
         """Test project listing."""
-        client = VibeKingClient("http://test.com")
+        client = OpenTaskClient("http://test.com")
 
         with patch.object(client, '_request') as mock_request:
             mock_request.return_value = [
@@ -90,7 +90,7 @@ class TestAPIClient:
     @pytest.mark.asyncio
     async def test_create_project(self):
         """Test project creation."""
-        client = VibeKingClient("http://test.com")
+        client = OpenTaskClient("http://test.com")
 
         with patch.object(client, '_request') as mock_request:
             mock_request.return_value = {

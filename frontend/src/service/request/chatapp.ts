@@ -15,7 +15,7 @@ const CHATAPP_BASE_URL = import.meta.env.VITE_CHATAPP_URL || 'http://localhost:3
  * 获取 OpenTask 的认证 token
  * 用于传递给 ChatApp 后端
  */
-function getVibeKingAuthorization() {
+function getOpenTaskAuthorization() {
   const token = localStg.get('token');
   return token ? `Bearer ${token}` : null;
 }
@@ -34,7 +34,7 @@ export const chatappRequest = createRequest(
     },
     async onRequest(config) {
       // 携带 OpenTask 的 token
-      const Authorization = getVibeKingAuthorization();
+      const Authorization = getOpenTaskAuthorization();
       if (Authorization) {
         Object.assign(config.headers, { Authorization });
       }
@@ -74,7 +74,7 @@ export const chatappDownloadRequest = createRequest(
       return response.data;
     },
     async onRequest(config) {
-      const Authorization = getVibeKingAuthorization();
+      const Authorization = getOpenTaskAuthorization();
       if (Authorization) {
         Object.assign(config.headers, { Authorization });
       }

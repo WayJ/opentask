@@ -86,7 +86,7 @@ class ConfigManager:
         # 解析认证配置
         auth_data = data.get('auth', {})
         auth_enabled = auth_data.get('enabled', True)
-        auth_token = auth_data.get('token', os.environ.get('VIBEKING_AGENT_TOKEN', ''))
+        auth_token = auth_data.get('token', os.environ.get('OPENTASK_AGENT_TOKEN', ''))
         if auth_token.startswith('${') and auth_token.endswith('}'):
             # 处理环境变量引用
             env_var = auth_token[2:-1]

@@ -34,7 +34,7 @@ class TestCLIGlobalOptions:
 
         # 应该显示版本信息
         assert result.exit_code == 0
-        assert "vibe" in result.output.lower() or "version" in result.output.lower()
+        assert "opentask" in result.output.lower() or "version" in result.output.lower()
 
     def test_cli_help_option(self):
         """测试 --help 选项"""
@@ -48,7 +48,7 @@ class TestCLIGlobalOptions:
         """测试全局 JSON 模式"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.project.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.project.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.list_projects = async_mock([
                 {"id": "1", "name": "Project A"}
@@ -66,7 +66,7 @@ class TestCLIGlobalOptions:
         """测试详细模式"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.project.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.project.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.list_projects = async_mock([])
             mock_client_class.return_value = mock_client
@@ -153,7 +153,7 @@ class TestCLIOutputFormats:
         """测试表格输出"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.project.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.project.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.list_projects = async_mock([
                 {"id": "1", "name": "Project A", "is_active": True}
@@ -170,7 +170,7 @@ class TestCLIOutputFormats:
         """测试 JSON 输出"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.project.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.project.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_project = async_mock({
                 "id": "1",
@@ -201,7 +201,7 @@ class TestCLIProjectCommands:
         """测试列出所有项目（包括非活跃）"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.project.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.project.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.list_projects = async_mock([
                 {"id": "1", "name": "Active Project", "is_active": True},
@@ -221,7 +221,7 @@ class TestCLIProjectCommands:
         """测试带描述的项目创建"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.project.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.project.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.create_project = async_mock({
                 "id": "new-1",
@@ -242,7 +242,7 @@ class TestCLIProjectCommands:
         """测试只更新描述"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.project.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.project.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.update_project = async_mock({
                 "id": "1",
@@ -266,7 +266,7 @@ class TestCLIIssueCommands:
         """测试带搜索的 issue 列表"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.list_issues = async_mock({
                 "rows": [
@@ -287,7 +287,7 @@ class TestCLIIssueCommands:
         """测试分页"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.list_issues = async_mock({
                 "rows": [{"id": "1"}],

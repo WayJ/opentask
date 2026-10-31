@@ -8,6 +8,8 @@ import sys
 import asyncio
 from pathlib import Path
 
+import pytest
+
 # 添加项目路径
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
@@ -16,8 +18,13 @@ from opentask.services.websocket.hub_service import get_websocket_hub, WebSocket
 from opentask.api.websocket import router as websocket_router
 
 
-def test_websocket_hub_service():
-    """测试 WebSocket Hub 服务初始化"""
+@pytest.mark.asyncio
+async def test_websocket_hub_service():
+    """测试 WebSocket Hub 服务初始化
+
+    get_websocket_hub 内部用 asyncio.create_task 启动心跳监控，
+    必须在事件循环内调用，故本测试为 async。
+    """
     print("[TEST 1] WebSocket Hub Service 初始化")
 
     hub = get_websocket_hub()
@@ -29,6 +36,10 @@ def test_websocket_hub_service():
     assert "frontend_clients" in status, "Status should contain 'frontend_clients'"
     assert "backend_clients" in status, "Status should contain 'backend_clients'"
     assert "agents" in status, "Status should contain 'agents'"
+
+    # 清理：停止心跳监控（保留全局单例本身，与其它用例共享）
+    hub.running = False
+    await hub.stop_heartbeat_monitor()
 
     print(f"[PASS] Hub service initialized successfully")
     print(f"[INFO] Hub status: {status}")
@@ -80,14 +91,19 @@ def test_connection_info():
     print()
 
 
-def test_singleton_pattern():
-    """测试单例模式"""
+@pytest.mark.asyncio
+async def test_singleton_pattern():
+    """测试单例模式（get_websocket_hub 首次调用需要事件循环来启动心跳监控）"""
     print("[TEST 4] 单例模式")
 
     hub1 = get_websocket_hub()
     hub2 = get_websocket_hub()
 
     assert hub1 is hub2, "get_websocket_hub() should return the same instance"
+
+    # 清理心跳监控任务，避免遗留 pending task
+    hub1.running = False
+    await hub1.stop_heartbeat_monitor()
 
     print(f"[PASS] Singleton pattern works correctly")
     print()

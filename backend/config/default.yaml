@@ -11,12 +11,12 @@ server:
   port: 7377
 
 database:
-  # MySQL 配置
-  mysql:
+  # PostgreSQL 配置（本地 Docker 容器 opentask-pg）
+  postgres:
     host: "localhost"
-    port: 3306
-    user: "root"
-    password: "changeme"
+    port: 5432
+    user: "opentask"
+    password: "opentask"
     database: "opentask"
     echo: true
 

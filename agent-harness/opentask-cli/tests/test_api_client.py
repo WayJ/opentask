@@ -14,7 +14,7 @@ import pytest
 from unittest import mock
 import httpx
 
-from opentask.utils.api_client import VibeKingClient, APIError
+from opentask.utils.api_client import OpenTaskClient, APIError
 
 
 # ============================================================================
@@ -26,24 +26,24 @@ class TestClientInitialization:
 
     def test_init_with_default_url(self):
         """测试使用默认 URL 初始化"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
         assert client.base_url == "http://localhost:7377"
         assert client.token is None
         assert client.timeout == 30.0
 
     def test_init_with_custom_url(self):
         """测试使用自定义 URL 初始化"""
-        client = VibeKingClient(base_url="http://example.com:8080")
+        client = OpenTaskClient(base_url="http://example.com:8080")
         assert client.base_url == "http://example.com:8080"
 
     def test_init_with_token(self):
         """测试带 token 初始化"""
-        client = VibeKingClient(token="test_token_123")
+        client = OpenTaskClient(token="test_token_123")
         assert client.token == "test_token_123"
 
     def test_init_url_trailing_slash(self):
         """测试 URL 尾部斜杠被移除"""
-        client = VibeKingClient(base_url="http://localhost:7377/")
+        client = OpenTaskClient(base_url="http://localhost:7377/")
         assert client.base_url == "http://localhost:7377"
 
 
@@ -56,14 +56,14 @@ class TestHeaders:
 
     def test_headers_without_token(self):
         """测试不带 token 的请求头"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
         headers = client._get_headers()
         assert headers["Content-Type"] == "application/json"
         assert "Authorization" not in headers
 
     def test_headers_with_token(self):
         """测试带 token 的请求头"""
-        client = VibeKingClient(token="my_token")
+        client = OpenTaskClient(token="my_token")
         headers = client._get_headers()
         assert headers["Content-Type"] == "application/json"
         assert headers["Authorization"] == "Bearer my_token"
@@ -78,7 +78,7 @@ class TestResponseHandling:
 
     def test_handle_success_response_with_standard_format(self):
         """测试处理标准格式的成功响应"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
         mock_response = mock.Mock()
         mock_response.json.return_value = {"code": 200, "data": {"result": "success"}}
         mock_response.status_code = 200
@@ -88,7 +88,7 @@ class TestResponseHandling:
 
     def test_handle_success_response_without_data_field(self):
         """测试处理没有 data 字段的成功响应"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
         mock_response = mock.Mock()
         mock_response.json.return_value = {"code": 200}
         mock_response.status_code = 200
@@ -99,7 +99,7 @@ class TestResponseHandling:
 
     def test_handle_error_response_with_code(self):
         """测试处理带错误码的响应"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
         mock_response = mock.Mock()
         mock_response.json.return_value = {"code": 400, "message": "Bad Request"}
         mock_response.status_code = 200
@@ -112,7 +112,7 @@ class TestResponseHandling:
 
     def test_handle_error_response_with_http_error(self):
         """测试处理 HTTP 错误响应"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
         mock_response = mock.Mock()
         mock_response.json.return_value = {"message": "Not Found"}
         mock_response.status_code = 404
@@ -126,7 +126,7 @@ class TestResponseHandling:
     def test_handle_invalid_json_response(self):
         """测试处理无效 JSON 响应"""
         import json
-        client = VibeKingClient()
+        client = OpenTaskClient()
         mock_response = mock.Mock()
         mock_response.json.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
         mock_response.status_code = 200
@@ -136,7 +136,7 @@ class TestResponseHandling:
 
     def test_handle_fallback_response_format(self):
         """测试处理回退格式响应（没有 code 字段）"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
         mock_response = mock.Mock()
         mock_response.json.return_value = {"id": 123, "name": "test"}
         mock_response.status_code = 200
@@ -155,7 +155,7 @@ class TestHTTPRequest:
     @pytest.mark.asyncio
     async def test_get_request(self):
         """测试 GET 请求"""
-        client = VibeKingClient(base_url="http://test.com", token="test_token")
+        client = OpenTaskClient(base_url="http://test.com", token="test_token")
 
         with mock.patch.object(client, '_request') as mock_request:
             mock_request.return_value = {"id": 1}
@@ -167,7 +167,7 @@ class TestHTTPRequest:
     @pytest.mark.asyncio
     async def test_post_request(self):
         """测试 POST 请求"""
-        client = VibeKingClient(base_url="http://test.com")
+        client = OpenTaskClient(base_url="http://test.com")
 
         with mock.patch.object(client, '_request') as mock_request:
             mock_request.return_value = {"success": True}
@@ -179,7 +179,7 @@ class TestHTTPRequest:
     @pytest.mark.asyncio
     async def test_put_request(self):
         """测试 PUT 请求"""
-        client = VibeKingClient(base_url="http://test.com")
+        client = OpenTaskClient(base_url="http://test.com")
 
         with mock.patch.object(client, '_request') as mock_request:
             mock_request.return_value = {"updated": True}
@@ -191,7 +191,7 @@ class TestHTTPRequest:
     @pytest.mark.asyncio
     async def test_delete_request(self):
         """测试 DELETE 请求"""
-        client = VibeKingClient(base_url="http://test.com")
+        client = OpenTaskClient(base_url="http://test.com")
 
         with mock.patch.object(client, '_request') as mock_request:
             mock_request.return_value = {"deleted": True}
@@ -211,7 +211,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_network_error(self):
         """测试网络错误处理"""
-        client = VibeKingClient(base_url="http://test.com")
+        client = OpenTaskClient(base_url="http://test.com")
 
         with mock.patch.object(client, '_request') as mock_request:
             mock_request.side_effect = APIError("Connection refused: http://test.com/api/test")
@@ -224,7 +224,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_timeout_error(self):
         """测试超时错误处理"""
-        client = VibeKingClient(base_url="http://test.com", token="test_token")
+        client = OpenTaskClient(base_url="http://test.com", token="test_token")
 
         with mock.patch.object(client, '_request') as mock_request:
             mock_request.side_effect = APIError("Request timeout: http://test.com/api/test")
@@ -237,7 +237,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_api_error_propagation(self):
         """测试 API 错误传播"""
-        client = VibeKingClient(base_url="http://test.com")
+        client = OpenTaskClient(base_url="http://test.com")
 
         with mock.patch.object(client, '_request') as mock_request:
             mock_request.side_effect = APIError("Internal Server Error", status_code=500)
@@ -259,7 +259,7 @@ class TestAuthentication:
     @pytest.mark.asyncio
     async def test_request_includes_authorization_header(self):
         """测试请求包含认证头"""
-        client = VibeKingClient(base_url="http://test.com", token="secret_token")
+        client = OpenTaskClient(base_url="http://test.com", token="secret_token")
 
         with mock.patch.object(client, '_request') as mock_request:
             mock_request.return_value = {}
@@ -274,7 +274,7 @@ class TestAuthentication:
     @pytest.mark.asyncio
     async def test_request_without_token(self):
         """测试不带 token 的请求"""
-        client = VibeKingClient(base_url="http://test.com")
+        client = OpenTaskClient(base_url="http://test.com")
 
         with mock.patch.object(client, '_request') as mock_request:
             mock_request.return_value = {}
@@ -293,20 +293,20 @@ class TestEdgeCases:
 
     def test_empty_token(self):
         """测试空 token"""
-        client = VibeKingClient(token="")
+        client = OpenTaskClient(token="")
         headers = client._get_headers()
         assert "Authorization" not in headers
 
     def test_none_token(self):
         """测试 None token"""
-        client = VibeKingClient(token=None)
+        client = OpenTaskClient(token=None)
         headers = client._get_headers()
         assert "Authorization" not in headers
 
     @pytest.mark.asyncio
     async def test_empty_response_data(self):
         """测试空响应数据"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, '_request') as mock_request:
             # 当 data 为 None 时，get_data() 返回 None
@@ -318,7 +318,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_malformed_url_error(self):
         """测试格式错误的 URL"""
-        client = VibeKingClient(base_url="not-a-valid-url")
+        client = OpenTaskClient(base_url="not-a-valid-url")
 
         with mock.patch("httpx.AsyncClient.get") as mock_get:
             mock_get.side_effect = httpx.UnsupportedProtocol("Invalid URL")

@@ -44,6 +44,7 @@ class TestTaskSubmitRouting:
         """测试路由任务提交到特定 Agent"""
         # 创建目标 Agent
         agent_ws = Mock()
+        agent_ws.accept = AsyncMock()
         agent_ws.send_text = AsyncMock()
         await hub_service.connect_agent(agent_ws, "coding-agent-1", "coding")
 
@@ -112,8 +113,10 @@ class TestProgressMessageRouting:
         """测试路由任务进度到前端"""
         # 创建前端连接
         frontend_ws1 = Mock()
+        frontend_ws1.accept = AsyncMock()
         frontend_ws1.send_text = AsyncMock()
         frontend_ws2 = Mock()
+        frontend_ws2.accept = AsyncMock()
         frontend_ws2.send_text = AsyncMock()
 
         await hub_service.connect_frontend(frontend_ws1)
@@ -155,6 +158,7 @@ class TestProgressMessageRouting:
         """测试路由任务完成消息到前端"""
         # 创建前端连接
         frontend_ws = Mock()
+        frontend_ws.accept = AsyncMock()
         frontend_ws.send_text = AsyncMock()
         await hub_service.connect_frontend(frontend_ws)
 
@@ -195,8 +199,10 @@ class TestAgentMessageRouting:
         """测试路由 Agent 注册消息到所有后端"""
         # 创建后端连接
         backend_ws1 = Mock()
+        backend_ws1.accept = AsyncMock()
         backend_ws1.send_text = AsyncMock()
         backend_ws2 = Mock()
+        backend_ws2.accept = AsyncMock()
         backend_ws2.send_text = AsyncMock()
 
         await hub_service.connect_backend(backend_ws1)
@@ -233,12 +239,16 @@ class TestAgentMessageRouting:
         """测试路由 Agent 心跳消息（仅 Hub 处理）"""
         # 创建前端和后端连接
         frontend_ws = Mock()
+        frontend_ws.accept = AsyncMock()
         frontend_ws.send_text = AsyncMock()
         backend_ws = Mock()
+        backend_ws.accept = AsyncMock()
         backend_ws.send_text = AsyncMock()
 
         await hub_service.connect_frontend(frontend_ws)
         await hub_service.connect_backend(backend_ws)
+        # 先注册 Agent（心跳更新要求 agents 中已有记录）
+        await hub_service.connect_agent(mock_websocket, "coding-agent-1", "coding")
 
         # 创建心跳消息
         heartbeat_message = {
@@ -253,17 +263,18 @@ class TestAgentMessageRouting:
             "version": "1.0"
         }
 
-        # 路由消息
-        await hub_service.route_message(
-            heartbeat_message,
+        # 走真实入口 handle_message：心跳在其中被 Hub 直接处理并提前返回
+        await hub_service.handle_message(
+            mock_websocket,
+            json.dumps(heartbeat_message),
             ConnectionInfo(mock_websocket, "agent", "coding-agent-1", "coding")
         )
 
-        # 心跳消息不应该转发给前端或后端
-        # 因为它在 handle_message 中被特殊处理
-        # 这里验证没有发送给前端或后端
+        # 心跳消息不转发给前端或后端
         frontend_ws.send_text.assert_not_called()
         backend_ws.send_text.assert_not_called()
+        # 心跳时间已在内存中更新（无 DB 回退路径）
+        assert "last_heartbeat" in hub_service.agents["coding-agent-1"]
 
 
 class TestBroadcastRouting:
@@ -274,10 +285,13 @@ class TestBroadcastRouting:
         """测试广播消息到所有前端"""
         # 创建多个前端连接
         frontend_ws1 = Mock()
+        frontend_ws1.accept = AsyncMock()
         frontend_ws1.send_text = AsyncMock()
         frontend_ws2 = Mock()
+        frontend_ws2.accept = AsyncMock()
         frontend_ws2.send_text = AsyncMock()
         frontend_ws3 = Mock()
+        frontend_ws3.accept = AsyncMock()
         frontend_ws3.send_text = AsyncMock()
 
         await hub_service.connect_frontend(frontend_ws1)
@@ -298,8 +312,10 @@ class TestBroadcastRouting:
         """测试广播消息到多个目标类型"""
         # 创建前端和后端连接
         frontend_ws = Mock()
+        frontend_ws.accept = AsyncMock()
         frontend_ws.send_text = AsyncMock()
         backend_ws = Mock()
+        backend_ws.accept = AsyncMock()
         backend_ws.send_text = AsyncMock()
 
         await hub_service.connect_frontend(frontend_ws)
@@ -322,6 +338,7 @@ class TestMessageSendingErrors:
         """测试处理发送时前端断开连接"""
         # 创建前端连接，但发送时抛出异常
         frontend_ws = Mock()
+        frontend_ws.accept = AsyncMock()
         frontend_ws.send_text = AsyncMock(side_effect=Exception("Connection closed"))
         await hub_service.connect_frontend(frontend_ws)
 
@@ -337,6 +354,7 @@ class TestMessageSendingErrors:
         """测试处理发送时 Agent 断开连接"""
         # 创建 Agent 连接，但发送时抛出异常
         agent_ws = Mock()
+        agent_ws.accept = AsyncMock()
         agent_ws.send_text = AsyncMock(side_effect=Exception("Connection lost"))
         await hub_service.connect_agent(agent_ws, "test-agent", "coding")
 
@@ -417,8 +435,10 @@ class TestRoutingEdgeCases:
         """测试路由消息到所有类型的目标"""
         # 创建各种类型的连接
         frontend_ws = Mock()
+        frontend_ws.accept = AsyncMock()
         frontend_ws.send_text = AsyncMock()
         backend_ws = Mock()
+        backend_ws.accept = AsyncMock()
         backend_ws.send_text = AsyncMock()
 
         await hub_service.connect_frontend(frontend_ws)
@@ -457,6 +477,7 @@ class TestRoutingEdgeCases:
         agents = []
         for i in range(5):
             agent_ws = Mock()
+            agent_ws.accept = AsyncMock()
             agent_ws.send_text = AsyncMock()
             await hub_service.connect_agent(agent_ws, f"agent-{i}", "coding")
             agents.append(agent_ws)

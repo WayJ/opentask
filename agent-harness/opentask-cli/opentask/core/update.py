@@ -21,7 +21,7 @@ class Context:
 
 
 # Default marketplace URL where version info is hosted
-DEFAULT_MARKETPLACE_URL = "http://39.183.172.160:28000/marketplace/cli"
+DEFAULT_MARKETPLACE_URL = os.environ.get("OPENTASK_MARKETPLACE_URL", "")
 VERSION_FILE = "opentask-version.txt"
 
 

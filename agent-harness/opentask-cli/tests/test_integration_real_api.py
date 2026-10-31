@@ -1,3 +1,4 @@
+import os
 """
 集成测试 - 使用真实 API
 
@@ -11,7 +12,7 @@
 """
 
 import pytest
-from opentask.utils.api_client import VibeKingClient, APIError
+from opentask.utils.api_client import OpenTaskClient, APIError
 import asyncio
 
 
@@ -19,7 +20,8 @@ import asyncio
 # 配置
 # ============================================================================
 
-API_BASE_URL = "http://39.183.172.160:28000/opentask"
+API_BASE_URL = os.environ.get("OPENTASK_TEST_API_URL", "")
+pytestmark = pytest.mark.skipif(not API_BASE_URL, reason="OPENTASK_TEST_API_URL not set; live integration tests skipped")
 
 
 # ============================================================================
@@ -30,9 +32,9 @@ async def get_client():
     """创建已认证的客户端（如果可用）"""
     # 尝试从配置读取 token，否则使用匿名访问
     import os
-    token = os.environ.get('VIBEKING_TOKEN')
+    token = os.environ.get('OPENTASK_TOKEN')
 
-    client = VibeKingClient(base_url=API_BASE_URL, token=token)
+    client = OpenTaskClient(base_url=API_BASE_URL, token=token)
     return client
 
 
@@ -47,7 +49,7 @@ class TestAPIConnection:
     @pytest.mark.asyncio
     async def test_api_reachable(self):
         """测试 API 服务器可达"""
-        client = VibeKingClient(base_url=API_BASE_URL)
+        client = OpenTaskClient(base_url=API_BASE_URL)
 
         try:
             # 尝试访问健康检查端点或公开端点
@@ -64,7 +66,7 @@ class TestAPIConnection:
     @pytest.mark.asyncio
     async def test_api_base_url(self):
         """测试 API 基础 URL"""
-        client = VibeKingClient(base_url=API_BASE_URL)
+        client = OpenTaskClient(base_url=API_BASE_URL)
         assert client.base_url == API_BASE_URL
 
 
@@ -79,7 +81,7 @@ class TestAuthentication:
     @pytest.mark.asyncio
     async def test_login_with_invalid_credentials(self):
         """测试使用无效凭据登录"""
-        client = VibeKingClient(base_url=API_BASE_URL)
+        client = OpenTaskClient(base_url=API_BASE_URL)
 
         try:
             result = await client.login("invalid_user", "invalid_password")
@@ -94,7 +96,7 @@ class TestAuthentication:
     @pytest.mark.asyncio
     async def test_get_me_unauthenticated(self):
         """测试未认证获取用户信息"""
-        client = VibeKingClient(base_url=API_BASE_URL, token=None)
+        client = OpenTaskClient(base_url=API_BASE_URL, token=None)
 
         try:
             result = await client.get_me()

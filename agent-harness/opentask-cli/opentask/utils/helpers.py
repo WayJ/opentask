@@ -8,7 +8,7 @@ import json
 import sys
 from typing import Any
 
-from .api_client import VibeKingClient, APIError
+from .api_client import OpenTaskClient, APIError
 from .config import Config
 from .repl_skin import ReplSkin
 
@@ -98,7 +98,7 @@ def click_echo(text: str) -> None:
 # User Resolution Helpers
 # ============================================================================
 
-def get_current_user_id(client: VibeKingClient) -> str | None:
+def get_current_user_id(client: OpenTaskClient) -> str | None:
     """Get current user ID using standardized method.
 
     This helper wraps the get_me() API call and extracts the user ID

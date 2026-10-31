@@ -22,7 +22,7 @@ def pytest_configure(config):
 
 
 @pytest.fixture
-async def test_client() -> AsyncGenerator[AsyncClient, None]:
+async def test_client(seeded_users) -> AsyncGenerator[AsyncClient, None]:
     """测试客户端 fixture
 
     使用 ASGITransport 直接在内存中调用 FastAPI app，
@@ -36,11 +36,11 @@ async def test_client() -> AsyncGenerator[AsyncClient, None]:
 
 
 @pytest.fixture
-async def test_token(test_test_client: AsyncClient) -> str:
+async def test_token(test_client: AsyncClient) -> str:
     """获取测试 token"""
     response = await test_client.post(
-        "/auth/login",
-        json={"username": "admin", "password": "123456"}
+        "/api/auth/login",
+        json={"userName": "admin", "password": "123456"}
     )
     assert response.status_code == 200, "Failed to login"
     data = response.json()
@@ -48,10 +48,10 @@ async def test_token(test_test_client: AsyncClient) -> str:
 
 
 @pytest.fixture
-async def test_kb_id(test_test_client: AsyncClient, test_token: str) -> str:
+async def test_kb_id(test_client: AsyncClient, test_token: str) -> str:
     """创建测试知识库"""
     response = await test_client.post(
-        "/knowledge-bases",
+        "/api/knowledge-bases",
         headers={"Authorization": f"Bearer {test_token}"},
         json={
             "name": "测试知识库",
@@ -67,25 +67,25 @@ async def test_kb_id(test_test_client: AsyncClient, test_token: str) -> str:
 
     # 清理：删除测试知识库
     await test_client.delete(
-        f"/knowledge-bases/{kb_id}",
+        f"/api/knowledge-bases/{kb_id}",
         headers={"Authorization": f"Bearer {test_token}"}
     )
 
 
 @pytest.fixture
 async def test_knowledge_id(
-    test_test_client: AsyncClient,
+    test_client: AsyncClient,
     test_token: str,
     test_kb_id: str
 ) -> str:
     """创建测试知识文档"""
     response = await test_client.post(
-        "/knowledge",
+        "/api/knowledge",
         headers={"Authorization": f"Bearer {test_token}"},
         json={
             "title": "测试文档",
             "content": "# 测试文档内容\n\n这是一个测试文档。",
-            "knowledgeBaseId": test_kb_id,
+            "knowledge_base_id": test_kb_id,
             "status": "draft"
         }
     )
@@ -97,7 +97,7 @@ async def test_knowledge_id(
 
     # 清理：删除测试文档
     await test_client.delete(
-        f"/knowledge/{knowledge_id}",
+        f"/api/knowledge/{knowledge_id}",
         headers={"Authorization": f"Bearer {test_token}"}
     )
 
@@ -114,7 +114,7 @@ async def cleanup_test_data(test_client: AsyncClient, test_token: str = None):
     # 清理测试创建的知识文档
     try:
         response = await test_client.get(
-            "/knowledge?search=自动化测试",
+            "/api/knowledge?search=自动化测试",
             headers={"Authorization": f"Bearer {test_token}"}
         )
         if response.status_code == 200:
@@ -123,7 +123,7 @@ async def cleanup_test_data(test_client: AsyncClient, test_token: str = None):
                 # 只删除测试创建的知识文档
                 if "自动化测试" in knowledge.get("title", ""):
                     await test_client.delete(
-                        f"/knowledge/{knowledge['id']}",
+                        f"/api/knowledge/{knowledge['id']}",
                         headers={"Authorization": f"Bearer {test_token}"}
                     )
     except Exception as e:

@@ -14,6 +14,7 @@ from .model import (
     IssueRelation,
     IssueTimeline,
     IssueTag,
+    IssueReaction,
 )
 
 from .schema import (

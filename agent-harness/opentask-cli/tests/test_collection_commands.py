@@ -49,7 +49,7 @@ class TestCollectionParseCommand:
         with open(json_file, 'w') as f:
             json.dump(test_data, f)
 
-        with mock.patch('opentask.core.collection.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.collection.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.parse_collection = async_mock({
                 "parsed_count": 2,
@@ -77,7 +77,7 @@ class TestCollectionParseCommand:
         with open(json_file, 'w') as f:
             json.dump([], f)
 
-        with mock.patch('opentask.core.collection.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.collection.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.parse_collection = async_mock({
                 "parsed_count": 0,
@@ -116,7 +116,7 @@ class TestCollectionStatsCommand:
         """测试 collection statistics 命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.collection.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.collection.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_collection_statistics = async_mock({
                 "total_issues": 10,
@@ -135,7 +135,7 @@ class TestCollectionStatsCommand:
         """测试 collection statistics JSON 输出模式"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.collection.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.collection.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_collection_statistics = async_mock({
                 "total_issues": 10,
@@ -166,7 +166,7 @@ class TestCollectionUpdateEdgeCases:
         """测试无任何更新参数的 update"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.collection.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.collection.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.update_collection = async_mock({
                 "id": "1",
@@ -183,7 +183,7 @@ class TestCollectionUpdateEdgeCases:
         """测试部分字段更新"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.collection.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.collection.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.update_collection = async_mock({
                 "id": "1",
@@ -203,7 +203,7 @@ class TestCollectionUpdateEdgeCases:
         """测试只更新状态"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.collection.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.collection.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.update_collection = async_mock({
                 "id": "1",
@@ -227,7 +227,7 @@ class TestCollectionShowEdgeCases:
         """测试显示包含 issues 的 collection"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.collection.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.collection.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_collection = async_mock({
                 "id": "1",
@@ -245,7 +245,7 @@ class TestCollectionShowEdgeCases:
         """测试显示空的 collection"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.collection.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.collection.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_collection = async_mock({
                 "id": "1",
@@ -263,7 +263,7 @@ class TestCollectionShowEdgeCases:
         """测试 collection show JSON 模式"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.collection.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.collection.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_collection = async_mock({
                 "id": "1",
