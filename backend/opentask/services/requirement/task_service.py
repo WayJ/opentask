@@ -163,7 +163,10 @@ class TaskService:
         return [
             DocumentSummary(
                 id=doc.id,
+                title=doc.file_name,
                 status=doc.status.value,
+                # 附件型文档无版本概念，恒为 1（schema 必填字段）
+                version=1,
                 created_at=doc.created_at,
                 updated_at=doc.updated_at,
             )

@@ -2,8 +2,6 @@ from abc import ABC, abstractmethod
 from typing import AsyncGenerator, Generic, Iterable, Protocol, Sequence, Type, TypeVar
 from uuid import UUID
 
-# MySQL错误处理
-from pymysql import IntegrityError as MySQLError
 from pydantic import BaseModel
 from sqlalchemy import Delete, Select, Update, delete, insert, select, text, update
 from sqlalchemy.exc import IntegrityError, MultipleResultsFound, NoResultFound

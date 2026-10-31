@@ -94,7 +94,7 @@ class Department(DBModel, UUIDMixin, kw_only=True):
 
 class Position(DBModel, UUIDMixin, kw_only=True):
     """岗位"""
-    # position 是 MySQL 关键字（POSITION 函数），显式加引号避免方言不转义导致建表失败
+    # position 是 SQL 关键字（POSITION 函数），显式加引号避免方言不转义导致建表失败
     __tablename__ = quoted_name("position", True)
 
     # 岗位名称

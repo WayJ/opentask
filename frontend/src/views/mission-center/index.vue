@@ -804,7 +804,12 @@ onUnmounted(() => {
                   round
                   size="small"
                   :style="{
-                    background: agent.status === 'offline' ? 'var(--color-text-tertiary)' : agent.status === 'busy' ? 'var(--color-warning)' : '#10b981'
+                    background:
+                      agent.status === 'offline'
+                        ? 'var(--color-text-tertiary)'
+                        : agent.status === 'busy'
+                          ? 'var(--color-warning)'
+                          : '#10b981'
                   }"
                 >
                   {{ agent.name?.charAt(0).toUpperCase() || 'A' }}

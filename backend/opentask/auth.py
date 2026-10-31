@@ -14,7 +14,9 @@ from opentask.models.user.model import UserModel
 logger = logging.getLogger(__name__)
 
 # 使用HTTPBearer来获取Authorization header中的token
-security = HTTPBearer()
+# auto_error=False：缺少/格式错误的 Authorization 头由下方显式抛 401，
+# 而不是 FastAPI HTTPBearer 默认的 403（401=未认证，403=已认证但无权限）
+security = HTTPBearer(auto_error=False)
 
 
 def _is_uuid(value: str) -> bool:
@@ -48,6 +50,10 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    # HTTPBearer(auto_error=False) 时无凭据返回 None：显式按 401 处理
+    if credentials is None:
+        raise credentials_exception
 
     token_value = credentials.credentials
 

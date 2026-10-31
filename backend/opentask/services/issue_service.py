@@ -47,23 +47,31 @@ class IssueService:
         current_year = datetime.now().year
         prefix = f"ISSUE{current_year}-"
 
-        # 查询当前年份最大的 issue_code 序号
+        # 查询当前年份已有的 issue_code，序号最大值在 Python 侧计算。
+        # 说明：序号是数字（-9 与 -10），按字符串排序会得到错误的最大值
+        # （'ISSUE2026-9' > 'ISSUE2026-10'），且数据库侧 CAST 到整数是
+        # 方言相关语法（MySQL 用 SIGNED/UNSIGNED，PG 用 INTEGER），
+        # 因此取全量 code 后在应用侧解析，保持方言无关（PG/MySQL 均可用）。
         from sqlalchemy import text
-        query = text("""
-            SELECT CAST(SUBSTRING(issue_code, CHAR_LENGTH(:prefix) + 1) AS UNSIGNED) as max_num
-            FROM issues
-            WHERE issue_code LIKE :prefix_pattern
-            ORDER BY max_num DESC
-            LIMIT 1
-        """)
+        query = text(
+            "SELECT issue_code FROM issues "
+            "WHERE issue_code LIKE :prefix_pattern"
+        )
         result = await self.db.execute(query, {
-            "prefix": prefix,
             "prefix_pattern": f"{prefix}%"
         })
-        max_num = result.scalar()
+
+        max_num = 0
+        for (code,) in result:
+            suffix = code[len(prefix):]
+            try:
+                num = int(suffix)
+            except (TypeError, ValueError):
+                continue
+            max_num = max(max_num, num)
 
         # 生成新的序号
-        next_number = (max_num or 0) + 1
+        next_number = max_num + 1
 
         return f"{prefix}{next_number}"
 
@@ -582,6 +590,7 @@ class IssueService:
         self,
         issue_id: str,
         tag_id: int,
+        user_id: Optional[str] = None,
     ) -> IssueTag:
         """添加标签到 Issue"""
         issue_tag = IssueTag(issue_id=issue_id, tag_id=tag_id)
@@ -590,6 +599,7 @@ class IssueService:
         # 添加时间线记录
         await self._add_timeline(
             issue_id=issue_id,
+            user_id=user_id,
             action_type=TimelineAction.LABEL_ADDED,
             action_data={"tag_id": tag_id},
         )
@@ -791,7 +801,7 @@ class IssueService:
             status_query = status_query.where(Issue.project_id == project_id)
         status_query = status_query.group_by(Issue.status)
         status_result = await self.db.execute(status_query)
-        by_status = {status.value: count for status, count in status_result.all()}
+        by_status = {getattr(status, "value", status): count for status, count in status_result.all()}
 
         # 按优先级统计
         priority_query = select(Issue.priority, func.count()).where(
@@ -801,7 +811,7 @@ class IssueService:
             priority_query = priority_query.where(Issue.project_id == project_id)
         priority_query = priority_query.group_by(Issue.priority)
         priority_result = await self.db.execute(priority_query)
-        by_priority = {priority.value: count for priority, count in priority_result.all()}
+        by_priority = {getattr(priority, "value", priority): count for priority, count in priority_result.all()}
 
         # 按类型统计
         type_query = select(Issue.type, func.count()).where(
@@ -811,7 +821,7 @@ class IssueService:
             type_query = type_query.where(Issue.project_id == project_id)
         type_query = type_query.group_by(Issue.type)
         type_result = await self.db.execute(type_query)
-        by_type = {type_.value: count for type_, count in type_result.all()}
+        by_type = {getattr(type_, "value", type_): count for type_, count in type_result.all()}
 
         # 各状态计数
         open_count = by_status.get(IssueStatus.OPEN.value, 0)

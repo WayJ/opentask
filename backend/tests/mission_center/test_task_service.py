@@ -30,7 +30,7 @@ async def test_get_source_context_issue(test_session):
     # 创建测试 Issue
     issue = Issue(
         id=str(uuid.uuid4()),
-        issue_code=f"TEST-ISSUE-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        issue_code=f"TEST-ISSUE-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:8]}",
         title="测试 Issue",
         description="这是一个测试 Issue",
         type="bug",

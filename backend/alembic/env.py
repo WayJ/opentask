@@ -2,7 +2,6 @@
 from logging.config import fileConfig
 from typing import Any
 
-from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
 from alembic import context
@@ -76,9 +75,9 @@ async def run_async_migrations() -> None:
     """
     from sqlalchemy.ext.asyncio import create_async_engine
 
-    # 使用 MySQL 数据库配置
+    # 使用 PostgreSQL 数据库配置
     dsn = opentask_config.database_dsn_async
-    echo = opentask_config.mysql_echo
+    echo = opentask_config.postgres_echo
 
     engine = create_async_engine(dsn, echo=echo)
 
@@ -97,19 +96,13 @@ def run_migrations_online() -> None:
     """
     from sqlalchemy import create_engine
 
-    # 使用 MySQL 数据库配置
+    # 使用 PostgreSQL 数据库配置
     dsn = opentask_config.database_dsn
-    echo = opentask_config.mysql_echo
+    echo = opentask_config.postgres_echo
 
     engine = create_engine(dsn, echo=echo)
 
     with engine.begin() as connection:
-        # MySQL 需要设置正确的字符集
-        try:
-            connection.execute(text('SET NAMES utf8mb4'))
-        except Exception:
-            pass
-
         context.configure(connection=connection, target_metadata=target_metadata, render_as_batch=True)
 
         with context.begin_transaction():

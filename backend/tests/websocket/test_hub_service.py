@@ -104,13 +104,18 @@ class TestWebSocketHubServiceInitialization:
         assert hub_service.agents == {}
         assert hub_service.running is False
 
-    def test_singleton_pattern(self, reset_hub_singleton):
-        """测试单例模式"""
+    @pytest.mark.asyncio
+    async def test_singleton_pattern(self, reset_hub_singleton):
+        """测试单例模式（get_websocket_hub 内部 create_task 启动心跳监控，需要事件循环）"""
         hub1 = get_websocket_hub()
         hub2 = get_websocket_hub()
 
         assert hub1 is hub2
         assert hub1.running is True
+
+        # 清理心跳监控任务，避免遗留 pending task
+        hub1.running = False
+        await hub1.stop_heartbeat_monitor()
 
 
 class TestConnectionManagement:
@@ -352,8 +357,10 @@ class TestMessageSending:
         """测试发送消息给所有前端"""
         # 创建多个前端连接
         ws1 = Mock()
+        ws1.accept = AsyncMock()
         ws1.send_text = AsyncMock()
         ws2 = Mock()
+        ws2.accept = AsyncMock()
         ws2.send_text = AsyncMock()
 
         await hub_service.connect_frontend(ws1)
@@ -370,8 +377,10 @@ class TestMessageSending:
     async def test_send_to_all_backends(self, hub_service, mock_websocket):
         """测试发送消息给所有后端"""
         ws1 = Mock()
+        ws1.accept = AsyncMock()
         ws1.send_text = AsyncMock()
         ws2 = Mock()
+        ws2.accept = AsyncMock()
         ws2.send_text = AsyncMock()
 
         await hub_service.connect_backend(ws1)
@@ -387,6 +396,7 @@ class TestMessageSending:
     async def test_send_to_specific_agent(self, hub_service, mock_websocket):
         """测试发送消息给特定 Agent"""
         ws = Mock()
+        ws.accept = AsyncMock()
         ws.send_text = AsyncMock()
 
         await hub_service.connect_agent(ws, "test-agent", "coding")
@@ -409,8 +419,10 @@ class TestMessageSending:
     async def test_send_to_target_broadcast(self, hub_service, mock_websocket):
         """测试广播消息"""
         ws1 = Mock()
+        ws1.accept = AsyncMock()
         ws1.send_text = AsyncMock()
         ws2 = Mock()
+        ws2.accept = AsyncMock()
         ws2.send_text = AsyncMock()
 
         await hub_service.connect_frontend(ws1)

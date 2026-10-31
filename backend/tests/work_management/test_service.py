@@ -14,10 +14,11 @@ async def test_create_rd_group(test_session, test_director_id, test_leader_id):
         leader_id=test_leader_id
     )
 
-    assert group.id is not None
-    assert group.name == "测试组"
-    assert group.director_id == test_director_id
-    assert group.leader_id == test_leader_id
+    # create_rd_group 按服务契约返回 dict（避免 relationship 序列化问题）
+    assert group["id"] is not None
+    assert group["name"] == "测试组"
+    assert group["director_id"] == test_director_id
+    assert group["leader_id"] == test_leader_id
 
 
 @pytest.mark.asyncio

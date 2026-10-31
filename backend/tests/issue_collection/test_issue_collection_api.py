@@ -13,7 +13,7 @@ class TestIssueCollectionAPI:
     async def test_create_collection(self, test_client: AsyncClient, test_token: str):
         """测试创建问题集"""
         response = await test_client.post(
-            "/api/issue-collections",
+            "/api/issues/collections",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "自动化测试 - 问题集",
@@ -36,7 +36,7 @@ class TestIssueCollectionAPI:
         """测试获取问题集列表"""
         # 先创建一个测试问题集
         create_response = await test_client.post(
-            "/api/issue-collections",
+            "/api/issues/collections",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "自动化测试 - 列表测试",
@@ -48,7 +48,7 @@ class TestIssueCollectionAPI:
 
         # 获取列表
         response = await test_client.get(
-            "/api/issue-collections?page=1&page_size=10",
+            "/api/issues/collections?page=1&page_size=10",
             headers={"Authorization": f"Bearer {test_token}"}
         )
 
@@ -64,7 +64,7 @@ class TestIssueCollectionAPI:
         """测试获取问题集详情"""
         # 创建问题集
         create_response = await test_client.post(
-            "/api/issue-collections",
+            "/api/issues/collections",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "自动化测试 - 详情测试",
@@ -77,7 +77,7 @@ class TestIssueCollectionAPI:
 
         # 获取详情
         response = await test_client.get(
-            f"/api/issue-collections/{collection_id}",
+            f"/api/issues/collections/{collection_id}",
             headers={"Authorization": f"Bearer {test_token}"}
         )
 
@@ -92,7 +92,7 @@ class TestIssueCollectionAPI:
         """测试更新问题集"""
         # 创建问题集
         create_response = await test_client.post(
-            "/api/issue-collections",
+            "/api/issues/collections",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "自动化测试 - 更新前",
@@ -105,7 +105,7 @@ class TestIssueCollectionAPI:
 
         # 更新问题集
         update_response = await test_client.put(
-            f"/api/issue-collections/{collection_id}",
+            f"/api/issues/collections/{collection_id}",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "自动化测试 - 更新后",
@@ -126,7 +126,7 @@ class TestIssueCollectionAPI:
         """测试删除问题集"""
         # 创建问题集
         create_response = await test_client.post(
-            "/api/issue-collections",
+            "/api/issues/collections",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "自动化测试 - 删除测试",
@@ -139,7 +139,7 @@ class TestIssueCollectionAPI:
 
         # 删除问题集
         delete_response = await test_client.delete(
-            f"/api/issue-collections/{collection_id}",
+            f"/api/issues/collections/{collection_id}",
             headers={"Authorization": f"Bearer {test_token}"}
         )
 
@@ -147,7 +147,7 @@ class TestIssueCollectionAPI:
 
         # 验证删除成功
         get_response = await test_client.get(
-            f"/api/issue-collections/{collection_id}",
+            f"/api/issues/collections/{collection_id}",
             headers={"Authorization": f"Bearer {test_token}"}
         )
         assert get_response.status_code == 404
@@ -157,7 +157,7 @@ class TestIssueCollectionAPI:
         """测试拆解问题集 API"""
         # 创建问题集
         create_response = await test_client.post(
-            "/api/issue-collections",
+            "/api/issues/collections",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "自动化测试 - 拆解测试",
@@ -170,7 +170,7 @@ class TestIssueCollectionAPI:
 
         # 调用拆解 API
         parse_response = await test_client.post(
-            f"/api/issue-collections/{collection_id}/parse",
+            f"/api/issues/collections/{collection_id}/parse",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "issues": [
@@ -203,7 +203,7 @@ class TestIssueCollectionAPI:
         """测试获取统计信息"""
         # 创建问题集
         create_response = await test_client.post(
-            "/api/issue-collections",
+            "/api/issues/collections",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "自动化测试 - 统计测试",
@@ -216,7 +216,7 @@ class TestIssueCollectionAPI:
 
         # 获取统计信息
         response = await test_client.get(
-            f"/api/issue-collections/{collection_id}/statistics",
+            f"/api/issues/collections/{collection_id}/statistics",
             headers={"Authorization": f"Bearer {test_token}"}
         )
 
@@ -235,7 +235,7 @@ class TestIssueCollectionAPI:
         # 创建不同状态的问题集
         for status in ["pending", "in_progress", "completed"]:
             await test_client.post(
-                "/api/issue-collections",
+                "/api/issues/collections",
                 headers={"Authorization": f"Bearer {test_token}"},
                 json={
                     "title": f"自动化测试 - {status} 状态",
@@ -246,7 +246,7 @@ class TestIssueCollectionAPI:
 
         # 按状态筛选
         response = await test_client.get(
-            "/api/issue-collections?status=pending&page=1&page_size=10",
+            "/api/issues/collections?status=pending&page=1&page_size=10",
             headers={"Authorization": f"Bearer {test_token}"}
         )
 
@@ -263,7 +263,7 @@ class TestIssueCollectionAPI:
         """测试搜索功能"""
         # 创建问题集
         await test_client.post(
-            "/api/issue-collections",
+            "/api/issues/collections",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "自动化测试 - 搜索测试 UNIQUE_KEYWORD_123",
@@ -274,7 +274,7 @@ class TestIssueCollectionAPI:
 
         # 搜索
         response = await test_client.get(
-            "/api/issue-collections?search=UNIQUE_KEYWORD_123&page=1&page_size=10",
+            "/api/issues/collections?search=UNIQUE_KEYWORD_123&page=1&page_size=10",
             headers={"Authorization": f"Bearer {test_token}"}
         )
 
@@ -287,7 +287,7 @@ class TestIssueCollectionAPI:
     async def test_unauthorized_access(self, test_client: AsyncClient):
         """测试未授权访问"""
         # 不带 token 的请求
-        response = await test_client.get("/api/issue-collections")
+        response = await test_client.get("/api/issues/collections")
 
         # 401 (Unauthorized) 或 403 (Forbidden) 都是可以接受的
         assert response.status_code in [401, 403], f"Expected 401 or 403, got {response.status_code}"
@@ -298,7 +298,7 @@ class TestIssueCollectionAPI:
         fake_id = "non-existent-id-12345"
 
         response = await test_client.get(
-            f"/api/issue-collections/{fake_id}",
+            f"/api/issues/collections/{fake_id}",
             headers={"Authorization": f"Bearer {test_token}"}
         )
 

@@ -21,7 +21,7 @@ from opentask.main import app
 
 
 @pytest.fixture
-async def test_client() -> AsyncGenerator[AsyncClient, None]:
+async def test_client(seeded_users) -> AsyncGenerator[AsyncClient, None]:
     """测试客户端 fixture
 
     使用 ASGITransport 直接在内存中调用 FastAPI app，
@@ -38,8 +38,8 @@ async def test_client() -> AsyncGenerator[AsyncClient, None]:
 async def test_token(test_client: AsyncClient) -> str:
     """获取测试 token"""
     response = await test_client.post(
-        "/auth/login",
-        json={"username": "admin", "password": "123456"}
+        "/api/auth/login",
+        json={"userName": "admin", "password": "123456"}
     )
     assert response.status_code == 200, "Failed to login"
     data = response.json()
@@ -51,7 +51,7 @@ async def test_project_id(test_client: AsyncClient, test_token: str) -> str:
     """创建测试项目并返回 ID"""
     # 先尝试获取现有项目
     response = await test_client.get(
-        "/projects",
+        "/api/projects",
         headers={"Authorization": f"Bearer {test_token}"}
     )
 
@@ -63,7 +63,7 @@ async def test_project_id(test_client: AsyncClient, test_token: str) -> str:
 
     # 如果没有项目，创建一个
     response = await test_client.post(
-        "/projects",
+        "/api/projects",
         headers={"Authorization": f"Bearer {test_token}"},
         json={
             "name": "测试项目 - Issue自动化测试",

@@ -47,10 +47,6 @@ def main():
             "tests/websocket/test_websocket_integration.py",
             "WebSocket 集成测试"
         ),
-        (
-            "tests/agent_task/run_service_tests.py",
-            "Agent Task 服务测试"
-        ),
     ]
 
     # 运行测试

@@ -15,7 +15,7 @@ from pathlib import Path
 # 添加项目根目录到 path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from pymysql import connect
+from psycopg2 import connect
 
 
 def add_hyphens(uuid32: str) -> str:
@@ -58,12 +58,11 @@ def get_connection(config):
     """获取数据库连接"""
     from opentask.config import config as app_config
     return connect(
-        host=app_config.mysql_host,
-        port=int(app_config.mysql_port),
-        user=app_config.mysql_user,
-        password=app_config.mysql_password,
-        database=app_config.mysql_database,
-        charset='utf8mb4',
+        host=app_config.postgres_host,
+        port=int(app_config.postgres_port),
+        user=app_config.postgres_user,
+        password=app_config.postgres_password,
+        dbname=app_config.postgres_database,
     )
 
 
@@ -73,8 +72,8 @@ def check_and_fix(conn, table: str, columns: list[str], dry_run: bool):
 
     for col in columns:
         # 查找32位UUID（无连字符）
-        sql = f"SELECT `{col}` FROM `{table}` WHERE CHAR_LENGTH(`{col}`) = 32 AND `{col}` REGEXP '^[0-9a-f]{32}$'"
-        cursor.execute(sql)
+        sql = f'SELECT "{col}" FROM "{table}" WHERE CHAR_LENGTH("{col}") = 32 AND "{col}" ~ %s'
+        cursor.execute(sql, (UUID32_PATTERN.pattern,))
         rows = cursor.fetchall()
 
         if not rows:
@@ -91,7 +90,7 @@ def check_and_fix(conn, table: str, columns: list[str], dry_run: bool):
         else:
             for (old_val,) in rows:
                 new_val = add_hyphens(old_val)
-                update_sql = f"UPDATE `{table}` SET `{col}` = %s WHERE `{col}` = %s"
+                update_sql = f'UPDATE "{table}" SET "{col}" = %s WHERE "{col}" = %s'
                 cursor.execute(update_sql, (new_val, old_val))
             print(f"    已修复 {len(rows)} 条")
 

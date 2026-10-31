@@ -447,7 +447,7 @@ class RequirementService:
             select(Requirement.status, func.count(Requirement.id))
             .group_by(Requirement.status)
         )
-        by_status = {status.value: count for status, count in by_status_result.all()}
+        by_status = {getattr(status, "value", status): count for status, count in by_status_result.all()}
 
         # 按优先级统计
         by_priority_result = await self.db.execute(
@@ -455,7 +455,7 @@ class RequirementService:
             .group_by(Requirement.priority)
         )
         by_priority = {
-            (priority.value if priority else "unknown"): count
+            (getattr(priority, "value", priority) if priority else "unknown"): count
             for priority, count in by_priority_result.all()
         }
 

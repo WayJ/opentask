@@ -250,7 +250,7 @@ async def test_self_user_project_snapshot_written_but_invisible(scope):
 # ============================================================================
 
 async def test_create_endpoints_require_auth(scope):
-    """无 token 访问 4 个创建端点全部被拒（缺 token → 403 / 无效 token → 401）"""
+    """无 token 访问 4 个创建端点全部被拒（缺 token → 401 / 无效 token → 401）"""
     urls = [
         REQUIREMENTS_URL,
         PROJECTS_URL,
@@ -259,7 +259,7 @@ async def test_create_endpoints_require_auth(scope):
     ]
     for url in urls:
         resp = await scope.client.post(url, json={"title": "x", "name": "x"})
-        assert resp.status_code == 403, f"{url} 缺 token 应返回 403，实际 {resp.status_code}"
+        assert resp.status_code == 401, f"{url} 缺 token 应返回 401，实际 {resp.status_code}"
 
         resp = await scope.client.post(
             url, json={"title": "x", "name": "x"}, headers={"Authorization": "Bearer bad"}
