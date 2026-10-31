@@ -1,3 +1,4 @@
+import os
 """
 完整 CRUD 集成测试 - 使用真实 API 测试创建/更新操作
 
@@ -20,7 +21,8 @@ import uuid
 # 配置
 # ============================================================================
 
-API_BASE_URL = "http://39.183.172.160:28000/opentask"
+API_BASE_URL = os.environ.get("OPENTASK_TEST_API_URL", "")
+pytestmark = pytest.mark.skipif(not API_BASE_URL, reason="OPENTASK_TEST_API_URL not set; live integration tests skipped")
 TEST_USERNAME = "xxxxx"
 TEST_PASSWORD = "xxxxx"
 

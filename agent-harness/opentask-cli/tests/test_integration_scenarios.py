@@ -1,3 +1,4 @@
+import os
 """
 完整应用场景集成测试
 
@@ -23,7 +24,8 @@ from opentask.utils.api_client import OpenTaskClient
 # 配置
 # ============================================================================
 
-API_BASE_URL = "http://39.183.172.160:28000/opentask"
+API_BASE_URL = os.environ.get("OPENTASK_TEST_API_URL", "")
+pytestmark = pytest.mark.skipif(not API_BASE_URL, reason="OPENTASK_TEST_API_URL not set; live integration tests skipped")
 TEST_USERNAME = "xxxxx"
 TEST_PASSWORD = "xxxxx"
 

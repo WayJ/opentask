@@ -2319,7 +2319,7 @@ def delete_issue(obj: "Context", issue_id: str, force: bool, as_json: bool):
         "For security reasons, deletion operations are not allowed through CLI.",
         "",
         "Please use the Web UI to delete this issue:",
-        f"  1. Open: http://39.183.172.160:28000/opentask/issues/{issue_id}",
+        f"  1. Open: {obj.config.api_url.rstrip('/')}/issues/{issue_id}",
         "  2. Click the delete button",
         "  3. Confirm the deletion",
         "",
@@ -2335,7 +2335,7 @@ def delete_issue(obj: "Context", issue_id: str, force: bool, as_json: bool):
             "success": False,
             "error": "CLI_DELETE_NOT_ALLOWED",
             "message": "Cannot delete issue via CLI for security reasons",
-            "web_ui_url": f"http://39.183.172.160:28000/opentask/issues/{issue_id}",
+            "web_ui_url": f"{obj.config.api_url.rstrip('/')}/issues/{issue_id}",
             "reason": "AI assistant protection"
         }
         click.echo(json.dumps(error_data, indent=2, ensure_ascii=False))
