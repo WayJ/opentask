@@ -34,7 +34,7 @@ date: 2026-10-31
 |---|---|---|
 | S1 | started | go 决定：S1 交付内容已被 epic DoD 第 28 行（导入图静态校验零缺失）与第 27 行（CLI 可安装运行）覆盖。范围：修复改名遗留 —— 断链符号链接 `api/oauth.py`、CLI 内 `cli_anything.*` 失效导入、`.claude/settings.json` 路径；2026-10-31 started，evidence: `docs/superpowers/sprints/2026-10-31-S1-plan.md` |
 | S2 | started | 门禁验证：修复历史遗留死引用（agent_task / file_storage / agent_v3），使 pytest 与 lint/build 全绿；纳入 PostgreSQL 接入改造（D11：`config.py` MYSQL_* 映射与 `config/*.yaml` database.mysql 段切至 PG，变更欠 backend/README.md 同步）—— 2026-10-31 ADR D11。go 决定 2026-10-31：S1 已 acceptance 但门禁红停合并（backend pytest 78F/196P/178E：无数据库连接 + TD1 死引用 + 存量失败），S2 全绿是 S1 落地与 S3 推送的硬前置；本机 Docker 29.9.2 可供 PG 容器（无原生 psql/mysqld）；用户常设授权「依次推进把E1和E2全部开发完」+「无人值守自行规划」。sprint 级验收目标：① `cd backend && uv run pytest tests/ -v` 全绿 ② `cd frontend && npm run lint && npm run build` 全绿 ③ 导入图零缺失维持 ④ TD1 关闭（附证据）⑤ D11 PG 切换落地且 backend/README.md 在同一提交内同步（doc_sync_map 欠账规则）。2026-10-31 started，evidence: `docs/superpowers/sprints/2026-10-31-S2-plan.md` |
-| S3 | planned | 首次提交 + 推送 GitHub，核对远端文件清单确认无凭据泄露 |
+| S3 | started | 首次提交 + 推送 GitHub，核对远端文件清单确认无凭据泄露。go 决定 2026-10-31：S1/S2 已落地（门禁全绿 395P/0F/0E + lint/build）、整体 code review 七项发现已修复（随 E2-S6 落地）、死 IP 已清；前置满足。TD5 处置：推送前重新生成 backend/openapi*.json（消除最后一处 vibeking 字符串）。sprint 级验收目标：① 高危密钥模式全仓零命中（推送前后各一次）② vibeking 扫描零代码命中且 openapi*.json 重新生成 ③ git ls-remote origin 与本地一致 ④ 远端文件清单核对无凭据文件 |
 
 ## Decisions (ADR)
 
