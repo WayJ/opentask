@@ -1,0 +1,42 @@
+# 生产环境配置
+# 此文件可提交到版本控制
+# 敏感信息应通过环境变量覆盖
+
+app:
+  environment: "production"
+  debug: false
+
+server:
+  host: "0.0.0.0"
+  port: 7377
+  reload: false
+  workers: 4
+
+database:
+  mysql:
+    host: "${MYSQL_HOST}"  # 从环境变量读取
+    port: "${MYSQL_PORT:3306}"
+    user: "${MYSQL_USER}"
+    password: "${MYSQL_PASSWORD}"
+    database: "${MYSQL_DATABASE}"
+    echo: false
+
+auth:
+  username: "${AUTH_USERNAME}"  # 从环境变量读取
+  password: "${AUTH_PASSWORD}"  # 从环境变量读取
+  # secret_key: "${AUTH_SECRET_KEY}"  # JWT 签名密钥，从环境变量读取
+
+ai:
+  openai:
+    api_key: "${OPENAI_API_KEY}"  # 从环境变量读取
+    base_url: "${OPENAI_BASE_URL:}"
+  default_model: "openai/gpt4"
+
+# JNPF 平台配置
+jnpf:
+  # JNPF 基础地址（后端直接调用）
+  base_url: "http://39.183.172.160:29080"
+  # JNPF 系统编码
+  app_code: "opentask"
+  # 请求超时（秒）
+  timeout: 10

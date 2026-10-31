@@ -1,0 +1,1996 @@
+<script setup lang="ts">
+import { computed, defineComponent, h, onMounted, ref } from 'vue';
+import { useRoute } from 'vue-router';
+import type { UploadFileInfo } from 'naive-ui';
+import {
+  NAlert,
+  NButton,
+  NCard,
+  NCollapse,
+  NCollapseItem,
+  NDescriptions,
+  NDescriptionsItem,
+  NEmpty,
+  NForm,
+  NFormItem,
+  NInput,
+  NModal,
+  NPopconfirm,
+  NProgress,
+  NSelect,
+  NSpace,
+  NSpin,
+  NTag,
+  NUpload
+} from 'naive-ui';
+import { requirementStatusTextMap } from '@/constants/requirement';
+import { getRequirementDetail } from '@/service/api/requirement';
+import {
+  type Task,
+  TaskStatusMap,
+  TaskTypeMap,
+  completeTask,
+  createTask,
+  deleteTask,
+  getTaskList,
+  importTasks,
+  startTask,
+  updateTask
+} from '@/service/api/task';
+import { documentApi } from '@/service/api/document';
+import type { Document } from '@/typings/api/document';
+import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
+import SvgIcon from '@/components/custom/svg-icon.vue';
+
+// 使用公共常量
+const requirementStatusMap = requirementStatusTextMap;
+
+// 类型别名 - 直接使用 any，因为后端没有对应的类型定义
+type Requirement = any;
+
+// TaskCard 组件
+const TaskCard = defineComponent({
+  props: {
+    task: {
+      type: Object as () => Task,
+      required: true
+    }
+  },
+  emits: ['start', 'complete', 'edit', 'addSubtask', 'delete', 'viewDocument'],
+  setup(props, { emit }) {
+    // 从任务数据中直接获取文档（由后端任务列表接口返回）
+    const documents = computed(() => props.task.documents || []);
+
+    return () =>
+      h('div', { class: 'modern-task-card' }, [
+        // 左侧状态指示条
+        h('div', { class: `task-status-indicator status-${props.task.status.toLowerCase()}` }),
+
+        // 主内容区域
+        h('div', { class: 'task-card-main' }, [
+          // 顶部行：状态标签 + 标题 + 类型标签
+          h('div', { class: 'task-top-row' }, [
+            h('div', { class: 'task-left-info' }, [
+              // 任务编号
+              h('span', { class: 'task-code' }, `#${props.task.code || '-'}`),
+              // 任务标题
+              h('h3', { class: 'task-title-heading' }, props.task.title),
+              // 状态标签（更小的圆形标签）
+              h(
+                'span',
+                {
+                  class: `task-status-badge status-${props.task.status.toLowerCase()}`,
+                  title: TaskStatusMap[props.task.status]
+                },
+                TaskStatusMap[props.task.status]
+              ),
+            ]),
+            // 类型标签
+            h('span', { class: 'task-type-badge' }, TaskTypeMap[props.task.task_type])
+          ]),
+
+          // 任务描述（支持 Markdown）
+          props.task.description &&
+            h(MarkdownRenderer, {
+              class: 'task-description',
+              content: props.task.description
+            }),
+
+          // 任务文档链接
+          documents.value.length > 0 &&
+            h('div', { class: 'task-documents-section' }, [
+              h('div', { class: 'task-documents-header' }, [
+                h(SvgIcon, {
+                  icon: 'mdi:file-document-outline',
+                  class: 'document-icon'
+                }),
+                h('span', { class: 'task-documents-count' }, `相关文档 ${documents.value.length}`)
+              ]),
+              h(
+                'div',
+                { class: 'task-document-links' },
+                documents.value.map(doc =>
+                  h(
+                    'a',
+                    {
+                      key: doc.id,
+                      href: '#',
+                      class: 'task-document-link',
+                      onClick: (e: Event) => {
+                        e.preventDefault();
+                        emit('viewDocument', doc);
+                      }
+                    },
+                    doc.title
+                  )
+                )
+              )
+            ]),
+
+          // 子任务（如果有）
+          props.task.children &&
+            props.task.children.length > 0 &&
+            h('div', { class: 'subtasks-section' }, [
+              h('div', { class: 'subtasks-header' }, [
+                h(SvgIcon, {
+                  icon: 'mdi:file-tree',
+                  class: 'subtasks-icon'
+                }),
+                h('span', `${props.task.children?.length || 0} 个子任务`)
+              ]),
+              h(
+                NCollapse,
+                { class: 'subtasks-collapse' },
+                {
+                  default: () => [
+                    h(
+                      NCollapseItem,
+                      { class: 'subtasks-collapse-item', name: 'subtasks' },
+                      {
+                        default: () =>
+                          props.task.children?.map(child =>
+                            h(TaskCard, {
+                              key: child.id,
+                              task: child,
+                              onStart: () => emit('start', child),
+                              onComplete: () => emit('complete', child),
+                              onEdit: () => emit('edit', child),
+                              onAddSubtask: () => emit('addSubtask', child),
+                              onDelete: () => emit('delete', child.id),
+                              onViewDocument: (doc: Document.Response) => emit('viewDocument', doc)
+                            })
+                          )
+                      }
+                    )
+                  ]
+                }
+              )
+            ]),
+
+          // 操作按钮区域
+          h('div', { class: 'task-actions-bar' }, [
+            // 左侧主要操作
+            h('div', { class: 'task-primary-actions' }, [
+              props.task.status === 'PENDING' &&
+                h(
+                  NButton,
+                  {
+                    size: 'small',
+                    type: 'primary',
+                    circle: true,
+                    onClick: () => emit('start', props.task)
+                  },
+                  {
+                    icon: () => h(SvgIcon, { icon: 'mdi:play' })
+                  }
+                ),
+              props.task.status === 'RUNNING' &&
+                h(
+                  NButton,
+                  {
+                    size: 'small',
+                    type: 'success',
+                    circle: true,
+                    onClick: () => emit('complete', props.task)
+                  },
+                  {
+                    icon: () => h(SvgIcon, { icon: 'mdi:check' })
+                  }
+                )
+            ]),
+
+            // 右侧次要操作
+            h('div', { class: 'task-secondary-actions' }, [
+              h(
+                NButton,
+                {
+                  size: 'tiny',
+                  quaternary: true,
+                  onClick: () => emit('edit', props.task)
+                },
+                '编辑'
+              ),
+              !props.task.parent_id &&
+                h(
+                  NButton,
+                  {
+                    size: 'tiny',
+                    quaternary: true,
+                    onClick: () => emit('addSubtask', props.task)
+                  },
+                  '添加子任务'
+                ),
+              h(
+                NPopconfirm,
+                { onPositiveClick: () => emit('delete', props.task.id) },
+                {
+                  default: () => '确定要删除这个任务吗？',
+                  trigger: () =>
+                    h(
+                      NButton,
+                      {
+                        size: 'tiny',
+                        type: 'error',
+                        quaternary: true
+                      },
+                      '删除'
+                    )
+                }
+              )
+            ])
+          ])
+        ])
+      ]);
+  }
+});
+
+const route = useRoute();
+const requirementId = computed(() => (route.query.id as string) || '');
+
+// 需求数据
+const requirement = ref<Requirement | null>(null);
+const loading = ref(false);
+
+// 文档数据（从需求详情API返回，不再单独调用文档API）
+const documents = computed(() => requirement.value?.documents || []);
+const showDocumentModal = ref(false);
+const selectedDocument = ref<Document.Response | null>(null);
+
+// 文档编辑表单
+const editDocumentForm = ref({
+  title: '',
+  content: '',
+  status: 'DRAFT' as Document.Status
+});
+const showDocumentEdit = ref(false);
+
+// 任务数据
+const tasks = ref<Task[]>([]);
+const tasksLoading = ref(false);
+
+// 创建任务模态框
+const showCreateModal = ref(false);
+const showCreateSubTaskModal = ref(false);
+const parentTaskForSub = ref<Task | null>(null);
+const createForm = ref({
+  title: '',
+  description: '',
+  task_type: 'IMPLEMENT' as const
+});
+
+// 编辑任务模态框
+const showEditModal = ref(false);
+const editTask = ref<Task | null>(null);
+const editForm = ref({
+  title: '',
+  description: '',
+  status: '' as Task['status'] | ''
+});
+
+// 导入任务相关
+const importUploading = ref(false);
+const importResult = ref<{ imported_count: number; failed_count: number; errors: string[] } | null>(null);
+const showImportResult = ref(false);
+
+// 任务类型选项
+const taskTypeOptions = Object.entries(TaskTypeMap).map(([value, label]) => ({
+  value,
+  label
+}));
+
+// 任务状态选项
+const taskStatusOptions = Object.entries(TaskStatusMap).map(([value, label]) => ({
+  value,
+  label
+}));
+
+// 使用后端返回的树形结构，只需过滤出根任务
+const taskTree = computed(() => {
+  // 后端 API 已经返回了树形结构（children 字段已填充）
+  // 我们只需要过滤出根任务（没有 parent_id 的任务）
+  const rootTasks = tasks.value.filter(task => !task.parent_id);
+
+  // 按 code 排序（任务需要按顺序依次完成）
+  const sortByCode = (a: Task, b: Task) => (a.code || 0) - (b.code || 0);
+  rootTasks.sort(sortByCode);
+  rootTasks.forEach(task => {
+    if (task.children) {
+      task.children.sort(sortByCode);
+    }
+  });
+
+  return rootTasks;
+});
+
+// 计算任务进度
+const taskProgress = computed(() => {
+  const total = tasks.value.length;
+  const completed = tasks.value.filter(t => t.status === 'COMPLETED').length;
+  const inProgress = tasks.value.filter(t => t.status === 'RUNNING').length;
+  return { total, completed, inProgress, percentage: total > 0 ? Math.round((completed / total) * 100) : 0 };
+});
+
+// 加载需求详情
+async function loadRequirement() {
+  loading.value = true;
+  try {
+    const response = await getRequirementDetail(requirementId.value);
+
+    // 处理不同的响应格式 - request 函数应该已经提取了 data
+    // 但为了安全起见，检查是否还有嵌套的 data
+    if (response && typeof response === 'object') {
+      // 如果响应中有 data 字段且是对象，取其内容（这是常见的格式）
+      if ('data' in response && response.data && typeof response.data === 'object' && 'id' in response.data) {
+        requirement.value = response.data;
+      } else if ('id' in response) {
+        requirement.value = response;
+      }
+    } else {
+      requirement.value = response;
+    }
+  } catch {
+    window.$message?.error('加载需求详情失败');
+  } finally {
+    loading.value = false;
+  }
+}
+
+// 查看文档
+function viewDocument(doc: Document.Response) {
+  selectedDocument.value = doc;
+  showDocumentModal.value = true;
+}
+
+// 创建/编辑文档
+function openDocumentEdit(doc?: Document.Response) {
+  if (doc) {
+    editDocumentForm.value = {
+      title: doc.title,
+      content: doc.content,
+      status: doc.status
+    };
+    selectedDocument.value = doc;
+  } else {
+    editDocumentForm.value = {
+      title: '',
+      content: '',
+      status: 'DRAFT'
+    };
+    selectedDocument.value = null;
+  }
+  showDocumentEdit.value = true;
+}
+
+// 保存文档
+async function saveDocument() {
+  if (!requirement.value) return;
+  try {
+    if (selectedDocument.value) {
+      // 更新现有文档
+      await documentApi.updateRequirementDocument(requirement.value.id, selectedDocument.value.id, {
+        title: editDocumentForm.value.title,
+        content: editDocumentForm.value.content,
+        status: editDocumentForm.value.status
+      });
+    } else {
+      // 创建新文档
+      await documentApi.createForRequirement(requirement.value.id, {
+        title: editDocumentForm.value.title,
+        content: editDocumentForm.value.content,
+        status: editDocumentForm.value.status
+      });
+    }
+    // 重新加载需求详情以更新文档列表
+    await loadRequirement();
+    showDocumentEdit.value = false;
+    window.$message?.success('保存成功');
+  } catch {
+    window.$message?.error('保存文档失败');
+  }
+}
+
+// 删除文档（保留供未来使用）
+async function _deleteDocument(id: string) {
+  if (!requirement.value) return;
+  try {
+    await documentApi.deleteRequirementDocument(requirement.value.id, id);
+    await loadRequirement();
+    if (selectedDocument.value?.id === id) {
+      selectedDocument.value = null;
+      showDocumentModal.value = false;
+    }
+    window.$message?.success('删除成功');
+  } catch {
+    window.$message?.error('删除文档失败');
+  }
+}
+
+// 加载任务列表
+async function loadTasks() {
+  tasksLoading.value = true;
+  try {
+    const response = await getTaskList(requirementId.value);
+
+    // 处理不同的响应格式
+    let taskList;
+    if (response && typeof response === 'object') {
+      if ('rows' in response) {
+        taskList = response.rows;
+      } else if ('data' in response && response.data && 'rows' in response.data) {
+        taskList = response.data.rows;
+      } else if (Array.isArray(response)) {
+        taskList = response;
+      } else {
+        taskList = [];
+      }
+    } else {
+      taskList = [];
+    }
+
+    tasks.value = Array.isArray(taskList) ? taskList : [];
+  } catch {
+    window.$message?.error('加载任务失败');
+    tasks.value = [];
+  } finally {
+    tasksLoading.value = false;
+  }
+}
+
+// 打开创建子任务模态框
+function openCreateSubTaskModal(parentTask: Task) {
+  parentTaskForSub.value = parentTask;
+  createForm.value = { title: '', description: '', task_type: 'IMPLEMENT' };
+  showCreateSubTaskModal.value = true;
+}
+
+// 创建任务
+async function handleCreateTask() {
+  try {
+    await createTask({
+      requirement_id: requirementId.value,
+      ...createForm.value
+    });
+    showCreateModal.value = false;
+    createForm.value = { title: '', description: '', task_type: 'IMPLEMENT' };
+    await loadTasks();
+  } catch {
+    window.$message?.error('创建任务失败');
+  }
+}
+
+// 创建子任务
+async function handleCreateSubTask() {
+  if (!parentTaskForSub.value) return;
+  try {
+    await createTask({
+      requirement_id: requirementId.value,
+      parent_id: parentTaskForSub.value.id,
+      ...createForm.value
+    });
+    showCreateSubTaskModal.value = false;
+    createForm.value = { title: '', description: '', task_type: 'IMPLEMENT' };
+    await loadTasks();
+  } catch {
+    window.$message?.error('创建子任务失败');
+  }
+}
+
+// 打开编辑任务
+function openEditModal(task: Task) {
+  editTask.value = task;
+  editForm.value = {
+    title: task.title,
+    description: task.description || '',
+    status: task.status as Task['status']
+  };
+  showEditModal.value = true;
+}
+
+// 更新任务
+async function handleUpdateTask() {
+  if (!editTask.value) return;
+  try {
+    await updateTask(editTask.value.id, editForm.value);
+    showEditModal.value = false;
+    await loadTasks();
+  } catch {
+    window.$message?.error('更新任务失败');
+  }
+}
+
+// 删除任务
+async function handleDeleteTask(taskId: string) {
+  try {
+    await deleteTask(taskId);
+    await loadTasks();
+  } catch {
+    window.$message?.error('删除任务失败');
+  }
+}
+
+// 开始任务
+async function handleStartTask(task: Task) {
+  try {
+    await startTask(task.id);
+    await loadTasks();
+  } catch (error: any) {
+    window.$message?.error(error.response?.data?.message || `无法开始任务:${error.message}`);
+  }
+}
+
+// 完成任务
+async function handleCompleteTask(task: Task) {
+  try {
+    await completeTask(task.id);
+    await loadTasks();
+  } catch {
+    window.$message?.error('完成任务失败');
+  }
+}
+
+// 批量导入任务
+async function handleImportTasks(options: { file: UploadFileInfo }) {
+  const file = options.file.file;
+  if (!file) return;
+
+  importUploading.value = true;
+  try {
+    const result = await importTasks(requirementId.value, file);
+    importResult.value = {
+      imported_count: result.imported_count,
+      failed_count: result.failed_count,
+      errors: result.errors
+    };
+    showImportResult.value = true;
+    await loadTasks();
+  } catch (error: any) {
+    window.$message?.error(error.response?.data?.message || `导入失败: ${error.message}`);
+  } finally {
+    importUploading.value = false;
+  }
+}
+
+onMounted(async () => {
+  await loadRequirement();
+  loadTasks();
+});
+</script>
+
+<template>
+  <div class="requirement-detail">
+    <NSpin :show="loading">
+      <NCard v-if="requirement" title="需求详情" class="mb-3">
+        <!-- 紧凑表格：基本信息 -->
+        <div class="info-table">
+          <div class="info-row">
+            <div class="info-cell label">需求编号</div>
+            <div class="info-cell value">{{ requirement.code }}</div>
+            <div class="info-cell label">标题</div>
+            <div class="info-cell value">{{ requirement.title }}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-cell label">状态</div>
+            <div class="info-cell value">
+              <NTag :type="requirement.status === 'draft' ? 'default' : 'success'" size="small">
+                {{ requirementStatusMap[requirement.status] || requirement.status }}
+              </NTag>
+            </div>
+            <div class="info-cell label">优先级</div>
+            <div class="info-cell value">{{ requirement.priority || '-' }}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-cell label">创建时间</div>
+            <div class="info-cell value">{{ new Date(requirement.created_at).toLocaleString() }}</div>
+            <div class="info-cell label">归属项目</div>
+            <div class="info-cell value">
+              <NSpace v-if="requirement.project_ids && requirement.project_ids.length > 0" :size="4">
+                <NTag v-for="projectId in requirement.project_ids" :key="projectId" size="small" type="info">
+                  项目 ID: {{ projectId.slice(0, 8) }}...
+                </NTag>
+              </NSpace>
+              <span v-else class="text-placeholder">未归属项目</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 描述 -->
+        <div v-if="requirement.description" class="description-section mt-3">
+          <div class="section-label">描述</div>
+          <div class="description-content">{{ requirement.description }}</div>
+        </div>
+
+        <!-- 相关文档 -->
+        <div class="documents-section mt-3">
+          <div class="section-header-with-action">
+            <span class="section-label">相关文档 ({{ documents.length }})</span>
+            <NButton size="tiny" quaternary @click="openDocumentEdit()">
+              <template #icon>
+                <span class="text-xs">+</span>
+              </template>
+              添加文档
+            </NButton>
+          </div>
+          <div v-if="documents.length > 0" class="document-list-compact">
+            <div v-for="doc in documents" :key="doc.id" class="document-item-compact">
+              <a href="#" class="document-link-compact" @click.prevent="viewDocument(doc)">📄 {{ doc.title }}</a>
+            </div>
+          </div>
+          <NEmpty v-else description="暂无文档" size="small" />
+        </div>
+      </NCard>
+    </NSpin>
+
+    <!-- 任务进度 -->
+    <NCard title="任务进度" class="mb-4">
+      <NSpin :show="tasksLoading">
+        <NProgress
+          type="line"
+          :percentage="taskProgress.percentage"
+          :status="taskProgress.percentage === 100 ? 'success' : 'default'"
+        />
+        <p class="mt-2">
+          总进度: {{ taskProgress.completed }} / {{ taskProgress.total }} 个任务已完成
+          <span v-if="taskProgress.inProgress > 0" class="ml-2">({{ taskProgress.inProgress }} 个进行中)</span>
+        </p>
+      </NSpin>
+    </NCard>
+
+    <!-- 任务管理 - 卡片样式 -->
+    <NCard>
+      <template #header>
+        <div class="card-header">
+          <span>任务管理</span>
+          <NSpace>
+            <NUpload
+              :custom-request="handleImportTasks"
+              :show-file-list="false"
+              accept=".json"
+              :disabled="importUploading"
+            >
+              <NButton :loading="importUploading" size="small">
+                {{ importUploading ? '导入中...' : '批量导入' }}
+              </NButton>
+            </NUpload>
+            <NButton type="primary" size="small" @click="showCreateModal = true">创建任务</NButton>
+          </NSpace>
+        </div>
+      </template>
+
+      <NSpin :show="tasksLoading">
+        <div v-if="tasks.length > 0" class="task-cards">
+          <TaskCard
+            v-for="task in taskTree"
+            :key="task.id"
+            :task="task"
+            @start="handleStartTask"
+            @complete="handleCompleteTask"
+            @edit="openEditModal"
+            @add-subtask="openCreateSubTaskModal"
+            @delete="handleDeleteTask"
+            @view-document="viewDocument"
+          />
+        </div>
+        <NAlert v-else-if="!tasksLoading" type="info" class="mt-4">暂无任务，点击"创建任务"开始创建</NAlert>
+      </NSpin>
+    </NCard>
+
+    <!-- 创建任务模态框 -->
+    <NModal v-model:show="showCreateModal" preset="card" title="创建任务" style="width: 600px">
+      <NForm :model="createForm" label-placement="left" label-width="80px">
+        <NFormItem label="标题" required>
+          <NInput v-model:value="createForm.title" placeholder="任务标题" />
+        </NFormItem>
+        <NFormItem label="描述">
+          <NInput v-model:value="createForm.description" type="textarea" placeholder="任务描述" />
+        </NFormItem>
+        <NFormItem label="类型">
+          <NSelect v-model:value="createForm.task_type" :options="taskTypeOptions" />
+        </NFormItem>
+      </NForm>
+      <template #footer>
+        <NSpace justify="end">
+          <NButton @click="showCreateModal = false">取消</NButton>
+          <NButton type="primary" @click="handleCreateTask">创建</NButton>
+        </NSpace>
+      </template>
+    </NModal>
+
+    <!-- 创建子任务模态框 -->
+    <NModal v-model:show="showCreateSubTaskModal" preset="card" title="创建子任务" style="width: 600px">
+      <NAlert v-if="parentTaskForSub" type="info" class="mb-4">父任务: {{ parentTaskForSub.title }}</NAlert>
+      <NForm :model="createForm" label-placement="left" label-width="80px">
+        <NFormItem label="标题" required>
+          <NInput v-model:value="createForm.title" placeholder="子任务标题" />
+        </NFormItem>
+        <NFormItem label="描述">
+          <NInput v-model:value="createForm.description" type="textarea" placeholder="子任务描述" />
+        </NFormItem>
+        <NFormItem label="类型">
+          <NSelect v-model:value="createForm.task_type" :options="taskTypeOptions" />
+        </NFormItem>
+      </NForm>
+      <template #footer>
+        <NSpace justify="end">
+          <NButton @click="showCreateSubTaskModal = false">取消</NButton>
+          <NButton type="primary" @click="handleCreateSubTask">创建</NButton>
+        </NSpace>
+      </template>
+    </NModal>
+
+    <!-- 编辑任务模态框 -->
+    <NModal v-model:show="showEditModal" preset="card" title="编辑任务" style="width: 600px">
+      <NForm :model="editForm" label-placement="left" label-width="80px">
+        <NFormItem label="标题" required>
+          <NInput v-model:value="editForm.title" placeholder="任务标题" />
+        </NFormItem>
+        <NFormItem label="描述">
+          <NInput v-model:value="editForm.description" type="textarea" placeholder="任务描述" />
+        </NFormItem>
+        <NFormItem label="状态">
+          <NSelect v-model:value="editForm.status" :options="taskStatusOptions" />
+        </NFormItem>
+      </NForm>
+      <template #footer>
+        <NSpace justify="end">
+          <NButton @click="showEditModal = false">取消</NButton>
+          <NButton type="primary" @click="handleUpdateTask">更新</NButton>
+        </NSpace>
+      </template>
+    </NModal>
+
+    <!-- 导入结果模态框 -->
+    <NModal v-model:show="showImportResult" preset="card" title="导入结果" style="width: 500px">
+      <NAlert v-if="importResult" :type="importResult.failed_count > 0 ? 'warning' : 'success'">
+        <template #header>导入完成</template>
+        <p>成功导入 {{ importResult.imported_count }} 个任务</p>
+        <p v-if="importResult.failed_count > 0">失败 {{ importResult.failed_count }} 个任务</p>
+      </NAlert>
+      <div v-if="importResult && importResult.errors.length > 0" style="margin-top: 16px">
+        <p style="font-weight: bold; margin-bottom: 8px">错误详情:</p>
+        <ul style="max-height: 200px; overflow-y: auto">
+          <li v-for="(error, index) in importResult.errors" :key="index" style="color: #d03050; font-size: 12px">
+            {{ error }}
+          </li>
+        </ul>
+      </div>
+      <template #footer>
+        <NSpace justify="end">
+          <NButton type="primary" @click="showImportResult = false">确定</NButton>
+        </NSpace>
+      </template>
+    </NModal>
+
+    <!-- 文档查看模态框 -->
+    <NModal v-model:show="showDocumentModal" preset="card" title="文档详情" style="width: 800px">
+      <div v-if="selectedDocument">
+        <NDescriptions>
+          <NDescriptionsItem label="标题">{{ selectedDocument.title }}</NDescriptionsItem>
+          <NDescriptionsItem label="版本">{{ selectedDocument.version }}</NDescriptionsItem>
+          <NDescriptionsItem label="状态">
+            <NTag :type="selectedDocument.status === 'PUBLISHED' ? 'success' : 'default'">
+              {{
+                selectedDocument.status === 'DRAFT'
+                  ? '草稿'
+                  : selectedDocument.status === 'PUBLISHED'
+                    ? '已发布'
+                    : '已归档'
+              }}
+            </NTag>
+          </NDescriptionsItem>
+          <NDescriptionsItem label="更新时间">
+            {{ new Date(selectedDocument.updated_at).toLocaleString() }}
+          </NDescriptionsItem>
+        </NDescriptions>
+        <div class="mt-4">
+          <h4>内容</h4>
+          <div class="document-content">{{ selectedDocument.content }}</div>
+        </div>
+      </div>
+      <template #footer>
+        <NSpace justify="end">
+          <NButton @click="showDocumentModal = false">关闭</NButton>
+          <NButton
+            type="primary"
+            @click="
+              showDocumentModal = false;
+              openDocumentEdit(selectedDocument!);
+            "
+          >
+            编辑
+          </NButton>
+        </NSpace>
+      </template>
+    </NModal>
+
+    <!-- 文档编辑模态框 -->
+    <NModal
+      v-model:show="showDocumentEdit"
+      preset="card"
+      :title="selectedDocument ? '编辑文档' : '新建文档'"
+      style="width: 800px"
+    >
+      <NForm :model="editDocumentForm" label-placement="left" label-width="80px">
+        <NFormItem label="标题" required>
+          <NInput v-model:value="editDocumentForm.title" placeholder="文档标题" />
+        </NFormItem>
+        <NFormItem label="状态">
+          <NSelect
+            v-model:value="editDocumentForm.status"
+            :options="[
+              { value: 'DRAFT', label: '草稿' },
+              { value: 'PUBLISHED', label: '已发布' },
+              { value: 'ARCHIVED', label: '已归档' }
+            ]"
+          />
+        </NFormItem>
+        <NFormItem label="内容">
+          <NInput
+            v-model:value="editDocumentForm.content"
+            type="textarea"
+            placeholder="请输入文档内容，支持 Markdown 格式"
+            :autosize="{ minRows: 10, maxRows: 20 }"
+          />
+        </NFormItem>
+      </NForm>
+      <template #footer>
+        <NSpace justify="end">
+          <NButton @click="showDocumentEdit = false">取消</NButton>
+          <NButton type="primary" @click="saveDocument">保存</NButton>
+        </NSpace>
+      </template>
+    </NModal>
+  </div>
+</template>
+
+<style scoped>
+.requirement-detail {
+  padding: 16px;
+}
+.mb-4 {
+  margin-bottom: 16px;
+}
+.mt-2 {
+  margin-top: 8px;
+}
+.mt-3 {
+  margin-top: 12px;
+}
+.mt-4 {
+  margin-top: 16px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+/* 紧凑表格样式 */
+.info-table {
+  border: 1px solid #f0f0f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.info-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 90px 1fr;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-cell {
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  border-right: 1px solid #f0f0f0;
+}
+
+.info-cell:last-child {
+  border-right: none;
+}
+
+.info-cell.label {
+  background-color: #fafafa;
+  font-weight: 500;
+  font-size: 13px;
+  color: #666;
+}
+
+.info-cell.value {
+  font-size: 13px;
+  color: #333;
+}
+
+.info-cell[colspan='3'] {
+  grid-column: span 3;
+}
+
+.text-placeholder {
+  color: #999;
+  font-size: 13px;
+}
+
+/* 描述区域 */
+.description-section {
+  border: 1px solid #f0f0f0;
+  border-radius: 4px;
+  padding: 12px;
+}
+
+.section-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #666;
+  margin-bottom: 6px;
+}
+
+.description-content {
+  font-size: 13px;
+  color: #333;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+/* 文档区域 */
+.documents-section {
+  border: 1px solid #f0f0f0;
+  border-radius: 4px;
+  padding: 12px;
+}
+
+.section-header {
+  margin-bottom: 8px;
+}
+
+/* 带操作按钮的标题栏 */
+.section-header-with-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  gap: 12px;
+}
+
+.section-header-with-action .section-label {
+  flex: 1;
+}
+
+/* 文档列表样式 */
+.document-list-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.document-item-compact {
+  display: flex;
+  align-items: center;
+}
+
+.document-link-compact {
+  /* 基础样式 */
+  color: #18a058;
+  text-decoration: none;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-block;
+  width: 100%;
+
+  /* 增强视觉层次 */
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  position: relative;
+
+  /* 添加背景色 */
+  background-color: transparent;
+  border: 1px solid transparent;
+}
+
+/* 悬停效果 */
+.document-link-compact:hover {
+  /* 背景色变化 */
+  background-color: #e8f8f0;
+
+  /* 文字颜色加深 */
+  color: #0c7a52;
+
+  /* 添加边框 */
+  border-color: #d0f0e8;
+
+  /* 添加阴影 */
+  box-shadow: 0 2px 4px rgba(24, 160, 88, 0.1);
+
+  /* 轻微放大效果 */
+  transform: translateX(2px);
+
+  /* 下划线动画 */
+  text-decoration: none;
+}
+
+/* 添加下划线动画效果 */
+.document-link-compact::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 2px;
+  bottom: 4px;
+  left: 12px;
+  background-color: #18a058;
+  transition: width 0.2s ease-in-out;
+}
+
+.document-link-compact:hover::after {
+  width: calc(100% - 24px);
+}
+
+/* 点击反馈 */
+.document-link-compact:active {
+  background-color: #d0f0e8;
+  transform: translateX(2px) scale(0.98);
+  box-shadow: 0 1px 2px rgba(24, 160, 88, 0.15);
+}
+
+/* 元数据内容 */
+.meta-content {
+  font-size: 13px;
+  color: #666;
+}
+
+/* 文档列表样式（保留用于其他地方） */
+.document-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.document-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.document-link {
+  color: #18a058;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.document-link:hover {
+  color: #36ad6a;
+  text-decoration: underline;
+}
+
+.document-actions {
+  display: flex;
+  gap: 4px;
+}
+
+/* ============================================================================
+   现代化任务卡片设计
+   ============================================================================ */
+
+/* 任务卡片容器 */
+.task-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 现代化任务卡片主容器 */
+.modern-task-card {
+  position: relative;
+  display: flex;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  border: 1px solid #f0f0f0;
+}
+
+.modern-task-card:hover {
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.12),
+    0 4px 8px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+  border-color: #e0e0e0;
+}
+
+/* 状态指示条 */
+.task-status-indicator {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--status-color) 0%, var(--status-color-light, var(--status-color)) 100%);
+}
+
+.task-status-indicator.status-pending {
+  --status-color: #94a3b8;
+  --status-color-light: #cbd5e1;
+}
+
+.task-status-indicator.status-assigned {
+  --status-color: #3b82f6;
+  --status-color-light: #93c5fd;
+}
+
+.task-status-indicator.status-running {
+  --status-color: #f59e0b;
+  --status-color-light: #fbbf24;
+}
+
+.task-status-indicator.status-completed {
+  --status-color: #10b981;
+  --status-color-light: #6ee7b7;
+}
+
+.task-status-indicator.status-failed {
+  --status-color: #ef4444;
+  --status-color-light: #f87171;
+}
+
+.task-status-indicator.status-blocked {
+  --status-color: #8b5cf6;
+  --status-color-light: #c4b5fd;
+}
+
+.task-status-indicator.status-cancelled {
+  --status-color: #6b7280;
+  --status-color-light: #9ca3af;
+}
+
+/* 卡片主内容区域 */
+.task-card-main {
+  flex: 1;
+  padding: 16px 16px 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 顶部行：状态和类型 */
+.task-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.task-left-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 任务编号 */
+.task-code {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  letter-spacing: 0.5px;
+}
+
+/* 状态徽章 */
+.task-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.2s ease;
+}
+
+.task-status-badge.status-pending {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.task-status-badge.status-assigned {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.task-status-badge.status-running {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.task-status-badge.status-completed {
+  background: #d1fae5;
+  color: #059669;
+}
+
+.task-status-badge.status-failed {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.task-status-badge.status-blocked {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.task-status-badge.status-cancelled {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+/* 类型徽章 */
+.task-type-badge {
+  padding: 4px 10px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);
+}
+
+/* 任务标题 */
+.task-title-heading {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+}
+
+/* 任务描述 */
+.task-description {
+  color: #64748b;
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+.task-description :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+/* 文档区域 */
+.task-documents-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.task-documents-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.document-icon,
+.subtasks-icon {
+  font-size: 16px;
+  color: #64748b;
+  vertical-align: middle;
+}
+
+.task-documents-count {
+  background: #e2e8f0;
+  color: #475569;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.task-document-links {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.task-document-link {
+  color: #0891b2;
+  text-decoration: none;
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  border: 1px solid transparent;
+  position: relative;
+}
+
+.task-document-link::before {
+  content: '📄';
+  margin-right: 6px;
+  font-size: 12px;
+}
+
+.task-document-link:hover {
+  background: #ecfeff;
+  color: #0e7490;
+  border-color: #cbd5e1;
+  transform: translateX(4px);
+  box-shadow: 0 2px 4px rgba(8, 145, 178, 0.1);
+}
+
+/* 子任务区域 */
+.subtasks-section {
+  margin-top: 4px;
+  padding: 12px;
+  background: #fefce8;
+  border-radius: 8px;
+  border: 1px solid #fef08a;
+}
+
+.subtasks-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #854d0e;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.subtasks-collapse :deep(.n-collapse-item) {
+  background: transparent;
+  border: none;
+}
+
+.subtasks-collapse :deep(.n-collapse-item__header) {
+  padding: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #713f12;
+}
+
+/* 操作栏 */
+.task-actions-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
+  margin-top: 4px;
+}
+
+.task-primary-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.task-secondary-actions {
+  display: flex;
+  gap: 4px;
+}
+
+/* 兼容旧样式 */
+.task-card {
+  transition: all 0.2s ease;
+  border: 1px solid #e8e8e8;
+}
+
+.task-card:hover {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border-color: #d0d0d0;
+}
+
+.task-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.task-title {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 6px;
+}
+
+.task-title-text {
+  font-weight: 500;
+  font-size: 14px;
+  color: #333;
+}
+
+.task-meta {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  color: #999;
+  align-items: center;
+  background: #fafafa;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.task-meta-item {
+  display: inline-block;
+}
+
+.task-description {
+  color: #666;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  font-size: 13px;
+  margin-bottom: 6px;
+  padding: 6px;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  border-left: 3px solid #18a058;
+}
+
+.task-documents {
+  padding: 6px 8px;
+  background-color: #fafafa;
+  border-radius: 4px;
+  border: 1px solid #f0f0f0;
+  margin-bottom: 6px;
+}
+
+.task-documents-title {
+  font-size: 11px;
+  font-weight: 500;
+  color: #999;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.task-document-links {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.task-document-link {
+  /* 基础样式 */
+  color: #18a058;
+  text-decoration: none;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  /* 字体加粗 */
+  font-weight: 500;
+
+  /* 边框 */
+  border: 1px solid transparent;
+
+  /* 位置相对，用于下划线动画 */
+  position: relative;
+}
+
+/* 悬停效果 */
+.task-document-link:hover {
+  /* 背景色 */
+  background-color: rgba(24, 160, 88, 0.08);
+
+  /* 文字颜色加深 */
+  color: #0c7a52;
+
+  /* 添加边框 */
+  border-color: rgba(24, 160, 88, 0.2);
+
+  /* 轻微阴影 */
+  box-shadow: 0 2px 4px rgba(24, 160, 88, 0.08);
+
+  /* 向右移动 */
+  transform: translateX(3px);
+
+  /* 移除默认下划线 */
+  text-decoration: none;
+}
+
+/* 添加渐变下划线动画 */
+.task-document-link::before {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 2px;
+  bottom: 4px;
+  left: 10px;
+  background: linear-gradient(90deg, #18a058, #36ad6a);
+  transition: width 0.25s ease-in-out;
+}
+
+.task-document-link:hover::before {
+  width: calc(100% - 20px);
+}
+
+/* 点击反馈 */
+.task-document-link:active {
+  background-color: rgba(24, 160, 88, 0.15);
+  transform: translateX(3px) scale(0.98);
+  box-shadow: 0 1px 2px rgba(24, 160, 88, 0.12);
+}
+
+/* 图标样式（如果有） */
+.task-document-link .icon {
+  transition: transform 0.2s;
+}
+
+.task-document-link:hover .icon {
+  transform: scale(1.1);
+}
+
+.task-actions {
+  display: flex;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid #f0f0f0;
+  flex-wrap: wrap;
+}
+
+.mr-2 {
+  margin-right: 8px;
+}
+
+/* 文档内容样式 */
+.document-content {
+  padding: 16px;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  line-height: 1.6;
+  min-height: 200px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+</style>
+
+<!-- 现代化任务卡片全局样式 -->
+<style>
+/* 任务卡片容器 */
+.task-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 现代化任务卡片主容器 */
+.modern-task-card {
+  position: relative;
+  display: flex;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  border: 1px solid #f0f0f0;
+}
+
+.modern-task-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+  border-color: #e0e0e0;
+}
+
+/* 状态指示条 */
+.task-status-indicator {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--status-color) 0%, var(--status-color-light, var(--status-color)) 100%);
+}
+
+.task-status-indicator.status-pending {
+  --status-color: #94a3b8;
+  --status-color-light: #cbd5e1;
+}
+
+.task-status-indicator.status-assigned {
+  --status-color: #3b82f6;
+  --status-color-light: #93c5fd;
+}
+
+.task-status-indicator.status-running {
+  --status-color: #f59e0b;
+  --status-color-light: #fbbf24;
+}
+
+.task-status-indicator.status-completed {
+  --status-color: #10b981;
+  --status-color-light: #6ee7b7;
+}
+
+.task-status-indicator.status-failed {
+  --status-color: #ef4444;
+  --status-color-light: #f87171;
+}
+
+.task-status-indicator.status-blocked {
+  --status-color: #8b5cf6;
+  --status-color-light: #c4b5fd;
+}
+
+.task-status-indicator.status-cancelled {
+  --status-color: #6b7280;
+  --status-color-light: #9ca3af;
+}
+
+/* 卡片主内容区域 */
+.task-card-main {
+  flex: 1;
+  padding: 16px 16px 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 顶部行：状态和类型 */
+.task-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.task-left-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 任务编号 */
+.task-code {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  letter-spacing: 0.5px;
+}
+
+/* 状态徽章 */
+.task-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.2s ease;
+}
+
+.task-status-badge.status-pending {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.task-status-badge.status-assigned {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.task-status-badge.status-running {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.task-status-badge.status-completed {
+  background: #d1fae5;
+  color: #059669;
+}
+
+.task-status-badge.status-failed {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.task-status-badge.status-blocked {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.task-status-badge.status-cancelled {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+/* 类型徽章 */
+.task-type-badge {
+  padding: 4px 10px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);
+}
+
+/* 任务标题 */
+.task-title-heading {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+}
+
+/* 任务描述 */
+.task-description {
+  color: #64748b;
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+.task-description p:last-child {
+  margin-bottom: 0;
+}
+
+/* 文档区域 */
+.task-documents-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.task-documents-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.document-icon,
+.subtasks-icon {
+  font-size: 16px;
+  color: #64748b;
+  vertical-align: middle;
+}
+
+.task-documents-count {
+  background: #e2e8f0;
+  color: #475569;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.task-document-links {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.task-document-link {
+  color: #0891b2;
+  text-decoration: none;
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  border: 1px solid transparent;
+  position: relative;
+}
+
+.task-document-link::before {
+  content: '📄';
+  margin-right: 6px;
+  font-size: 12px;
+}
+
+.task-document-link:hover {
+  background: #ecfeff;
+  color: #0e7490;
+  border-color: #cbd5e1;
+  transform: translateX(4px);
+  box-shadow: 0 2px 4px rgba(8, 145, 178, 0.1);
+}
+
+/* 子任务区域 */
+.subtasks-section {
+  margin-top: 4px;
+  padding: 12px;
+  background: #fefce8;
+  border-radius: 8px;
+  border: 1px solid #fef08a;
+}
+
+.subtasks-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #854d0e;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.subtasks-collapse :deep(.n-collapse-item) {
+  background: transparent;
+  border: none;
+}
+
+.subtasks-collapse :deep(.n-collapse-item__header) {
+  padding: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #713f12;
+}
+
+/* 操作栏 */
+.task-actions-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
+  margin-top: 4px;
+}
+
+.task-primary-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.task-secondary-actions {
+  display: flex;
+  gap: 4px;
+}
+
+/* MarkdownRenderer 在任务卡片中的样式覆盖 */
+.task-card-main .markdown-renderer {
+  color: #64748b;
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+.task-card-main .markdown-renderer :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.task-card-main .markdown-renderer :deep(h1),
+.task-card-main .markdown-renderer :deep(h2),
+.task-card-main .markdown-renderer :deep(h3),
+.task-card-main .markdown-renderer :deep(h4),
+.task-card-main .markdown-renderer :deep(h5),
+.task-card-main .markdown-renderer :deep(h6) {
+  margin: 0.5em 0 0.25em 0;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #334155;
+}
+
+.task-card-main .markdown-renderer :deep(h1) {
+  font-size: 1.25em;
+}
+
+.task-card-main .markdown-renderer :deep(h2) {
+  font-size: 1.15em;
+}
+
+.task-card-main .markdown-renderer :deep(h3) {
+  font-size: 1.05em;
+}
+
+.task-card-main .markdown-renderer :deep(p) {
+  margin: 0.25em 0;
+}
+
+.task-card-main .markdown-renderer :deep(ul),
+.task-card-main .markdown-renderer :deep(ol) {
+  margin: 0.25em 0;
+  padding-left: 1.5em;
+}
+
+.task-card-main .markdown-renderer :deep(li) {
+  margin: 0.1em 0;
+}
+
+.task-card-main .markdown-renderer :deep(code) {
+  background-color: rgba(0, 0, 0, 0.06);
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 0.9em;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.task-card-main .markdown-renderer :deep(pre) {
+  background-color: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 8px;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+
+.task-card-main .markdown-renderer :deep(pre code) {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
+.task-card-main .markdown-renderer :deep(a) {
+  color: #0891b2;
+  text-decoration: none;
+}
+
+.task-card-main .markdown-renderer :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.task-card-main .markdown-renderer :deep(blockquote) {
+  border-left: 3px solid #18a058;
+  padding-left: 0.75em;
+  margin: 0.5em 0;
+  color: #666;
+}
+</style>

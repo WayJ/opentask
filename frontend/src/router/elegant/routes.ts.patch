@@ -1,0 +1,14 @@
+    children: [
+      {
+        name: 'profile_access-tokens',
+        path: '/profile/access-tokens',
+        component: 'view.profile_access-tokens',
+        meta: {
+          title: 'profile_access-tokens',
+          i18nKey: 'route.profile_access-tokens'
+        }
+      },
+      {
+        name: 'profile_userinfo',
+        path: '/profile/userinfo',
+        component: 'view.profile_userinfo',

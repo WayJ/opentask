@@ -1,0 +1,1486 @@
+"""OpenTask API Client - HTTP client for backend API communication."""
+import json
+import logging
+from typing import Any
+import httpx
+from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# Enum Value Conversion Utilities
+# ============================================================================
+
+def _normalize_priority(priority: str | None) -> str | None:
+    """Normalize priority value to API format (lowercase).
+
+    Args:
+        priority: Priority value (e.g., "low", "medium", "high", "LOW", "MEDIUM", "HIGH")
+
+    Returns:
+        Lowercase priority value (e.g., "low", "medium", "high", "critical")
+    """
+    if not priority:
+        return None
+    return priority.lower()
+
+
+def _normalize_requirement_status(status: str | None) -> str | None:
+    """Convert CLI requirement status to API format (lowercase).
+
+    Maps simple CLI status values to API requirement statuses:
+    - draft -> draft
+    - active -> clarifying
+    - completed -> released
+    - archived -> archived
+
+    Args:
+        status: Status value from CLI
+
+    Returns:
+        API-compatible status value (lowercase)
+    """
+    if not status:
+        return None
+
+    status_map = {
+        "planning": "planning",
+        "generating": "generating",
+        "evaluating": "evaluating",
+        "completed": "completed",
+        "closed": "closed",
+        "archived": "archived",
+        # 兼容旧状态值
+        "draft": "planning",
+        "clarifying": "planning",
+        "spec_ready": "planning",
+        "designing": "planning",
+        "coding": "generating",
+        "reviewing": "evaluating",
+        "testing": "evaluating",
+        "released": "completed",
+    }
+
+    # Map lowercase CLI values to API values (lowercase)
+    return status_map.get(status.lower(), status.lower())
+
+
+def _format_error_details(response_data: dict) -> str:
+    """Format detailed error information from API response.
+
+    Args:
+        response_data: Response data from API
+
+    Returns:
+        Formatted error message with details
+    """
+    if not response_data:
+        return ""
+
+    details = []
+
+    # Check for validation errors
+    if "detail" in response_data:
+        detail = response_data["detail"]
+        if isinstance(detail, list):
+            # FastAPI validation errors
+            for err in detail:
+                loc = " -> ".join(str(l) for l in err.get("loc", []))
+                msg = err.get("msg", "")
+                details.append(f"  - {loc}: {msg}")
+        elif isinstance(detail, dict):
+            details.append(f"  {detail}")
+        else:
+            details.append(f"  {detail}")
+
+    # Check for standard error message
+    if "message" in response_data:
+        details.append(f"  Message: {response_data['message']}")
+
+    return "\n".join(details) if details else ""
+
+
+class APIError(Exception):
+    """API error with status code and message."""
+
+    def __init__(self, message: str, status_code: int = 0, response_data: dict | None = None):
+        self.message = message
+        self.status_code = status_code
+        self.response_data = response_data or {}
+        super().__init__(self.message)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert error to dictionary for JSON output.
+
+        Returns:
+            Dictionary with error details
+        """
+        return {
+            "success": False,
+            "error": f"HTTP {self.status_code}" if self.status_code else "API Error",
+            "message": self.message,
+            "status_code": self.status_code,
+            "details": self.response_data
+        }
+
+    def to_json(self, indent: int = 2) -> str:
+        """Convert error to JSON string.
+
+        Args:
+            indent: JSON indentation (default: 2)
+
+        Returns:
+            JSON string representation
+        """
+        return json.dumps(self.to_dict(), indent=indent, ensure_ascii=False)
+
+
+def _get_diagnostic_suggestions(error: APIError, command_context: str | None = None) -> list[str]:
+    """Get diagnostic suggestions for common errors.
+
+    Args:
+        error: The API error that occurred
+        command_context: Context about which command was running
+
+    Returns:
+        List of diagnostic suggestions
+    """
+    suggestions = []
+
+    # HTTP 422 - Validation errors
+    if error.status_code == 422:
+        if "title" in str(error.response_data):
+            suggestions.append("- Missing required field: title")
+            suggestions.append("  Fix: Add -t, --title parameter")
+
+        if "priority" in str(error.response_data):
+            suggestions.append("- Invalid priority value")
+            suggestions.append("  Fix: Use one of: low, medium, high, critical")
+
+        if "status" in str(error.response_data):
+            suggestions.append("- Invalid status value")
+            if command_context == "requirement":
+                suggestions.append("  Fix: Use one of: draft, active, completed, archived")
+            else:
+                suggestions.append("  Fix: Use one of: open, in_progress, resolved, closed")
+
+        if "project_id" in str(error.response_data):
+            suggestions.append("- Missing or invalid project_id")
+            suggestions.append("  Fix: Set active project with 'opentask project use <ID>'")
+            suggestions.append("  Fix: Or add --project <ID> parameter")
+
+    # HTTP 401/403 - Authentication errors
+    if error.status_code in (401, 403):
+        suggestions.append("- Authentication failed")
+        suggestions.append("  Fix: Run 'opentask config login' to re-authenticate")
+        suggestions.append("  Fix: Or set new token with 'opentask config set-token <TOKEN>'")
+
+    # HTTP 404 - Not found
+    if error.status_code == 404:
+        suggestions.append("- Resource not found")
+        suggestions.append("  Fix: Check the ID is correct")
+        suggestions.append("  Fix: Verify you have access to this resource")
+
+    # Connection errors
+    if "Connection refused" in error.message or "timeout" in error.message.lower():
+        suggestions.append("- Cannot connect to API server")
+        suggestions.append("  Fix: Check if backend is running")
+        suggestions.append("  Fix: Verify API URL with 'opentask config show'")
+
+    return suggestions
+
+
+class VibeKingClient:
+    """HTTP client for OpenTask backend API.
+
+    Handles authentication, request/response formatting, and error handling.
+    """
+
+    def __init__(self, base_url: str = "http://localhost:7377", token: str | None = None, config: "Config | None" = None):
+        """Initialize API client.
+
+        Args:
+            base_url: Base URL of the backend API
+            token: JWT authentication token (optional)
+            config: Config object for auto-relogin (optional)
+        """
+        self.base_url = base_url.rstrip("/")
+        self.token = token
+        self.config = config
+        self.timeout = 30.0
+        self._relogin_attempts = 0  # Track relogin attempts to prevent infinite loops
+        self._max_relogin_attempts = 1  # Allow only one relogin attempt per request
+
+    def _get_headers(self) -> dict[str, str]:
+        """Get request headers with authentication.
+
+        Access Token takes priority over JWT token.
+        """
+        headers = {
+            "Content-Type": "application/json",
+        }
+        # Access Token 优先于 JWT token
+        effective_token = None
+        if self.config and self.config.access_token:
+            effective_token = self.config.access_token
+        elif self.token:
+            effective_token = self.token
+
+        if effective_token:
+            headers["Authorization"] = f"Bearer {effective_token}"
+        return headers
+
+    def _handle_response(self, response: httpx.Response) -> dict[str, Any]:
+        """Handle API response and extract data.
+
+        Supports multiple API response formats:
+        - Standard: {"code": 200, "data": {...}}
+        - FastAPI errors: {"detail": [...]}
+        - Simple errors: {"message": "..."}
+
+        Args:
+            response: HTTP response object
+
+        Returns:
+            Response data dictionary
+
+        Raises:
+            APIError: If request failed
+        """
+        try:
+            data = response.json()
+        except json.JSONDecodeError:
+            data = {}
+
+        # Extract error message from various formats
+        error_msg = None
+        status_code = None
+
+        # Format 1: Standard wrapper {"code": ..., "data": ..., "message": ...}
+        if "code" in data:
+            status_code = data["code"]
+            if status_code != 200:
+                # Try multiple fields for error message
+                error_msg = (
+                    data.get("message") or
+                    data.get("error") or
+                    data.get("msg") or
+                    f"HTTP {status_code}"
+                )
+                # Add detail if present (FastAPI validation errors)
+                if "detail" in data:
+                    detail = data["detail"]
+                    if isinstance(detail, list):
+                        # FastAPI validation error format
+                        detail_msgs = []
+                        for err in detail:
+                            loc = " -> ".join(str(l) for l in err.get("loc", []))
+                            msg = err.get("msg", "")
+                            if loc and msg:
+                                detail_msgs.append(f"{loc}: {msg}")
+                        if detail_msgs:
+                            error_msg = f"{error_msg}\n" + "\n".join(detail_msgs)
+                    elif isinstance(detail, str):
+                        error_msg = f"{error_msg}\n{detail}"
+                raise APIError(
+                    message=error_msg,
+                    status_code=status_code,
+                    response_data=data
+                )
+            return data.get("data", data)
+
+        # Format 2: FastAPI error format {"detail": [...]}
+        if "detail" in data:
+            detail = data["detail"]
+            if isinstance(detail, list):
+                # Validation errors - check if it's an error
+                if response.status_code >= 400 or any("msg" in item for item in detail):
+                    detail_msgs = []
+                    for err in detail:
+                        loc = " -> ".join(str(l) for l in err.get("loc", []))
+                        msg = err.get("msg", "")
+                        type_ = err.get("type", "")
+                        if loc and msg:
+                            detail_msgs.append(f"{loc}: {msg}")
+                    error_msg = "Validation error:\n" + "\n".join(detail_msgs)
+                    raise APIError(
+                        message=error_msg,
+                        status_code=response.status_code or 422,
+                        response_data=data
+                    )
+            elif isinstance(detail, str) and response.status_code >= 400:
+                error_msg = detail
+                raise APIError(
+                    message=error_msg,
+                    status_code=response.status_code,
+                    response_data=data
+                )
+
+        # Format 3: Simple error {"message": "...", "error": "..."}
+        if response.status_code >= 400:
+            error_msg = (
+                data.get("message") or
+                data.get("error") or
+                data.get("msg") or
+                f"HTTP {response.status_code}"
+            )
+            raise APIError(
+                message=error_msg,
+                status_code=response.status_code,
+                response_data=data
+            )
+
+        # Format 4: Successful response without code wrapper
+        return data
+
+    async def _request(
+        self,
+        method: str,
+        endpoint: str,
+        **kwargs
+    ) -> dict[str, Any]:
+        """Make async HTTP request.
+
+        Args:
+            method: HTTP method (GET, POST, PUT, DELETE)
+            endpoint: API endpoint path
+            **kwargs: Additional arguments for httpx
+
+        Returns:
+            Response data dictionary
+
+        Raises:
+            APIError: If request failed
+        """
+        url = f"{self.base_url}{endpoint}"
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.request(
+                    method=method,
+                    url=url,
+                    headers=self._get_headers(),
+                    **kwargs
+                )
+                return self._handle_response(response)
+
+        except httpx.TimeoutException:
+            # Reset counter on timeout
+            self._relogin_attempts = 0
+            raise APIError(f"Request timeout: {url}")
+        except httpx.ConnectError:
+            # Reset counter on connection error
+            self._relogin_attempts = 0
+            raise APIError(f"Connection refused: {url}")
+        except APIError as e:
+            # Access Token 失效时自动清理
+            if e.status_code in (401, 403) and self.config and self.config.access_token:
+                logger.warning("Access Token 失效，已自动清理")
+                self.config.delete("access_token")
+
+            # 401 处理链: refresh_token 刷新 → 凭据重登 → 清空凭据
+            # 防止无限循环:只允许一次刷新/重登尝试
+            if (e.status_code in (401, 403) and
+                self.config and
+                self._relogin_attempts < self._max_relogin_attempts):
+                return await self._handle_relogin(e, method, url, kwargs)
+
+            # Reset counter before raising the error
+            self._relogin_attempts = 0
+            raise
+        except Exception as e:
+            # Reset counter on other exceptions
+            self._relogin_attempts = 0
+            raise APIError(f"Request failed: {str(e)}")
+
+    def _clear_saved_credentials(self):
+        """清空保存的登录凭据（keyring + config）。
+
+        用于重登失败时（凭据已过期，或为迁移前保存的 JNPF 加密密文，
+        二者无法区分），避免后续请求继续用过期凭据重试。
+        """
+        if not self.config:
+            return
+
+        username = self.config.username
+        self.config.delete("a_u")
+        self.config.delete("a_p")
+        # refresh_token 已确认失效，一并清理
+        self.config.delete("refresh_token")
+
+        # 同步清理 keyring 中的凭据
+        if username:
+            try:
+                from .password_store import PasswordStore
+                if PasswordStore.is_available():
+                    PasswordStore.delete_password(username)
+            except Exception as e:
+                logger.warning(f"Failed to delete credentials from keyring: {e}")
+
+        logger.info("已清空保存的登录凭据，请重新执行 opentask login")
+
+    async def _handle_relogin(
+        self,
+        original_error: APIError,
+        method: str,
+        url: str,
+        kwargs: dict
+    ) -> dict[str, Any]:
+        """401/403 处理链：refresh_token 刷新 → 凭据重登 → 清空凭据。
+
+        1. 先尝试使用 config 中保存的 refresh_token 刷新 token；
+        2. 刷新失败（refresh_token 过期/不存在）则用保存的凭据明文重登一次；
+        3. 重登也失败（凭据过期，或为迁移前保存的 JNPF 加密密文）则清空
+           keyring/config 凭据并抛出明确错误，不无限重试。
+
+        Args:
+            original_error: 原请求抛出的 401/403 APIError
+            method: 原请求的 HTTP 方法
+            url: 原请求的完整 URL
+            kwargs: 原请求的 httpx 参数
+
+        Returns:
+            刷新/重登成功后重试原请求的响应数据
+
+        Raises:
+            APIError: 刷新与重登均失败，或重试原请求失败
+        """
+        # Increment relogin attempt counter（内部 login 的 401 不会再次触发本方法）
+        self._relogin_attempts += 1
+
+        try:
+            # 1) 先尝试使用 refresh_token 刷新
+            refreshed = await self.refresh()
+
+            if not refreshed:
+                # 2) 刷新失败，使用保存的凭据重新登录（明文密码）
+                if not (self.config.username and self.config.password):
+                    raise APIError(
+                        "登录已过期且未保存登录凭据，请重新执行 opentask login",
+                        status_code=original_error.status_code
+                    )
+
+                try:
+                    login_result = await self.login(
+                        self.config.username,
+                        self.config.password,
+                        _save_to_config=False  # Don't save again
+                    )
+
+                    new_token = login_result.get("token") or login_result.get("access_token")
+                    if not new_token:
+                        raise APIError("Relogin response did not contain token")
+                    self.token = new_token
+                    self.config.token = new_token
+                    new_refresh_token = login_result.get("refreshToken") or login_result.get("refresh_token")
+                    if new_refresh_token:
+                        self.config.refresh_token = new_refresh_token
+                except APIError:
+                    # 3) 重登失败：凭据已过期，或为迁移前保存的 JNPF 加密密文（无法区分）
+                    #    一律清空 keyring/config 凭据，要求用户重新登录
+                    self._clear_saved_credentials()
+                    raise APIError(
+                        "凭据已过期，请重新执行 opentask login",
+                        status_code=original_error.status_code
+                    ) from original_error
+
+            # Retry the original request
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.request(
+                    method=method,
+                    url=url,
+                    headers=self._get_headers(),
+                    **kwargs
+                )
+                # Reset counter on successful retry
+                self._relogin_attempts = 0
+                return self._handle_response(response)
+
+        except APIError:
+            self._relogin_attempts = 0
+            raise
+        except Exception as relogin_error:
+            # Reset counter and raise a clear error
+            self._relogin_attempts = 0
+            raise APIError(
+                f"Auto-relogin failed after 401/403: {str(relogin_error)}",
+                status_code=original_error.status_code
+            ) from relogin_error
+
+    async def get(self, endpoint: str, params: dict | None = None) -> dict[str, Any]:
+        """Make GET request."""
+        return await self._request("GET", endpoint, params=params)
+
+    async def post(self, endpoint: str, data: dict | None = None) -> dict[str, Any]:
+        """Make POST request."""
+        return await self._request("POST", endpoint, json=data)
+
+    async def put(self, endpoint: str, data: dict | None = None) -> dict[str, Any]:
+        """Make PUT request."""
+        return await self._request("PUT", endpoint, json=data)
+
+    async def delete(self, endpoint: str) -> dict[str, Any]:
+        """Make DELETE request."""
+        return await self._request("DELETE", endpoint)
+
+    # ============================================================================
+    # Project API
+    # ============================================================================
+
+    async def list_projects(self, active_only: bool = True) -> dict:
+        """List all projects.
+
+        Returns:
+            Dict with pagination: {"rows": [...], "total": N}
+        """
+        data = await self.get("/api/projects", params={"active_only": active_only})
+        # Handle both list and dict responses
+        if isinstance(data, list):
+            return {"rows": data, "total": len(data)}
+        return data
+
+    async def get_project(self, project_id: str) -> dict | None:
+        """Get project details."""
+        return await self.get(f"/api/projects/{project_id}")
+
+    async def create_project(self, name: str, description: str = "") -> dict:
+        """Create a new project."""
+        return await self.post("/api/projects", data={
+            "name": name,
+            "description": description
+        })
+
+    async def update_project(
+        self,
+        project_id: str,
+        name: str | None = None,
+        description: str | None = None
+    ) -> dict:
+        """Update project."""
+        data = {}
+        if name is not None:
+            data["name"] = name
+        if description is not None:
+            data["description"] = description
+        return await self.put(f"/api/projects/{project_id}", data=data)
+
+    async def delete_project(self, project_id: str) -> bool:
+        """Delete project."""
+        await self.delete(f"/api/projects/{project_id}")
+        return True
+
+    # ============================================================================
+    # Issue API
+    # ============================================================================
+
+    async def list_issues(
+        self,
+        page: int = 1,
+        page_size: int = 20,
+        type: str | None = None,
+        status: str | None = None,
+        priority: str | None = None,
+        project_id: str | None = None,
+        assignee_id: str | None = None,
+        search: str | None = None,
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
+        # Advanced filters
+        recent: bool = False,
+        updated_today: bool = False,
+        overdue: bool = False,
+        unassigned: bool = False
+    ) -> dict:
+        """List issues with filtering.
+
+        Args:
+            page: Page number (default: 1)
+            page_size: Page size (default: 20)
+            type: Filter by issue type
+            status: Filter by status
+            priority: Filter by priority
+            project_id: Filter by project ID
+            assignee_id: Filter by assignee ID
+            search: Search keyword
+            sort_by: Sort field (default: created_at)
+            sort_order: Sort order (asc/desc)
+            recent: Filter issues created in last 7 days
+            updated_today: Filter issues updated today
+            overdue: Filter overdue issues (due_date < today AND status IN (open, in_progress))
+            unassigned: Filter unassigned issues (assignee_id IS NULL)
+        """
+        params = {
+            "page": page,
+            "page_size": page_size,
+            "sort_by": sort_by,
+            "sort_order": sort_order
+        }
+        if type:
+            params["type"] = type
+        if status:
+            params["status"] = status
+        if priority:
+            params["priority"] = priority
+        if project_id:
+            params["project_id"] = project_id
+        if assignee_id:
+            params["assignee_id"] = assignee_id
+        if search:
+            params["search"] = search
+        if recent:
+            params["recent"] = "true"
+        if updated_today:
+            params["updated_today"] = "true"
+        if overdue:
+            params["overdue"] = "true"
+        if unassigned:
+            params["unassigned"] = "true"
+
+        return await self.get("/api/issues", params=params)
+
+    async def get_issue(self, issue_id: str, by_code: bool = False) -> dict:
+        """Get issue details.
+
+        Args:
+            issue_id: Issue ID or issue code
+            by_code: If True, query by issue_code; otherwise by ID (default)
+        """
+        params = {"by_code": "true"} if by_code else {}
+        return await self.get(f"/api/issues/{issue_id}", params=params)
+
+    async def create_issue(
+        self,
+        title: str,
+        description: str = "",
+        type: str = "task",
+        status: str = "open",
+        priority: str = "medium",
+        project_id: str | None = None,
+        assignee_id: str | None = None
+    ) -> dict:
+        """Create a new issue.
+
+        Reporter is automatically set by backend from JWT token.
+        """
+        # Normalize priority to API format
+        normalized_priority = _normalize_priority(priority)
+
+        data = {
+            "title": title,
+            "description": description,
+            "type": type,
+            "status": status,
+            "priority": normalized_priority,
+        }
+        if project_id:
+            data["project_id"] = project_id
+        if assignee_id:
+            data["assignee_id"] = assignee_id
+
+        return await self.post("/api/issues", data=data)
+
+    async def update_issue(self, issue_id: str, **kwargs) -> dict:
+        """Update issue.
+
+        Automatically converts CLI enum values to API format:
+        - priority: lowercase (already lowercase, no conversion needed)
+        """
+        # Normalize priority to API format
+        if "priority" in kwargs and kwargs["priority"]:
+            kwargs["priority"] = _normalize_priority(kwargs["priority"])
+
+        return await self.put(f"/api/issues/{issue_id}", data=kwargs)
+
+    async def delete_issue(self, issue_id: str) -> bool:
+        """Delete issue."""
+        await self.delete(f"/api/issues/{issue_id}")
+        return True
+
+    async def get_issues_by_ids(self, issue_ids: list[str]) -> dict:
+        """Batch get issues by IDs.
+
+        Args:
+            issue_ids: List of issue IDs (max 100)
+
+        Returns:
+            Response with issues list
+        """
+        return await self.post("/api/issues/batch", data={
+            "ids": issue_ids
+        })
+
+    async def update_issue_status(self, issue_id: str, status: str) -> dict:
+        """Quick update issue status."""
+        return await self.put(f"/api/issues/{issue_id}/status", params={"status": status})
+
+    async def update_issue_assignee(self, issue_id: str, assignee_id: str | None) -> dict:
+        """Quick update issue assignee."""
+        return await self.put(f"/api/issues/{issue_id}/assignee", params={"assignee_id": assignee_id})
+
+    async def update_issue_priority(self, issue_id: str, priority: str) -> dict:
+        """Quick update issue priority."""
+        return await self.put(f"/api/issues/{issue_id}/priority", params={"priority": priority})
+
+    async def add_comment(self, issue_id: str, content: str) -> dict:
+        """Add comment to issue."""
+        return await self.post(f"/api/issues/{issue_id}/comments", data={"content": content})
+
+    async def get_comments(self, issue_id: str) -> list[dict]:
+        """Get issue comments.
+
+        Returns:
+            List of comment dictionaries
+        """
+        data = await self.get(f"/api/issues/{issue_id}/comments")
+        rows = data.get("rows", []) if isinstance(data, dict) else data
+        return rows if isinstance(rows, list) else []
+
+    async def delete_comment(self, comment_id: str) -> bool:
+        """Delete a comment."""
+        await self.delete(f"/api/issues/comments/{comment_id}")
+        return True
+
+    # ============================================================================
+    # Issue Document API
+    # ============================================================================
+
+    async def get_issue_documents(self, issue_id: str) -> list:
+        """Get issue documents (attachments)."""
+        data = await self.get(f"/api/issues/{issue_id}/attachments")
+        return data if isinstance(data, list) else []
+
+    async def upload_issue_document(
+        self,
+        issue_id: str,
+        file_path: str,
+        description: str | None = None
+    ) -> dict:
+        """Upload document to issue.
+
+        Args:
+            issue_id: Issue ID
+            file_path: Path to file to upload
+            description: Optional description
+
+        Returns:
+            Uploaded document info
+        """
+        import httpx
+        import os
+
+        url = f"{self.base_url}/api/issues/{issue_id}/attachments"
+        headers = self._get_headers()
+        # Remove Content-Type to let httpx set multipart/form-data
+        headers.pop("Content-Type", None)
+
+        # Check file exists
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File not found: {file_path}")
+
+        # Get filename from path
+        filename = os.path.basename(file_path)
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            with open(file_path, "rb") as f:
+                files = {"file": (filename, f, "application/octet-stream")}
+                data = {}
+                if description:
+                    data["description"] = description
+
+                response = await client.post(
+                    url,
+                    files=files,
+                    data=data,
+                    headers=headers
+                )
+                return self._handle_response(response)
+
+    async def delete_issue_document(self, issue_id: str, document_id: str) -> bool:
+        """Delete issue document."""
+        await self.delete(f"/api/issues/{issue_id}/attachments/{document_id}")
+        return True
+
+    async def download_issue_document(self, issue_id: str, document_id: str, save_path: str) -> str:
+        """Download issue document.
+
+        Args:
+            issue_id: Issue ID
+            document_id: Document ID
+            save_path: Path to save the downloaded file
+
+        Returns:
+            Path where file was saved
+        """
+        import httpx
+        import os
+
+        url = f"{self.base_url}/api/issues/{issue_id}/attachments/{document_id}/download"
+        headers = self._get_headers()
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(url, headers=headers, follow_redirects=True)
+
+            if response.status_code >= 400:
+                raise APIError(f"Download failed: HTTP {response.status_code}", response.status_code)
+
+            # Get filename from Content-Disposition header or use save_path
+            content_disposition = response.headers.get("content-disposition", "")
+            filename = None
+
+            if content_disposition and "filename=" in content_disposition:
+                # Parse filename from header (handles UTF-8 encoding)
+                import urllib.parse
+                for part in content_disposition.split(";"):
+                    if "filename=" in part:
+                        filename = part.split("=", 1)[1].strip('" ')
+                        # Try UTF-8 decoding
+                        if filename.startswith("UTF-8''"):
+                            filename = urllib.parse.unquote(filename[7:])
+                        break
+
+            # Use save_path as directory if it's a directory, otherwise as full path
+            if os.path.isdir(save_path):
+                save_full_path = os.path.join(save_path, filename or f"document_{document_id}")
+            else:
+                save_full_path = save_path
+
+            # Write file
+            with open(save_full_path, "wb") as f:
+                f.write(response.content)
+
+            return save_full_path
+
+    # ============================================================================
+    # Auth API
+    # ============================================================================
+
+    async def login(self, username: str, password: str, _save_to_config: bool = True) -> dict:
+        """Login and get JWT token using local authentication.
+
+        Note: Phase 2 后端（jnpf_enabled=false）使用本地 bcrypt 校验，
+        密码以明文提交（不再需要 JNPF 加密）。
+
+        Args:
+            username: Username
+            password: Plaintext password
+            _save_to_config: Whether to save credentials to config (default True)
+
+        Returns:
+            Login response with token and refreshToken
+        """
+        result = await self.post("/api/auth/login", data={
+            "userName": username,
+            "password": password
+        })
+
+        # Save credentials and tokens to config if requested
+        if _save_to_config and self.config:
+            self.config.username = username
+            self.config.password = password
+            token = result.get("token") or result.get("access_token")
+            if token:
+                self.config.token = token
+                self.token = token
+            refresh_token = result.get("refreshToken") or result.get("refresh_token")
+            if refresh_token:
+                self.config.refresh_token = refresh_token
+
+        return result
+
+    async def refresh(self) -> bool:
+        """Use refresh_token to get a new access token.
+
+        读取 config 中保存的 refresh_token，调用 /api/auth/refresh-token；
+        成功后更新 config 中的 token 与 refresh_token 并返回 True；
+        refresh_token 失效（401）或其他任何异常返回 False。
+
+        Returns:
+            True if tokens were refreshed and saved, False otherwise
+        """
+        if not (self.config and self.config.refresh_token):
+            return False
+
+        url = f"{self.base_url}/api/auth/refresh-token"
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(
+                    url,
+                    json={"refreshToken": self.config.refresh_token},
+                    headers={"Content-Type": "application/json"}
+                )
+
+            if response.status_code != 200:
+                logger.warning(f"Refresh token failed: HTTP {response.status_code}")
+                return False
+
+            data = response.json()
+            # 兼容 {"code": 200, "data": {...}} 包装格式与裸格式
+            if data.get("code") is not None and data.get("code") != 200:
+                logger.warning(f"Refresh token failed: code={data.get('code')}")
+                return False
+            payload = data.get("data", data) if isinstance(data, dict) else {}
+            token = payload.get("token") or payload.get("access_token")
+            if not token:
+                return False
+
+            refresh_token = payload.get("refreshToken") or payload.get("refresh_token")
+
+            self.token = token
+            self.config.token = token
+            if refresh_token:
+                self.config.refresh_token = refresh_token
+            return True
+        except Exception as e:
+            logger.warning(f"Refresh token request failed: {e}")
+            return False
+
+    async def get_me(self) -> dict:
+        """Get current user info."""
+        return await self.get("/api/auth/getUserInfo")
+
+    def get_user_id_from_response(self, user_info: dict) -> str | None:
+        """Extract user ID from get_me() response.
+
+        Handles multiple response formats:
+        - Standard: {"data": {"id": "..."}}
+        - Direct: {"id": "..."}
+        - Alternative fields: userId, user_id
+
+        Args:
+            user_info: Response from get_me()
+
+        Returns:
+            User ID as string, or None if not found
+        """
+        # Try data wrapper first
+        data = user_info.get("data") if isinstance(user_info, dict) else user_info
+        if isinstance(data, dict):
+            user_id = data.get("id") or data.get("userId") or data.get("user_id")
+            if user_id:
+                return user_id
+
+        # Try direct fields
+        if isinstance(user_info, dict):
+            return user_info.get("id") or user_info.get("userId") or user_info.get("user_id")
+
+        return None
+
+    async def search_users(self, query: str) -> dict:
+        """Search users by name or account.
+
+        Args:
+            query: Search keyword for user name or account
+
+        Returns:
+            {
+                "code": 200,
+                "message": "success",
+                "data": [
+                    {
+                        "id": "uuid",
+                        "jnpf_user_id": "jnpf-id",
+                        "jnpf_account": "account",
+                        "jnpf_name": "Display Name"
+                    },
+                    ...
+                ],
+                "timestamp": 1234567890
+            }
+        """
+        return await self.get(f"/api/users/searchable?keyword={query}")
+
+    # ============================================================================
+    # Conversation API
+    # ============================================================================
+
+    async def list_conversations(self) -> list:
+        """List all conversations."""
+        data = await self.get("/api/conversations")
+        return data if isinstance(data, list) else []
+
+    async def create_conversation(self, title: str = "") -> dict:
+        """Create new conversation."""
+        return await self.post("/api/conversations", data={"title": title})
+
+    async def send_message(self, conversation_id: str, content: str) -> dict:
+        """Send message to conversation."""
+        return await self.post(f"/api/conversations/{conversation_id}/message", data={
+            "content": content
+        })
+
+    async def get_conversation_history(self, conversation_id: str) -> list:
+        """Get conversation history."""
+        data = await self.get(f"/api/conversations/{conversation_id}/history")
+        return data if isinstance(data, list) else []
+
+    # ============================================================================
+    # Git API
+    # ============================================================================
+
+    async def git_clone(self, repo_url: str, path: str) -> dict:
+        """Clone git repository."""
+        return await self.post("/api/git/clone", data={
+            "url": repo_url,
+            "path": path
+        })
+
+    async def git_status(self, path: str) -> dict:
+        """Get git status."""
+        return await self.get("/api/git/status", params={"path": path})
+
+    async def git_commit(self, path: str, message: str) -> dict:
+        """Commit changes."""
+        return await self.post("/api/git/commit", data={
+            "path": path,
+            "message": message
+        })
+
+    async def git_push(self, path: str) -> dict:
+        """Push changes."""
+        return await self.post("/api/git/push", data={"path": path})
+
+    # ============================================================================
+    # Requirement API
+    # ============================================================================
+
+    async def list_requirements(
+        self,
+        page: int = 1,
+        page_size: int = 50,
+        status: str | None = None,
+        priority: str | None = None,
+        project_id: str | None = None,
+        assignee_id: str | None = None,
+        # Advanced filters
+        recent: bool = False,
+        updated_today: bool = False,
+        unassigned: bool = False
+    ) -> dict:
+        """List requirements with filtering.
+
+        Args:
+            page: Page number (default: 1)
+            page_size: Page size (default: 50)
+            status: Filter by status
+            priority: Filter by priority
+            project_id: Filter by project ID
+            assignee_id: Filter by assignee ID
+            recent: Filter requirements created in last 7 days
+            updated_today: Filter requirements updated today
+            unassigned: Filter unassigned requirements (assignee_id IS NULL)
+        """
+        params = {
+            "page": page,
+            "page_size": page_size
+        }
+        if status:
+            params["status"] = status
+        if priority:
+            params["priority"] = priority
+        if project_id:
+            params["project_id"] = project_id
+        if assignee_id:
+            params["assignee_id"] = assignee_id
+        if recent:
+            params["recent"] = "true"
+        if updated_today:
+            params["updated_today"] = "true"
+        if unassigned:
+            params["unassigned"] = "true"
+
+        return await self.get("/api/requirements", params=params)
+
+    async def get_requirement(self, requirement_id: str) -> dict:
+        """Get requirement details.
+
+        Automatically detects if requirement_id is:
+        - A code (格式: 需求2025-xxx, 需求2026-xxx) -> uses /api/requirements/by-code/{code}
+        - A UUID -> uses /api/requirements/{id}
+
+        Args:
+            requirement_id: Requirement code (需求2026-112) or UUID
+
+        Returns:
+            Requirement details
+        """
+        import re
+
+        # 检测是否为 code 格式（需求2025-xxx, 需求2026-xxx 等）
+        code_pattern = r'^需求\d{4}-\d+$'
+        if re.match(code_pattern, requirement_id):
+            # 使用 by-code 端点
+            return await self.get(f"/api/requirements/by-code/{requirement_id}")
+        else:
+            # 使用 ID 端点
+            return await self.get(f"/api/requirements/{requirement_id}")
+
+    async def create_requirement(
+        self,
+        title: str,
+        description: str = "",
+        status: str = "planning",
+        priority: str = "medium",
+        project_id: str | None = None,
+        assignee_id: str | None = None
+    ) -> dict:
+        """Create a new requirement.
+
+        Automatically converts CLI enum values to API format:
+        - priority: lowercase (already lowercase, no conversion needed)
+        - status: draft -> DRAFT, active -> CLARIFYING, etc.
+        """
+        # Normalize enum values to API format
+        normalized_priority = _normalize_priority(priority)
+        normalized_status = _normalize_requirement_status(status)
+
+        return await self.post("/api/requirements", data={
+            "title": title,
+            "description": description,
+            "status": normalized_status,
+            "priority": normalized_priority,
+            "project_id": project_id,
+            "assignee_id": assignee_id
+        })
+
+    async def update_requirement(self, requirement_id: str, **kwargs) -> dict:
+        """Update requirement.
+
+        Automatically converts CLI enum values to API format:
+        - priority: lowercase (already lowercase, no conversion needed)
+        - status: draft -> DRAFT, active -> CLARIFYING, reviewing -> REVIEWING, etc.
+        """
+        # Normalize enum values to API format
+        if "priority" in kwargs and kwargs["priority"]:
+            kwargs["priority"] = _normalize_priority(kwargs["priority"])
+        if "status" in kwargs and kwargs["status"]:
+            kwargs["status"] = _normalize_requirement_status(kwargs["status"])
+
+        return await self.put(f"/api/requirements/{requirement_id}", data=kwargs)
+
+    async def delete_requirement(self, requirement_id: str) -> bool:
+        """Delete requirement."""
+        await self.delete(f"/api/requirements/{requirement_id}")
+        return True
+
+    async def assign_requirement(self, requirement_id: str, assignee_id: str) -> dict:
+        """Assign requirement to user."""
+        return await self.post(f"/api/requirements/{requirement_id}/assign", data={
+            "assignee_id": assignee_id
+        })
+
+    async def search_requirements(self, keyword: str, limit: int = 20) -> list:
+        """Search requirements by keyword."""
+        result = await self.get("/api/requirements/search", params={
+            "q": keyword,
+            "limit": limit
+        })
+        return result if isinstance(result, list) else []
+
+    # ============================================================================
+    # Issue Collection API
+    # ============================================================================
+
+    async def list_collections(
+        self,
+        page: int = 1,
+        page_size: int = 20,
+        status: str | None = None,
+        creator_id: str | None = None,
+        search: str | None = None,
+        sort_by: str = "created_at",
+        sort_order: str = "desc"
+    ) -> dict:
+        """List issue collections with filtering."""
+        params = {
+            "page": page,
+            "page_size": page_size,
+            "sort_by": sort_by,
+            "sort_order": sort_order
+        }
+        if status:
+            params["status"] = status
+        if creator_id:
+            params["creator_id"] = creator_id
+        if search:
+            params["search"] = search
+
+        return await self.get("/api/issue-collections", params=params)
+
+    async def get_collection(self, collection_id: str) -> dict:
+        """Get issue collection details."""
+        return await self.get(f"/api/issue-collections/{collection_id}")
+
+    async def get_collection_statistics(self, collection_id: str) -> dict:
+        """Get issue collection statistics."""
+        return await self.get(f"/api/issue-collections/{collection_id}/statistics")
+
+    async def create_collection(
+        self,
+        title: str,
+        description: str = "",
+        status: str = "draft"
+    ) -> dict:
+        """Create a new issue collection."""
+        return await self.post("/api/issue-collections", data={
+            "title": title,
+            "description": description,
+            "status": status
+        })
+
+    async def update_collection(self, collection_id: str, **kwargs) -> dict:
+        """Update issue collection."""
+        return await self.put(f"/api/issue-collections/{collection_id}", data=kwargs)
+
+    async def delete_collection(self, collection_id: str) -> bool:
+        """Delete issue collection."""
+        await self.delete(f"/api/issue-collections/{collection_id}")
+        return True
+
+    async def parse_collection(
+        self,
+        collection_id: str,
+        issues: list[dict]
+    ) -> dict:
+        """Parse collection and create issues.
+
+        Args:
+            collection_id: Collection ID
+            issues: List of issue data dictionaries
+
+        Returns:
+            Response with parsed_count and issue_ids
+        """
+        return await self.post(f"/api/issue-collections/{collection_id}/parse", data={
+            "issues": issues
+        })
+
+    # ============================================================================
+    # 需求评论相关方法
+    # ============================================================================
+
+    async def get_requirement_comments(self, requirement_id: str) -> dict:
+        """Get requirement comments."""
+        return await self.get(f"/api/requirements/{requirement_id}/comments")
+
+    async def add_requirement_comment(
+        self,
+        requirement_id: str,
+        content: str
+    ) -> dict:
+        """Add comment to requirement."""
+        # 使用 FormData 发送
+        import httpx
+
+        url = f"{self.base_url}/api/requirements/{requirement_id}/comments"
+        headers = self._get_headers()
+
+        # 移除 Content-Type，让 httpx 自动设置 multipart/form-data
+        headers.pop("Content-Type", None)
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(
+                url,
+                data={"content": content},
+                headers=headers
+            )
+            return self._handle_response(response)
+
+    async def update_requirement_comment(
+        self,
+        comment_id: str,
+        content: str
+    ) -> dict:
+        """Update requirement comment."""
+        import httpx
+
+        url = f"{self.base_url}/api/comments/{comment_id}"
+        headers = self._get_headers()
+
+        # 移除 Content-Type，让 httpx 自动设置 multipart/form-data
+        headers.pop("Content-Type", None)
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.put(
+                url,
+                data={"content": content},
+                headers=headers
+            )
+            return self._handle_response(response)
+
+    async def delete_requirement_comment(self, comment_id: str) -> dict:
+        """Delete requirement comment."""
+        return await self.delete(f"/api/comments/{comment_id}")
+
+    # ============================================================================
+    # Task Methods
+    # ============================================================================
+
+    async def get_task_prompt(self, task_id: str) -> dict:
+        """Get task prompt for AI Agent execution.
+
+        Args:
+            task_id: Task ID
+
+        Returns:
+            Task prompt response with structured Markdown prompt
+        """
+        return await self.get(f"/api/tasks/{task_id}/prompt")
+
+    async def create_pge_task(self, task_data: dict) -> dict:
+        """Create a new PGE task with 3 subtasks.
+
+        Args:
+            task_data: Task creation data
+                - requirement_id: str
+                - title: str
+                - description: str (optional)
+                - framework: str (default "PGE")
+                - required_skills: list[str] (optional)
+
+        Returns:
+            Created task response with subtasks
+        """
+        return await self.post("/api/tasks", data=task_data)
+
+    async def list_tasks(
+        self,
+        requirement_id: str | None = None,
+        status: str | None = None,
+        limit: int = 20,
+        offset: int = 0
+    ) -> dict:
+        """List tasks with optional filtering.
+
+        Args:
+            requirement_id: Filter by requirement ID
+            status: Filter by status
+            limit: Page size (default 20)
+            offset: Page offset (default 0)
+
+        Returns:
+            Tasks list response
+        """
+        params = {}
+        if requirement_id:
+            params["requirement_id"] = requirement_id
+        if status:
+            params["status"] = status
+        if limit:
+            params["limit"] = limit
+        if offset:
+            params["offset"] = offset
+
+        return await self.get("/api/tasks", params=params)
+
+    # ============================================================================
+    # Requirement Document API
+    # ============================================================================
+
+    async def get_requirement_documents(self, requirement_id: str) -> dict:
+        """Get requirement documents.
+
+        Returns:
+            Dict with documents list: {"data": [...], "total": N}
+        """
+        return await self.get(f"/api/requirements/{requirement_id}/documents")
+
+    async def upload_requirement_document(
+        self,
+        requirement_id: str,
+        file_path: str,
+        doc_status: str = "DRAFT"
+    ) -> dict:
+        """Upload document to requirement.
+
+        Args:
+            requirement_id: Requirement ID
+            file_path: Path to file to upload
+            doc_status: Document status (DRAFT, PUBLISHED, ARCHIVED)
+
+        Returns:
+            Uploaded document info
+        """
+        import httpx
+        import os
+
+        url = f"{self.base_url}/api/requirements/{requirement_id}/documents"
+        headers = self._get_headers()
+        # Remove Content-Type to let httpx set multipart/form-data
+        headers.pop("Content-Type", None)
+
+        # Check file exists
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File not found: {file_path}")
+
+        # Get filename from path
+        filename = os.path.basename(file_path)
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            with open(file_path, "rb") as f:
+                files = {"file": (filename, f, "application/octet-stream")}
+                data = {"doc_status": doc_status}
+
+                response = await client.post(
+                    url,
+                    files=files,
+                    data=data,
+                    headers=headers
+                )
+                return self._handle_response(response)
+
+    async def delete_requirement_document(self, requirement_id: str, document_id: str) -> bool:
+        """Delete requirement document."""
+        await self.delete(f"/api/requirements/{requirement_id}/documents/{document_id}")
+        return True
+
+    async def download_requirement_document(self, requirement_id: str, document_id: str, save_path: str) -> str:
+        """Download requirement document.
+
+        Args:
+            requirement_id: Requirement ID
+            document_id: Document ID
+            save_path: Path to save the downloaded file
+
+        Returns:
+            Path where file was saved
+        """
+        import httpx
+        import os
+
+        url = f"{self.base_url}/api/requirements/{requirement_id}/documents/{document_id}/download"
+        headers = self._get_headers()
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(url, headers=headers, follow_redirects=True)
+
+            if response.status_code >= 400:
+                raise APIError(f"Download failed: HTTP {response.status_code}", response.status_code)
+
+            # Get filename from Content-Disposition header or use save_path
+            content_disposition = response.headers.get("content-disposition", "")
+            filename = None
+
+            if content_disposition and "filename=" in content_disposition:
+                # Parse filename from header (handles UTF-8 encoding)
+                import urllib.parse
+                for part in content_disposition.split(";"):
+                    if "filename=" in part:
+                        filename = part.split("=", 1)[1].strip('" ')
+                        # Try UTF-8 decoding
+                        if filename.startswith("UTF-8''"):
+                            filename = urllib.parse.unquote(filename[7:])
+                        break
+
+            # Use save_path as directory if it's a directory, otherwise as full path
+            if os.path.isdir(save_path):
+                save_full_path = os.path.join(save_path, filename or f"document_{document_id}")
+            else:
+                save_full_path = save_path
+
+            # Write file
+            with open(save_full_path, "wb") as f:
+                f.write(response.content)
+
+            return save_full_path

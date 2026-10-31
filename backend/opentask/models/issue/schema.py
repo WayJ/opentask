@@ -1,0 +1,307 @@
+"""Issue 相关的 Pydantic Schemas"""
+from datetime import datetime
+from typing import Optional, List, Any
+from pydantic import BaseModel, Field, ConfigDict, field_validator
+
+
+from .enums import IssueType, IssueStatus, IssuePriority, CommentType, RelationType, TimelineAction
+
+
+# ============================================================================
+# Common Schemas
+# ============================================================================
+
+class UserInfo(BaseModel):
+    """用户基本信息"""
+    id: str
+    name: Optional[str] = Field(None, description="用户名")
+    jnpf_name: Optional[str] = Field(None, description="JNPF 用户名称")
+    jnpf_account: Optional[str] = Field(None, description="JNPF 账号")
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        populate_by_name=True,
+        # 确保所有字段都序列化，即使为 None
+        ser_json_timedelta='iso8601',
+        use_enum_values=False
+    )
+
+
+# ============================================================================
+# Issue Schemas
+# ============================================================================
+
+class IssueBase(BaseModel):
+    """Issue 基础 Schema"""
+    title: str = Field(..., min_length=1, max_length=255, description="标题")
+    description: Optional[str] = Field(None, description="描述")
+    type: IssueType = Field(default=IssueType.BUG, description="类型")
+    status: IssueStatus = Field(default=IssueStatus.OPEN, description="状态")
+    priority: IssuePriority = Field(default=IssuePriority.MEDIUM, description="优先级")
+    project_id: Optional[str] = Field(None, description="项目 ID")
+    task_id: Optional[str] = Field(None, description="任务 ID")
+    requirement_id: Optional[str] = Field(None, description="需求 ID")
+    assignee_id: Optional[str] = Field(None, description="负责人 ID")
+    reporter_id: Optional[str] = Field(None, description="报告人 ID [可选：默认为当前用户]")
+    position: Optional[int] = Field(None, description="排序位置")
+    due_date: Optional[datetime] = Field(None, description="截止日期")
+    estimated_hours: Optional[float] = Field(None, ge=0, description="预估工时")
+    actual_hours: Optional[float] = Field(None, ge=0, description="实际工时")
+
+
+class IssueCreate(IssueBase):
+    """创建 Issue Schema"""
+    pass
+
+
+class IssueUpdate(BaseModel):
+    """更新 Issue Schema"""
+    title: Optional[str] = Field(None, min_length=1, max_length=255)
+    description: Optional[str] = None
+    type: Optional[IssueType] = None
+    status: Optional[IssueStatus] = None
+    priority: Optional[IssuePriority] = None
+    project_id: Optional[str] = None
+    task_id: Optional[str] = None
+    requirement_id: Optional[str] = None
+    assignee_id: Optional[str] = None
+    reporter_id: Optional[str] = None
+    position: Optional[int] = None
+    due_date: Optional[datetime] = None
+    estimated_hours: Optional[float] = None
+    actual_hours: Optional[float] = None
+
+
+class ProjectInfo(BaseModel):
+    """项目基本信息"""
+    id: str
+    name: str
+    description: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class IssueResponse(IssueBase):
+    """Issue 响应 Schema"""
+    id: str
+    issue_code: str
+    view_count: int
+    comment_count: int
+    attachment_count: int
+    started_at: Optional[datetime]
+    resolved_at: Optional[datetime]
+    closed_at: Optional[datetime]
+    is_deleted: bool
+    created_at: datetime
+    updated_at: datetime
+    created_by: Optional[str]
+    updated_by: Optional[str]
+    project: Optional[ProjectInfo] = Field(None, description="关联项目")
+    assignee: Optional[UserInfo] = Field(None, description="负责人信息")
+    reporter: Optional[UserInfo] = Field(None, description="报告人信息")
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator('assignee', 'reporter', mode='before')
+    @classmethod
+    def convert_user_model_to_info(cls, v: Any) -> Optional[UserInfo]:
+        """将 UserModel 转换为 UserInfo"""
+        if v is None:
+            return None
+        if isinstance(v, UserInfo):
+            return v
+        # 如果是 UserModel 对象或其他对象，提取 id、name、jnpf_name、jnpf_account
+        if hasattr(v, 'id'):
+            user_id = str(v.id) if v.id else None
+            user_name = getattr(v, 'name', None)
+            jnpf_name = getattr(v, 'jnpf_name', None)
+            jnpf_account = getattr(v, 'jnpf_account', None)
+            if user_id:
+                return UserInfo(
+                    id=user_id,
+                    name=user_name,
+                    jnpf_name=jnpf_name,
+                    jnpf_account=jnpf_account
+                )
+        return None
+
+
+class IssueListResponse(BaseModel):
+    """Issue 列表响应 Schema"""
+    total: int = Field(..., description="总数")
+    items: List[IssueResponse] = Field(..., description="Issue 列表")
+
+
+# ============================================================================
+# Issue Comment Schemas
+# ============================================================================
+
+class IssueCommentBase(BaseModel):
+    """评论基础 Schema"""
+    content: str = Field(..., min_length=1, description="评论内容")
+    parent_id: Optional[str] = Field(None, description="父评论 ID")
+    comment_type: str = Field(default="comment", description="评论类型")  # 改为字符串类型
+    meta_data: Optional[dict] = Field(None, description="元数据")
+
+
+class IssueCommentRequest(BaseModel):
+    """添加评论请求 Schema"""
+    content: str = Field(..., min_length=1, max_length=500, description="评论内容（1-500字符）")
+    parent_id: Optional[str] = Field(None, description="父评论 ID")
+
+
+class IssueCommentCreate(IssueCommentBase):
+    """创建评论 Schema"""
+    issue_id: str = Field(..., description="Issue ID")
+    user_id: str = Field(..., description="用户 ID")
+
+
+class IssueCommentUpdate(BaseModel):
+    """更新评论 Schema"""
+    content: Optional[str] = Field(None, min_length=1, max_length=500)
+
+
+class IssueCommentResponse(IssueCommentBase):
+    """评论响应 Schema"""
+    id: str
+    issue_id: str
+    user_id: str
+    is_deleted: bool
+    created_at: datetime
+    updated_at: datetime
+    user_info: Optional[UserInfo] = Field(None, description="用户信息")
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator('comment_type', mode='before')
+    @classmethod
+    def convert_comment_type(cls, v: Any) -> str:
+        """将枚举值转换为小写字符串"""
+        if isinstance(v, CommentType):
+            return v.value
+        return str(v).lower() if v else "comment"
+
+
+# ============================================================================
+# Issue Relation Schemas
+# ============================================================================
+
+class IssueRelationBase(BaseModel):
+    """Issue 关系基础 Schema"""
+    target_id: str = Field(..., description="目标 Issue ID")
+    relation_type: RelationType = Field(..., description="关系类型")
+
+
+class IssueRelationCreate(IssueRelationBase):
+    """创建关系 Schema"""
+    source_id: str = Field(..., description="源 Issue ID")
+
+
+class IssueRelationResponse(IssueRelationBase):
+    """关系响应 Schema"""
+    id: int
+    source_id: str
+    created_at: datetime
+    created_by: Optional[str]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ============================================================================
+# Issue Timeline Schemas
+# ============================================================================
+
+class IssueTimelineResponse(BaseModel):
+    """时间线响应 Schema"""
+    id: str
+    issue_id: str
+    user_id: Optional[str]
+    action_type: TimelineAction
+    action_data: Optional[dict]
+    created_at: datetime
+    user_info: Optional[UserInfo] = Field(None, description="用户信息")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ============================================================================
+# Query Params Schemas
+# ============================================================================
+
+class IssueQueryParams(BaseModel):
+    """Issue 查询参数"""
+    page: int = Field(1, ge=1, description="页码")
+    page_size: int = Field(20, ge=1, le=100, description="每页数量")
+    type: Optional[IssueType] = Field(None, description="类型筛选")
+    status: Optional[IssueStatus] = Field(None, description="状态筛选")
+    priority: Optional[IssuePriority] = Field(None, description="优先级筛选")
+    project_id: Optional[str] = Field(None, description="项目 ID")
+    assignee_id: Optional[str] = Field(None, description="负责人 ID")
+    reporter_id: Optional[str] = Field(None, description="报告人 ID")
+    search: Optional[str] = Field(None, description="搜索关键词")
+    sort_by: str = Field("created_at", description="排序字段")
+    sort_order: str = Field("desc", pattern="^(asc|desc)$", description="排序方向")
+
+
+# ============================================================================
+# Bulk Operation Schemas
+# ============================================================================
+
+class IssueBulkUpdate(BaseModel):
+    """批量更新 Schema"""
+    issue_ids: List[str] = Field(..., min_length=1, description="Issue ID 列表")
+    status: Optional[IssueStatus] = None
+    priority: Optional[IssuePriority] = None
+    assignee_id: Optional[str] = None
+
+
+class IssueBulkDelete(BaseModel):
+    """批量删除 Schema"""
+    issue_ids: List[str] = Field(..., min_length=1, description="Issue ID 列表")
+
+
+# ============================================================================
+# Statistics Schemas
+# ============================================================================
+
+class IssueStatistics(BaseModel):
+    """Issue 统计信息"""
+    total: int = Field(..., description="总数")
+    by_status: dict[str, int] = Field(..., description="按状态统计")
+    by_priority: dict[str, int] = Field(..., description="按优先级统计")
+    by_type: dict[str, int] = Field(..., description="按类型统计")
+    open_count: int = Field(..., description="待处理数量")
+    in_progress_count: int = Field(..., description="进行中数量")
+    resolved_count: int = Field(..., description="已解决数量")
+    closed_count: int = Field(..., description="已关闭数量")
+
+
+# ============================================================================
+# Issue Reaction Schemas
+# ============================================================================
+
+class IssueReactionBase(BaseModel):
+    """反应基础 Schema"""
+    emoji: str = Field(..., max_length=10, description="表情符号")
+
+
+class IssueReactionCreate(IssueReactionBase):
+    """创建反应 Schema"""
+    pass
+
+
+class IssueReactionResponse(IssueReactionBase):
+    """反应响应 Schema"""
+    id: int
+    issue_id: str
+    user_id: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class IssueReactionStats(BaseModel):
+    """反应统计 Schema"""
+    emoji: str = Field(..., description="表情符号")
+    count: int = Field(..., description="反应数量")
+    users: List[str] = Field(..., description="反应用户列表")

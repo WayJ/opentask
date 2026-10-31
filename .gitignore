@@ -1,0 +1,136 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+# build/
+develop-eggs/
+dist/
+downloads/
+node_modules/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.pytest_cache/
+.coverage
+.memory-ants/
+.ant-colony/
+htmlcov/
+*.cover
+.hypothesis/
+.mypy_cache/
+.playwright-mcp/
+.serena/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+nul
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+./*.png
+# UV
+.uv/
+uv.lock
+./*.png
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Node.js / Vue
+node_modules/
+dist/
+.nuxt/
+.output/
+.vite/
+.cache/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+# 除 .env.example 外的所有 .env.* 文件均不提交（.env.example 是纯占位符模板，需入库）
+.env.*
+!.env.example
+backend/.env.local
+backend/.env.mysql
+frontend/.env.local
+frontend/.env.test.local
+
+# Config overrides (local only)
+config/local.yaml
+config/*.local.yaml
+backend/config/local.yaml
+backend/config/*.local.yaml
+
+# Entire local settings
+.entire/settings.local.json
+.entire/
+
+# Claude
+.claude/
+
+# Service status (local only)
+.service-status.json
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Spec workflow (local)
+.spec-workflow/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+
+# Test files and scripts
+backend/test_*.py
+backend/reset_password.py
+dev-start.sh
+dev-stop.sh
+
+# Backup directories
+*_backup/
+versions_backup/
+
+# Lock files (use pnpm-lock.yaml instead)
+bun.lock/
+bun.lock
+
+# Git worktrees
+.worktrees/
+worktrees/
+.opentask-workflow
+opentask-todo.txt
+opentask-works.txt.superpowers/
+.smoke/

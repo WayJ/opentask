@@ -1,0 +1,77 @@
+# OpenTask 默认配置
+# 此文件可提交到版本控制
+
+app:
+  name: "OpenTask"
+  environment: "development"
+  debug: true
+
+server:
+  host: "0.0.0.0"
+  port: 7377
+
+database:
+  # MySQL 配置
+  mysql:
+    host: "localhost"
+    port: 3306
+    user: "root"
+    password: "changeme"
+    database: "opentask"
+    echo: true
+
+auth:
+  # 基础认证（真实值请放在 config/local.yaml，不提交）
+  username: "admin"
+  password: "changeme"
+  # secret_key: 生产必须通过环境变量 AUTH_SECRET_KEY 注入，禁止提交真实值
+
+cors:
+  # 允许的跨域来源
+  allowed_origins:
+    - "http://localhost:5173"
+    - "http://localhost:7377"
+    - "http://0.0.0.0:5173"
+    - "http://0.0.0.0:7377"
+
+# AI 模型配置
+ai:
+  openai:
+    api_key: ""
+    base_url: ""
+  default_model: "openai/gpt4"
+  max_tokens: 8192
+  available_models:
+    - "glm-4-air-0111"
+    - "glm-4.6"
+
+# 文件存储
+storage:
+  data_directory: "./data"
+  templates_path: "./templates"
+  assets_path: "./assets"
+
+# API 配置
+api:
+  # OpenTask API 前缀
+  prefix: "/api"
+  # JNPF API 前缀（用于 nginx 代理）
+  jnpf_prefix: "/jnpf-api"
+
+# JNPF 平台配置
+jnpf:
+  # JNPF 基础地址（后端直接调用）
+  base_url: "http://localhost:29080"
+  # JNPF 系统编码
+  app_code: "workSystem"
+  # 请求超时（秒）
+  timeout: 10
+
+# 任务监控服务配置
+task_monitor:
+  # 是否启用任务监控服务（true/false）
+  enabled: false
+  # 检查间隔（分钟）
+  check_interval_minutes: 5
+  # 超时时间（小时）
+  timeout_hours: 1

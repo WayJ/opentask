@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opentask"
+version = "1.0.6"
+description = "OpenTask CLI - AI Agent interface for OpenTask platform"
+readme = "CLI_README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "OpenTask Team", email = "support@opentask.com"}
+]
+keywords = ["cli", "opentask", "ai", "agent", "productivity"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Build Tools",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "click>=8.0.0",
+    "httpx>=0.24.0",
+    "python-dotenv>=1.0.0",
+    "pycryptodome>=3.19.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "mypy>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://gitlab.example.com/opentask/agent-harness"
+Documentation = "https://docs.opentask.com/cli"
+Repository = "https://gitlab.example.com/opentask/agent-harness"
+"Bug Tracker" = "https://gitlab.example.com/opentask/agent-harness/issues"
+
+[project.scripts]
+opentask = "opentask.opentask_cli:cli"
+
+[tool.setuptools]
+packages = ["opentask", "opentask.core", "opentask.utils", "opentask.tests"]
+
+[tool.setuptools.package-data]
+opentask = ["**/*.md", "**/*.json"]
+
+[tool.black]
+line-length = 100
+target-version = ['py38', 'py39', 'py310', 'py311']
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+# Disable asyncio auto-mode to avoid I/O capture issues on Windows
+asyncio_mode = "strict"
+addopts = "-v --tb=short"

@@ -1,0 +1,66 @@
+# 开发环境配置
+# 此文件可提交到版本控制
+
+# 应用配置
+app:
+  environment: "development"
+  debug: true
+
+# 服务器配置
+server:
+  host: "0.0.0.0"
+  port: 7377
+
+# 数据库配置
+database:
+  mysql:
+    host: "localhost"
+    port: 3306
+    user: "root"
+    password: "changeme"
+    database: "opentask"
+    echo: true
+
+# 认证配置
+auth:
+  username: "admin"
+  password: "changeme"
+
+# CORS 配置
+cors:
+  allowed_origins:
+    - "http://localhost:5173"
+    - "http://localhost:7377"
+    - "http://0.0.0.0:5173"
+    - "http://0.0.0.0:7377"
+
+# AI 模型配置
+ai:
+  openai:
+    api_key: ""
+    base_url: ""
+  default_model: "openai/gpt4"
+  max_tokens: 8192
+
+# 存储配置
+storage:
+  data_directory: "./data"
+  provider: "minio"  # minio 或 local
+
+# MinIO 对象存储配置
+minio:
+  endpoint: "localhost:9000"  # API 端口（9000，不是 9001）
+  access_key: "minioadmin"
+  secret_key: "minioadmin"
+  bucket: "default"
+  secure: false  # HTTP（开发环境）
+
+
+# JNPF 平台配置
+jnpf:
+  # JNPF 基础地址（后端直接调用）
+  base_url: "http://localhost:29080"
+  # JNPF 系统编码
+  app_code: "workSystem"
+  # 请求超时（秒）
+  timeout: 10

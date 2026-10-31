@@ -1,0 +1,101 @@
+/**
+ * DESIGN 主题令牌层（视觉真源：仓库根目录 DESIGN.md「小蓝 CoWork 管理端」）
+ *
+ * - 亮色令牌定义在 :root，暗色整组替换在 html.dark（对齐 toggleCssDarkMode 的 html.dark 机制）
+ * - 命名统一 --vk- 前缀，避免与旧 design-system.css 变量冲突
+ * - 改令牌先改 DESIGN.md，再同步本文件
+ */
+:root {
+  /* 结构色 */
+  --vk-bg: #f6f5f1; /* 页面与侧栏画布 */
+  --vk-paper: #ffffff; /* 卡片、搜索与筛选输入、浮层表面 */
+  --vk-ink: #252821; /* 主文字、亮色主按钮与选中导航 */
+  --vk-muted: #6a6e64; /* 次文字、辅助图标 */
+  --vk-placeholder: #757575; /* 输入占位文字 */
+  --vk-line: #e7e8e1; /* 1px 分隔与边框 */
+  --vk-soft: #f0f1eb; /* 内嵌底、悬停与中性提示 */
+
+  /* 强调（珊瑚橙） */
+  --vk-accent: #e87652; /* 重点、图表、焦点 */
+  --vk-accent-soft: #fbede7; /* 选中与强调浅底 */
+  --vk-accent-ink: #a64d32; /* 浅底上的强调文字、主按钮 hover */
+
+  /* 语义色：图形 / 文字 / 底色 */
+  --vk-green: #56836a;
+  --vk-green-soft: #edf4eb;
+  --vk-success-ink: #426650;
+  --vk-yellow: #ab8840;
+  --vk-warning-soft: #f9f4e8;
+  --vk-warning-ink: #806228;
+  --vk-error: #af3d35;
+  --vk-error-soft: #fff0ed;
+
+  /* 固定深底品牌块（亮暗通用） */
+  --vk-hero-ink: #f5f5ee;
+  --vk-hero-muted: #c1c7b8;
+  --vk-hero-bg: #353e31;
+
+  /* 实心主操作 / 选中导航：亮色为墨底纸字，暗色整组替换为浅底深字 */
+  --vk-solid-bg: #252821;
+  --vk-solid-fg: #ffffff;
+
+  /* 圆角 */
+  --vk-radius-micro: 5px; /* 角标、状态标签、进度细条 */
+  --vk-radius-compact: 6px; /* 搜索、筛选、分段容器 */
+  --vk-radius-control: 7px; /* Web 按钮、输入、导航行 */
+  --vk-radius-touch: 12px; /* 移动控件、列表与用户菜单 */
+  --vk-radius-card: 16px;
+  --vk-radius-drawer: 15px;
+  --vk-radius-dialog: 17px;
+  --vk-radius-sheet: 22px; /* 底部弹层上方两角 */
+
+  /* 字号 */
+  --vk-font-micro: 10px; /* 图例、角标、非主要信息 */
+  --vk-font-caption: 11px; /* 辅助文字 */
+  --vk-font-button: 11px; /* 默认 Web 按钮（500 字重） */
+  --vk-font-dense: 12px; /* 业务表格、表单、对象名称 */
+  --vk-font-body: 13px; /* 正文 */
+  --vk-font-title: 15px; /* 模块标题；紧凑卡头 13px */
+  --vk-font-display: 30px; /* 页面标题 */
+  --vk-font-stat: 33px; /* 指标主数值 */
+
+  /* 字体 */
+  --vk-font-family: Inter, -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+
+  /* 阴影（浮层用；卡片常态无投影） */
+  --vk-shadow: 0 16px 60px #25282112;
+  --vk-shadow-segmented: 0 1px 4px #00000008;
+
+  /* 动效 */
+  --vk-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* 暗色整组替换（DESIGN.md dark-*） */
+html.dark {
+  --vk-bg: #20221f;
+  --vk-paper: #292c27;
+  --vk-ink: #eff0e8;
+  --vk-muted: #a1a59b;
+  --vk-placeholder: #a1a59b;
+  --vk-line: #3c4038;
+  --vk-soft: #30352d;
+
+  --vk-accent: #f49c7c;
+  --vk-accent-soft: #49382f;
+  --vk-accent-ink: #f49c7c;
+
+  --vk-green: #9fbea1;
+  --vk-green-soft: #303f31;
+  --vk-success-ink: #9fbea1;
+  --vk-yellow: #d4bc83;
+  --vk-warning-soft: #463d28;
+  --vk-warning-ink: #d4bc83;
+  --vk-error: #f3a49b;
+  --vk-error-soft: #49312e;
+
+  /* 暗色主按钮、选中导航使用浅底深字 */
+  --vk-solid-bg: #e1e7d6;
+  --vk-solid-fg: #252821;
+
+  --vk-shadow: 0 16px 60px #00000040;
+}

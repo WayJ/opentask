@@ -1,0 +1,12 @@
+}
+
+// 快速操作：刷新数据
+async function refreshData() {
+  await loadIssue();
+  window.$message?.success('数据已刷新');
+}
+
+// 快速操作：获取 Agent 指令
+function showAgentPrompt() {
+  showAgentPromptModal.value = true;
+}

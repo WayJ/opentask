@@ -1,0 +1,70 @@
+# 测试环境配置
+# 用于 CI/CD 自动化测试
+
+# 应用配置
+app:
+  name: "OpenTask (Test)"
+  environment: "test"
+  debug: true
+
+# 服务器配置（测试时不需要真实服务器）
+server:
+  host: "127.0.0.1"
+  port: 7377
+
+# 数据库配置 - 使用测试数据库
+database:
+  mysql:
+    host: "localhost"
+    port: 3306
+    user: "root"
+    password: "changeme"
+    database: "opentask"
+    echo: false  # 测试时不打印 SQL
+
+# 认证配置（测试账号）
+auth:
+  username: "admin"
+  password: "123456"
+  cipher_key: "test-cipher-key"  # JNPF 密码加密密钥（真实值放 local.yaml，不提交）
+
+# CORS 配置（测试环境允许所有来源）
+cors:
+  allowed_origins:
+    - "http://localhost:5173"
+    - "http://localhost:7377"
+    - "http://test"
+    - "http://localhost"
+
+# AI 模型配置（测试时使用 mock 或免费服务）
+ai:
+  openai:
+    api_key: "test-key"
+    base_url: "http://localhost:11434/v1"  # 本地 Ollama
+  default_model: "glm-4-air"
+  max_tokens: 4096
+  available_models:
+    - "glm-4-air"
+    - "gpt-4o-mini"
+
+# 存储配置（测试时使用本地存储）
+storage:
+  data_directory: "./data/tests"
+  provider: "local"
+
+# MinIO 对象存储配置（测试时使用本地 MinIO 或 mock）
+minio:
+  endpoint: "localhost:9000"
+  access_key: "minioadmin"
+  secret_key: "minioadmin"
+  bucket: "test-bucket"
+  secure: false
+
+# 测试特定配置
+test:
+  # 是否在测试后清理数据
+  cleanup_after_test: true
+  # 测试数据标记前缀
+  data_prefix: "自动化测试"
+  # 是否跳过耗时测试
+  skip_expensive: false

@@ -1,0 +1,172 @@
+declare namespace Api {
+  /**
+   * namespace Project
+   *
+   * backend api module: "projects"
+   */
+  namespace Project {
+    /** Project model */
+    interface Project {
+      /** Project id (UUID) */
+      id: string;
+      /** Project name (unique) */
+      name: string;
+      /** Project description */
+      description: string | null;
+      /** Is active */
+      is_active: boolean;
+      /** Created at */
+      created_at: string;
+      /** Updated at */
+      updated_at: string;
+    }
+
+    /** Create project params */
+    interface CreateProject {
+      name: string;
+      description?: string;
+    }
+
+    /** Update project params */
+    interface UpdateProject {
+      name?: string;
+      description?: string;
+    }
+
+    /** Repo config model */
+    interface RepoConfig {
+      id: number;
+      project_id: string;
+      name: string;
+      url: string;
+      main_branch: string;
+      created_at: string;
+      updated_at: string;
+    }
+
+    /** Create repo config params */
+    interface CreateRepoConfig {
+      project_id: string;
+      name: string;
+      url: string;
+      main_branch?: string;
+    }
+  }
+
+  /**
+   * namespace Requirement
+   *
+   * backend api module: "requirements"
+   */
+  namespace Requirement {
+    /** Requirement status enum */
+    type RequirementStatus =
+      | 'draft'
+      | 'clarifying'
+      | 'spec_ready'
+      | 'designing'
+      | 'coding'
+      | 'reviewing'
+      | 'testing'
+      | 'released'
+      | 'archived';
+
+    /** Priority enum */
+    type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+    /** Requirement model */
+    interface Requirement {
+      id: string;
+      code: string;
+      title: string;
+      description: string | null;
+      status: RequirementStatus;
+      priority: Priority | null;
+      tags: string[];
+      created_at: string;
+      updated_at: string;
+      created_by: string | null;
+      assignee_id: string | null;
+      project_id: string | null;
+      /** 关联的设计文档 */
+      documents: Document.Summary[];
+    }
+
+    /** 文档摘要（用于嵌入到其他实体响应中） */
+    namespace Document {
+      interface Summary {
+        id: string;
+        title: string;
+        status: string;
+        version: number;
+        created_at: string;
+        updated_at: string;
+      }
+    }
+
+    /** Create requirement params */
+    interface CreateRequirement {
+      title: string;
+      project_id: string;
+      description?: string;
+      priority?: Priority;
+      tags?: string[];
+      created_by?: string;
+    }
+
+    /** Update requirement params */
+    interface UpdateRequirement {
+      title?: string;
+      description?: string;
+      status?: RequirementStatus;
+      priority?: Priority;
+      tags?: string[];
+      assignee_id?: string;
+      project_id?: string;
+    }
+
+    /** Requirement list response */
+    interface RequirementList {
+      data: Requirement[];
+      total: number;
+      page: number;
+      page_size: number;
+    }
+
+    /** Event model */
+    interface Event {
+      id: string;
+      requirement_id: string;
+      type: string;
+      data: Record<string, any>;
+      actor: string | null;
+      reasoning: string | null;
+      timestamp: string;
+      snapshot: Record<string, any> | null;
+    }
+
+    /** Requirement with events */
+    interface RequirementWithEvents extends Requirement {
+      events: Event[];
+    }
+
+    /** Timeline response */
+    interface Timeline {
+      requirement_id: string;
+      events: Event[];
+      time_in_states: Record<string, number>;
+    }
+
+    /** Assign request */
+    interface AssignRequest {
+      assignee_id: string;
+    }
+
+    /** Requirement statistics */
+    interface Statistics {
+      total: number;
+      by_status: Record<string, number>;
+      by_priority: Record<string, number>;
+    }
+  }
+}

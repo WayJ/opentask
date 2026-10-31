@@ -1,0 +1,482 @@
+
+> soybean-admin@2.0.2 lint
+> eslint . --fix
+
+
+D:\projects\opentask\frontend\src\components\AgentPromptModal.vue
+  146:72  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\components\CliConfigPanel.vue
+   78:10  warning  Custom event name 'config-save' must be camelCase   vue/custom-event-name-casing
+   85:5   warning  Unexpected console statement                        no-console
+  112:12  warning  Custom event name 'config-clear' must be camelCase  vue/custom-event-name-casing
+
+D:\projects\opentask\frontend\src\components\CommentDisplay.vue
+  31:9   warning  Unexpected console statement               no-console
+  63:32  warning  'v-html' directive can lead to XSS attack  vue/no-v-html
+
+D:\projects\opentask\frontend\src\components\EditableField.vue
+    9:3   warning  Prop 'label' requires default value to be set         vue/require-default-prop
+   10:3   warning  Prop 'displayValue' requires default value to be set  vue/require-default-prop
+   12:3   warning  Prop 'options' requires default value to be set       vue/require-default-prop
+   16:3   warning  Prop 'tagType' requires default value to be set       vue/require-default-prop
+   97:25  warning  `style` attributes are forbidden                      vue/no-static-inline-styles
+  100:25  warning  `style` attributes are forbidden                      vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\components\IssueReference.vue
+  134:28  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\components\IssueSmartSearch.vue
+  102:28  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\components\IssueTemplateForm.vue
+  107:28  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  141:34  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\components\IssueTemplateSelector.vue
+  74:30  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\components\MarkdownEditor.vue
+  159:5   warning  Unexpected console statement                         no-console
+  191:10  warning  Custom event name 'task-embedded' must be camelCase  vue/custom-event-name-casing
+  193:5   warning  Unexpected console statement                         no-console
+  623:68  warning  `style` attributes are forbidden                     vue/no-static-inline-styles
+  709:26  warning  `style` attributes are forbidden                     vue/no-static-inline-styles
+  710:26  warning  `style` attributes are forbidden                     vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\components\MarkdownRenderer.vue
+   23:36  error    Unexpected use of continue statement       no-continue
+   32:11  error    Unexpected use of continue statement       no-continue
+  110:30  warning  'v-html' directive can lead to XSS attack  vue/no-v-html
+
+D:\projects\opentask\frontend\src\components\MonacoMarkdownEditor.vue
+   27:3   warning  'placeholder' of property found, but never used      vue/no-unused-properties
+  126:8   warning  Custom event name 'status-change' must be camelCase  vue/custom-event-name-casing
+  148:10  warning  Custom event name 'status-change' must be camelCase  vue/custom-event-name-casing
+  151:10  warning  Custom event name 'status-change' must be camelCase  vue/custom-event-name-casing
+  167:5   warning  Unexpected console statement                         no-console
+  204:10  warning  Custom event name 'status-change' must be camelCase  vue/custom-event-name-casing
+  225:5   warning  Unexpected console statement                         no-console
+  255:5   warning  Unexpected console statement                         no-console
+  376:26  warning  `style` attributes are forbidden                     vue/no-static-inline-styles
+  418:64  warning  `style` attributes are forbidden                     vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\components\SlashCommandPopup.vue
+  71:7  warning  Static inline `style` are forbidden  vue/no-static-inline-styles
+  74:7  warning  Static inline `style` are forbidden  vue/no-static-inline-styles
+  75:7  warning  Static inline `style` are forbidden  vue/no-static-inline-styles
+  76:7  warning  Static inline `style` are forbidden  vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\components\UserMention.vue
+  130:28  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\components\UserSelect.vue
+    7:3   warning  Prop 'modelValue' requires default value to be set     vue/require-default-prop
+   15:3   warning  `update:modelValue` is defined as emit but never used  vue/no-unused-emit-declarations
+   61:5   warning  Unexpected console statement                           no-console
+  125:13  warning  Static inline `style` are forbidden                    vue/no-static-inline-styles
+  130:20  warning  `style` attributes are forbidden                       vue/no-static-inline-styles
+  133:31  warning  `style` attributes are forbidden                       vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\components\common\AttachmentList.vue
+   87:5   warning  Unexpected console statement      no-console
+  101:5   warning  Unexpected console statement      no-console
+  173:32  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  227:30  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\components\common\ConversationViewer.vue
+  143:5  warning  Unexpected console statement         no-console
+  166:5  warning  Static inline `style` are forbidden  vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\hooks\useChatappWebSocket.ts
+   65:11  warning  Unexpected console statement  no-console
+   69:11  warning  Unexpected console statement  no-console
+   74:11  warning  Unexpected console statement  no-console
+   79:11  warning  Unexpected console statement  no-console
+   84:11  warning  Unexpected console statement  no-console
+   89:11  warning  Unexpected console statement  no-console
+   94:11  warning  Unexpected console statement  no-console
+  112:7   warning  Unexpected console statement  no-console
+  136:9   warning  Unexpected console statement  no-console
+  151:11  warning  Unexpected console statement  no-console
+  156:9   warning  Unexpected console statement  no-console
+  160:9   warning  Unexpected console statement  no-console
+  171:13  warning  Unexpected console statement  no-console
+  179:7   warning  Unexpected console statement  no-console
+  198:9   warning  Unexpected console statement  no-console
+  221:9   warning  Unexpected console statement  no-console
+
+D:\projects\opentask\frontend\src\service\request\__tests__\index.test.ts
+  190:16  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\projects\opentask\frontend\src\store\modules\issue.ts
+  252:7  warning  Unexpected console statement  no-console
+
+D:\projects\opentask\frontend\src\views\agents\index.vue
+  129:5   warning  Unexpected console statement      no-console
+  140:5   warning  Unexpected console statement      no-console
+  172:5   warning  Unexpected console statement      no-console
+  184:5   warning  Unexpected console statement      no-console
+  299:11  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  307:11  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  315:11  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\views\issue\collection-list\index.vue
+  246:12  error    'error' is defined but never used  @typescript-eslint/no-unused-vars
+  302:13  warning  `style` attributes are forbidden   vue/no-static-inline-styles
+  316:13  warning  `style` attributes are forbidden   vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\views\issue\collection\[id].vue
+  104:12  error    'error' is defined but never used                                               @typescript-eslint/no-unused-vars
+  125:5   warning  Unexpected console statement                                                    no-console
+  146:12  error    'error' is defined but never used                                               @typescript-eslint/no-unused-vars
+  186:12  error    'error' is defined but never used                                               @typescript-eslint/no-unused-vars
+  192:16  error    'handleDelete' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  199:12  error    'error' is defined but never used                                               @typescript-eslint/no-unused-vars
+  402:69  warning  'v-html' directive can lead to XSS attack                                       vue/no-v-html
+  445:36  warning  `style` attributes are forbidden                                                vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\views\issue\create\index.vue
+  223:23  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  225:68  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  289:30  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  324:32  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  339:32  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  360:21  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  365:32  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  383:15  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  386:32  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  395:34  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  403:34  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  411:34  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\views\issue\detail\components\CommentsCard.vue
+  89:32  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\views\issue\detail\components\IssueCardsDemo.vue
+  54:3  warning  Unexpected console statement  no-console
+
+D:\projects\opentask\frontend\src\views\issue\detail\index.vue
+    10:3   error    'NInput' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+    12:3   error    'NSelect' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+    90:7   error    'userMap' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+    95:5   warning  Unexpected console statement                                                        no-console
+   102:3   warning  Unexpected console statement                                                        no-console
+   184:5   warning  Unexpected console statement                                                        no-console
+   388:12  error    'error' is defined but never used                                                   @typescript-eslint/no-unused-vars
+   434:5   warning  Unexpected console statement                                                        no-console
+   435:5   warning  Unexpected console statement                                                        no-console
+   436:5   warning  Unexpected console statement                                                        no-console
+   440:7   warning  Unexpected console statement                                                        no-console
+   441:7   warning  Unexpected console statement                                                        no-console
+   443:7   warning  Unexpected console statement                                                        no-console
+   458:5   warning  Unexpected console statement                                                        no-console
+   684:1   error    Function 'formatTimelineAction' has a complexity of 34. Maximum allowed is 20       complexity
+   804:47  warning  'startEdit' is not defined                                                          vue/no-undef-properties
+   881:42  warning  `style` attributes are forbidden                                                    vue/no-static-inline-styles
+   907:40  warning  `style` attributes are forbidden                                                    vue/no-static-inline-styles
+  1080:50  warning  `style` attributes are forbidden                                                    vue/no-static-inline-styles
+  1135:34  warning  `style` attributes are forbidden                                                    vue/no-static-inline-styles
+  1138:34  warning  `style` attributes are forbidden                                                    vue/no-static-inline-styles
+  1141:34  warning  `style` attributes are forbidden                                                    vue/no-static-inline-styles
+  1174:85  warning  `style` attributes are forbidden                                                    vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\views\issue\edit\index.vue
+   36:7   error    'loading' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   89:7   error    'formRef' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  251:21  error    'to' is defined but never used. Allowed unused args must match /^_/u                @typescript-eslint/no-unused-vars
+  251:25  error    'from' is defined but never used. Allowed unused args must match /^_/u              @typescript-eslint/no-unused-vars
+  279:25  warning  `style` attributes are forbidden                                                    vue/no-static-inline-styles
+  281:70  warning  `style` attributes are forbidden                                                    vue/no-static-inline-styles
+  332:32  warning  `style` attributes are forbidden                                                    vue/no-static-inline-styles
+  367:34  warning  `style` attributes are forbidden                                                    vue/no-static-inline-styles
+  382:34  warning  `style` attributes are forbidden                                                    vue/no-static-inline-styles
+  403:23  warning  `style` attributes are forbidden                                                    vue/no-static-inline-styles
+  408:34  warning  `style` attributes are forbidden                                                    vue/no-static-inline-styles
+  426:17  warning  `style` attributes are forbidden                                                    vue/no-static-inline-styles
+  429:34  warning  `style` attributes are forbidden                                                    vue/no-static-inline-styles
+  438:36  warning  `style` attributes are forbidden                                                    vue/no-static-inline-styles
+  446:36  warning  `style` attributes are forbidden                                                    vue/no-static-inline-styles
+  454:36  warning  `style` attributes are forbidden                                                    vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\views\issue\list\index.vue
+  105:24  error    Unexpected `await` inside a loop                                                  no-await-in-loop
+  381:10  error    'getStatusLabel' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  502:56  warning  `style` attributes are forbidden                                                  vue/no-static-inline-styles
+  503:25  warning  `style` attributes are forbidden                                                  vue/no-static-inline-styles
+  656:32  warning  `style` attributes are forbidden                                                  vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\views\knowledge-base\knowledge\detail\[id].vue
+  2:10  error  'computed' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  7:10  error  '$t' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+
+D:\projects\opentask\frontend\src\views\knowledge-base\knowledge\edit\git\index.vue
+  10:3   error  'NFormItem' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  21:10  error  '$t' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+  68:10  error  'handleLoadDocument' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  75:10  error  'handleSave' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  75:21  error  'content' is defined but never used. Allowed unused args must match /^_/u             @typescript-eslint/no-unused-vars
+  75:38  error  'message' is defined but never used. Allowed unused args must match /^_/u             @typescript-eslint/no-unused-vars
+  81:10  error  'handleStatusChange' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+D:\projects\opentask\frontend\src\views\knowledge-base\knowledge\edit\index.vue
+    2:36  error    'watch' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  159:5   warning  Unexpected console statement                                             no-console
+
+D:\projects\opentask\frontend\src\views\knowledge-base\knowledge\list\index.vue
+  2:10  error  'computed' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  6:10  error  'createKnowledge' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  6:64  error  'updateKnowledge' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+D:\projects\opentask\frontend\src\views\knowledge-base\knowledges\components\KnowledgeDialog.vue
+  146:5  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\views\knowledge-base\knowledges\index.vue
+   89:5  error    'loadKnowledges' was used before it was defined  @typescript-eslint/no-use-before-define
+  105:5  warning  Unexpected console statement                     no-console
+  117:5  error    'loadKnowledges' was used before it was defined  @typescript-eslint/no-use-before-define
+  122:5  error    'loadKnowledges' was used before it was defined  @typescript-eslint/no-use-before-define
+  313:9  warning  `style` attributes are forbidden                 vue/no-static-inline-styles
+  325:9  warning  `style` attributes are forbidden                 vue/no-static-inline-styles
+  333:9  warning  `style` attributes are forbidden                 vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\views\knowledge-base\list\components\KnowledgeBaseDialog.vue
+  106:5  warning  Unexpected console statement         no-console
+  120:5  warning  Static inline `style` are forbidden  vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\views\knowledge-base\list\components\ProjectAssociationDialog.vue
+  121:63  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  150:11  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\views\knowledge-base\list\index.vue
+  38:5  error  'loadKnowledgeBases' was used before it was defined  @typescript-eslint/no-use-before-define
+  43:5  error  'loadKnowledgeBases' was used before it was defined  @typescript-eslint/no-use-before-define
+
+D:\projects\opentask\frontend\src\views\knowledge-base\manage\category\index.vue
+    6:3   error    'NDataTable' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+   14:3   error    'NSwitch' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+   16:3   error    'NTree' is defined but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+   32:7   error    'router' is assigned a value but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+   56:7   error    'formatDate' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   67:28  error    'flattenCategories' was used before it was defined                                     @typescript-eslint/no-use-before-define
+   70:5   warning  Unexpected console statement                                                           no-console
+  137:5   warning  Unexpected console statement                                                           no-console
+  158:5   warning  Unexpected console statement                                                           no-console
+  238:41  error    'transformTreeNode' was used before it was defined                                     @typescript-eslint/no-use-before-define
+  297:7   warning  `style` attributes are forbidden                                                       vue/no-static-inline-styles
+  337:13  warning  `style` attributes are forbidden                                                       vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\views\manage\menu\index.vue
+  185:3  warning  Unexpected console statement  no-console
+  192:3  warning  Unexpected console statement  no-console
+
+D:\projects\opentask\frontend\src\views\manage\menu\modules\menu-operate-modal.vue
+  257:3  warning  Unexpected console statement  no-console
+
+D:\projects\opentask\frontend\src\views\manage\role\index.vue
+  119:3  warning  Unexpected console statement  no-console
+  126:3  warning  Unexpected console statement  no-console
+
+D:\projects\opentask\frontend\src\views\manage\role\modules\button-auth-modal.vue
+  53:3  warning  Unexpected console statement  no-console
+  59:3  warning  Unexpected console statement  no-console
+
+D:\projects\opentask\frontend\src\views\manage\role\modules\menu-auth-modal.vue
+  30:3  warning  Unexpected console statement  no-console
+  73:3  warning  Unexpected console statement  no-console
+  79:3  warning  Unexpected console statement  no-console
+
+D:\projects\opentask\frontend\src\views\manage\user-detail\[id].vue
+  3:3  warning  'id' of property found, but never used  vue/no-unused-properties
+
+D:\projects\opentask\frontend\src\views\manage\user\index.vue
+    3:19  error    'NPopconfirm' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+   14:10  error    '$t' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   16:7   error    'appStore' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   43:5   warning  Unexpected console statement                                                         no-console
+   52:5   warning  Unexpected console statement                                                         no-console
+   57:7   warning  Unexpected console statement                                                         no-console
+   59:7   warning  Unexpected console statement                                                         no-console
+   63:5   warning  Unexpected console statement                                                         no-console
+  190:16  error    'error' is defined but never used                                                    @typescript-eslint/no-unused-vars
+  201:3   warning  Unexpected console statement                                                         no-console
+  205:7   warning  Unexpected console statement                                                         no-console
+  208:9   warning  Unexpected console statement                                                         no-console
+  214:9   warning  Unexpected console statement                                                         no-console
+  219:7   warning  Unexpected console statement                                                         no-console
+  232:17  warning  Unexpected console statement                                                         no-console
+  241:11  warning  Unexpected console statement                                                         no-console
+  247:13  warning  Unexpected console statement                                                         no-console
+  251:13  warning  Unexpected console statement                                                         no-console
+  260:7   warning  Unexpected console statement                                                         no-console
+  331:25  warning  'Api' is not defined                                                                 vue/no-undef-properties
+
+D:\projects\opentask\frontend\src\views\mission-center\index.vue
+     9:3   error    'NDataTable' is defined but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+    11:3   error    'NDescriptions' is defined but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+    12:3   error    'NDescriptionsItem' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+    13:3   error    'NDivider' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+    17:3   error    'NGi' is defined but never used. Allowed unused vars must match /^_/u                       @typescript-eslint/no-unused-vars
+    18:3   error    'NGrid' is defined but never used. Allowed unused vars must match /^_/u                     @typescript-eslint/no-unused-vars
+    23:3   error    'NPopover' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+    35:8   error    'AgentTask' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+    37:8   error    'AgentTaskStatus' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+    51:3   error    'updateAgentTask' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+   163:7   error    'taskTypeOptions' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   206:7   error    'statCards' is assigned a value but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+   250:7   error    'taskColumns' is assigned a value but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+   410:5   warning  Unexpected console statement                                                                no-console
+   424:5   warning  Unexpected console statement                                                                no-console
+   446:5   warning  Unexpected console statement                                                                no-console
+   467:7   warning  Unexpected console statement                                                                no-console
+   470:5   warning  Unexpected console statement                                                                no-console
+   518:5   warning  Unexpected console statement                                                                no-console
+   544:5   warning  Unexpected console statement                                                                no-console
+   564:5   warning  Unexpected console statement                                                                no-console
+   589:5   warning  Unexpected console statement                                                                no-console
+   612:9   warning  Unexpected console statement                                                                no-console
+   635:9   warning  Unexpected console statement                                                                no-console
+   658:9   warning  Unexpected console statement                                                                no-console
+   696:5   warning  Unexpected console statement                                                                no-console
+   795:7   warning  Unexpected console statement                                                                no-console
+   800:5   warning  Unexpected console statement                                                                no-console
+   804:5   warning  Unexpected console statement                                                                no-console
+   912:17  warning  `style` attributes are forbidden                                                            vue/no-static-inline-styles
+   953:23  warning  `style` attributes are forbidden                                                            vue/no-static-inline-styles
+  1023:25  warning  `style` attributes are forbidden                                                            vue/no-static-inline-styles
+  1031:17  warning  `style` attributes are forbidden                                                            vue/no-static-inline-styles
+  1110:72  warning  `style` attributes are forbidden                                                            vue/no-static-inline-styles
+  1113:38  warning  `style` attributes are forbidden                                                            vue/no-static-inline-styles
+  1138:7   warning  `style` attributes are forbidden                                                            vue/no-static-inline-styles
+  1163:13  warning  `style` attributes are forbidden                                                            vue/no-static-inline-styles
+  1166:21  warning  `style` attributes are forbidden                                                            vue/no-static-inline-styles
+  1175:13  warning  `style` attributes are forbidden                                                            vue/no-static-inline-styles
+  1193:7   warning  `style` attributes are forbidden                                                            vue/no-static-inline-styles
+  1389:46  warning  `style` attributes are forbidden                                                            vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\views\profile\ssh-keys\index.vue
+  152:10  error    'formatPublicKey' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  173:25  warning  `style` attributes are forbidden                                                   vue/no-static-inline-styles
+  182:73  warning  `style` attributes are forbidden                                                   vue/no-static-inline-styles
+  183:75  warning  `style` attributes are forbidden                                                   vue/no-static-inline-styles
+  200:25  warning  `style` attributes are forbidden                                                   vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\views\profile\userinfo\index.vue
+    5:10  error    'USER_ROLES' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+   15:7   error    'authStore' is assigned a value but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+   28:12  error    'error' is defined but never used                                                      @typescript-eslint/no-unused-vars
+   55:7   error    'formatTime' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  156:17  warning  `style` attributes are forbidden                                                       vue/no-static-inline-styles
+  160:89  warning  `style` attributes are forbidden                                                       vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\views\workflow-guide\index.vue
+  27:5   warning  Unexpected console statement               no-console
+  57:62  warning  'v-html' directive can lead to XSS attack  vue/no-v-html
+
+D:\projects\opentask\frontend\src\views\workflow\project-detail\index.vue
+  215:58  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  223:29  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  247:60  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  263:31  warning  'Api' is not defined              vue/no-undef-properties
+  299:7   warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  326:76  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  348:7   warning  `style` attributes are forbidden  vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\views\workflow\projects\index.vue
+    9:9   warning  Component name "Projects" should always be multi-word  vue/multi-word-component-names
+  174:56  warning  `style` attributes are forbidden                       vue/no-static-inline-styles
+  175:25  warning  `style` attributes are forbidden                       vue/no-static-inline-styles
+  191:27  warning  'Api' is not defined                                   vue/no-undef-properties
+  200:71  warning  `style` attributes are forbidden                       vue/no-static-inline-styles
+  201:18  warning  'formRef' is defined as ref, but never used            vue/no-unused-refs
+  223:69  warning  `style` attributes are forbidden                       vue/no-static-inline-styles
+  224:18  warning  'formRef' is defined as ref, but never used            vue/no-unused-refs
+
+D:\projects\opentask\frontend\src\views\workflow\requirement-detail\components\CommentsCard.vue
+  98:34  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\views\workflow\requirement-detail\components\CreatePGETaskModal.vue
+   51:7   error    'frameworkOptions' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   97:5   warning  Unexpected console statement                                                                 no-console
+  149:23  warning  `style` attributes are forbidden                                                             vue/no-static-inline-styles
+  169:28  warning  `style` attributes are forbidden                                                             vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\views\workflow\requirement-detail\components\DocumentEditModal.vue
+  14:3   warning  Prop "show" should be optional    vue/no-required-prop-with-default
+  64:70  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  71:25  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\views\workflow\requirement-detail\components\DocumentViewModal.vue
+   11:3   warning  Prop "show" should be optional      vue/no-required-prop-with-default
+   12:3   warning  Prop "document" should be optional  vue/no-required-prop-with-default
+   91:5   warning  Unexpected console statement        no-console
+  201:63  warning  `style` attributes are forbidden    vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\views\workflow\requirement-detail\components\FileUploader.vue
+    7:3   warning  Prop 'modelValue' requires default value to be set  vue/require-default-prop
+  141:14  warning  `style` attributes are forbidden                    vue/no-static-inline-styles
+  142:44  warning  `style` attributes are forbidden                    vue/no-static-inline-styles
+  144:16  warning  `style` attributes are forbidden                    vue/no-static-inline-styles
+  145:26  warning  `style` attributes are forbidden                    vue/no-static-inline-styles
+  155:28  warning  `style` attributes are forbidden                    vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\views\workflow\requirement-detail\components\ImportResultModal.vue
+  12:3   warning  Prop "show" should be optional    vue/no-required-prop-with-default
+  13:3   warning  Prop "result" should be optional  vue/no-required-prop-with-default
+  36:63  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  42:52  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  43:10  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  44:11  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+  45:66  warning  `style` attributes are forbidden  vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\views\workflow\requirement-detail\components\MarkdownPreview.vue
+  201:11  warning  `style` attributes are forbidden           vue/no-static-inline-styles
+  230:92  warning  'v-html' directive can lead to XSS attack  vue/no-v-html
+  233:71  warning  'v-html' directive can lead to XSS attack  vue/no-v-html
+
+D:\projects\opentask\frontend\src\views\workflow\requirement-detail\components\RequirementQuickEdit.vue
+  111:5  warning  Unexpected console statement  no-console
+  153:5  warning  Unexpected console statement  no-console
+
+D:\projects\opentask\frontend\src\views\workflow\requirement-detail\components\TaskFormModal.vue
+   8:3   warning  Prop "show" should be optional                             vue/no-required-prop-with-default
+   9:3   warning  Prop "mode" should be optional                             vue/no-required-prop-with-default
+  18:3   warning  Prop 'taskStatusOptions' requires default value to be set  vue/require-default-prop
+  56:65  warning  `style` attributes are forbidden                           vue/no-static-inline-styles
+
+D:\projects\opentask\frontend\src\views\workflow\requirement-detail\composables\useComments.ts
+  20:7  warning  Unexpected console statement  no-console
+  36:7  warning  Unexpected console statement  no-console
+
+D:\projects\opentask\frontend\src\views\workflow\requirement-detail\composables\useDocumentManagement.ts
+  52:7  warning  Unexpected console statement  no-console
+
+D:\projects\opentask\frontend\src\views\workflow\requirement-detail\composables\useRequirementDetail.ts
+  14:3  error  Async function 'loadRequirement' has a complexity of 23. Maximum allowed is 20  complexity
+
+D:\projects\opentask\frontend\src\views\workflow\requirement-detail\utils\documentType.ts
+  12:5  warning  Unexpected console statement  no-console
+  16:3  warning  Unexpected console statement  no-console
+  27:5  warning  Unexpected console statement  no-console
+  33:5  warning  Unexpected console statement  no-console
+  39:5  warning  Unexpected console statement  no-console
+  45:5  warning  Unexpected console statement  no-console
+  51:5  warning  Unexpected console statement  no-console
+  55:3  warning  Unexpected console statement  no-console
+
+D:\projects\opentask\frontend\src\views\workflow\requirements\index.vue
+   17:9   warning  Component name "Requirements" should always be multi-word                              vue/multi-word-component-names
+   96:5   warning  Unexpected console statement                                                           no-console
+  216:7   error    'renderTags' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  320:56  warning  `style` attributes are forbidden                                                       vue/no-static-inline-styles
+  321:25  warning  `style` attributes are forbidden                                                       vue/no-static-inline-styles
+  339:11  warning  `style` attributes are forbidden                                                       vue/no-static-inline-styles
+  347:11  warning  `style` attributes are forbidden                                                       vue/no-static-inline-styles
+  355:11  warning  `style` attributes are forbidden                                                       vue/no-static-inline-styles
+  384:71  warning  `style` attributes are forbidden                                                       vue/no-static-inline-styles
+  385:18  warning  'formRef' is defined as ref, but never used                                            vue/no-unused-refs
+  418:69  warning  `style` attributes are forbidden                                                       vue/no-static-inline-styles
+  419:18  warning  'formRef' is defined as ref, but never used                                            vue/no-unused-refs
+
+✖ 345 problems (70 errors, 275 warnings)
+
