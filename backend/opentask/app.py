@@ -22,6 +22,7 @@ from opentask.api.knowledge_base.router import router as knowledge_base_router
 from opentask.api.knowledge.router import router as knowledge_router
 from opentask.api.knowledge_category.router import router as knowledge_category_router
 from opentask.api.issue.router import router as issue_router
+from opentask.api.tasks import router as tasks_contract_router
 from opentask.api.attachment.router import router as attachment_router
 from opentask.api.knowledge.webhooks import router as webhook_router
 from opentask.api.user.router import router as user_router
@@ -117,6 +118,8 @@ class App(fastapi.FastAPI):
         # Issue routes (需要认证)
         # Issue Collection routes 已合并到 issue_router
         self.include_router(issue_router, dependencies=common_dependencies)
+        # Task Source Contract routes (Orca 通用任务契约，D7 与 issue API 并列；挂根 /tasks，D12)
+        self.include_router(tasks_contract_router, dependencies=common_dependencies)
         # Attachment routes (公共访问，无需认证)
         self.include_router(attachment_router, dependencies=[])
         # Git routes (需要认证) - TODO: 依赖已删除的 file_storage 等模块，暂时注释
