@@ -5,8 +5,11 @@
 - assignee 为字符串 user ID，展示名放 metadata.username
 - labels 双向映射现有 tags 关联表
 
-状态词表经 contract.status_mapping 可配置（S5）：校验器运行时调用
-mapping.generic_status_to_issue（随生效配置变化），无静态词表常量。
+状态词表经 contract.status_mapping 可配置（S5）：词表运行时可变且
+依赖生效配置，无法静态穷举，故 status 字段不做 pydantic 静态校验，
+统一由路由层运行时校验（S6：违例 422 带 CONTRACT_STATUS_UNKNOWN
+错误码，见 errors.py 错误语义定稿）；labels 的规范化/长度校验为
+静态约束，保留在本层。
 """
 
 from datetime import datetime
@@ -14,10 +17,27 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from .mapping import generic_status_to_issue, normalize_label
+from .mapping import normalize_label
 
 # 契约版本号（GET /capabilities 下发；S6 OpenAPI spec 生成沿用）
 CONTRACT_VERSION = "1.0"
+
+
+class ContractErrorDetail(BaseModel):
+    """契约层错误体（S6 定稿：code + message 可读字段）
+
+    所有契约层语义错误（401/403/404/422 词表违规/503）的 ``detail``
+    均为此形状；结构性 schema 违例仍为 FastAPI 标准校验体。
+    """
+
+    code: str = Field(..., description="错误码（CONTRACT_* 命名族，见 README 错误码表）")
+    message: str = Field(..., description="可读错误消息（面向消费方排障）")
+
+
+class ContractErrorResponse(BaseModel):
+    """契约层错误响应（完整 body：{"detail": {code, message}}）"""
+
+    detail: ContractErrorDetail = Field(..., description="错误码与可读消息")
 
 
 class TaskCreate(BaseModel):
@@ -27,20 +47,13 @@ class TaskCreate(BaseModel):
     description: Optional[str] = Field(None, description="描述")
     status: Optional[str] = Field(
         None,
-        description="通用状态，默认取映射表的 todo 侧；"
-        "词表经 config contract.status_mapping 可配置，默认 "
-        "todo/in_progress/in_review/done/cancelled",
+        description="通用状态，缺省时取生效词表默认（含 todo 时为 todo，"
+        "否则规范序首个）；词表经 config contract.status_mapping 可配置"
+        "（默认 todo/in_progress/in_review/done/cancelled），词表外值"
+        "运行时校验 422（CONTRACT_STATUS_UNKNOWN）",
     )
     assignee: Optional[str] = Field(None, description="负责人 user ID（字符串）")
     labels: Optional[List[str]] = Field(None, description="标签列表，映射到 OpenTask tags")
-
-    @field_validator("status")
-    @classmethod
-    def validate_status(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return v
-        generic_status_to_issue(v)  # 未词表内则抛 ValueError → 422
-        return v
 
     @field_validator("labels")
     @classmethod
@@ -57,17 +70,12 @@ class TaskUpdate(BaseModel):
 
     title: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
-    status: Optional[str] = None
+    status: Optional[str] = Field(
+        None,
+        description="通用状态；词表外值运行时校验 422（CONTRACT_STATUS_UNKNOWN）",
+    )
     assignee: Optional[str] = None  # 显式 null 表示取消分配
     labels: Optional[List[str]] = None
-
-    @field_validator("status")
-    @classmethod
-    def validate_status(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return v
-        generic_status_to_issue(v)
-        return v
 
     @field_validator("labels")
     @classmethod

@@ -247,13 +247,28 @@ OpenTask 以「通用任务源」形态对 Orca 暴露 REST 契约（模拟 Jira
    # → {"access_token": "<JWT>", "token_type": "Bearer", "expires_in": 7200}
    ```
 
-**401 语义独立**：缺凭证/凭证无效（错误、过期、吊销、用户禁用）一律返回 `401`，错误体带可辨识错误码字段（区别于 403/503）：
+**错误语义（S6 定稿：统一错误码族）**：契约层语义错误统一返回可辨识错误码 + 可读消息（401 附 `WWW-Authenticate: Bearer`）：
 
 ```json
-{"detail": {"code": "CONTRACT_AUTH_MISSING|CONTRACT_AUTH_INVALID", "message": "..."}}
+{"detail": {"code": "CONTRACT_AUTH_MISSING", "message": "..."}}
 ```
 
-`POST /tasks/token` 的凭证错误同为 401；不支持的 `grant_type` 返回 400（`CONTRACT_AUTH_UNSUPPORTED_GRANT`）。
+| HTTP | code | 触发场景 |
+|---|---|---|
+| 400 | `CONTRACT_AUTH_UNSUPPORTED_GRANT` | `POST /tasks/token` 不支持的 `grant_type` |
+| 401 | `CONTRACT_AUTH_MISSING` | 未携带 Bearer 凭证 |
+| 401 | `CONTRACT_AUTH_INVALID` | 凭证错误/过期/吊销/用户禁用 |
+| 403 | `CONTRACT_FORBIDDEN` | 操作被 `contract.forbidden_operations` 禁用（禁操作） |
+| 404 | `CONTRACT_TASK_NOT_FOUND` | 任务不存在（含软删除后） |
+| 422 | `CONTRACT_STATUS_UNKNOWN` | `status` 不在生效词表内（查询参数或请求体） |
+| 503 | `CONTRACT_UNAVAILABLE` | 后端依赖（数据库）不可达 |
+
+语义优先级：**503（依赖不可达）先于 401（凭证校验）先于 403（禁操作）**——凭证无法在依赖不可达时验证；未认证请求无从谈禁不禁。
+
+- 结构性 schema 违规（缺字段/类型错/超长）仍为 FastAPI 标准 422 校验体（`detail=[{loc,msg,type}]`）；状态词表随配置运行时变化、无法静态穷举，故词表违规单独带错误码。
+- 503 在依赖解析阶段以轻量探测查询判定，`/tasks` 全端点与 `/tasks/token` 语义一致；`GET /capabilities` 无 DB 依赖，后端不可达时仍可用于协商（消费方降级路径）。
+- 禁操作表经 `GET /capabilities` 的 `features.forbidden_operations` 实时下发（逗号分隔操作名；`none` = 全放行），消费方可据此隐藏入口或提前拦截。
+- client credentials 换到的 JWT 为无 `scp` 声明的无限制 token（API Key bearer 模式同权，交换不降权）；不下发 refresh token，也不落 `refresh_tokens` 行（RFC 6749 §4.4.3）。
 
 ### 状态映射配置（`contract.status_mapping`）
 
@@ -271,12 +286,29 @@ contract:
     closed: done
     rejected: cancelled
   # 契约层无 type 概念：POST /tasks 落库的默认 issue 类型
+  # 必须在 IssueType 词表内（bug/feature/question/feedback/incident/improvement），
+  # 非法值启动后首次访问即报错（快速失败，不静默降级）
   default_issue_type: feature
+  # 可选：禁用部分契约操作（默认空 = 全放行；被禁操作 → 403 CONTRACT_FORBIDDEN）
+  # 合法值：list_tasks/create_task/get_task/update_task/delete_task；未知值快速失败
+  forbidden_operations: []
 ```
 
 - 配置在 `default.yaml` 集中维护，环境配置（development/production/test.yaml）可按键深合并覆盖；**修改后重启进程生效**。
-- `GET /capabilities` 的 `status_vocabulary` 与 `features.status_mapping_source`（`config`/`default`）实时反映生效配置，消费方可据此自适应。
+- `GET /capabilities` 的 `status_vocabulary` 与 `features.status_mapping_source`（`config`/`default`）、`features.forbidden_operations` 实时反映生效配置，消费方可据此自适应。
 - 往返保证：`generic → IssueStatus → generic` 对生效词表全部状态恒等（`resolved`/`closed` 同归 `done` 时逆取 `resolved`）。
+- 词表语义细节：`GET /tasks?status=` 按正映射**集合**过滤（`done` 命中 `resolved` 与 `closed`，与列表正向展示口径一致）；`POST /tasks` 缺省 `status` 时自生效词表推导（含 `todo` 取 `todo`，否则规范序首个）。
+
+### OpenAPI spec（随代码提交）
+
+契约端点的独立 spec 由 FastAPI 既有机制自动生成并随代码提交为 `backend/openapi_contract.json`（与全量 `openapi.json` 分开，避免混淆）：
+
+```bash
+cd backend
+AUTH_SECRET_KEY=<密钥> uv run python -m opentask.api.tasks.openapi_export
+```
+
+路由、schema 与错误响应模型（`ContractErrorResponse`，含 401/403/404/503 声明与 Bearer 安全方案）均从代码推导，无手写 spec；`tests/tasks/test_tasks_openapi.py` 对账测试守护一致性（spec 文件与实时构建不一致即测试失败）。
 
 ## 项目结构
 

@@ -1,24 +1,25 @@
 """契约层服务：IssueService 复用 + 契约专属查询/标签辅助
 
 不改造 issue service 本体（sprint D2 + 任务约束"需要动 issue service 本体时先 ask"）：
-- ContractIssueService 仅覆盖 `_generate_issue_code` 的方言差异 —— 父类实现是
-  MySQL 原生 SQL（CAST ... AS UNSIGNED），PostgreSQL 上不可用；本实现用
-  SQLAlchemy 方言无关表达式，算法与父类一致（当年最大序号 + 1）。
-  PG 全局切换 sprint 统一迁移后可删除该覆盖。
-- 列表查询（updated_since 游标 + limit/offset）现有 service 不支持，
-  按 D7"并列、不改造既有接口"原则放在契约层内部实现，仍基于 Issue model。
+- _generate_issue_code 的方言覆盖已删除：父类实现已改为应用侧解析
+  （方言无关，且容忍非数字后缀），覆写只剩历史价值；契约层改为
+  覆盖 create_issue 补并发撞号重试（issue_code 唯一索引）。
+- 列表查询（updated_since 游标 + limit/offset + 状态集合过滤）现有
+  service 不支持，按 D7"并列、不改造既有接口"原则放在契约层内部实现，
+  仍基于 Issue model。
 """
 
 import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
-from sqlalchemy import Integer, String, cast, delete, func, select
+from sqlalchemy import String, cast, delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opentask.models.issue.model import Issue, IssueTag, IssueTimeline
+from opentask.models.issue.schema import IssueCreate
 from opentask.models.tag.model import Tag
 from opentask.models.user.model import UserModel
 from opentask.services.issue_service import IssueService
@@ -27,32 +28,45 @@ from .mapping import normalize_updated_since
 
 logger = logging.getLogger(__name__)
 
+# 并发 POST 撞 issue_code 唯一索引时的重试次数（max+1 算法每次重试都会
+# 看到对方已提交的行，编号前进；超出次数说明冲突另有成因，按原样抛出）
+CREATE_RETRY_ATTEMPTS = 3
+
 
 class ContractIssueService(IssueService):
-    """契约层 IssueService：仅方言差异覆盖，业务逻辑全部复用父类"""
+    """契约层 IssueService：并发撞号重试 + 契约专属列表查询，业务逻辑全部复用父类"""
 
-    async def _generate_issue_code(self) -> str:
-        """生成问题编号（与父类同算法，PostgreSQL/MySQL 通用）
+    async def create_issue(
+        self,
+        data: IssueCreate,
+        user_id: str,
+        dept_id: str | None = None,
+    ) -> Issue:
+        """创建 Issue（并发 max+1 撞 issue_code 唯一索引时重算重试）
 
-        父类版本为 MySQL 原生 SQL（CAST AS UNSIGNED / CHAR_LENGTH 拼接），
-        PostgreSQL 无 UNSIGNED 类型会直接报错；此处改用 SQLAlchemy 表达式，
-        两种方言下均编译为各自合法 SQL，语义不变：当年最大序号 + 1。
+        _generate_issue_code 取"当年最大序号 + 1"，两个并发 POST 可能算出
+        同一编号，flush 撞 issues.issue_code 唯一索引抛 IntegrityError。
+        重试会重跑编号生成并看到对方已提交的行，编号前进后即可成功；
+        重试耗尽按原样抛出（说明冲突另有成因，不为绿而绿）。
         """
-        prefix = f"ISSUE{datetime.now().year}-"
-        suffix_num = cast(
-            func.substring(Issue.issue_code, func.char_length(prefix) + 1), Integer
-        )
-        query = select(func.max(suffix_num)).where(
-            Issue.issue_code.like(f"{prefix}%")
-        )
-        result = await self.db.execute(query)
-        max_num = result.scalar()
-        return f"{prefix}{(max_num or 0) + 1}"
+        for attempt in range(1, CREATE_RETRY_ATTEMPTS + 1):
+            try:
+                return await super().create_issue(data, user_id, dept_id=dept_id)
+            except IntegrityError as e:
+                await self.db.rollback()
+                if attempt == CREATE_RETRY_ATTEMPTS:
+                    raise
+                logger.warning(
+                    "issue_code 并发撞唯一索引，重试 %d/%d: %s",
+                    attempt,
+                    CREATE_RETRY_ATTEMPTS,
+                    e.orig,
+                )
 
     async def list_issues_for_contract(
         self,
         *,
-        status: Optional[str] = None,
+        status: Optional[Set[str]] = None,
         assignee_id: Optional[str] = None,
         updated_since: Optional[datetime] = None,
         limit: int = 50,
@@ -60,10 +74,13 @@ class ContractIssueService(IssueService):
     ) -> Tuple[List[Issue], int]:
         """契约列表查询：过滤 + updated_since 游标 + limit/offset 分页
 
-        游标语义（D10）：updated_at **严格大于** updated_since（排他）——
-        恰好等于游标时刻的记录已在上一轮返回，含它会造成重复；
-        同一游标重复拉取因此保证零重复。排序 updated_at asc + id asc
-        保证分页确定性。
+        - status 为 IssueStatus **集合**（非单值）：通用状态过滤按正映射
+          集合匹配（如 done → {resolved, closed}），与列表正向展示口径
+          一致（单值逆映射只取规范代表，会漏数据）；
+        - 游标语义（D10）：updated_at **严格大于** updated_since（排他）——
+          恰好等于游标时刻的记录已在上一轮返回，含它会造成重复；
+          同一游标重复拉取因此保证零重复。排序 updated_at asc + id asc
+          保证分页确定性。
         """
         query = (
             select(Issue)
@@ -74,7 +91,7 @@ class ContractIssueService(IssueService):
             # mysql.ENUM 在 PG 上编译为原生枚举类型，直接与 varchar 绑定参数比较
             # 会报 operator does not exist；cast 成文本比较，两种方言均合法
             # （PG 全局切换 sprint 迁移模型时可 revisit 索引友好写法）
-            query = query.where(cast(Issue.status, String) == status)
+            query = query.where(cast(Issue.status, String).in_(sorted(status)))
         if assignee_id is not None:
             query = query.where(Issue.assignee_id == assignee_id)
         if updated_since is not None:
@@ -97,7 +114,12 @@ class ContractIssueService(IssueService):
 # ============================================================================
 
 async def get_or_create_tag(db: AsyncSession, name: str) -> Tag:
-    """按名称取 Tag，不存在则创建（并发下唯一冲突时回退重查）"""
+    """按名称取 Tag，不存在则创建（并发下唯一冲突时回退重查）
+
+    不提交：插入经 SAVEPOINT flush（撞唯一约束只回滚到保存点，
+    不殃及事务内其他未提交变更），由调用方统一提交——
+    sync_issue_labels 因此保持"全成或全不成"的原子性。
+    """
     result = await db.execute(select(Tag).where(Tag.name == name))
     tag = result.scalar_one_or_none()
     if tag is not None:
@@ -106,13 +128,12 @@ async def get_or_create_tag(db: AsyncSession, name: str) -> Tag:
     tag = Tag(name=name)
     db.add(tag)
     try:
-        await db.commit()
+        async with db.begin_nested():
+            await db.flush()  # 拿 id；冲突只回滚保存点
     except IntegrityError:
-        # 并发创建撞唯一约束：回退查已存在行
-        await db.rollback()
+        # 并发创建撞唯一约束：保存点已回滚，重查取对方已提交的行
         result = await db.execute(select(Tag).where(Tag.name == name))
         tag = result.scalar_one()
-    await db.refresh(tag)
     return tag
 
 

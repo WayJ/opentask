@@ -1,0 +1,996 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OpenTask Task Source Contract API",
+    "description": "OpenTask 以「通用任务源」形态对外暴露的任务契约（对接 Orca 等 AI 编排工具，\n模拟 Jira 对接模式）。\n\n- 鉴权：`Authorization: Bearer <API Key(vk_) 或 JWT>`；先用\n  `POST /tasks/token`（OAuth2 client credentials）以 API Key 换短时效 JWT，\n  或直接以 API Key 作 Bearer 凭证。除 `POST /tasks/token` 与\n  `GET /capabilities` 外均需凭证。\n- 错误体：契约层语义错误统一为 `{\"detail\": {\"code\": \"CONTRACT_*\",\n  \"message\": \"...\"}}`（401 CONTRACT_AUTH_MISSING/INVALID、403\n  CONTRACT_FORBIDDEN、404 CONTRACT_TASK_NOT_FOUND、422\n  CONTRACT_STATUS_UNKNOWN、503 CONTRACT_UNAVAILABLE）。\n- 能力协商：先调 `GET /capabilities` 获取生效状态词表、分页/游标特性\n  与禁操作表，再按能力调用。\n- 完整文档见 backend/README.md「任务源契约 API」章节。\n",
+    "version": "1.0"
+  },
+  "paths": {
+    "/tasks": {
+      "get": {
+        "tags": [
+          "任务源契约 (Task Source Contract)"
+        ],
+        "summary": "List Tasks",
+        "description": "列出任务（过滤 + 分页 + updated_since 增量游标）",
+        "operationId": "list_tasks_tasks_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "通用状态过滤（词表见 GET /capabilities.status_vocabulary）",
+              "title": "Status"
+            },
+            "description": "通用状态过滤（词表见 GET /capabilities.status_vocabulary）"
+          },
+          {
+            "name": "assignee",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "负责人 user ID 过滤",
+              "title": "Assignee"
+            },
+            "description": "负责人 user ID 过滤"
+          },
+          {
+            "name": "updated_since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "增量游标：仅返回 updated_at 严格大于该时刻的任务（排他）",
+              "title": "Updated Since"
+            },
+            "description": "增量游标：仅返回 updated_at 严格大于该时刻的任务（排他）"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "分页大小",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "分页大小"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "分页偏移",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "分页偏移"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractTaskListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "缺凭证/凭证无效（CONTRACT_AUTH_MISSING / CONTRACT_AUTH_INVALID）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "操作被配置禁用（CONTRACT_FORBIDDEN，contract.forbidden_operations）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "schema 违规：结构性问题返回 FastAPI 标准校验体（detail=[{loc,msg,type}]）；状态值不在生效词表内返回 detail={code: CONTRACT_STATUS_UNKNOWN, message}"
+          },
+          "503": {
+            "description": "后端依赖（数据库）不可达（CONTRACT_UNAVAILABLE）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "任务源契约 (Task Source Contract)"
+        ],
+        "summary": "Create Task",
+        "description": "创建任务（title/description/assignee/status/labels 完整落库，经 issue service）",
+        "operationId": "create_task_tasks_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractTask"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "缺凭证/凭证无效（CONTRACT_AUTH_MISSING / CONTRACT_AUTH_INVALID）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "操作被配置禁用（CONTRACT_FORBIDDEN，contract.forbidden_operations）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "schema 违规：结构性问题返回 FastAPI 标准校验体（detail=[{loc,msg,type}]）；状态值不在生效词表内返回 detail={code: CONTRACT_STATUS_UNKNOWN, message}"
+          },
+          "503": {
+            "description": "后端依赖（数据库）不可达（CONTRACT_UNAVAILABLE）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/{task_id}": {
+      "get": {
+        "tags": [
+          "任务源契约 (Task Source Contract)"
+        ],
+        "summary": "Get Task",
+        "description": "获取单个任务（软删除的不可见）",
+        "operationId": "get_task_tasks__task_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractTask"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "缺凭证/凭证无效（CONTRACT_AUTH_MISSING / CONTRACT_AUTH_INVALID）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "操作被配置禁用（CONTRACT_FORBIDDEN，contract.forbidden_operations）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "任务不存在或已软删除（CONTRACT_TASK_NOT_FOUND）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "后端依赖（数据库）不可达（CONTRACT_UNAVAILABLE）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "任务源契约 (Task Source Contract)"
+        ],
+        "summary": "Update Task",
+        "description": "更新任务（状态变更经 issue service 写入既有 timeline）",
+        "operationId": "update_task_tasks__task_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractTask"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "缺凭证/凭证无效（CONTRACT_AUTH_MISSING / CONTRACT_AUTH_INVALID）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "操作被配置禁用（CONTRACT_FORBIDDEN，contract.forbidden_operations）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "任务不存在或已软删除（CONTRACT_TASK_NOT_FOUND）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "schema 违规：结构性问题返回 FastAPI 标准校验体（detail=[{loc,msg,type}]）；状态值不在生效词表内返回 detail={code: CONTRACT_STATUS_UNKNOWN, message}"
+          },
+          "503": {
+            "description": "后端依赖（数据库）不可达（CONTRACT_UNAVAILABLE）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "任务源契约 (Task Source Contract)"
+        ],
+        "summary": "Delete Task",
+        "description": "删除任务（软删除，复用 is_deleted，不物理删数据）",
+        "operationId": "delete_task_tasks__task_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "缺凭证/凭证无效（CONTRACT_AUTH_MISSING / CONTRACT_AUTH_INVALID）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "操作被配置禁用（CONTRACT_FORBIDDEN，contract.forbidden_operations）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "任务不存在或已软删除（CONTRACT_TASK_NOT_FOUND）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "后端依赖（数据库）不可达（CONTRACT_UNAVAILABLE）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/token": {
+      "post": {
+        "tags": [
+          "任务源契约 (Task Source Contract)"
+        ],
+        "summary": "Issue Contract Token",
+        "description": "OAuth2 client credentials 换 token（公开端点，凭证即 API Key）\n\n- grant_type=client_credentials（固定值）\n- client_secret：``vk_`` API Key（必填）\n- client_id：可选，提供时须为该 Key 归属用户 ID\n返回 ``{access_token, token_type: \"Bearer\", expires_in}``（不下发 refresh）。",
+        "operationId": "issue_contract_token_tasks_token_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_issue_contract_token_tasks_token_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "不支持的 grant_type（CONTRACT_AUTH_UNSUPPORTED_GRANT）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "缺凭证/凭证无效（CONTRACT_AUTH_MISSING / CONTRACT_AUTH_INVALID）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "后端依赖（数据库）不可达（CONTRACT_UNAVAILABLE）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/capabilities": {
+      "get": {
+        "tags": [
+          "任务源契约 (Task Source Contract)"
+        ],
+        "summary": "Capabilities",
+        "description": "契约能力声明：端点支持情况 + 契约版本 + 鉴权模式 + 生效状态词表\n\n无需凭证（对接前探测用）；不含敏感信息，仅描述契约形状。",
+        "operationId": "capabilities_capabilities_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractCapabilities"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Body_issue_contract_token_tasks_token_post": {
+        "properties": {
+          "grant_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grant Type"
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Secret"
+          }
+        },
+        "type": "object",
+        "title": "Body_issue_contract_token_tasks_token_post"
+      },
+      "ContractCapabilities": {
+        "properties": {
+          "contract_version": {
+            "type": "string",
+            "title": "Contract Version",
+            "description": "契约版本号"
+          },
+          "endpoints": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Endpoints",
+            "description": "端点支持情况：能力名 → HTTP 方法与路径（不含即不支持）"
+          },
+          "features": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Features",
+            "description": "特性说明：分页/增量游标/删除语义/状态映射来源（config|default）"
+          },
+          "auth": {
+            "type": "object",
+            "title": "Auth",
+            "description": "鉴权模式：modes（bearer_api_key/oauth2_client_credentials）、token 端点、API Key 前缀"
+          },
+          "status_vocabulary": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Status Vocabulary",
+            "description": "当前生效的通用状态词表（随 contract.status_mapping 配置变化）"
+          }
+        },
+        "type": "object",
+        "required": [
+          "contract_version",
+          "endpoints",
+          "features",
+          "auth",
+          "status_vocabulary"
+        ],
+        "title": "ContractCapabilities",
+        "description": "能力声明（GET /capabilities）：端点支持情况 + 契约版本 + 鉴权模式\n\n公开端点（无需凭证）：消费方（Orca 侧）对接前先探测能力再配置鉴权。"
+      },
+      "ContractErrorDetail": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code",
+            "description": "错误码（CONTRACT_* 命名族，见 README 错误码表）"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "可读错误消息（面向消费方排障）"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ContractErrorDetail",
+        "description": "契约层错误体（S6 定稿：code + message 可读字段）\n\n所有契约层语义错误（401/403/404/422 词表违规/503）的 ``detail``\n均为此形状；结构性 schema 违例仍为 FastAPI 标准校验体。"
+      },
+      "ContractErrorResponse": {
+        "properties": {
+          "detail": {
+            "$ref": "#/components/schemas/ContractErrorDetail",
+            "description": "错误码与可读消息"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "ContractErrorResponse",
+        "description": "契约层错误响应（完整 body：{\"detail\": {code, message}}）"
+      },
+      "ContractTask": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "任务 ID（即 OpenTask Issue ID）"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "通用状态（经默认映射表转换）"
+          },
+          "assignee": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignee",
+            "description": "负责人 user ID（字符串）"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url",
+            "description": "OpenTask 前端详情页相对链接"
+          },
+          "labels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Labels",
+            "description": "标签（映射 tags）"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "metadata": {
+            "type": "object",
+            "title": "Metadata",
+            "description": "扩展元数据：issue_code/username/type/priority/reporter_id 等"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "status",
+          "url",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ContractTask",
+        "description": "通用任务模型（契约侧输出）"
+      },
+      "ContractTaskListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ContractTask"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "过滤后的总数（不受 limit/offset 影响）"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "ContractTaskListResponse",
+        "description": "任务列表（分页 limit/offset + updated_since 游标）"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "TaskCreate": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Title",
+            "description": "标题"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "描述"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status",
+            "description": "通用状态，缺省时取生效词表默认（含 todo 时为 todo，否则规范序首个）；词表经 config contract.status_mapping 可配置（默认 todo/in_progress/in_review/done/cancelled），词表外值运行时校验 422（CONTRACT_STATUS_UNKNOWN）"
+          },
+          "assignee": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignee",
+            "description": "负责人 user ID（字符串）"
+          },
+          "labels": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labels",
+            "description": "标签列表，映射到 OpenTask tags"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "title": "TaskCreate",
+        "description": "创建任务（契约侧输入）"
+      },
+      "TaskUpdate": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status",
+            "description": "通用状态；词表外值运行时校验 422（CONTRACT_STATUS_UNKNOWN）"
+          },
+          "assignee": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignee"
+          },
+          "labels": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labels"
+          }
+        },
+        "type": "object",
+        "title": "TaskUpdate",
+        "description": "更新任务（契约侧输入；仅更新出现的字段）"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}
