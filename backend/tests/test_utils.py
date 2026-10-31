@@ -1,11 +1,17 @@
 import os
+from pathlib import Path
 
+import pytest
 from fastapi import UploadFile
 
 from opentask.config import config
 from opentask.utils.utils import generate_short_uuid, is_valid_sqlite_file
 
 
+@pytest.mark.skipif(
+    not config.sample_dvdrental_path or not Path(config.sample_dvdrental_path).is_file(),
+    reason="示例库文件未提供（SAMPLE_DVDRENTAL_PATH 未配置或文件不存在），仅在提供示例数据时运行",
+)
 def test_valid_sqlite_file_validation() -> None:
     # Test for valid sqlite file
     file_path = config.sample_dvdrental_path

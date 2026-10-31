@@ -4,7 +4,7 @@ from datetime import datetime, date
 from typing import TYPE_CHECKING, List, Optional
 from sqlalchemy import String, Text, Date, Numeric, DateTime, ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.mysql import ENUM
+from sqlalchemy import Enum as ENUM
 
 from opentask.models.base import DBModel
 from .enums import WorkStatus, QualityLevel, RelatedType
@@ -12,7 +12,7 @@ from .enums import WorkStatus, QualityLevel, RelatedType
 
 def generate_uuid() -> str:
     """生成 UUID（36字符，带连字符）"""
-    return uuid.uuid4()
+    return str(uuid.uuid4())
 
 
 class WorkAssignment(DBModel):

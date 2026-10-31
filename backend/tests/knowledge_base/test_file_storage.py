@@ -10,6 +10,12 @@ import shutil
 from pathlib import Path
 from httpx import AsyncClient
 
+# 文件优先架构已废弃：系统已迁移到 Git + Web 编辑架构 v2.0
+# （见 opentask/app.py 注释与 docs/knowledge-base/GIT_WEB_ARCHITECTURE.md）。
+# API 响应不再返回 file_path，文件同步/文件监控服务已下线，
+# 本模块针对已下线的架构，整体跳过，待按新架构重写。
+pytestmark = pytest.mark.skip(reason="文件优先架构已废弃（v2.0 Git+Web 编辑架构），用例待按新架构重写")
+
 
 class TestFileStorage:
     """文件存储服务测试"""

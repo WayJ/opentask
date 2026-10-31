@@ -72,14 +72,14 @@ def get_env_value(key: str, default: Optional[str] = None) -> str:
     config = load_config_file(environment)
 
     # 环境变量名到配置路径的映射
-    # 支持扁平化环境变量名（如 MYSQL_HOST）到嵌套配置路径（database.mysql.host）
+    # 支持扁平化环境变量名（如 POSTGRES_HOST）到嵌套配置路径（database.postgres.host）
     key_mapping = {
-        'MYSQL_HOST': ['database', 'mysql', 'host'],
-        'MYSQL_PORT': ['database', 'mysql', 'port'],
-        'MYSQL_USER': ['database', 'mysql', 'user'],
-        'MYSQL_PASSWORD': ['database', 'mysql', 'password'],
-        'MYSQL_DATABASE': ['database', 'mysql', 'database'],
-        'MYSQL_ECHO': ['database', 'mysql', 'echo'],
+        'POSTGRES_HOST': ['database', 'postgres', 'host'],
+        'POSTGRES_PORT': ['database', 'postgres', 'port'],
+        'POSTGRES_USER': ['database', 'postgres', 'user'],
+        'POSTGRES_PASSWORD': ['database', 'postgres', 'password'],
+        'POSTGRES_DATABASE': ['database', 'postgres', 'database'],
+        'POSTGRES_ECHO': ['database', 'postgres', 'echo'],
         'DATA_DIRECTORY': ['storage', 'data_directory'],
         'STORAGE_PROVIDER': ['storage', 'provider'],
         'AUTH_USERNAME': ['auth', 'username'],
@@ -166,30 +166,30 @@ class Config(BaseSettings):
         """获取配置值，优先级：环境变量 > YAML 配置 > 默认值"""
         return get_env_value(key, default)
 
-    # MySQL 数据库配置
+    # PostgreSQL 数据库配置
     @property
-    def mysql_host(self) -> str:
-        return self._get_value("MYSQL_HOST", "localhost")
+    def postgres_host(self) -> str:
+        return self._get_value("POSTGRES_HOST", "localhost")
 
     @property
-    def mysql_port(self) -> int:
-        return int(self._get_value("MYSQL_PORT", "3306"))
+    def postgres_port(self) -> int:
+        return int(self._get_value("POSTGRES_PORT", "5432"))
 
     @property
-    def mysql_user(self) -> str:
-        return self._get_value("MYSQL_USER", "root")
+    def postgres_user(self) -> str:
+        return self._get_value("POSTGRES_USER", "opentask")
 
     @property
-    def mysql_password(self) -> str:
-        return self._get_value("MYSQL_PASSWORD", "")
+    def postgres_password(self) -> str:
+        return self._get_value("POSTGRES_PASSWORD", "")
 
     @property
-    def mysql_database(self) -> str:
-        return self._get_value("MYSQL_DATABASE", "opentask")
+    def postgres_database(self) -> str:
+        return self._get_value("POSTGRES_DATABASE", "opentask")
 
     @property
-    def mysql_echo(self) -> bool:
-        echo = self._get_value("MYSQL_ECHO", "false")
+    def postgres_echo(self) -> bool:
+        echo = self._get_value("POSTGRES_ECHO", "false")
         return echo.lower() in ("true", "1", "yes")
 
     # SQLite 数据库配置（用于本地开发）
@@ -206,16 +206,16 @@ class Config(BaseSettings):
         """获取同步数据库连接字符串"""
         if self.use_sqlite:
             return f"sqlite:///{self.sqlite_path}"
-        encoded_password = quote_plus(self.mysql_password)
-        return f"mysql+pymysql://{self.mysql_user}:{encoded_password}@{self.mysql_host}:{self.mysql_port}/{self.mysql_database}"
+        encoded_password = quote_plus(self.postgres_password)
+        return f"postgresql+psycopg2://{self.postgres_user}:{encoded_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_database}"
 
     @property
     def database_dsn_async(self) -> str:
         """获取异步数据库连接字符串"""
         if self.use_sqlite:
             return f"sqlite+aiosqlite:///{self.sqlite_path}"
-        encoded_password = quote_plus(self.mysql_password)
-        return f"mysql+aiomysql://{self.mysql_user}:{encoded_password}@{self.mysql_host}:{self.mysql_port}/{self.mysql_database}"
+        encoded_password = quote_plus(self.postgres_password)
+        return f"postgresql+asyncpg://{self.postgres_user}:{encoded_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_database}"
 
     # 文件存储路径
     @property

@@ -1,7 +1,7 @@
 """Project management commands for OpenTask CLI."""
 import asyncio
 import click
-from ..utils.api_client import VibeKingClient, APIError
+from ..utils.api_client import OpenTaskClient, APIError
 from ..utils.config import Config
 from ..utils.repl_skin import ReplSkin
 
@@ -42,7 +42,7 @@ def project_cli():
 def list_projects(obj: "Context", active_only: bool, as_json: bool):
     """List all projects."""
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -87,7 +87,7 @@ def list_projects(obj: "Context", active_only: bool, as_json: bool):
 def show_project(obj: "Context", project_id: str, as_json: bool):
     """Show project details."""
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     try:
@@ -121,7 +121,7 @@ def show_project(obj: "Context", project_id: str, as_json: bool):
 def create_project(obj: "Context", name: str, description: str, as_json: bool):
     """Create a new project."""
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     try:
@@ -154,7 +154,7 @@ def create_project(obj: "Context", name: str, description: str, as_json: bool):
 def update_project(obj: "Context", project_id: str, name: str | None, description: str | None, as_json: bool):
     """Update project."""
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     if not name and not description:
@@ -188,7 +188,7 @@ def update_project(obj: "Context", project_id: str, name: str | None, descriptio
 def use_project(obj: "Context", project_id: str):
     """Set active project context."""
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     try:
@@ -263,7 +263,7 @@ def delete_project(obj: "Context", project_id: str, force: bool, as_json: bool):
         "For security reasons, deletion operations are not allowed through CLI.",
         "",
         "Please use the Web UI to delete this project:",
-        f"  1. Open: http://39.183.172.160:28000/opentask/projects/{project_id}",
+        f"  1. Open: {obj.config.api_url.rstrip('/')}/projects/{project_id}",
         "  2. Click the delete button",
         "  3. Confirm the deletion",
         "",
@@ -279,7 +279,7 @@ def delete_project(obj: "Context", project_id: str, force: bool, as_json: bool):
             "success": False,
             "error": "CLI_DELETE_NOT_ALLOWED",
             "message": "Cannot delete project via CLI for security reasons",
-            "web_ui_url": f"http://39.183.172.160:28000/opentask/projects/{project_id}",
+            "web_ui_url": f"{obj.config.api_url.rstrip('/')}/projects/{project_id}",
             "reason": "AI assistant protection"
         }
         click.echo(json.dumps(error_data, indent=2, ensure_ascii=False))

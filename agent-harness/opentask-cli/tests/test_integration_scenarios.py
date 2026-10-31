@@ -1,3 +1,4 @@
+import os
 """
 完整应用场景集成测试
 
@@ -16,14 +17,15 @@ import tempfile
 from pathlib import Path
 
 from opentask.opentask_cli import cli
-from opentask.utils.api_client import VibeKingClient
+from opentask.utils.api_client import OpenTaskClient
 
 
 # ============================================================================
 # 配置
 # ============================================================================
 
-API_BASE_URL = "http://39.183.172.160:28000/opentask"
+API_BASE_URL = os.environ.get("OPENTASK_TEST_API_URL", "")
+pytestmark = pytest.mark.skipif(not API_BASE_URL, reason="OPENTASK_TEST_API_URL not set; live integration tests skipped")
 TEST_USERNAME = "xxxxx"
 TEST_PASSWORD = "xxxxx"
 
@@ -41,13 +43,13 @@ def async_mock(return_value):
 
 async def get_authenticated_client():
     """创建已认证的客户端"""
-    client = VibeKingClient(base_url=API_BASE_URL)
+    client = OpenTaskClient(base_url=API_BASE_URL)
 
     try:
         result = await client.login(TEST_USERNAME, TEST_PASSWORD)
 
         if result and "token" in result:
-            return VibeKingClient(base_url=API_BASE_URL, token=result["token"])
+            return OpenTaskClient(base_url=API_BASE_URL, token=result["token"])
         else:
             return None
     except:

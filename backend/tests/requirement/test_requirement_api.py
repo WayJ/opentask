@@ -15,7 +15,7 @@ class TestRequirementCRUD:
     async def test_create_requirement_success(self, test_client: AsyncClient, test_token: str, test_project_id: str):
         """测试成功创建需求"""
         response = await test_client.post(
-            "/requirements",
+            "/api/requirements",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "自动化测试需求",
@@ -27,7 +27,7 @@ class TestRequirementCRUD:
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["code"] == 0
+        assert data["code"] == 200
         assert data["data"]["title"] == "自动化测试需求"
         assert data["data"]["priority"] == Priority.HIGH
         assert "id" in data["data"]
@@ -36,12 +36,12 @@ class TestRequirementCRUD:
     async def test_get_requirement_list(self, test_client: AsyncClient, test_token: str):
         """测试获取需求列表"""
         response = await test_client.get(
-            "/requirements",
+            "/api/requirements",
             headers={"Authorization": f"Bearer {test_token}"}
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["code"] == 0
+        assert data["code"] == 200
         assert "data" in data
         assert "total" in data["data"]
 
@@ -49,7 +49,7 @@ class TestRequirementCRUD:
         """测试获取需求详情"""
         # 先创建一个需求
         create_response = await test_client.post(
-            "/requirements",
+            "/api/requirements",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "自动化测试需求 - 详情",
@@ -61,19 +61,19 @@ class TestRequirementCRUD:
 
         # 获取需求详情
         response = await test_client.get(
-            f"/requirements/{requirement_id}",
+            f"/api/requirements/{requirement_id}",
             headers={"Authorization": f"Bearer {test_token}"}
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["code"] == 0
+        assert data["code"] == 200
         assert data["data"]["id"] == requirement_id
 
     async def test_update_requirement(self, test_client: AsyncClient, test_token: str, test_project_id: str):
         """测试更新需求"""
         # 先创建一个需求
         create_response = await test_client.post(
-            "/requirements",
+            "/api/requirements",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "自动化测试需求 - 更新前",
@@ -85,26 +85,26 @@ class TestRequirementCRUD:
 
         # 更新需求
         response = await test_client.put(
-            f"/requirements/{requirement_id}",
+            f"/api/requirements/{requirement_id}",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "自动化测试需求 - 更新后",
                 "description": "更新后的描述",
-                "status": RequirementStatus.CLARIFYING,
+                "status": RequirementStatus.EVALUATING,
                 "priority": Priority.CRITICAL
             }
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["code"] == 0
+        assert data["code"] == 200
         assert data["data"]["title"] == "自动化测试需求 - 更新后"
-        assert data["data"]["status"] == RequirementStatus.CLARIFYING
+        assert data["data"]["status"] == RequirementStatus.EVALUATING
 
     async def test_delete_requirement(self, test_client: AsyncClient, test_token: str, test_project_id: str):
         """测试删除需求"""
         # 先创建一个需求
         create_response = await test_client.post(
-            "/requirements",
+            "/api/requirements",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "待删除的测试需求",
@@ -116,17 +116,17 @@ class TestRequirementCRUD:
 
         # 删除需求
         response = await test_client.delete(
-            f"/requirements/{requirement_id}",
+            f"/api/requirements/{requirement_id}",
             headers={"Authorization": f"Bearer {test_token}"}
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["code"] == 0
+        assert data["code"] == 200
 
     async def test_create_requirement_missing_required_field(self, test_client: AsyncClient, test_token: str):
         """测试缺少必填字段"""
         response = await test_client.post(
-            "/requirements",
+            "/api/requirements",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "description": "只有描述，没有标题"
@@ -141,63 +141,63 @@ class TestRequirementFilters:
     async def test_filter_by_status(self, test_client: AsyncClient, test_token: str):
         """测试按状态过滤"""
         response = await test_client.get(
-            f"/requirements?status={RequirementStatus.DRAFT}",
+            f"/api/requirements?status={RequirementStatus.PLANNING}",
             headers={"Authorization": f"Bearer {test_token}"}
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["code"] == 0
+        assert data["code"] == 200
 
     async def test_filter_by_priority(self, test_client: AsyncClient, test_token: str):
         """测试按优先级过滤"""
         response = await test_client.get(
-            f"/requirements?priority={Priority.HIGH}",
+            f"/api/requirements?priority={Priority.HIGH}",
             headers={"Authorization": f"Bearer {test_token}"}
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["code"] == 0
+        assert data["code"] == 200
 
     async def test_filter_by_project(self, test_client: AsyncClient, test_token: str, test_project_id: str):
         """测试按项目过滤"""
         response = await test_client.get(
-            f"/requirements?project_id={test_project_id}",
+            f"/api/requirements?project_id={test_project_id}",
             headers={"Authorization": f"Bearer {test_token}"}
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["code"] == 0
+        assert data["code"] == 200
 
     async def test_search_by_keyword(self, test_client: AsyncClient, test_token: str):
         """测试关键词搜索"""
         response = await test_client.get(
-            "/requirements/search?q=自动化测试",
+            "/api/requirements/search?q=自动化测试",
             headers={"Authorization": f"Bearer {test_token}"}
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["code"] == 0
+        assert data["code"] == 200
         assert isinstance(data["data"], list)
 
     async def test_combined_filters(self, test_client: AsyncClient, test_token: str):
         """测试组合过滤条件"""
         response = await test_client.get(
-            f"/requirements?status={RequirementStatus.DRAFT}&priority={Priority.HIGH}",
+            f"/api/requirements?status={RequirementStatus.PLANNING}&priority={Priority.HIGH}",
             headers={"Authorization": f"Bearer {test_token}"}
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["code"] == 0
+        assert data["code"] == 200
 
     async def test_pagination(self, test_client: AsyncClient, test_token: str):
         """测试分页"""
         response = await test_client.get(
-            "/requirements?page=1&page_size=10",
+            "/api/requirements?page=1&page_size=10",
             headers={"Authorization": f"Bearer {test_token}"}
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["code"] == 0
+        assert data["code"] == 200
         assert data["data"]["page"] == 1
         assert data["data"]["page_size"] == 10
 
@@ -209,7 +209,7 @@ class TestRequirementAssignment:
         """测试分配需求"""
         # 先创建一个需求
         create_response = await test_client.post(
-            "/requirements",
+            "/api/requirements",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "自动化测试需求 - 分配",
@@ -221,7 +221,7 @@ class TestRequirementAssignment:
 
         # 分配需求
         response = await test_client.post(
-            f"/requirements/{requirement_id}/assign",
+            f"/api/requirements/{requirement_id}/assign",
             params={"actor": "admin"},
             headers={"Authorization": f"Bearer {test_token}"},
             json={
@@ -230,7 +230,7 @@ class TestRequirementAssignment:
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["code"] == 0
+        assert data["code"] == 200
         assert data["data"]["assignee_id"] == "test-user-id"
 
 
@@ -241,7 +241,7 @@ class TestRequirementEvents:
         """测试记录事件"""
         # 先创建一个需求
         create_response = await test_client.post(
-            "/requirements",
+            "/api/requirements",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "自动化测试需求 - 事件",
@@ -251,28 +251,21 @@ class TestRequirementEvents:
         )
         requirement_id = create_response.json()["data"]["id"]
 
-        # 记录事件
+        # 记录事件：现行 API 的需求事件追加走评论端点（POST /comments, Form 字段）
         response = await test_client.post(
-            f"/requirements/{requirement_id}/events",
-            params={
-                "event_type": EventType.COMMENT_ADDED,
-                "actor": "admin",
-                "reasoning": "测试推理过程"
-            },
+            f"/api/requirements/{requirement_id}/comments",
             headers={"Authorization": f"Bearer {test_token}"},
-            json={
-                "comment": "这是一条测试评论"
-            }
+            data={"content": "这是一条测试评论"}
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["code"] == 0
+        assert data["code"] == 200
 
     async def test_get_requirement_timeline(self, test_client: AsyncClient, test_token: str, test_project_id: str):
         """测试获取需求时间线"""
         # 先创建一个需求
         create_response = await test_client.post(
-            "/requirements",
+            "/api/requirements",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "自动化测试需求 - 时间线",
@@ -284,12 +277,12 @@ class TestRequirementEvents:
 
         # 获取时间线
         response = await test_client.get(
-            f"/requirements/{requirement_id}/timeline",
+            f"/api/requirements/{requirement_id}/timeline",
             headers={"Authorization": f"Bearer {test_token}"}
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["code"] == 0
+        assert data["code"] == 200
         assert "events" in data["data"]
         assert "time_in_states" in data["data"]
 
@@ -299,12 +292,12 @@ class TestRequirementStatistics:
     async def test_get_statistics(self, test_client: AsyncClient, test_token: str):
         """测试获取统计信息"""
         response = await test_client.get(
-            "/requirements/statistics",
+            "/api/requirements/statistics",
             headers={"Authorization": f"Bearer {test_token}"}
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["code"] == 0
+        assert data["code"] == 200
         assert "total" in data["data"]
         assert "by_status" in data["data"]
         assert "by_priority" in data["data"]
@@ -317,7 +310,7 @@ class TestRequirementDocuments:
         """测试获取需求文档列表"""
         # 先创建一个需求
         create_response = await test_client.post(
-            "/requirements",
+            "/api/requirements",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "自动化测试需求 - 文档",
@@ -329,19 +322,19 @@ class TestRequirementDocuments:
 
         # 获取文档列表
         response = await test_client.get(
-            f"/requirements/{requirement_id}/documents",
+            f"/api/requirements/{requirement_id}/documents",
             headers={"Authorization": f"Bearer {test_token}"}
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["code"] == 0
+        assert data["code"] == 200
         assert "data" in data["data"]
 
     async def test_create_requirement_document(self, test_client: AsyncClient, test_token: str, test_project_id: str):
         """测试创建需求文档（上传文件）"""
         # 先创建一个需求
         create_response = await test_client.post(
-            "/requirements",
+            "/api/requirements",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "自动化测试需求 - 上传文档",
@@ -363,20 +356,21 @@ class TestRequirementDocuments:
         }
 
         response = await test_client.post(
-            f"/requirements/{requirement_id}/documents",
+            f"/api/requirements/{requirement_id}/documents",
             headers={"Authorization": f"Bearer {test_token}"},
             files=files,
             data=data
         )
-        assert response.status_code == 200
+        # 上传文档端点声明 status_code=201（REST 语义：资源已创建）
+        assert response.status_code == 201
         result = response.json()
-        assert result["code"] == 0
+        assert result["code"] == 200
 
     async def test_delete_requirement_document(self, test_client: AsyncClient, test_token: str, test_project_id: str):
         """测试删除需求文档"""
         # 先创建一个需求
         create_response = await test_client.post(
-            "/requirements",
+            "/api/requirements",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "自动化测试需求 - 删除文档",
@@ -398,7 +392,7 @@ class TestRequirementDocuments:
         }
 
         upload_response = await test_client.post(
-            f"/requirements/{requirement_id}/documents",
+            f"/api/requirements/{requirement_id}/documents",
             headers={"Authorization": f"Bearer {test_token}"},
             files=files,
             data=data
@@ -407,12 +401,12 @@ class TestRequirementDocuments:
 
         # 删除文档
         response = await test_client.delete(
-            f"/requirements/{requirement_id}/documents/{document_id}",
+            f"/api/requirements/{requirement_id}/documents/{document_id}",
             headers={"Authorization": f"Bearer {test_token}"}
         )
         assert response.status_code == 200
         result = response.json()
-        assert result["code"] == 0
+        assert result["code"] == 200
 
 
 class TestRequirementPermissions:
@@ -420,13 +414,13 @@ class TestRequirementPermissions:
 
     async def test_unauthorized_access(self, test_client: AsyncClient):
         """测试未授权访问"""
-        response = await test_client.get("/requirements")
-        assert response.status_code == 403
+        response = await test_client.get("/api/requirements")
+        assert response.status_code == 401
 
     async def test_invalid_token(self, test_client: AsyncClient):
         """测试无效 token"""
         response = await test_client.get(
-            "/requirements",
+            "/api/requirements",
             headers={"Authorization": "Bearer invalid_token"}
         )
         assert response.status_code == 401
@@ -434,7 +428,7 @@ class TestRequirementPermissions:
     async def test_get_nonexistent_requirement(self, test_client: AsyncClient, test_token: str):
         """测试获取不存在的需求"""
         response = await test_client.get(
-            "/requirements/nonexistent-id",
+            "/api/requirements/nonexistent-id",
             headers={"Authorization": f"Bearer {test_token}"}
         )
         assert response.status_code == 404

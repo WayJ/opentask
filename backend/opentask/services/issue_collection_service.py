@@ -288,13 +288,17 @@ class IssueCollectionService:
                     description += mention
 
                 # 使用原始 SQL 插入 Issue
+                # status/is_deleted/created_at/updated_at 均 NOT NULL 且仅有 Python 端默认，
+                # 原始 SQL 绕过 ORM，必须显式给值（与模型 insert_default 一致）
                 insert_query = text("""
                     INSERT INTO issues (
-                        id, title, description, type, priority, reporter_id,
-                        issue_code, created_by, updated_by, comment_count, attachment_count, view_count
+                        id, title, description, type, priority, status, reporter_id,
+                        issue_code, created_by, updated_by, comment_count, attachment_count, view_count,
+                        is_deleted, created_at, updated_at
                     ) VALUES (
-                        :id, :title, :description, :type, :priority, :reporter_id,
-                        :issue_code, :created_by, :updated_by, 0, 0, 0
+                        :id, :title, :description, :type, :priority, 'open', :reporter_id,
+                        :issue_code, :created_by, :updated_by, 0, 0, 0,
+                        FALSE, NOW(), NOW()
                     )
                 """)
                 new_issue_id = generate_uuid()

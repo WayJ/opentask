@@ -1,3 +1,4 @@
+import os
 """
 完整 CRUD 集成测试 - 使用真实 API 测试创建/更新操作
 
@@ -11,7 +12,7 @@
 """
 
 import pytest
-from opentask.utils.api_client import VibeKingClient, APIError
+from opentask.utils.api_client import OpenTaskClient, APIError
 import asyncio
 import uuid
 
@@ -20,7 +21,8 @@ import uuid
 # 配置
 # ============================================================================
 
-API_BASE_URL = "http://39.183.172.160:28000/opentask"
+API_BASE_URL = os.environ.get("OPENTASK_TEST_API_URL", "")
+pytestmark = pytest.mark.skipif(not API_BASE_URL, reason="OPENTASK_TEST_API_URL not set; live integration tests skipped")
 TEST_USERNAME = "xxxxx"
 TEST_PASSWORD = "xxxxx"
 
@@ -31,13 +33,13 @@ TEST_PASSWORD = "xxxxx"
 
 async def get_authenticated_client():
     """创建已认证的客户端"""
-    client = VibeKingClient(base_url=API_BASE_URL)
+    client = OpenTaskClient(base_url=API_BASE_URL)
 
     try:
         result = await client.login(TEST_USERNAME, TEST_PASSWORD)
 
         if result and "token" in result:
-            return VibeKingClient(base_url=API_BASE_URL, token=result["token"])
+            return OpenTaskClient(base_url=API_BASE_URL, token=result["token"])
         else:
             pytest.skip("登录失败：未获取到 token")
     except Exception as e:

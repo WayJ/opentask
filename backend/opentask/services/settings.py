@@ -10,6 +10,7 @@ from pydantic import SecretStr
 from opentask.config import config
 from opentask.errors import ValidationError
 from opentask.models.media.model import MediaModel
+from opentask.models.user.model import UserModel
 from opentask.models.user.schema import UserOut, UserUpdateIn, UserWithKeys
 from opentask.repositories.base import AsyncSession, NotFoundError
 from opentask.repositories.media import MediaCreate, MediaRepository
@@ -78,18 +79,31 @@ class SettingsService:
     async def update_user_info(self, session: AsyncSession, data: UserUpdateIn, user_id: str = None) -> UserOut:
         # Check if user exists
         user = None
+        user_info = None  # 必须先绑定：user_id 为空时下方判断会引用未定义变量（NameError）
         if user_id:
-            user_info = await self.user_repo.get_by_uuid(session, user_id)
+            try:
+                user_info = await self.user_repo.get_by_uuid(session, user_id)
+            except NotFoundError:
+                user_info = None
         if user_info is None:
             # Create user with data
-            user_create = UserCreate.model_construct(**data.model_dump(exclude_unset=True))
-            if user_create.openai_api_key and user_create.preferred_openai_model is None:
-                user_create.preferred_openai_model = (
-                    config.default_model
-                    if model_exists(user_create.openai_api_key, config.default_model, user_create.openai_base_url)
+            # 直接构造 UserModel：UserCreate 仍带已废弃的 password 列（模型已删该列），
+            # 经 user_repo.create 的 model_dump 全量回灌会 TypeError；
+            # 这里只取 UserModel 上真实存在、且请求显式提供的字段
+            payload = {
+                k: (v.get_secret_value() if hasattr(v, "get_secret_value") else v)
+                for k, v in data.model_dump(exclude_unset=True).items()
+                if hasattr(UserModel, k)
+            }
+            if payload.get("openai_api_key") and payload.get("preferred_openai_model") is None:
+                payload["preferred_openai_model"] = (
+                    config.default_llm_model
+                    if model_exists(payload["openai_api_key"], config.default_llm_model, payload.get("openai_base_url"))
                     else "gpt-3.5-turbo"
                 )
-            user = await self.user_repo.create(session, user_create)
+            user = UserModel(**payload)
+            session.add(user)
+            await session.flush()
         else:
             # Update user with data
             user_update = UserUpdate.model_construct(**data.model_dump(exclude_unset=True))

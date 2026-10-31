@@ -23,7 +23,7 @@ async def test_create_pge_task(test_session: AsyncSession):
     requirement_id = str(uuid.uuid4())
     requirement = Requirement(
         id=requirement_id,
-        code=f"TEST-REQ-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        code=f"TEST-REQ-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:8]}",
         title="测试需求",
         description="这是一个测试需求，用于测试 PGE 任务创建",
         status="draft",
@@ -90,7 +90,7 @@ async def test_calculate_parent_status_all_pending(test_session: AsyncSession):
     requirement = Requirement(
         tags=[],
         id=requirement_id,
-        code=f"TEST-REQ-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        code=f"TEST-REQ-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:8]}",
         title="测试需求",
         description="测试父任务状态计算",
         status="draft",
@@ -137,7 +137,7 @@ async def test_generate_task_prompt(test_session: AsyncSession):
     requirement = Requirement(
         tags=[],
         id=requirement_id,
-        code=f"TEST-REQ-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        code=f"TEST-REQ-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:8]}",
         title="测试需求",
         description="测试提示词生成",
         status="draft",
@@ -195,7 +195,7 @@ async def test_calculate_parent_status_all_done(test_session: AsyncSession):
     requirement = Requirement(
         tags=[],
         id=requirement_id,
-        code=f"TEST-REQ-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        code=f"TEST-REQ-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:8]}",
         title="测试需求",
         description="测试父任务状态计算",
         status="draft",
@@ -243,7 +243,7 @@ async def test_calculate_parent_status_failed(test_session: AsyncSession):
     requirement = Requirement(
         tags=[],
         id=requirement_id,
-        code=f"TEST-REQ-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        code=f"TEST-REQ-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:8]}",
         title="测试需求",
         description="测试父任务状态计算",
         status="draft",

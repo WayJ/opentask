@@ -38,7 +38,7 @@ class TestProjectCommands:
         """测试 project list 命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.project.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.project.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.list_projects = async_mock([
                 {"id": "proj-1", "name": "Project A", "is_active": True}
@@ -52,7 +52,7 @@ class TestProjectCommands:
         """测试 project show 命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.project.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.project.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_project = async_mock({
                 "id": "proj-1",
@@ -68,7 +68,7 @@ class TestProjectCommands:
         """测试 project create 命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.project.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.project.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.create_project = async_mock({
                 "id": "new-1",
@@ -87,7 +87,7 @@ class TestProjectCommands:
         """测试 project update 命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.project.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.project.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.update_project = async_mock({
                 "id": "proj-1",
@@ -105,7 +105,7 @@ class TestProjectCommands:
         """测试 project delete 命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.project.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.project.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.delete_project = async_mock(True)
             mock_client_class.return_value = mock_client
@@ -132,7 +132,7 @@ class TestIssueCommands:
         """测试 issue list 命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.list_issues = async_mock({
                 "rows": [
@@ -149,7 +149,7 @@ class TestIssueCommands:
         """测试 issue show 命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_issue = async_mock({
                 "id": "1",
@@ -166,7 +166,7 @@ class TestIssueCommands:
         """测试 issue create 命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.create_issue = async_mock({
                 "id": "new-1",
@@ -187,7 +187,7 @@ class TestIssueCommands:
         """测试 issue update 命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.update_issue = async_mock({
                 "id": "1",
@@ -206,7 +206,7 @@ class TestIssueCommands:
         """测试 issue delete 命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.delete_issue = async_mock(True)
             mock_client_class.return_value = mock_client
@@ -219,7 +219,7 @@ class TestIssueCommands:
         """测试 issue status 命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.update_issue_status = async_mock({
                 "id": "1",
@@ -242,7 +242,7 @@ class TestCollectionCommands:
         """测试 collection list 命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.collection.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.collection.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.list_collections = async_mock({
                 "rows": [
@@ -259,7 +259,7 @@ class TestCollectionCommands:
         """测试 collection show 命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.collection.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.collection.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_collection = async_mock({
                 "id": "1",
@@ -274,7 +274,7 @@ class TestCollectionCommands:
         """测试 collection create 命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.collection.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.collection.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.create_collection = async_mock({
                 "id": "new-1",
@@ -293,7 +293,7 @@ class TestCollectionCommands:
         """测试 collection update 命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.collection.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.collection.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.update_collection = async_mock({
                 "id": "1",
@@ -311,7 +311,7 @@ class TestCollectionCommands:
         """测试 collection delete 命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.collection.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.collection.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.delete_collection = async_mock(True)
             mock_client_class.return_value = mock_client
@@ -332,7 +332,7 @@ class TestRequirementCommands:
         """测试 requirement list 命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.requirement.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.requirement.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.list_requirements = async_mock({
                 "rows": [
@@ -349,7 +349,7 @@ class TestRequirementCommands:
         """测试 requirement show 命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.requirement.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.requirement.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_requirement = async_mock({
                 "id": "1",
@@ -365,7 +365,7 @@ class TestRequirementCommands:
         """测试 requirement create 命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.requirement.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.requirement.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.create_requirement = async_mock({
                 "id": "new-1",
@@ -384,7 +384,7 @@ class TestRequirementCommands:
         """测试 requirement update 命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.requirement.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.requirement.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.update_requirement = async_mock({
                 "id": "1",
@@ -402,7 +402,7 @@ class TestRequirementCommands:
         """测试 requirement delete 命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.requirement.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.requirement.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.delete_requirement = async_mock(True)
             mock_client_class.return_value = mock_client

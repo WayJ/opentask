@@ -13,12 +13,12 @@ server:
   workers: 4
 
 database:
-  mysql:
-    host: "${MYSQL_HOST}"  # 从环境变量读取
-    port: "${MYSQL_PORT:3306}"
-    user: "${MYSQL_USER}"
-    password: "${MYSQL_PASSWORD}"
-    database: "${MYSQL_DATABASE}"
+  postgres:
+    host: "${POSTGRES_HOST}"  # 从环境变量读取
+    port: "${POSTGRES_PORT:5432}"
+    user: "${POSTGRES_USER}"
+    password: "${POSTGRES_PASSWORD}"
+    database: "${POSTGRES_DATABASE}"
     echo: false
 
 auth:

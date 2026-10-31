@@ -100,9 +100,10 @@ class KnowledgeBaseService:
             .returning(KnowledgeBase)
         )
         result = await self.db.execute(query)
+        updated_row = result.first()  # RETURNING 结果无 rowcount 属性；且行须在 commit 前取
         await self.db.commit()
 
-        if result.rowcount == 0:
+        if updated_row is None:
             return None
 
         return await self.get_knowledge_base(kb_id)

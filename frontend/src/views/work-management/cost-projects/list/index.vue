@@ -1,36 +1,49 @@
-<template>
-  <div class="cost-projects-list">
-    <n-page-header title="成本项目管理" @back="handleBack" />
-    <n-card class="mt-4">
-      <template #header>
-        <div class="flex justify-between items-center">
-          <span>成本项目列表</span>
-          <n-button type="primary" @click="handleCreate">创建成本项目</n-button>
-        </div>
-      </template>
-
-      <n-data-table
-        :columns="columns"
-        :data="projects"
-        :loading="loading"
-        :pagination="pagination"
-      />
-    </n-card>
-  </div>
-</template>
-
 <script setup lang="ts">
-import { ref, onMounted, h } from 'vue'
-import { useRouter } from 'vue-router'
-import { NButton, NTag, NButtonGroup, useMessage } from 'naive-ui'
-import { getCostProjects, deleteCostProject, type CostProject } from '@/service/api/work-management'
+import { h, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
+import { NButton, NButtonGroup, NTag, useMessage } from 'naive-ui';
+import { type CostProject, deleteCostProject, getCostProjects } from '@/service/api/work-management';
 
-const router = useRouter()
-const message = useMessage()
+const router = useRouter();
+const message = useMessage();
 
-const loading = ref(false)
-const projects = ref<CostProject[]>([])
-const pagination = ref({ pageSize: 20 })
+const loading = ref(false);
+const projects = ref<CostProject[]>([]);
+const pagination = ref({ pageSize: 20 });
+
+const fetchProjects = async () => {
+  loading.value = true;
+  try {
+    const data = await getCostProjects();
+    projects.value = data || [];
+  } catch {
+    message.error('加载失败');
+  } finally {
+    loading.value = false;
+  }
+};
+
+const handleCreate = () => router.push('/work-management/cost-projects/create');
+
+const handleView = (id: string) => router.push(`/work-management/cost-projects/${id}`);
+
+const handleDelete = (id: string) => {
+  window.$dialog?.warning({
+    title: '确认删除',
+    content: '确定要删除此成本项目吗？',
+    positiveText: '删除',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        await deleteCostProject(id);
+        message.success('删除成功');
+        await fetchProjects();
+      } catch {
+        message.error('删除失败');
+      }
+    }
+  });
+};
 
 const columns = [
   { title: '项目名称', key: 'name' },
@@ -44,54 +57,42 @@ const columns = [
         active: { type: 'success', label: '活跃' },
         completed: { type: 'info', label: '已完成' },
         archived: { type: 'default', label: '已归档' }
-      }
-      const status = statusMap[row.status] || { type: 'default', label: row.status }
-      return h(NTag, { type: status.type }, () => status.label)
+      };
+      const status = statusMap[row.status] || { type: 'default', label: row.status };
+      return h(NTag, { type: status.type }, () => status.label);
     }
   },
   {
     title: '操作',
     key: 'actions',
-    render: (row: CostProject) => h(NButtonGroup, [
-      h(NButton, { size: 'small', onClick: () => handleView(row.id) }, () => '查看'),
-      h(NButton, { size: 'small', type: 'error', onClick: () => handleDelete(row.id) }, () => '删除')
-    ])
+    render: (row: CostProject) =>
+      h(NButtonGroup, [
+        h(NButton, { size: 'small', onClick: () => handleView(row.id) }, () => '查看'),
+        h(NButton, { size: 'small', type: 'error', onClick: () => handleDelete(row.id) }, () => '删除')
+      ])
   }
-]
+];
 
-const fetchProjects = async () => {
-  loading.value = true
-  try {
-    const data = await getCostProjects()
-    projects.value = data || []
-  } catch (error) {
-    message.error('加载失败')
-  } finally {
-    loading.value = false
-  }
-}
+const handleBack = () => router.back();
 
-const handleCreate = () => router.push('/work-management/cost-projects/create')
-
-const handleView = (id: string) => router.push(`/work-management/cost-projects/${id}`)
-
-const handleDelete = async (id: string) => {
-  const dialog = window.confirm('确定要删除此成本项目吗？')
-  if (!dialog) return
-
-  try {
-    await deleteCostProject(id)
-    message.success('删除成功')
-    await fetchProjects()
-  } catch (error) {
-    message.error('删除失败')
-  }
-}
-
-const handleBack = () => router.back()
-
-onMounted(fetchProjects)
+onMounted(fetchProjects);
 </script>
+
+<template>
+  <div class="cost-projects-list">
+    <NPageHeader title="成本项目管理" @back="handleBack" />
+    <NCard class="mt-4">
+      <template #header>
+        <div class="flex items-center justify-between">
+          <span>成本项目列表</span>
+          <NButton type="primary" @click="handleCreate">创建成本项目</NButton>
+        </div>
+      </template>
+
+      <NDataTable :columns="columns" :data="projects" :loading="loading" :pagination="pagination" />
+    </NCard>
+  </div>
+</template>
 
 <style scoped>
 .cost-projects-list {

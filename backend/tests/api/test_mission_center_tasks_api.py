@@ -48,7 +48,7 @@ async def test_create_task_from_comment_issue(
     # 创建测试 Issue
     issue = Issue(
         id=str(uuid.uuid4()),
-        issue_code=f"TEST-ISSUE-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        issue_code=f"TEST-ISSUE-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:8]}",
         title="测试 Issue",
         description="这是一个测试 Issue",
         type="bug",
@@ -128,7 +128,7 @@ async def test_create_task_from_comment_source_not_found(
 
 @pytest.mark.asyncio
 async def test_create_task_from_comment_requires_auth(test_client: AsyncClient):
-    """无 token 访问 /tasks/from-comment 被拒（缺 token → 403 / 无效 token → 401）"""
+    """无 token 访问 /tasks/from-comment 被拒（缺 token → 401 / 无效 token → 401）"""
     response = await test_client.post(
         "/api/mission-center/tasks/from-comment",
         json={
@@ -139,7 +139,7 @@ async def test_create_task_from_comment_requires_auth(test_client: AsyncClient):
             "created_by": "user123"
         },
     )
-    assert response.status_code == 403
+    assert response.status_code == 401
 
     response = await test_client.post(
         "/api/mission-center/tasks/from-comment",

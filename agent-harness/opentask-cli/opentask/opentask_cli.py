@@ -22,7 +22,7 @@ if sys.platform == "win32" and not _is_pytest:
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
-from .utils.api_client import VibeKingClient, APIError
+from .utils.api_client import OpenTaskClient, APIError
 from .utils.config import Config
 from .utils.repl_skin import ReplSkin
 from .core.project import project_cli
@@ -193,7 +193,7 @@ def login(obj: Context, username: str, password: str):
         try:
             # 密码以明文提交（Phase 2 后端本地 bcrypt 校验）
             # 传递 config 给 API client，自动保存账号密码与 token
-            client = VibeKingClient(base_url=config.api_url, config=config)
+            client = OpenTaskClient(base_url=config.api_url, config=config)
             result = await client.login(username, password)
             token = result.get("token") or result.get("access_token")
 
@@ -252,7 +252,7 @@ def auth_me(obj: Context, as_json: bool):
         return
 
     async def get_user():
-        client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+        client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
         try:
             user = await client.get_me()
 

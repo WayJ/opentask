@@ -21,7 +21,7 @@ from opentask.main import app
 
 
 @pytest.fixture
-async def test_client() -> AsyncGenerator[AsyncClient, None]:
+async def test_client(seeded_users) -> AsyncGenerator[AsyncClient, None]:
     """测试客户端 fixture
 
     使用 ASGITransport 直接在内存中调用 FastAPI app，
@@ -38,8 +38,8 @@ async def test_client() -> AsyncGenerator[AsyncClient, None]:
 async def test_token(test_client: AsyncClient) -> str:
     """获取测试 token"""
     response = await test_client.post(
-        "/auth/login",
-        json={"username": "admin", "password": "123456"}
+        "/api/auth/login",
+        json={"userName": "admin", "password": "123456"}
     )
     assert response.status_code == 200, "Failed to login"
     data = response.json()
@@ -51,7 +51,7 @@ async def test_project_id(test_client: AsyncClient, test_token: str) -> str:
     """创建测试项目并返回 ID"""
     # 先尝试获取现有项目
     response = await test_client.get(
-        "/projects",
+        "/api/projects",
         headers={"Authorization": f"Bearer {test_token}"}
     )
 
@@ -63,7 +63,7 @@ async def test_project_id(test_client: AsyncClient, test_token: str) -> str:
 
     # 如果没有项目，创建一个
     response = await test_client.post(
-        "/projects",
+        "/api/projects",
         headers={"Authorization": f"Bearer {test_token}"},
         json={
             "name": "测试项目 - Requirement自动化测试",
@@ -86,7 +86,7 @@ async def cleanup_test_data(test_client: AsyncClient, test_token: str = None):
     # 清理测试创建的 Requirement
     try:
         response = await test_client.get(
-            "/requirements?search=自动化测试",
+            "/api/requirements?search=自动化测试",
             headers={"Authorization": f"Bearer {test_token}"}
         )
         if response.status_code == 200:
@@ -96,9 +96,63 @@ async def cleanup_test_data(test_client: AsyncClient, test_token: str = None):
                 # 只删除测试创建的 Requirement
                 if isinstance(requirement, dict) and "自动化测试" in requirement.get("title", ""):
                     await test_client.delete(
-                        f"/requirements/{requirement['id']}",
+                        f"/api/requirements/{requirement['id']}",
                         headers={"Authorization": f"Bearer {test_token}"}
                     )
     except Exception as e:
         # 清理失败不应影响测试结果
         print(f"Warning: Cleanup failed: {e}")
+
+
+# ============================================================================
+# 本地文件存储替身：文档上传依赖对象存储（MinIO），测试环境无 MinIO 容器
+# ============================================================================
+
+class _LocalFakeStorage:
+    """与 MinIOStorageService 同接口的本地文件存储替身"""
+
+    def __init__(self):
+        import tempfile
+        self.root = tempfile.mkdtemp(prefix="opentask_test_uploads_")
+
+    async def save_upload_file(self, file, subdir=""):
+        import os
+        import uuid
+        directory = subdir or "."
+        os.makedirs(os.path.join(self.root, directory), exist_ok=True)
+        content = await file.read()
+        filename = file.filename or "upload.bin"
+        stored = os.path.join(directory, f"{uuid.uuid4().hex}_{filename}").replace("\\", "/")
+        with open(os.path.join(self.root, stored), "wb") as f:
+            f.write(content)
+        return stored, filename, len(content)
+
+    def delete_file(self, path):
+        import os
+        full = os.path.join(self.root, path)
+        if os.path.exists(full):
+            os.remove(full)
+
+    def file_exists(self, path):
+        import os
+        return os.path.exists(os.path.join(self.root, path))
+
+    def get_file_stream(self, path):
+        return open(os.path.join(self.root, path), "rb")
+
+    def get_file_path(self, path):
+        import os
+        return os.path.join(self.root, path)
+
+
+@pytest.fixture(autouse=True)
+def _fake_storage(monkeypatch):
+    """为 requirement 路由注入本地存储替身（仅影响测试进程）"""
+    # 注意：包 __init__ 里 `from .router import router` 会让
+    # `import opentask.api.requirement.router as x` 拿到 APIRouter 对象，
+    # 必须经 importlib 取模块本身
+    import importlib
+    requirement_router = importlib.import_module("opentask.api.requirement.router")
+    storage = _LocalFakeStorage()
+    monkeypatch.setattr(requirement_router, "get_storage_service", lambda: storage)
+    yield

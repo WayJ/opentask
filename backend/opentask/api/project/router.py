@@ -2,6 +2,7 @@
 import logging
 from typing import Any
 
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -143,20 +144,29 @@ async def get_repo_config(
     return success_response(data=service.to_response(repo))
 
 
+class RepoConfigUpdateBody(BaseModel):
+    """仓库配置更新请求体（全部可选，仅更新提供字段）
+
+    前端 project.ts 的 updateRepoConfig 以 JSON body 提交（PUT data），
+    原先的裸参数签名会被 FastAPI 解析成 query 参数，body 永远读不到。
+    """
+    name: str | None = None
+    url: str | None = None
+    main_branch: str | None = None
+
+
 @repo_router.put("/{repo_id}")
 async def update_repo_config(
     repo_id: int,
-    name: str | None = None,
-    url: str | None = None,
-    main_branch: str | None = None,
+    dto: RepoConfigUpdateBody,
     service: RepoConfigService = Depends(get_repo_service),
 ):
     """更新仓库配置"""
     repo = await service.update(
         repo_id,
-        name=name,
-        url=url,
-        main_branch=main_branch,
+        name=dto.name,
+        url=dto.url,
+        main_branch=dto.main_branch,
     )
     return success_response(data=service.to_response(repo), message="仓库配置更新成功")
 
@@ -195,22 +205,30 @@ async def get_requirement_repos(
     return success_response(data=[service.to_response(a) for a in associations])
 
 
+class RequirementRepoUpdateBody(BaseModel):
+    """需求-仓库关联更新请求体（全部可选）
+
+    与 update_repo_config 同理：裸参数会被解析为 query 参数，JSON body 读不到。
+    """
+    branch: str | None = None
+    pr_url: str | None = None
+    merge_status: MergeStatus | None = None
+
+
 @requirement_repo_router.put("/{requirement_id}/repos/{repo_id}")
 async def update_requirement_repo(
     requirement_id: str,
     repo_id: int,
-    branch: str | None = None,
-    pr_url: str | None = None,
-    merge_status: MergeStatus | None = None,
+    dto: RequirementRepoUpdateBody,
     service: RequirementRepoService = Depends(get_requirement_repo_service),
 ):
     """更新需求-仓库关联信息（分支、PR等）"""
     association = await service.update_branch(
         requirement_id,
         repo_id,
-        branch=branch,
-        pr_url=pr_url,
-        merge_status=merge_status,
+        branch=dto.branch,
+        pr_url=dto.pr_url,
+        merge_status=dto.merge_status,
     )
     return success_response(data=service.to_response(association), message="关联信息更新成功")
 

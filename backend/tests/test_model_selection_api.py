@@ -5,7 +5,25 @@
 
 import asyncio
 import json
+import socket
+
 import aiohttp
+import pytest
+
+
+def _live_server_reachable(timeout: float = 0.5) -> bool:
+    """检测本地冒烟服务是否在运行"""
+    try:
+        with socket.create_connection(("localhost", 7377), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+pytestmark = pytest.mark.skipif(
+    not _live_server_reachable(),
+    reason="live 冒烟脚本：需要本地运行中的服务 http://localhost:7377",
+)
 
 
 async def test_model_selection_api():

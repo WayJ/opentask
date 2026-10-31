@@ -30,7 +30,7 @@ class TestCLIAuthCommands:
         """测试已认证状态下获取用户信息"""
         runner = CliRunner()
 
-        with mock.patch('opentask.opentask_cli.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.opentask_cli.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_me = async_mock({
                 "id": "user-1",
@@ -48,7 +48,7 @@ class TestCLIAuthCommands:
         """测试未认证状态"""
         runner = CliRunner()
 
-        with mock.patch('opentask.opentask_cli.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.opentask_cli.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_me = async_mock(None)
             mock_client_class.return_value = mock_client
@@ -167,7 +167,7 @@ class TestCLIGlobalOptionsExtended:
         """测试全局 JSON 选项配合 project 命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.project.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.project.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_project = async_mock({
                 "id": "1",
@@ -186,7 +186,7 @@ class TestCLIGlobalOptionsExtended:
         """测试详细模式配合错误情况"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.project.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.project.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_project = async_mock(None)
             mock_client_class.return_value = mock_client
@@ -207,7 +207,7 @@ class TestCLIContextPassing:
         """测试上下文传递到命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.project.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.project.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.list_projects = async_mock([])
             mock_client_class.return_value = mock_client

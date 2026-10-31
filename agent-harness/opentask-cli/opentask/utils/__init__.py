@@ -1,11 +1,11 @@
 """Utility modules for OpenTask CLI."""
 
-from .api_client import VibeKingClient, APIError
+from .api_client import OpenTaskClient, APIError
 from .config import Config
 from .repl_skin import ReplSkin
 
 __all__ = [
-    "VibeKingClient",
+    "OpenTaskClient",
     "APIError",
     "Config",
     "ReplSkin",
