@@ -6,9 +6,6 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List
 
 from git import Repo, Actor, GitCommandError
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from opentask.services.file_storage import FileStorageService
 
 logger = logging.getLogger(__name__)
 
@@ -16,14 +13,23 @@ logger = logging.getLogger(__name__)
 class GitService:
     """Git 服务 - 管理知识库的 Git 仓库"""
 
-    def __init__(self, storage: FileStorageService):
+    def __init__(self, knowledge_root: Path | str):
         """
         初始化 Git 服务
 
         Args:
-            storage: 文件存储服务
+            knowledge_root: 知识库文件根目录，各知识库目录为 <knowledge_root>/<kb_id>
+                （原 FileStorageService 已随旧文件存储模块删除，改为直接持有根目录）
         """
-        self.storage = storage
+        self.knowledge_root = Path(knowledge_root)
+
+    def _kb_dir(self, kb_id: str) -> Path:
+        """知识库目录（原 FileStorageService.get_knowledge_base_dir）"""
+        return self.knowledge_root / kb_id
+
+    def _doc_file_path(self, kb_id: str, doc_id: str) -> Path:
+        """文档文件路径（原 FileStorageService.get_doc_file_path）"""
+        return self._kb_dir(kb_id) / f"{doc_id}.md"
 
     def init_repo(self, kb_id: str) -> Repo:
         """
@@ -35,7 +41,7 @@ class GitService:
         Returns:
             Repo: Git 仓库对象
         """
-        repo_path = self.storage.get_knowledge_base_dir(kb_id)
+        repo_path = self._kb_dir(kb_id)
 
         # 检查是否已经是 Git 仓库
         git_dir = os.path.join(repo_path, '.git')
@@ -81,7 +87,7 @@ class GitService:
         Returns:
             Repo: Git 仓库对象，如果不存在返回 None
         """
-        repo_path = self.storage.get_knowledge_base_dir(kb_id)
+        repo_path = self._kb_dir(kb_id)
         git_dir = os.path.join(repo_path, '.git')
 
         if not os.path.exists(git_dir):
@@ -180,7 +186,7 @@ class GitService:
         try:
             if doc_id:
                 # 获取特定文档的历史
-                doc_path = self.storage.get_doc_file_path(kb_id, doc_id)
+                doc_path = self._doc_file_path(kb_id, doc_id)
                 if not doc_path.exists():
                     return []
 
@@ -230,7 +236,7 @@ class GitService:
             return None
 
         try:
-            doc_path = self.storage.get_doc_file_path(kb_id, doc_id)
+            doc_path = self._doc_file_path(kb_id, doc_id)
             if not doc_path.exists():
                 return None
 

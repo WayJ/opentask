@@ -4,7 +4,7 @@ from datetime import datetime, date
 from typing import TYPE_CHECKING, Optional
 from sqlalchemy import String, Text, Date, Boolean, DateTime, ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.mysql import ENUM
+from sqlalchemy import Enum as ENUM
 
 from opentask.models.base import DBModel
 from .enums import WorkStatus, UnplannedType

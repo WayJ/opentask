@@ -69,32 +69,9 @@ def main():
         "tests": websocket_tests
     }
 
-    # 2. Agent Task 测试
+    # 2. Requirement Task 测试
     print("\n" + "=" * 70)
-    print("测试套件 2: Agent Task 服务")
-    print("=" * 70)
-
-    agent_task_tests = [
-        (
-            ["uv", "run", "python", "-m", "pytest", "tests/agent_task/test_agent_task_service.py", "-v"],
-            "Agent Task 服务单元测试"
-        ),
-    ]
-
-    agent_task_passed = 0
-    for cmd, desc in agent_task_tests:
-        if run_command(cmd, desc):
-            agent_task_passed += 1
-
-    results["agent_task"] = {
-        "total": len(agent_task_tests),
-        "passed": agent_task_passed,
-        "tests": agent_task_tests
-    }
-
-    # 3. Requirement Task 测试
-    print("\n" + "=" * 70)
-    print("测试套件 3: Requirement Task 服务")
+    print("测试套件 2: Requirement Task 服务")
     print("=" * 70)
 
     requirement_tests = [
@@ -115,9 +92,9 @@ def main():
         "tests": requirement_tests
     }
 
-    # 4. 其他测试
+    # 3. 其他测试
     print("\n" + "=" * 70)
-    print("测试套件 4: 其他服务测试")
+    print("测试套件 3: 其他服务测试")
     print("=" * 70)
 
     other_tests = [
@@ -149,7 +126,6 @@ def main():
     for suite_name, suite_results in results.items():
         suite_name_chinese = {
             "websocket": "WebSocket Hub",
-            "agent_task": "Agent Task",
             "requirement": "Requirement Task",
             "other": "其他"
         }.get(suite_name, suite_name)

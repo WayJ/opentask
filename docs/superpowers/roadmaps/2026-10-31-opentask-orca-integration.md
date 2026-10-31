@@ -33,9 +33,9 @@ date: 2026-10-31
 
 | sprint | state | note |
 |---|---|---|
-| S1 | planned | 契约 API 层 + 字段映射（Issue ↔ 通用任务模型） |
-| S2 | planned | 状态映射配置 + 鉴权接入 + 能力检查端点 |
-| S3 | planned | OpenAPI 文档生成 + 错误语义 + 契约测试与 Orca 侧端到端联调 |
+| S4 | started | 契约 API 层 + 字段映射（Issue ↔ 通用任务模型）。编号修订 2026-10-31：原 S1，因 sprint id 全树唯一规则（E1 已物化 S1–S3），E2 stubs 顺延为 S4–S6。go 决定 2026-10-31：用户常设授权「依次推进把E1和E2全部开发完」+「无人值守自行规划」；D6 模拟 Jira 模式、D7 并列路由、D8 软删除、D9 复用 access_token、D10 updated_since 游标均已 ADR 定案；形状三问由 D12 裁定（/tasks 挂根、assignee 字符串+metadata.username、labels↔tags）。sprint 级验收目标：① `GET/POST /tasks` 与 `GET/PATCH/DELETE /tasks/{id}` 可用且字段符合通用任务模型 ② 过滤/分页/updated_since 增量游标可用且重复拉取不重复 ③ CRUD 全路径 + 游标边界有单元测试 ④ 导入图零缺失维持。2026-10-31 started，evidence: `docs/superpowers/sprints/2026-10-31-S4-plan.md` |
+| S5 | planned | 状态映射配置 + 鉴权接入 + 能力检查端点。编号修订 2026-10-31：原 S2，同上 |
+| S6 | planned | OpenAPI 文档生成 + 错误语义 + 契约测试与 Orca 侧端到端联调。编号修订 2026-10-31：原 S3，同上 |
 
 ## Decisions (ADR)
 
@@ -46,6 +46,7 @@ date: 2026-10-31
 | D8 | 删除采用软删除，沿用 OpenTask 现有 `is_deleted` 语义 | Issue 模型已有 `is_deleted` 字段与软删除查询约定；物理删除会破坏 timeline/comment 的级联关系 | 2026-10-31 | `backend/opentask/models/issue/model.py` Issue.is_deleted |
 | D9 | 复用现有 access_token 体系做契约层鉴权 | 后端已有完整的 token 签发/校验/作用域机制，无需新造鉴权体系，也便于 Orca 侧配置 API Key | 2026-10-31 | `backend/opentask/models/access_token/model.py` |
 | D10 | 增量同步采用 `updated_since` 时间游标为主，不实现 webhook 推送 | Orca issue 明确将 webhook 列为可选、轮询游标为 fallback；先实现轮询可满足接入需求，webhook 作为后续增强 | 2026-10-31 | https://github.com/stablyai/orca/issues/8376 |
+| D12 | 契约层三项形状裁定（关闭 Q5/Q7/Q8）：① 路由前缀 `/tasks` 直接挂根（不加 `/api`，Orca base URL 直指，能力协商走 S5 的 `/capabilities`）；② assignee 为字符串 user ID，metadata 附 `username`；③ labels 双向映射到现有 `tags` 关联表 | ①D7 并列路由且 Orca 侧注册需要稳定简洁 base；②Q7 建议（OpenTask 为 assignee_id 字符串 + user 关联）；③Q8 复用既有 tags 避免 schema 变更；裁定依据为用户常设授权「无人值守自行规划」2026-10-31，沿 epic 各问题行内建议 | 2026-10-31 | 本文档 Q5/Q7/Q8 行内建议；用户常设授权 |
 
 ## Asset Disposition
 
@@ -59,10 +60,10 @@ date: 2026-10-31
 
 | id | question | status | resolution |
 |---|---|---|---|
-| Q5 | 契约层与现有 issue API 的路由前缀如何划分（`/tasks` 直接挂根，还是 `/api/tasks`）？ | open | 需与 Orca 侧注册时的 base URL 约定一致；建议独立前缀便于 Orca 直接指向 |
-| Q6 | Orca 的"通用任务源"契约尚未定稿为公开 OpenAPI spec，本项目应完全按 issue 描述实现，还是等待官方 spec 后对齐？ | open | issue #8376 描述了字段与端点但未附正式 spec；建议按 issue 描述实现最小契约，并保留 metadata 扩展位以吸收后续差异 |
-| Q7 | assignee 在契约中是字符串还是对象？OpenTask 用 `assignee_id` 字符串 + user 表关联 | open | 建议暴露字符串 ID 并在 metadata 补充用户名 |
-| Q8 | labels/tags：OpenTask 有独立 `tags` 关联表，契约的 labels 字段如何映射？ | open | 需确认是否并入 metadata 或走独立端点 |
+| Q5 | 契约层与现有 issue API 的路由前缀如何划分（`/tasks` 直接挂根，还是 `/api/tasks`）？ | closed | D12（2026-10-31）：`/tasks` 直接挂根，Orca base URL 直指 |
+| Q6 | Orca 的"通用任务源"契约尚未定稿为公开 OpenAPI spec，本项目应完全按 issue 描述实现，还是等待官方 spec 后对齐？ | open | 维持开放；S4 按 issue 描述实现最小契约 + metadata 扩展位（D6/D10 既定），S6 生成 spec 后对齐复核 |
+| Q7 | assignee 在契约中是字符串还是对象？OpenTask 用 `assignee_id` 字符串 + user 表关联 | closed | D12（2026-10-31）：字符串 user ID + metadata.username |
+| Q8 | labels/tags：OpenTask 有独立 `tags` 关联表，契约的 labels 字段如何映射？ | closed | D12（2026-10-31）：labels 双向映射现有 tags 关联表 |
 
 ## Cross-cutting
 

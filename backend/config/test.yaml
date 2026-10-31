@@ -14,12 +14,12 @@ server:
 
 # 数据库配置 - 使用测试数据库
 database:
-  mysql:
+  postgres:
     host: "localhost"
-    port: 3306
-    user: "root"
-    password: "changeme"
-    database: "opentask"
+    port: 5432
+    user: "opentask"
+    password: "opentask"
+    database: "opentask_test"
     echo: false  # 测试时不打印 SQL
 
 # 认证配置（测试账号）

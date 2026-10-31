@@ -237,7 +237,9 @@ async def login(
 
             # 4. 每次登录重新签发 token
             # （原指纹复用逻辑只写不验，已剥离；每次登录重新签发，语义不变）
-            now = datetime.now(timezone.utc)
+            # 注意：user 表的时间列为 timestamp without time zone（模型 DateTime 无 tz），
+            # asyncpg 严禁把带 tz 的 datetime 绑定到 naive 列，必须用 naive UTC
+            now = datetime.utcnow()
             expires_at = now + timedelta(days=7)
 
             if user is None:

@@ -59,10 +59,13 @@ async def test_login_local_wrong_password(test_client: AsyncClient, test_session
     from opentask.models.user.model import UserModel
 
     # 创建测试用户
+    import uuid as _uuid
+    # 用户名也需唯一：name 列重复会让 get_by_name 抛 NotUniqueError(409)，
+    # 污染后续用例（登录链按 name 查询要求结果唯一）
     test_user = UserModel(
-        name="testuser",
+        name="testuser_wrongpw",
         password_hash=_pwd_context.hash("password123"),  # bcrypt 哈希
-        jnpf_user_id="test_jnpf_id"
+        jnpf_user_id=f"test_jnpf_id_{_uuid.uuid4().hex[:8]}"  # 唯一索引，避免与其它用例冲突
     )
     test_session.add(test_user)
     await test_session.commit()
@@ -71,7 +74,7 @@ async def test_login_local_wrong_password(test_client: AsyncClient, test_session
     response = await test_client.post(
         "/api/auth/login-local",
         json={
-            "userName": "testuser",
+            "userName": "testuser_wrongpw",
             "password": "wrongpassword"
         }
     )
@@ -145,7 +148,7 @@ async def test_login_jnpf_success(mock_httpx, monkeypatch, test_client: AsyncCli
     # 设置 AsyncClient context manager 的行为
     mock_client_instance = mock.AsyncMock()
     mock_client_instance.__aenter__.return_value = mock_client_instance
-    mock_client_instance.__aexit__.return_value = mock.AsyncMock(return_value=None)
+    mock_client_instance.__aexit__.return_value = None  # 必须为 None（falsy）：真值会抑制 async with 内抛出的 HTTPException
 
     # 链式调用 mock
     mock_client_instance.post = mock.AsyncMock(return_value=mock_login_response)
@@ -185,7 +188,7 @@ async def test_login_jnpf_invalid_credentials(mock_httpx, monkeypatch, test_clie
 
     mock_client_instance = mock.AsyncMock()
     mock_client_instance.__aenter__.return_value = mock_client_instance
-    mock_client_instance.__aexit__.return_value = mock.AsyncMock(return_value=None)
+    mock_client_instance.__aexit__.return_value = None  # 必须为 None（falsy）：真值会抑制 async with 内抛出的 HTTPException
     mock_client_instance.post = mock.AsyncMock(return_value=mock_login_response)
 
     mock_httpx.return_value = mock_client_instance
@@ -213,7 +216,7 @@ async def test_login_jnpf_timeout(mock_httpx, monkeypatch, test_client: AsyncCli
     # Mock 超时异常
     mock_client_instance = mock.AsyncMock()
     mock_client_instance.__aenter__.side_effect = httpx.TimeoutException("Request timeout")
-    mock_client_instance.__aexit__.return_value = mock.AsyncMock(return_value=None)
+    mock_client_instance.__aexit__.return_value = None  # 必须为 None（falsy）：真值会抑制 async with 内抛出的 HTTPException
 
     mock_httpx.return_value = mock_client_instance
 

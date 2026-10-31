@@ -1,7 +1,17 @@
 # 数据库迁移文件整理记录
 
-## 整理日期
-2026-02-23
+## 整理日期（第二次）：2026-10-31
+
+## PG 基线重建（ADR D11）
+
+- 决策：dev/test/prod 统一切换 PostgreSQL（无生产 MySQL 数据需迁移），旧 MySQL 方言迁移链无保留价值。
+- 删除 `alembic/versions/` 下全部 MySQL 方言迁移文件（2026-02 至 2026-10 共 47 个），由单一基线迁移 `003ccd38d5cd_pg_initial_baseline` 取代，覆盖当前全部 45 张表与 20 个原生枚举类型。
+- `downgrade()` 已显式回收原生枚举类型（drop_table 不回收内联创建的 ENUM 类型，否则降级后再 upgrade 报 DuplicateObject）。
+- 全新库执行 `alembic upgrade head` 即可完成初始化；升级/降级往返已在 postgres:16 容器验证。
+
+---
+
+## 整理日期（第一次）：2026-02-23
 
 ## 整理原因
 - 项目是从其他项目迁移过来的，包含大量不必要的迁移文件

@@ -6,6 +6,7 @@
 
 - [安装](#安装)
 - [环境配置](#环境配置)
+- [数据库（PostgreSQL）](#数据库postgresql)
 - [运行后端](#运行后端)
 - [数据库迁移](#数据库迁移)
 - [测试](#测试)
@@ -44,6 +45,44 @@ alembic upgrade head
 
 # 或使用 uv
 uv run alembic upgrade head
+```
+
+## 数据库（PostgreSQL）
+
+OpenTask 统一使用 PostgreSQL 16（ADR D11：dev/test/prod 统一 PG）。
+
+### 1. 启动 PG 容器
+
+```bash
+# 直连 Docker Hub 超时时，可先经镜像站拉取再改 tag：
+#   docker pull docker.m.daocloud.io/library/postgres:16
+#   docker tag docker.m.daocloud.io/library/postgres:16 postgres:16
+docker run -d --name opentask-pg \
+  -e POSTGRES_USER=opentask \
+  -e POSTGRES_PASSWORD=opentask \
+  -e POSTGRES_DB=opentask_test \
+  -p 5432:5432 \
+  -v opentask-pgdata:/var/lib/postgresql/data \
+  postgres:16
+
+# 容器初始化只创建测试库 opentask_test，开发库需补建一次：
+docker exec opentask-pg psql -U opentask -d opentask_test -c "CREATE DATABASE opentask;"
+```
+
+### 2. 连接配置
+
+`backend/config/*.yaml` 中的 `database.postgres` 段（dev/test 默认指向本地容器 `localhost:5432`，用户/密码 `opentask/opentask`，测试库名 `opentask_test`，开发库名 `opentask`）。环境变量 `POSTGRES_HOST` / `POSTGRES_PORT` / `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DATABASE` 优先级高于 yaml（生产环境通过 `${POSTGRES_*}` 占位符注入）。
+
+连接串由 `opentask.config` 生成：同步 `postgresql+psycopg2://`，异步 `postgresql+asyncpg://`。
+
+### 3. 初始化
+
+```bash
+# 容器就绪检查
+docker exec opentask-pg pg_isready -U opentask -d opentask_test
+
+# 建表/迁移（开发库）
+APP_ENV=development uv run alembic upgrade head
 ```
 
 ## 运行后端

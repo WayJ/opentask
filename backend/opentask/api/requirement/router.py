@@ -673,8 +673,10 @@ async def search_requirements(
 
     按标题和描述搜索
     """
+    # service.search 已返回 RequirementResponse 列表（含 project_name），
+    # 不能再过 to_response（其读取 ORM 的 .project 关系，对已转换对象会 AttributeError）
     results = await service.search(q, limit)
-    return success_response(data=[service.to_response(r) for r in results])
+    return success_response(data=results)
 
 
 @router.get("/by-code/{code}")

@@ -445,6 +445,22 @@ async def get_collection_statistics(
 # Issue CRUD 操作
 # ========================================================================
 
+@router.get("/statistics")
+async def get_statistics(
+    project_id: Optional[str] = Query(None, description="项目 ID"),
+    service: IssueService = Depends(get_issue_service),
+):
+    """获取 Issue 统计信息"""
+    stats = await service.get_statistics(project_id)
+
+    return {
+        "code": 200,
+        "message": "success",
+        "data": stats,
+        "timestamp": 0,
+    }
+
+
 @router.get("/{issue_id}")
 async def get_issue(
     issue_id: str,
@@ -1010,22 +1026,6 @@ async def get_timeline(
 # ========================================================================
 # 统计操作
 # ========================================================================
-
-@router.get("/statistics")
-async def get_statistics(
-    project_id: Optional[str] = Query(None, description="项目 ID"),
-    service: IssueService = Depends(get_issue_service),
-):
-    """获取 Issue 统计信息"""
-    stats = await service.get_statistics(project_id)
-
-    return {
-        "code": 200,
-        "message": "success",
-        "data": stats,
-        "timestamp": 0,
-    }
-
 
 # ========================================================================
 # 快速状态变更

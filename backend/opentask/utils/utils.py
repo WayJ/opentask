@@ -21,8 +21,10 @@ def get_sqlite_dsn(path: str) -> str:
 
 def get_database_dsn_async(dsn: str) -> str:
     """获取异步数据库连接字符串"""
-    if dsn.startswith("mysql+pymysql://"):
-        return dsn.replace("mysql+pymysql://", "mysql+aiomysql://")
+    if dsn.startswith("postgresql+psycopg2://"):
+        return dsn.replace("postgresql+psycopg2://", "postgresql+asyncpg://", 1)
+    elif dsn.startswith("postgresql://"):
+        return dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
     elif dsn.startswith("sqlite://"):
         return dsn.replace("sqlite://", "sqlite+aiosqlite:///")
     return dsn

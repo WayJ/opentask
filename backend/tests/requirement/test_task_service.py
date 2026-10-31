@@ -169,13 +169,19 @@ class TestGetTaskDocuments:
     @pytest.mark.asyncio
     async def test_get_task_documents_with_documents(self, task_service, mock_db_session):
         """测试获取任务文档（有文档）"""
-        # Mock 文档对象
+        # Mock 文档对象（对齐 Document 模型实际字段：file_name / status 枚举 / 时间戳）
         mock_doc1 = Mock()
         mock_doc1.id = "doc-1"
-        mock_doc1.title = "文档1"
+        mock_doc1.file_name = "文档1.pdf"
+        mock_doc1.status = Mock(value="uploaded")
+        mock_doc1.created_at = datetime(2026, 1, 1, 12, 0, 0)
+        mock_doc1.updated_at = datetime(2026, 1, 1, 12, 0, 0)
         mock_doc2 = Mock()
         mock_doc2.id = "doc-2"
-        mock_doc2.title = "文档2"
+        mock_doc2.file_name = "文档2.pdf"
+        mock_doc2.status = Mock(value="uploaded")
+        mock_doc2.created_at = datetime(2026, 1, 2, 12, 0, 0)
+        mock_doc2.updated_at = datetime(2026, 1, 2, 12, 0, 0)
 
         # Mock 查询结果
         mock_result = Mock()
@@ -187,6 +193,8 @@ class TestGetTaskDocuments:
         documents = await task_service.get_task_documents("task-123")
 
         assert len(documents) == 2
+        assert documents[0].title == "文档1.pdf"
+        assert documents[0].version == 1
         mock_db_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
@@ -294,15 +302,9 @@ class TestTaskServiceErrorHandling:
         # Mock get_by_id 抛出异常
         task_service.get_by_id = AsyncMock(side_effect=ValueError("Parent not found"))
 
-        # Mock 查询结果
-        mock_result = Mock()
-        mock_result.scalars = Mock(return_value=Mock(all=Mock(return_value=[])))
-        mock_db_session.execute.return_value = mock_result
-
-        code = await task_service.generate_task_code("req-1", "invalid-parent")
-
-        # 应该使用 "0" 作为父编码
-        assert code == "0.1"
+        # 无效父任务应显式抛错，而不是静默回退到 "0" 编码
+        with pytest.raises(ValueError, match="Parent not found"):
+            await task_service.generate_task_code("req-1", "invalid-parent")
 
 
 class TestTaskServiceTransactions:

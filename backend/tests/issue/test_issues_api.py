@@ -19,7 +19,7 @@ class TestIssueCRUD:
     ):
         """测试成功创建 Issue"""
         response = await test_client.post(
-            "/issues",
+            "/api/issues",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "测试 Issue - 自动化测试创建",
@@ -50,7 +50,7 @@ class TestIssueCRUD:
     ):
         """测试缺少必填字段创建 Issue"""
         response = await test_client.post(
-            "/issues",
+            "/api/issues",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "description": "缺少标题"
@@ -65,7 +65,7 @@ class TestIssueCRUD:
     ):
         """测试获取 Issue 列表"""
         response = await test_client.get(
-            "/issues",
+            "/api/issues",
             headers={"Authorization": f"Bearer {test_token}"}
         )
 
@@ -85,7 +85,7 @@ class TestIssueCRUD:
         """测试获取 Issue 详情"""
         # 先创建一个 Issue
         create_response = await test_client.post(
-            "/issues",
+            "/api/issues",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "测试 Issue 详情",
@@ -102,7 +102,7 @@ class TestIssueCRUD:
 
         # 获取详情
         response = await test_client.get(
-            f"/issues/{issue_id}",
+            f"/api/issues/{issue_id}",
             headers={"Authorization": f"Bearer {test_token}"}
         )
 
@@ -119,7 +119,7 @@ class TestIssueCRUD:
         """测试更新 Issue"""
         # 创建 Issue
         create_response = await test_client.post(
-            "/issues",
+            "/api/issues",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "测试 Issue 更新",
@@ -136,13 +136,13 @@ class TestIssueCRUD:
 
         # 更新 Issue
         response = await test_client.put(
-            f"/issues/{issue_id}",
+            f"/api/issues/{issue_id}",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "测试 Issue 更新 - 已修改",
                 "description": "更新后的描述",
                 "status": "resolved",
-                "priority": "urgent"
+                "priority": "critical"
             }
         )
 
@@ -151,7 +151,7 @@ class TestIssueCRUD:
 
         assert data["title"] == "测试 Issue 更新 - 已修改"
         assert data["status"] == "resolved"
-        assert data["priority"] == "urgent"
+        assert data["priority"] == "critical"
 
     @pytest.mark.asyncio
     async def test_delete_issue(
@@ -160,12 +160,12 @@ class TestIssueCRUD:
         """测试删除 Issue"""
         # 创建 Issue
         create_response = await test_client.post(
-            "/issues",
+            "/api/issues",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "测试 Issue 删除",
                 "description": "将被删除",
-                "type": "task",
+                "type": "feature",
                 "status": "open",
                 "priority": "low",
                 "project_id": test_project_id,
@@ -177,7 +177,7 @@ class TestIssueCRUD:
 
         # 删除 Issue
         response = await test_client.delete(
-            f"/issues/{issue_id}",
+            f"/api/issues/{issue_id}",
             headers={"Authorization": f"Bearer {test_token}"}
         )
 
@@ -185,7 +185,7 @@ class TestIssueCRUD:
 
         # 验证已删除
         get_response = await test_client.get(
-            f"/issues/{issue_id}",
+            f"/api/issues/{issue_id}",
             headers={"Authorization": f"Bearer {test_token}"}
         )
         assert get_response.status_code == 404
@@ -200,7 +200,7 @@ class TestIssueFilters:
     ):
         """测试按状态过滤"""
         response = await test_client.get(
-            "/issues?status=open",
+            "/api/issues?status=open",
             headers={"Authorization": f"Bearer {test_token}"}
         )
 
@@ -208,7 +208,7 @@ class TestIssueFilters:
         data = response.json()["data"]
 
         # 验证所有返回的 Issue 都是 todo 状态
-        for issue in data["data"]["rows"]:
+        for issue in data["rows"]:
             assert issue["status"] == "open"
 
     @pytest.mark.asyncio
@@ -217,14 +217,14 @@ class TestIssueFilters:
     ):
         """测试按优先级过滤"""
         response = await test_client.get(
-            "/issues?priority=high",
+            "/api/issues?priority=high",
             headers={"Authorization": f"Bearer {test_token}"}
         )
 
         assert response.status_code == 200
         data = response.json()["data"]
 
-        for issue in data["data"]["rows"]:
+        for issue in data["rows"]:
             assert issue["priority"] == "high"
 
     @pytest.mark.asyncio
@@ -233,14 +233,14 @@ class TestIssueFilters:
     ):
         """测试按类型过滤"""
         response = await test_client.get(
-            "/issues?type=bug",
+            "/api/issues?type=bug",
             headers={"Authorization": f"Bearer {test_token}"}
         )
 
         assert response.status_code == 200
         data = response.json()["data"]
 
-        for issue in data["data"]["rows"]:
+        for issue in data["rows"]:
             assert issue["type"] == "bug"
 
     @pytest.mark.asyncio
@@ -249,7 +249,7 @@ class TestIssueFilters:
     ):
         """测试关键词搜索"""
         response = await test_client.get(
-            "/issues?search=测试",
+            "/api/issues?search=测试",
             headers={"Authorization": f"Bearer {test_token}"}
         )
 
@@ -257,7 +257,7 @@ class TestIssueFilters:
         data = response.json()["data"]
 
         # 验证标题或描述包含关键词
-        for issue in data["data"]["rows"]:
+        for issue in data["rows"]:
             title_has_keyword = "测试" in issue["title"]
             desc_has_keyword = "测试" in (issue.get("description") or "")
             assert title_has_keyword or desc_has_keyword
@@ -268,7 +268,7 @@ class TestIssueFilters:
     ):
         """测试组合过滤"""
         response = await test_client.get(
-            "/issues?status=open&priority=high&type=bug",
+            "/api/issues?status=open&priority=high&type=bug",
             headers={"Authorization": f"Bearer {test_token}"}
         )
 
@@ -276,7 +276,7 @@ class TestIssueFilters:
         data = response.json()["data"]
 
         # 验证所有条件都满足
-        for issue in data["data"]["rows"]:
+        for issue in data["rows"]:
             assert issue["status"] == "open"
             assert issue["priority"] == "high"
             assert issue["type"] == "bug"
@@ -292,12 +292,12 @@ class TestIssueComments:
         """测试添加评论"""
         # 创建 Issue
         issue_response = await test_client.post(
-            "/issues",
+            "/api/issues",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "测试 Issue 评论",
                 "description": "用于测试评论",
-                "type": "task",
+                "type": "feature",
                 "status": "open",
                 "project_id": test_project_id,
                 "reporter_id": "admin"
@@ -308,7 +308,7 @@ class TestIssueComments:
 
         # 添加评论
         response = await test_client.post(
-            f"/issues/{issue_id}/comments",
+            f"/api/issues/{issue_id}/comments",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "content": "这是一条测试评论"
@@ -328,12 +328,12 @@ class TestIssueComments:
         """测试获取评论列表"""
         # 创建 Issue
         issue_response = await test_client.post(
-            "/issues",
+            "/api/issues",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "测试获取评论",
                 "description": "测试",
-                "type": "task",
+                "type": "feature",
                 "status": "open",
                 "project_id": test_project_id,
                 "reporter_id": "admin"
@@ -344,19 +344,19 @@ class TestIssueComments:
 
         # 添加两条评论
         await test_client.post(
-            f"/issues/{issue_id}/comments",
+            f"/api/issues/{issue_id}/comments",
             headers={"Authorization": f"Bearer {test_token}"},
             json={"content": "评论 1"}
         )
         await test_client.post(
-            f"/issues/{issue_id}/comments",
+            f"/api/issues/{issue_id}/comments",
             headers={"Authorization": f"Bearer {test_token}"},
             json={"content": "评论 2"}
         )
 
         # 获取评论列表
         response = await test_client.get(
-            f"/issues/{issue_id}/comments",
+            f"/api/issues/{issue_id}/comments",
             headers={"Authorization": f"Bearer {test_token}"}
         )
 
@@ -372,12 +372,12 @@ class TestIssueComments:
         """测试删除评论"""
         # 创建 Issue
         issue_response = await test_client.post(
-            "/issues",
+            "/api/issues",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "测试删除评论",
                 "description": "测试",
-                "type": "task",
+                "type": "feature",
                 "status": "open",
                 "project_id": test_project_id,
                 "reporter_id": "admin"
@@ -388,7 +388,7 @@ class TestIssueComments:
 
         # 添加评论
         comment_response = await test_client.post(
-            f"/issues/{issue_id}/comments",
+            f"/api/issues/{issue_id}/comments",
             headers={"Authorization": f"Bearer {test_token}"},
             json={"content": "将被删除的评论"}
         )
@@ -397,7 +397,7 @@ class TestIssueComments:
 
         # 删除评论
         response = await test_client.delete(
-            f"/issues/{issue_id}/comments/{comment_id}",
+            f"/api/issues/comments/{comment_id}",
             headers={"Authorization": f"Bearer {test_token}"}
         )
 
@@ -419,12 +419,12 @@ class TestIssueCodeGeneration:
         created_codes = []
         for i in range(3):
             response = await test_client.post(
-                "/issues",
+                "/api/issues",
                 headers={"Authorization": f"Bearer {test_token}"},
                 json={
                     "title": f"测试 Issue Code {i+1}",
                     "description": f"第 {i+1} 个 Issue",
-                    "type": "task",
+                    "type": "feature",
                     "status": "open",
                     "priority": "medium",
                     "project_id": test_project_id,
@@ -456,12 +456,12 @@ class TestIssueCodeGeneration:
         # 创建多个 Issue
         for i in range(5):
             response = await test_client.post(
-                "/issues",
+                "/api/issues",
                 headers={"Authorization": f"Bearer {test_token}"},
                 json={
                     "title": f"唯一性测试 {i+1}",
                     "description": "测试唯一性",
-                    "type": "task",
+                    "type": "feature",
                     "status": "open",
                     "priority": "medium",
                     "project_id": test_project_id,
@@ -489,12 +489,12 @@ class TestIssueCodeGeneration:
         # 创建多个 Issue
         for i in range(5):
             response = await test_client.post(
-                "/issues",
+                "/api/issues",
                 headers={"Authorization": f"Bearer {test_token}"},
                 json={
                     "title": f"序号测试 {i+1}",
                     "description": "测试序号递增",
-                    "type": "task",
+                    "type": "feature",
                     "status": "open",
                     "priority": "medium",
                     "project_id": test_project_id,
@@ -533,12 +533,12 @@ class TestIssueCodeGeneration:
 
         # 创建 Issue
         response = await test_client.post(
-            "/issues",
+            "/api/issues",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "年份验证测试",
                 "description": "验证 code 中的年份",
-                "type": "task",
+                "type": "feature",
                 "status": "open",
                 "priority": "medium",
                 "project_id": test_project_id,
@@ -567,12 +567,12 @@ class TestIssueCodeGeneration:
         """测试 Issue Code 持久化（创建后不应改变）"""
         # 创建 Issue
         create_response = await test_client.post(
-            "/issues",
+            "/api/issues",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "持久化测试",
                 "description": "验证 code 不会改变",
-                "type": "task",
+                "type": "feature",
                 "status": "open",
                 "priority": "medium",
                 "project_id": test_project_id,
@@ -586,7 +586,7 @@ class TestIssueCodeGeneration:
 
         # 获取 Issue 详情
         get_response = await test_client.get(
-            f"/issues/{issue_id}",
+            f"/api/issues/{issue_id}",
             headers={"Authorization": f"Bearer {test_token}"}
         )
 
@@ -599,7 +599,7 @@ class TestIssueCodeGeneration:
 
         # 更新 Issue
         update_response = await test_client.put(
-            f"/issues/{issue_id}",
+            f"/api/issues/{issue_id}",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
                 "title": "更新后的标题",
@@ -621,15 +621,15 @@ class TestIssuePermissions:
     @pytest.mark.asyncio
     async def test_unauthorized_access(self, test_client: AsyncClient):
         """测试未授权访问"""
-        response = await test_client.get("/issues")
-        # FastAPI 默认返回 403 Forbidden（而不是 401）
-        assert response.status_code == 403
+        response = await test_client.get("/api/issues")
+        # 缺少凭据返回 401 Unauthorized（auto_error=False 后显式抛出）
+        assert response.status_code == 401
 
     @pytest.mark.asyncio
     async def test_invalid_token(self, test_client: AsyncClient):
         """测试无效 token"""
         response = await test_client.get(
-            "/issues",
+            "/api/issues",
             headers={"Authorization": "Bearer invalid_token"}
         )
         assert response.status_code == 401
@@ -640,7 +640,7 @@ class TestIssuePermissions:
     ):
         """测试获取不存在的 Issue"""
         response = await test_client.get(
-            "/issues/nonexistent-id",
+            "/api/issues/nonexistent-id",
             headers={"Authorization": f"Bearer {test_token}"}
         )
         assert response.status_code == 404
@@ -655,7 +655,7 @@ class TestIssueStatistics:
     ):
         """测试 Issue 统计"""
         response = await test_client.get(
-            "/issues/statistics",
+            "/api/issues/statistics",
             headers={"Authorization": f"Bearer {test_token}"}
         )
 
@@ -678,17 +678,17 @@ class TestIssuePagination:
     ):
         """测试默认分页"""
         response = await test_client.get(
-            "/issues",
+            "/api/issues",
             headers={"Authorization": f"Bearer {test_token}"}
         )
 
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
 
-        assert "data" in data
+        assert "rows" in data
         assert "total" in data
-        assert "page" in data
-        assert "page_size" in data
+        assert "current" in data
+        assert "pageSize" in data
 
     @pytest.mark.asyncio
     async def test_pagination_custom_page_size(
@@ -696,7 +696,7 @@ class TestIssuePagination:
     ):
         """测试自定义分页大小"""
         response = await test_client.get(
-            "/issues?page_size=5",
+            "/api/issues?page_size=5",
             headers={"Authorization": f"Bearer {test_token}"}
         )
 
@@ -704,7 +704,8 @@ class TestIssuePagination:
         data = response.json()["data"]
 
         # 验证返回不超过 page_size
-        assert len(data) <= 5
+        assert len(data["rows"]) <= 5
+        assert data["pageSize"] == 5
 
     @pytest.mark.asyncio
     async def test_pagination_page_number(
@@ -712,14 +713,14 @@ class TestIssuePagination:
     ):
         """测试分页页码"""
         response = await test_client.get(
-            "/issues?page=1&page_size=10",
+            "/api/issues?page=1&page_size=10",
             headers={"Authorization": f"Bearer {test_token}"}
         )
 
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
 
-        assert data["page"] == 1
+        assert data["current"] == 1
 
 
 @pytest.mark.asyncio
@@ -730,7 +731,7 @@ async def test_issue_workflow_lifecycle(
 
     # 1. 创建 Issue (todo)
     create_response = await test_client.post(
-        "/issues",
+        "/api/issues",
         headers={"Authorization": f"Bearer {test_token}"},
         json={
             "title": "生命周期测试 Issue",
@@ -748,54 +749,55 @@ async def test_issue_workflow_lifecycle(
 
     # 2. 更新为进行中
     update_response = await test_client.put(
-        f"/issues/{issue_id}",
+        f"/api/issues/{issue_id}",
         headers={"Authorization": f"Bearer {test_token}"},
-        json={"status": "resolved"}
+        json={"status": "in_progress"}
     )
     assert update_response.status_code == 200
-    assert update_response.json()["data"]["status"] == "resolved"
+    assert update_response.json()["data"]["status"] == "in_progress"
 
     # 3. 添加评论
     comment_response = await test_client.post(
-        f"/issues/{issue_id}/comments",
+        f"/api/issues/{issue_id}/comments",
         headers={"Authorization": f"Bearer {test_token}"},
         json={"content": "处理中..."}
     )
     assert comment_response.status_code == 200
 
-    # 4. 更新为测试中
+    # 4. 更新为等待反馈
     update_response = await test_client.put(
-        f"/issues/{issue_id}",
+        f"/api/issues/{issue_id}",
         headers={"Authorization": f"Bearer {test_token}"},
-        json={"status": "testing"}
+        json={"status": "feedback"}
     )
     assert update_response.status_code == 200
 
-    # 5. 更新为审核中
+    # 5. 更新为已解决
     update_response = await test_client.put(
-        f"/issues/{issue_id}",
+        f"/api/issues/{issue_id}",
         headers={"Authorization": f"Bearer {test_token}"},
-        json={"status": "review"}
+        json={"status": "resolved"}
     )
     assert update_response.status_code == 200
 
     # 6. 完成Issue
     update_response = await test_client.put(
-        f"/issues/{issue_id}",
+        f"/api/issues/{issue_id}",
         headers={"Authorization": f"Bearer {test_token}"},
-        json={"status": "done"}
+        json={"status": "closed"}
     )
     assert update_response.status_code == 200
-    assert update_response.json()["data"]["status"] == "done"
+    assert update_response.json()["data"]["status"] == "closed"
 
     # 7. 验证历史记录
     timeline_response = await test_client.get(
-        f"/issues/{issue_id}/timeline",
+        f"/api/issues/{issue_id}/timeline",
         headers={"Authorization": f"Bearer {test_token}"}
     )
     assert timeline_response.status_code == 200
     timeline = timeline_response.json()["data"]
 
-    # 验证历史记录包含状态变更
-    status_changes = [t for t in timeline if t.get("field") == "status"]
-    assert len(status_changes) >= 5  # todo -> in_progress -> testing -> review -> done
+    # 验证历史记录包含状态变更（时间线接口返回 data={rows,total}）
+    timeline_rows = timeline["rows"]
+    status_changes = [t for t in timeline_rows if t["action_type"] == "status_changed"]
+    assert len(status_changes) >= 4  # open -> in_progress -> feedback -> resolved -> closed

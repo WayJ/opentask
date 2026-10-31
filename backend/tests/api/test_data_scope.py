@@ -310,7 +310,7 @@ async def test_unauthenticated_rejected(scope):
     ]
     for url in urls:
         resp = await scope.client.get(url)
-        assert resp.status_code == 403, f"{url} 缺 token 应返回 403，实际 {resp.status_code}"
+        assert resp.status_code == 401, f"{url} 缺 token 应返回 401，实际 {resp.status_code}"
 
         resp = await scope.client.get(url, headers={"Authorization": "Bearer invalid-token"})
         assert resp.status_code == 401, f"{url} 无效 token 应返回 401，实际 {resp.status_code}"

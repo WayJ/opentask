@@ -301,8 +301,9 @@ class WebSocketHubService:
             finally:
                 await session.close()
 
-        # 回退：更新内存中的 Agent 信息
-        if agent_id and agent_id not in self.agents:
+        # 回退：更新内存中的 Agent 信息（与 DB 路径一致，注册消息应无条件 upsert，
+        # 否则 Agent 后续携带 capabilities 的注册信息会被忽略）
+        if agent_id:
             self.agents[agent_id] = {
                 "agent_id": agent_id,
                 "name": name,
@@ -411,8 +412,8 @@ class WebSocketHubService:
         message_json = json.dumps(message)
 
         if target == "frontend":
-            # 广播给所有前端
-            for ws in self.frontend_clients:
+            # 广播给所有前端（迭代副本：循环体内会移除失效连接，直接迭代集合会 RuntimeError）
+            for ws in list(self.frontend_clients):
                 try:
                     await ws.send_text(message_json)
                 except Exception as e:
@@ -421,8 +422,8 @@ class WebSocketHubService:
                     self.frontend_clients.discard(ws)
 
         elif target == "backend":
-            # 广播给所有后端
-            for ws in self.backend_clients:
+            # 广播给所有后端（同样迭代副本）
+            for ws in list(self.backend_clients):
                 try:
                     await ws.send_text(message_json)
                 except Exception as e:

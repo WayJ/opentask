@@ -20,7 +20,7 @@ _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 @pytest_asyncio.fixture
-async def test_client() -> AsyncGenerator[AsyncClient, None]:
+async def test_client(seeded_users) -> AsyncGenerator[AsyncClient, None]:
     """测试客户端 fixture"""
     async with AsyncClient(
         transport=ASGITransport(app=app),
@@ -69,7 +69,7 @@ async def test_token(test_client_with_user: AsyncClient) -> str:
     # 使用本地登录接口，不需要加密密码
     response = await test_client_with_user.post(
         "/api/auth/login-local",
-        json={"username": "admin", "password": "123456"}
+        json={"userName": "admin", "password": "123456"}
     )
     assert response.status_code == 200, f"Failed to login: {response.text}"
     data = response.json()
@@ -88,7 +88,7 @@ async def cleanup_test_data(test_client: AsyncClient, test_token: str = None):
     # 清理测试创建的问题集
     try:
         response = await test_client.get(
-            "/api/issue-collections?search=自动化测试",
+            "/api/issues/collections?search=自动化测试",
             headers={"Authorization": f"Bearer {test_token}"}
         )
         if response.status_code == 200:
@@ -97,7 +97,7 @@ async def cleanup_test_data(test_client: AsyncClient, test_token: str = None):
                 # 只删除测试创建的问题集
                 if "自动化测试" in collection.get("title", ""):
                     await test_client.delete(
-                        f"/api/issue-collections/{collection['id']}",
+                        f"/api/issues/collections/{collection['id']}",
                         headers={"Authorization": f"Bearer {test_token}"}
                     )
     except Exception as e:
