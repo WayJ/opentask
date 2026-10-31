@@ -29,7 +29,7 @@ class TestRequirementCreateCommand:
         """测试最小参数创建"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.requirement.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.requirement.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.create_requirement = async_mock({
                 "id": "new-1",
@@ -49,7 +49,7 @@ class TestRequirementCreateCommand:
         """测试使用项目创建"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.requirement.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.requirement.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.create_requirement = async_mock({
                 "id": "new-1",
@@ -69,7 +69,7 @@ class TestRequirementCreateCommand:
         """测试 JSON 输出模式"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.requirement.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.requirement.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.create_requirement = async_mock({
                 "id": "new-1",
@@ -100,7 +100,7 @@ class TestRequirementUpdateDeleteCommand:
         """测试部分字段更新"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.requirement.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.requirement.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.update_requirement = async_mock({
                 "id": "1",
@@ -120,7 +120,7 @@ class TestRequirementUpdateDeleteCommand:
         """测试完整字段更新"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.requirement.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.requirement.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.update_requirement = async_mock({
                 "id": "1",
@@ -145,7 +145,7 @@ class TestRequirementUpdateDeleteCommand:
         """测试删除命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.requirement.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.requirement.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.delete_requirement = async_mock(True)
             mock_client_class.return_value = mock_client
@@ -161,7 +161,7 @@ class TestRequirementUpdateDeleteCommand:
         """测试分配命令"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.requirement.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.requirement.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.assign_requirement = async_mock({
                 "id": "1",
@@ -184,7 +184,7 @@ class TestRequirementShowEdgeCases:
         """测试基本显示"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.requirement.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.requirement.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_requirement = async_mock({
                 "id": "1",
@@ -203,7 +203,7 @@ class TestRequirementShowEdgeCases:
         """测试 JSON 模式"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.requirement.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.requirement.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_requirement = async_mock({
                 "id": "1",
@@ -230,7 +230,7 @@ class TestRequirementShowEdgeCases:
         """测试显示所有字段"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.requirement.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.requirement.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_requirement = async_mock({
                 "id": "1",
@@ -257,7 +257,7 @@ class TestRequirementListCommand:
         """测试基本列表"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.requirement.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.requirement.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.list_requirements = async_mock({
                 "rows": [
@@ -275,7 +275,7 @@ class TestRequirementListCommand:
         """测试带过滤的列表"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.requirement.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.requirement.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.list_requirements = async_mock({
                 "rows": [
@@ -297,7 +297,7 @@ class TestRequirementListCommand:
         """测试空列表"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.requirement.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.requirement.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.list_requirements = async_mock({
                 "rows": [],

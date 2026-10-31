@@ -35,7 +35,7 @@ class AuthManager:
         """验证配置"""
         if self.config.enabled and not self.config.token:
             # 尝试从环境变量获取
-            token = os.environ.get("VIBEKING_AGENT_TOKEN")
+            token = os.environ.get("OPENTASK_AGENT_TOKEN")
             if token:
                 self.config.token = token
             else:

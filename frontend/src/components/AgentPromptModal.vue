@@ -55,7 +55,7 @@ function generatePrompt() {
 **问题集尚未拆解**，请使用以下命令进行拆解：
 
 \`\`\`bash
-cli-anything-opentask collection parse ${props.collectionId} --file tasks.json
+opentask collection parse ${props.collectionId} --file tasks.json
 \`\`\`
 
 其中 tasks.json 是包含任务列表的 JSON 文件，格式如下：
@@ -76,16 +76,16 @@ cli-anything-opentask collection parse ${props.collectionId} --file tasks.json
 
 **选项 1：继续拆解问题**
 \`\`\`bash
-cli-anything-opentask collection parse ${props.collectionId} --file tasks.json
+opentask collection parse ${props.collectionId} --file tasks.json
 \`\`\`
 
 **选项 2：开始处理现有 Issues**
 \`\`\`bash
 # 查看某个 Issue 详情
-cli-anything-opentask issue show <issue-id>
+opentask issue show <issue-id>
 
 # 更新 Issue 状态
-cli-anything-opentask issue update <issue-id> --status in_progress
+opentask issue update <issue-id> --status in_progress
 \`\`\``;
   } else {
     nextSteps = `## 下一步工作
@@ -96,26 +96,26 @@ cli-anything-opentask issue update <issue-id> --status in_progress
 
 1. **查看 Issue 详情**
 \`\`\`bash
-cli-anything-opentask issue show <issue-id>
+opentask issue show <issue-id>
 \`\`\`
 
 2. **开始处理 Issue**
 \`\`\`bash
 # 更新状态为"进行中"
-cli-anything-opentask issue update <issue-id> --status in_progress
+opentask issue update <issue-id> --status in_progress
 
 # 添加评论记录工作进展
-cli-anything-opentask issue comment <issue-id> "开始分析这个问题..."
+opentask issue comment <issue-id> "开始分析这个问题..."
 \`\`\`
 
 3. **完成后更新状态**
 \`\`\`bash
-cli-anything-opentask issue update <issue-id> --status resolved
+opentask issue update <issue-id> --status resolved
 \`\`\`
 
 **查看问题集统计信息：**
 \`\`\`bash
-cli-anything-opentask collection stats ${props.collectionId}
+opentask collection stats ${props.collectionId}
 \`\`\``;
   }
 

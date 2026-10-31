@@ -2,7 +2,7 @@
 import asyncio
 import json
 import click
-from ..utils.api_client import VibeKingClient, APIError
+from ..utils.api_client import OpenTaskClient, APIError
 from ..utils.config import Config
 from ..utils.repl_skin import ReplSkin
 
@@ -24,7 +24,7 @@ def collection_cli():
 def list_collections(obj: "Context", status, creator, search, page, page_size, as_json):
     """List issue collections with filtering."""
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -84,7 +84,7 @@ def list_collections(obj: "Context", status, creator, search, page, page_size, a
 def show_collection(obj: "Context", collection_id: str, as_json: bool):
     """Show issue collection details."""
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -156,7 +156,7 @@ def show_collection(obj: "Context", collection_id: str, as_json: bool):
 def create_collection(obj: "Context", title, description, status, as_json):
     """Create a new issue collection."""
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -198,7 +198,7 @@ def create_collection(obj: "Context", title, description, status, as_json):
 def update_collection(obj: "Context", collection_id, title, description, status, issue_ids, as_json):
     """Update issue collection."""
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -279,7 +279,7 @@ def parse_collection(obj: "Context", collection_id: str, file, stdin, issues_jso
         collection parse COLL-ID --file issues.json --verbose  # Show full details
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -380,7 +380,7 @@ def parse_collection(obj: "Context", collection_id: str, file, stdin, issues_jso
 def collection_statistics(obj: "Context", collection_id: str, as_json):
     """Get issue collection statistics."""
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag

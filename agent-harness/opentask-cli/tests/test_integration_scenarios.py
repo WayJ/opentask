@@ -16,7 +16,7 @@ import tempfile
 from pathlib import Path
 
 from opentask.opentask_cli import cli
-from opentask.utils.api_client import VibeKingClient
+from opentask.utils.api_client import OpenTaskClient
 
 
 # ============================================================================
@@ -41,13 +41,13 @@ def async_mock(return_value):
 
 async def get_authenticated_client():
     """创建已认证的客户端"""
-    client = VibeKingClient(base_url=API_BASE_URL)
+    client = OpenTaskClient(base_url=API_BASE_URL)
 
     try:
         result = await client.login(TEST_USERNAME, TEST_PASSWORD)
 
         if result and "token" in result:
-            return VibeKingClient(base_url=API_BASE_URL, token=result["token"])
+            return OpenTaskClient(base_url=API_BASE_URL, token=result["token"])
         else:
             return None
     except:

@@ -3,7 +3,7 @@ import asyncio
 import json
 import sys
 import click
-from ..utils.api_client import VibeKingClient, APIError
+from ..utils.api_client import OpenTaskClient, APIError
 from ..utils.config import Config
 from ..utils.repl_skin import ReplSkin
 
@@ -30,7 +30,7 @@ def document_cli():
 # Helper Functions
 # ============================================================================
 
-def _get_current_user_id(client: VibeKingClient) -> str | None:
+def _get_current_user_id(client: OpenTaskClient) -> str | None:
     """Get current user ID using standardized method.
 
     Args:
@@ -86,7 +86,7 @@ def _format_json_response(success: bool, data: dict | None = None, error: str | 
     return json.dumps(response, indent=2, ensure_ascii=False)
 
 
-def _display_issue_details(skin: ReplSkin, client: VibeKingClient, issue: dict, show_comments: bool = False) -> None:
+def _display_issue_details(skin: ReplSkin, client: OpenTaskClient, issue: dict, show_comments: bool = False) -> None:
     """Display issue details in table format.
 
     Helper function to avoid code duplication between show and interactive modes.
@@ -196,7 +196,7 @@ def _display_issue_details(skin: ReplSkin, client: VibeKingClient, issue: dict, 
         click.echo("No comments yet.\n")
 
 
-def _resolve_user_id(skin: ReplSkin, client: VibeKingClient, assignee_input: str) -> str | None:
+def _resolve_user_id(skin: ReplSkin, client: OpenTaskClient, assignee_input: str) -> str | None:
     """Resolve assignee input to user ID.
 
     Supports:
@@ -317,7 +317,7 @@ def list_issues(obj: "Context", status, issue_type, priority, project_id, assign
         issue list --unassigned --type bug
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -396,7 +396,7 @@ def list_issues(obj: "Context", status, issue_type, priority, project_id, assign
 def batch_get_issues(obj: "Context", ids, as_json):
     """Batch get issues by IDs (max 100, optimized for performance)."""
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # 解析 ID 列表
@@ -466,7 +466,7 @@ def find_issues(obj: "Context", keyword: str, in_title: bool, in_description: bo
         issue find "API" --priority high --limit 50
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -545,7 +545,7 @@ def find_issues(obj: "Context", keyword: str, in_title: bool, in_description: bo
 def list_my_issues(obj: "Context", status, issue_type, priority, project_id, open_only, page, page_size, sort_by, sort_order, as_json):
     """List issues assigned to the current user."""
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -674,7 +674,7 @@ def create_issue(obj: "Context", title: str, description: str, issue_type: str, 
     Note: Enum values (priority) are automatically normalized to lowercase API format.
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -773,7 +773,7 @@ def update_issue(obj: "Context", issue_id: str, title, description, issue_type, 
         issue update ISSUE-ID --title "New" --verbose  # Show full details
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -871,7 +871,7 @@ def start_issue(obj: "Context", issue_ids: tuple, as_json: bool):
         issue start ISSUE-ID1 ISSUE-ID2 ISSUE-ID3
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     json_mode = as_json or obj.json_mode
@@ -953,7 +953,7 @@ def reopen_issue(obj: "Context", issue_ids: tuple, reason: str, as_json: bool):
         issue reopen ISSUE-ID --reason "Need more work"
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     json_mode = as_json or obj.json_mode
@@ -1054,7 +1054,7 @@ def issue_todo(obj: "Context", as_json: bool, limit: int):
         issue todo --json
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     json_mode = as_json or obj.json_mode
@@ -1126,7 +1126,7 @@ def issue_in_progress(obj: "Context", as_json: bool, limit: int):
         issue in-progress --json
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     json_mode = as_json or obj.json_mode
@@ -1198,7 +1198,7 @@ def issue_blocking(obj: "Context", as_json: bool, limit: int):
         issue blocking --json
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     json_mode = as_json or obj.json_mode
@@ -1276,7 +1276,7 @@ def resolve_issue(obj: "Context", issue_ids: tuple, reason: str, commit_id: str,
         issue resolve ISSUE-ID -r "Completed" -c "abc123"
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -1381,7 +1381,7 @@ def close_issue(obj: "Context", issue_ids: tuple, reason: str, commit_id: str, a
         issue close ISSUE-ID -r "Done" -c "def456"
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -1487,7 +1487,7 @@ def show_issue(obj: "Context", issue_id: str, as_json: bool, show_comments: bool
         issue show ISSUE2026-32 --comments               # Show full comments
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -1566,7 +1566,7 @@ def assign_issue(obj: "Context", issue_id: str, assignee_input: str, as_json: bo
         issue assign ISSUE-ID --assignee none
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -1673,7 +1673,7 @@ def batch_assign_issues(obj: "Context", issue_ids: tuple, assignee_input: str, a
         issue batch-assign ISSUE-ID1 ISSUE-ID2 --assignee none
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -1784,7 +1784,7 @@ def add_comment(obj: "Context", issue_id: str, content: str, message_content: st
         opentask issue comment add ISSUE-ID "Fixed the bug"
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -1848,7 +1848,7 @@ def list_comments(obj: "Context", issue_id: str, as_json: bool):
         issue comment list ISSUE2026-32 --json
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -1912,7 +1912,7 @@ def delete_comment(obj: "Context", comment_id: str, as_json: bool):
         issue comment delete a91b3cb3 --json
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -1952,7 +1952,7 @@ def list_documents(obj: "Context", issue_id: str, as_json: bool):
         issue document list ISSUE2026-32 --json
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     json_mode = as_json or obj.json_mode
@@ -2019,7 +2019,7 @@ def upload_document(obj: "Context", issue_id: str, file_path: str, description: 
         issue document upload ISSUE2026-32 design.png --json
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     json_mode = as_json or obj.json_mode
@@ -2084,7 +2084,7 @@ def delete_document(obj: "Context", issue_id: str, document_id: str, as_json: bo
         issue document delete ISSUE2026-32 abc123 --json
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     json_mode = as_json or obj.json_mode
@@ -2137,7 +2137,7 @@ def download_document(obj: "Context", issue_id: str, document_id: str, save_path
         issue document download ISSUE2026-32 abc123 . --json
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     json_mode = as_json or obj.json_mode
@@ -2206,7 +2206,7 @@ def download_all_documents(obj: "Context", issue_id: str, save_dir: str, as_json
         issue document download-all ISSUE-ID . --json
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     json_mode = as_json or obj.json_mode

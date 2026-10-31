@@ -11,7 +11,7 @@
 """
 
 import pytest
-from opentask.utils.api_client import VibeKingClient, APIError
+from opentask.utils.api_client import OpenTaskClient, APIError
 import asyncio
 import uuid
 
@@ -31,13 +31,13 @@ TEST_PASSWORD = "xxxxx"
 
 async def get_authenticated_client():
     """创建已认证的客户端"""
-    client = VibeKingClient(base_url=API_BASE_URL)
+    client = OpenTaskClient(base_url=API_BASE_URL)
 
     try:
         result = await client.login(TEST_USERNAME, TEST_PASSWORD)
 
         if result and "token" in result:
-            return VibeKingClient(base_url=API_BASE_URL, token=result["token"])
+            return OpenTaskClient(base_url=API_BASE_URL, token=result["token"])
         else:
             pytest.skip("登录失败：未获取到 token")
     except Exception as e:

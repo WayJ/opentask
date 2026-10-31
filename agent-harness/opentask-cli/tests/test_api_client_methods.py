@@ -12,7 +12,7 @@ OpenTask API Client 业务方法测试
 import pytest
 from unittest import mock
 
-from opentask.utils.api_client import VibeKingClient, APIError
+from opentask.utils.api_client import OpenTaskClient, APIError
 
 
 # ============================================================================
@@ -25,7 +25,7 @@ class TestProjectAPI:
     @pytest.mark.asyncio
     async def test_list_projects(self):
         """测试列出项目"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'get') as mock_get:
             # API 返回带 rows 字段的响应
@@ -48,7 +48,7 @@ class TestProjectAPI:
     @pytest.mark.asyncio
     async def test_list_projects_empty(self):
         """测试列出项目 - 空列表"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'get') as mock_get:
             # API 返回带 rows 字段的响应（即使是空的）
@@ -65,7 +65,7 @@ class TestProjectAPI:
     @pytest.mark.asyncio
     async def test_get_project(self):
         """测试获取项目详情"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'get') as mock_get:
             mock_get.return_value = {"id": "1", "name": "Test Project"}
@@ -78,7 +78,7 @@ class TestProjectAPI:
     @pytest.mark.asyncio
     async def test_create_project(self):
         """测试创建项目"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'post') as mock_post:
             mock_post.return_value = {"id": "new-1", "name": "New Project"}
@@ -94,7 +94,7 @@ class TestProjectAPI:
     @pytest.mark.asyncio
     async def test_update_project(self):
         """测试更新项目"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'put') as mock_put:
             mock_put.return_value = {"id": "1", "name": "Updated Name"}
@@ -107,7 +107,7 @@ class TestProjectAPI:
     @pytest.mark.asyncio
     async def test_delete_project(self):
         """测试删除项目"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'delete') as mock_delete:
             mock_delete.return_value = True
@@ -128,7 +128,7 @@ class TestIssueAPI:
     @pytest.mark.asyncio
     async def test_list_issues(self):
         """测试列出 Issue"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'get') as mock_get:
             mock_get.return_value = {
@@ -144,7 +144,7 @@ class TestIssueAPI:
     @pytest.mark.asyncio
     async def test_get_issue(self):
         """测试获取 Issue 详情"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'get') as mock_get:
             mock_get.return_value = {"id": "1", "title": "Test Issue"}
@@ -157,7 +157,7 @@ class TestIssueAPI:
     @pytest.mark.asyncio
     async def test_get_issue_by_code(self):
         """测试根据 Issue Code 获取"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'get') as mock_get:
             mock_get.return_value = {"id": "1", "issue_code": "ISSUE2026-1"}
@@ -170,7 +170,7 @@ class TestIssueAPI:
     @pytest.mark.asyncio
     async def test_create_issue(self):
         """测试创建 Issue"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'post') as mock_post:
             mock_post.return_value = {"id": "new-1", "title": "New Issue"}
@@ -188,7 +188,7 @@ class TestIssueAPI:
     @pytest.mark.asyncio
     async def test_update_issue_status(self):
         """测试更新 Issue 状态"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'put') as mock_put:
             mock_put.return_value = {"id": "1", "status": "closed"}
@@ -201,7 +201,7 @@ class TestIssueAPI:
     @pytest.mark.asyncio
     async def test_add_comment(self):
         """测试添加评论"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'post') as mock_post:
             mock_post.return_value = {"id": "comment-1", "content": "Test comment"}
@@ -214,7 +214,7 @@ class TestIssueAPI:
     @pytest.mark.asyncio
     async def test_get_comments(self):
         """测试获取评论列表"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'get') as mock_get:
             mock_get.return_value = {
@@ -240,7 +240,7 @@ class TestAuthAPI:
     @pytest.mark.asyncio
     async def test_login(self):
         """测试登录"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'post') as mock_post:
             mock_post.return_value = {
@@ -259,7 +259,7 @@ class TestAuthAPI:
     @pytest.mark.asyncio
     async def test_get_me(self):
         """测试获取当前用户信息"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'get') as mock_get:
             mock_get.return_value = {"id": "1", "username": "test"}
@@ -281,7 +281,7 @@ class TestRequirementAPI:
     @pytest.mark.asyncio
     async def test_list_requirements(self):
         """测试列出需求"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'get') as mock_get:
             mock_get.return_value = {
@@ -297,7 +297,7 @@ class TestRequirementAPI:
     @pytest.mark.asyncio
     async def test_create_requirement(self):
         """测试创建需求"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'post') as mock_post:
             mock_post.return_value = {"id": "new-1", "title": "New Req"}
@@ -314,7 +314,7 @@ class TestRequirementAPI:
     @pytest.mark.asyncio
     async def test_search_requirements(self):
         """测试搜索需求"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'get') as mock_get:
             mock_get.return_value = [
@@ -341,7 +341,7 @@ class TestCollectionAPI:
     @pytest.mark.asyncio
     async def test_list_collections(self):
         """测试列出集合"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'get') as mock_get:
             mock_get.return_value = {
@@ -357,7 +357,7 @@ class TestCollectionAPI:
     @pytest.mark.asyncio
     async def test_create_collection(self):
         """测试创建集合"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'post') as mock_post:
             mock_post.return_value = {"id": "new-1", "title": "New Collection"}
@@ -374,7 +374,7 @@ class TestCollectionAPI:
     @pytest.mark.asyncio
     async def test_get_collection_statistics(self):
         """测试获取集合统计"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'get') as mock_get:
             mock_get.return_value = {
@@ -391,7 +391,7 @@ class TestCollectionAPI:
     @pytest.mark.asyncio
     async def test_parse_collection(self):
         """测试解析集合"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'post') as mock_post:
             mock_post.return_value = {
@@ -420,7 +420,7 @@ class TestConversationAPI:
     @pytest.mark.asyncio
     async def test_list_conversations(self):
         """测试列出对话"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'get') as mock_get:
             mock_get.return_value = [
@@ -436,7 +436,7 @@ class TestConversationAPI:
     @pytest.mark.asyncio
     async def test_create_conversation(self):
         """测试创建对话"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'post') as mock_post:
             mock_post.return_value = {"id": "new-1", "title": "New Chat"}
@@ -449,7 +449,7 @@ class TestConversationAPI:
     @pytest.mark.asyncio
     async def test_send_message(self):
         """测试发送消息"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'post') as mock_post:
             mock_post.return_value = {
@@ -468,7 +468,7 @@ class TestConversationAPI:
     @pytest.mark.asyncio
     async def test_get_conversation_history(self):
         """测试获取对话历史"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'get') as mock_get:
             mock_get.return_value = [
@@ -492,7 +492,7 @@ class TestGitAPI:
     @pytest.mark.asyncio
     async def test_git_clone(self):
         """测试 Git 克隆"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'post') as mock_post:
             mock_post.return_value = {"success": True, "path": "/repo"}
@@ -508,7 +508,7 @@ class TestGitAPI:
     @pytest.mark.asyncio
     async def test_git_status(self):
         """测试 Git 状态"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'get') as mock_get:
             mock_get.return_value = {
@@ -524,7 +524,7 @@ class TestGitAPI:
     @pytest.mark.asyncio
     async def test_git_commit(self):
         """测试 Git 提交"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'post') as mock_post:
             mock_post.return_value = {"commit": "abc123"}
@@ -540,7 +540,7 @@ class TestGitAPI:
     @pytest.mark.asyncio
     async def test_git_push(self):
         """测试 Git 推送"""
-        client = VibeKingClient()
+        client = OpenTaskClient()
 
         with mock.patch.object(client, 'post') as mock_post:
             mock_post.return_value = {"success": True}

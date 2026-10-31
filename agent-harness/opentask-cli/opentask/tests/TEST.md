@@ -152,7 +152,7 @@ pytest tests/test_core.py -v
 pytest tests/test_full_e2e.py -v
 
 # All tests with coverage
-pytest tests/ -v --cov=cli_anything.opentask --cov-report=html
+pytest tests/ -v --cov=opentask --cov-report=html
 
 # Run specific test
 pytest tests/test_core.py::test_api_client::test_list_projects -v

@@ -11,7 +11,7 @@
 """
 
 import pytest
-from opentask.utils.api_client import VibeKingClient, APIError
+from opentask.utils.api_client import OpenTaskClient, APIError
 import asyncio
 import os
 
@@ -31,7 +31,7 @@ TEST_PASSWORD = "xxxxx"
 
 async def get_authenticated_client():
     """创建已认证的客户端"""
-    client = VibeKingClient(base_url=API_BASE_URL)
+    client = OpenTaskClient(base_url=API_BASE_URL)
 
     try:
         # 登录（Phase 2 后端本地校验，密码明文提交）
@@ -39,7 +39,7 @@ async def get_authenticated_client():
 
         if result and "token" in result:
             # 创建新的客户端实例，使用获取的 token
-            auth_client = VibeKingClient(
+            auth_client = OpenTaskClient(
                 base_url=API_BASE_URL,
                 token=result["token"]
             )
@@ -61,7 +61,7 @@ class TestAuthentication:
     @pytest.mark.asyncio
     async def test_login_success(self):
         """测试成功登录"""
-        client = VibeKingClient(base_url=API_BASE_URL)
+        client = OpenTaskClient(base_url=API_BASE_URL)
 
         try:
             result = await client.login(TEST_USERNAME, TEST_PASSWORD)

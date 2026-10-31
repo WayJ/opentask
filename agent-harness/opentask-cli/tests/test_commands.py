@@ -26,7 +26,7 @@ def test_version_command():
     result = runner.invoke(cli, ['--version'])
 
     assert result.exit_code == 0
-    assert 'version' in result.output.lower() or 'vibe' in result.output.lower()
+    assert 'version' in result.output.lower() or 'opentask' in result.output.lower()
 
 
 # ============================================================================

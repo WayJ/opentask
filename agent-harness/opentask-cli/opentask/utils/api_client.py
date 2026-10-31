@@ -191,7 +191,7 @@ def _get_diagnostic_suggestions(error: APIError, command_context: str | None = N
     return suggestions
 
 
-class VibeKingClient:
+class OpenTaskClient:
     """HTTP client for OpenTask backend API.
 
     Handles authentication, request/response formatting, and error handling.

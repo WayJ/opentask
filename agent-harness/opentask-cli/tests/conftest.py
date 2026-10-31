@@ -7,7 +7,7 @@ OpenTask CLI 测试共享配置
 import pytest
 from pathlib import Path
 from opentask.utils.config import Config
-from opentask.utils.api_client import VibeKingClient
+from opentask.utils.api_client import OpenTaskClient
 from opentask.utils.repl_skin import ReplSkin
 
 
@@ -51,7 +51,7 @@ def clean_config(temp_config_dir):
 @pytest.fixture
 def mock_api_client():
     """Mock API 客户端（使用假 URL 和 token）"""
-    return VibeKingClient(
+    return OpenTaskClient(
         base_url="http://test-api.example.com",
         token="test_token_12345"
     )
@@ -60,7 +60,7 @@ def mock_api_client():
 @pytest.fixture
 def api_client_with_real_url():
     """使用真实 URL 的 API 客户端（连接到 localhost）"""
-    return VibeKingClient(
+    return OpenTaskClient(
         base_url="http://localhost:7377",
         token=None
     )

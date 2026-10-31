@@ -2,7 +2,7 @@
 import asyncio
 import json
 import click
-from ..utils.api_client import VibeKingClient, APIError
+from ..utils.api_client import OpenTaskClient, APIError
 from ..utils.config import Config
 from ..utils.repl_skin import ReplSkin
 
@@ -29,7 +29,7 @@ def requirement_document():
 # Helper Functions
 # ============================================================================
 
-def _get_current_user_id(client: VibeKingClient) -> str | None:
+def _get_current_user_id(client: OpenTaskClient) -> str | None:
     """Get current user ID using standardized method.
 
     Args:
@@ -63,7 +63,7 @@ def _format_json_response(success: bool, data: dict | None = None, error: str | 
     return json.dumps(response, indent=2, ensure_ascii=False)
 
 
-def _resolve_requirement_id(skin: ReplSkin, client: VibeKingClient, requirement_input: str) -> str:
+def _resolve_requirement_id(skin: ReplSkin, client: OpenTaskClient, requirement_input: str) -> str:
     """Resolve requirement input to ID.
 
     Supports:
@@ -102,7 +102,7 @@ def _resolve_requirement_id(skin: ReplSkin, client: VibeKingClient, requirement_
         raise SystemExit(1)
 
 
-def _resolve_user_id(skin: ReplSkin, client: VibeKingClient, assignee_input: str) -> str | None:
+def _resolve_user_id(skin: ReplSkin, client: OpenTaskClient, assignee_input: str) -> str | None:
     """Resolve assignee input to user ID.
 
     Supports:
@@ -216,7 +216,7 @@ def list_requirements(obj: "Context", status, priority, project_id, assignee, re
         requirement list --unassigned
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -297,7 +297,7 @@ def find_requirements(obj: "Context", keyword: str, in_title: bool, in_descripti
         requirement find "UI" --status draft --limit 50
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -369,7 +369,7 @@ def show_requirement(obj: "Context", requirement_id: str, as_json: bool, show_co
         requirement show 需求2026-81 --json     # JSON output
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -517,7 +517,7 @@ def create_requirement(obj: "Context", title, description, status, priority, pro
     Note: Status and priority values are automatically converted to API format.
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -619,7 +619,7 @@ def update_requirement(obj: "Context", requirement_id, title, description, statu
         requirement update REQ-ID --title "New" --verbose  # Show full details
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -712,7 +712,7 @@ def resolve_requirement(obj: "Context", requirement_id: str, reason: str, commit
         requirement resolve REQ-ID -r "Ready for review" -c "abc123"
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -773,7 +773,7 @@ def start_requirement(obj: "Context", requirement_id: str, as_json: bool):
         requirement start REQ-ID
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     json_mode = as_json or obj.json_mode
@@ -817,7 +817,7 @@ def reopen_requirement(obj: "Context", requirement_id: str, reason: str, as_json
         requirement reopen REQ-ID --reason "Need more clarification"
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     json_mode = as_json or obj.json_mode
@@ -863,7 +863,7 @@ def requirement_todo(obj: "Context", as_json: bool, limit: int):
         requirement todo --json
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     json_mode = as_json or obj.json_mode
@@ -928,7 +928,7 @@ def requirement_in_progress(obj: "Context", as_json: bool, limit: int):
         requirement in-progress --json
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     json_mode = as_json or obj.json_mode
@@ -1002,7 +1002,7 @@ def close_requirement(obj: "Context", requirement_id: str, reason: str, commit_i
         requirement close REQ-ID -r "Deployed" -c "def456"
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -1072,7 +1072,7 @@ def assign_requirement(obj: "Context", requirement_id: str, assignee_input: str,
         requirement assign REQ-ID --assignee none
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -1128,7 +1128,7 @@ def set_requirement_project(obj: "Context", requirement_id: str, project_id: str
     Supports both requirement codes (需求2026-116) and UUIDs.
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -1170,7 +1170,7 @@ def list_comments(obj: "Context", requirement_id: str, as_json: bool):
     Supports both requirement codes (需求2026-116) and UUIDs.
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -1232,7 +1232,7 @@ def add_comment(obj: "Context", requirement_id: str, content: str, as_json: bool
         requirement comments add 需求2026-116 "## Analysis Report\\n\\nDetails here..."
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -1272,7 +1272,7 @@ def add_comment(obj: "Context", requirement_id: str, content: str, as_json: bool
 def update_comment(obj: "Context", comment_id: str, content: str, as_json: bool):
     """Update a requirement comment."""
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -1308,7 +1308,7 @@ def update_comment(obj: "Context", comment_id: str, content: str, as_json: bool)
 def delete_comment(obj: "Context", comment_id: str, as_json: bool):
     """Delete a requirement comment."""
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     # Use global JSON mode if no local flag
@@ -1341,7 +1341,7 @@ def list_requirement_documents(obj: "Context", requirement_id: str, as_json: boo
         requirement document list REQ-ID --json
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     json_mode = as_json or obj.json_mode
@@ -1401,7 +1401,7 @@ def upload_requirement_document(obj: "Context", requirement_id: str, file_path: 
         requirement document upload REQ-ID design.png --json
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     json_mode = as_json or obj.json_mode
@@ -1458,7 +1458,7 @@ def delete_requirement_document(obj: "Context", requirement_id: str, document_id
         requirement document delete REQ-ID abc123 --json
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     json_mode = as_json or obj.json_mode
@@ -1503,7 +1503,7 @@ def download_requirement_document(obj: "Context", requirement_id: str, document_
         requirement document download 需求2026-116 abc123 . --json
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     json_mode = as_json or obj.json_mode
@@ -1564,7 +1564,7 @@ def download_all_requirement_documents(obj: "Context", requirement_id: str, save
         requirement document download-all 需求2026-116 . --json
     """
     config: Config = obj.config
-    client = VibeKingClient(base_url=config.api_url, token=config.token, config=config)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
     json_mode = as_json or obj.json_mode

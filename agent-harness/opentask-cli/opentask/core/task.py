@@ -2,7 +2,7 @@
 import asyncio
 import json
 import click
-from ..utils.api_client import VibeKingClient, APIError
+from ..utils.api_client import OpenTaskClient, APIError
 from ..utils.config import Config
 from ..utils.repl_skin import ReplSkin
 
@@ -53,7 +53,7 @@ def run_task(ctx: "Context", task_id: str):
         return 1
 
     try:
-        client = VibeKingClient(
+        client = OpenTaskClient(
             api_url=ctx.config.api_url,
             token=ctx.config.token,
             skin=ctx.skin,
@@ -175,7 +175,7 @@ def create_task(
       • superpowers:frontend-design - 前端设计
     """
     try:
-        client = VibeKingClient(
+        client = OpenTaskClient(
             api_url=ctx.config.api_url,
             token=ctx.config.token,
             skin=ctx.skin,
@@ -273,7 +273,7 @@ def list_tasks(ctx: "Context", requirement_id: str, status: str):
         vibe task list --status PENDING
     """
     try:
-        client = VibeKingClient(
+        client = OpenTaskClient(
             api_url=ctx.config.api_url,
             token=ctx.config.token,
             skin=ctx.skin,

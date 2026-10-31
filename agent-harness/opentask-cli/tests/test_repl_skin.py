@@ -86,7 +86,7 @@ class TestSkinInitialization:
         """测试创建历史目录"""
         with mock.patch('pathlib.Path.home', return_value=tmp_path):
             skin = ReplSkin("test")
-            hist_dir = tmp_path / ".cli-anything-test"
+            hist_dir = tmp_path / ".opentask-test"
             assert hist_dir.exists()
             assert skin.history_file.endswith("history")
 
@@ -110,9 +110,9 @@ class TestColorDetection:
         skin = ReplSkin("test")
         assert skin._color is False
 
-    def test_cli_anything_no_color_env(self, monkeypatch):
-        """测试 CLI_ANYTHING_NO_COLOR 环境变量"""
-        monkeypatch.setenv("CLI_ANYTHING_NO_COLOR", "1")
+    def test_opentask_no_color_env(self, monkeypatch):
+        """测试 OPENTASK_NO_COLOR 环境变量"""
+        monkeypatch.setenv("OPENTASK_NO_COLOR", "1")
         skin = ReplSkin("test")
         assert skin._color is False
 

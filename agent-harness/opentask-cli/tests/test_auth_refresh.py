@@ -15,7 +15,7 @@ import pytest
 
 from opentask.utils import password_store
 from opentask.utils.password_store import PasswordStore
-from opentask.utils.api_client import VibeKingClient, APIError
+from opentask.utils.api_client import OpenTaskClient, APIError
 from opentask.utils.crypto_helper import encrypt_password
 
 BASE_URL = "http://test-api.example.com"
@@ -137,7 +137,7 @@ class TestLoginPlaintext:
             ok({"token": "tok-1", "refreshToken": "ref-1"})
         )
 
-        client = VibeKingClient(base_url=BASE_URL, config=clean_config)
+        client = OpenTaskClient(base_url=BASE_URL, config=clean_config)
         result = await client.login("alice", "plain-secret")
 
         assert result["token"] == "tok-1"
@@ -178,7 +178,7 @@ class TestAutoRefresh:
             ok({"token": "tok-new", "refreshToken": "ref-new"})
         )
 
-        client = VibeKingClient(base_url=BASE_URL, config=clean_config)
+        client = OpenTaskClient(base_url=BASE_URL, config=clean_config)
         result = await client.get("/api/projects")
 
         assert result["total"] == 1
@@ -204,7 +204,7 @@ class TestAutoRefresh:
     ):
         """无 refresh_token 时 refresh() 直接返回 False"""
         clean_config._data = {}
-        client = VibeKingClient(base_url=BASE_URL, config=clean_config)
+        client = OpenTaskClient(base_url=BASE_URL, config=clean_config)
         assert await client.refresh() is False
         assert http_router.requests == []
 
@@ -240,7 +240,7 @@ class TestReloginFallback:
             ok({"token": "tok-relogin", "refreshToken": "ref-relogin"})
         )
 
-        client = VibeKingClient(base_url=BASE_URL, config=clean_config)
+        client = OpenTaskClient(base_url=BASE_URL, config=clean_config)
         result = await client.get("/api/projects")
 
         assert result["total"] == 0
@@ -284,7 +284,7 @@ class TestCredentialsExpired:
         http_router.on("/api/auth/refresh-token", unauthorized("refresh token expired"))
         http_router.on("/api/auth/login", unauthorized("用户名或密码错误"))
 
-        client = VibeKingClient(base_url=BASE_URL, config=clean_config)
+        client = OpenTaskClient(base_url=BASE_URL, config=clean_config)
         with pytest.raises(APIError) as exc_info:
             await client.get("/api/projects")
 

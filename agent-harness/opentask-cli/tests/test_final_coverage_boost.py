@@ -26,7 +26,7 @@ class TestIssueListPagination:
         """测试第一页"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.list_issues = async_mock({
                 "rows": [{"id": "1"}],
@@ -46,7 +46,7 @@ class TestIssueListPagination:
         """测试排序选项"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.list_issues = async_mock({
                 "rows": [],
@@ -70,7 +70,7 @@ class TestCollectionUpdateAllOptions:
         """测试所有更新选项"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.collection.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.collection.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.update_collection = async_mock({
                 "id": "1",
@@ -97,7 +97,7 @@ class TestProjectCommandsAdvanced:
         """测试列出非活跃项目"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.project.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.project.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.list_projects = async_mock([
                 {"id": "1", "name": "Inactive", "is_active": False}
@@ -115,7 +115,7 @@ class TestProjectCommandsAdvanced:
         """测试项目详情 JSON 模式"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.project.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.project.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_project = async_mock({
                 "id": "1",
@@ -136,7 +136,7 @@ class TestProjectCommandsAdvanced:
         """测试使用项目 JSON 模式"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.project.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.project.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_project = async_mock({
                 "id": "1",
@@ -160,7 +160,7 @@ class TestRequirementCommandsAdvanced:
         """测试按受理人过滤"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.requirement.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.requirement.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.list_requirements = async_mock({
                 "rows": [
@@ -182,7 +182,7 @@ class TestRequirementCommandsAdvanced:
         """测试需求详情 JSON 模式"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.requirement.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.requirement.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_requirement = async_mock({
                 "id": "1",
@@ -206,7 +206,7 @@ class TestCLIContextWithActiveProject:
         """测试使用活跃项目过滤 issues"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.list_issues = async_mock({
                 "rows": [
@@ -232,7 +232,7 @@ class TestCLIGlobalOutputFormats:
         """测试全局 JSON 模式配合 collection"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.collection.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.collection.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.list_collections = async_mock({
                 "rows": [
@@ -253,7 +253,7 @@ class TestCLIGlobalOutputFormats:
         """测试全局详细模式配合 requirement"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.requirement.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.requirement.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.list_requirements = async_mock({
                 "rows": [],
@@ -308,7 +308,7 @@ class TestAPIErrorHandling:
         """测试 404 错误处理"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.project.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.project.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
             mock_client.get_project = async_mock(None)
             mock_client_class.return_value = mock_client
@@ -322,7 +322,7 @@ class TestAPIErrorHandling:
         """测试 500 错误处理"""
         runner = CliRunner()
 
-        with mock.patch('opentask.core.issue.VibeKingClient') as mock_client_class:
+        with mock.patch('opentask.core.issue.OpenTaskClient') as mock_client_class:
             from opentask.utils.api_client import APIError
 
             mock_client = mock.Mock()
