@@ -118,8 +118,12 @@ class App(fastapi.FastAPI):
         # Issue routes (需要认证)
         # Issue Collection routes 已合并到 issue_router
         self.include_router(issue_router, dependencies=common_dependencies)
-        # Task Source Contract routes (Orca 通用任务契约，D7 与 issue API 并列；挂根 /tasks，D12)
-        self.include_router(tasks_contract_router, dependencies=common_dependencies)
+        # Task Source Contract routes (Orca 通用任务契约，D7 与 issue API 并列；
+        # 挂根 /tasks + /capabilities，D12/S5。鉴权走契约层 authenticate_contract
+        # （API Key + client credentials，401 独立语义带错误码字段；/tasks/token
+        # 与 /capabilities 公开），不叠全局 authenticate——其缺头时是 HTTPBearer
+        # 的 403 "Not authenticated"，与契约层 401 语义冲突)
+        self.include_router(tasks_contract_router)
         # Attachment routes (公共访问，无需认证)
         self.include_router(attachment_router, dependencies=[])
         # Git routes (需要认证) - TODO: 依赖已删除的 file_storage 等模块，暂时注释

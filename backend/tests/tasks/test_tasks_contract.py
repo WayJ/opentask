@@ -19,10 +19,10 @@ from opentask.models.tag.model import Tag
 
 from opentask.api.tasks.converters import issue_to_contract_task
 from opentask.api.tasks.mapping import (
-    GENERIC_STATUSES,
-    ISSUE_STATUS_TO_GENERIC,
+    DEFAULT_ISSUE_STATUS_TO_GENERIC,
     build_issue_url,
     generic_status_to_issue,
+    get_generic_statuses,
     issue_status_to_generic,
     normalize_updated_since,
 )
@@ -35,22 +35,26 @@ from .conftest import TITLE_PREFIX, seed_issue
 
 
 class TestStatusMapping:
-    """默认状态映射表：往返恒等 + 全函数"""
+    """状态映射表（生效配置=随仓库默认表）：往返恒等 + 全函数
+
+    配置化覆盖（改配置生效/删配置回默认/非法配置拒绝）见
+    test_tasks_mapping_config.py。
+    """
 
     def test_generic_roundtrip_identity(self):
         """generic → issue → generic 对全部通用状态恒等（DoD 往返要求）"""
-        for generic in GENERIC_STATUSES:
+        for generic in get_generic_statuses():
             assert issue_status_to_generic(generic_status_to_issue(generic)) == generic
 
     def test_issue_to_generic_total(self):
         """全部 6 种 IssueStatus 均可映射（无遗漏）"""
         for status in IssueStatus:
-            assert issue_status_to_generic(status.value) in GENERIC_STATUSES
+            assert issue_status_to_generic(status.value) in get_generic_statuses()
 
     def test_default_table_shape(self):
         """默认表形状：done 为 resolved/closed 的共同归宿，规范逆取 resolved"""
-        assert ISSUE_STATUS_TO_GENERIC["resolved"] == "done"
-        assert ISSUE_STATUS_TO_GENERIC["closed"] == "done"
+        assert DEFAULT_ISSUE_STATUS_TO_GENERIC["resolved"] == "done"
+        assert DEFAULT_ISSUE_STATUS_TO_GENERIC["closed"] == "done"
         assert generic_status_to_issue("done") == "resolved"
 
     def test_unknown_generic_status_rejected(self):

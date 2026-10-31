@@ -75,3 +75,22 @@ task_monitor:
   check_interval_minutes: 5
   # 超时时间（小时）
   timeout_hours: 1
+
+# 任务源契约配置（Orca 通用任务契约，挂根 /tasks；详见 backend/README.md「任务源契约 API」）
+contract:
+  # 状态映射：IssueStatus（key）→ Orca 通用状态（value）。
+  # - key 必须覆盖全部 6 种 IssueStatus（open/in_progress/feedback/resolved/closed/rejected），
+  #   否则视为配置非法，启动后首次访问即报错（拒绝静默降级）
+  # - 反向（通用 → IssueStatus）取规范逆：同一通用状态对应多个 IssueStatus 时，
+  #   取枚举声明序在前者（如 done ← resolved/closed 取 resolved），保证往返确定
+  # - 未配置本段时使用代码内默认表（opentask/api/tasks/mapping.py DEFAULT_*）
+  # - 环境配置（development/production/test.yaml）可按 key 覆盖；修改后重启生效
+  status_mapping:
+    open: todo
+    in_progress: in_progress
+    feedback: in_review
+    resolved: done
+    closed: done
+    rejected: cancelled
+  # 契约层无 type 概念：POST /tasks 落库时的默认 issue 类型（IssueType 词表内取值）
+  default_issue_type: feature

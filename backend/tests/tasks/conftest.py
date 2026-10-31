@@ -1,9 +1,10 @@
 """契约 API 测试配置（PostgreSQL，目录内自建 fixture）
 
 - 覆盖引擎 URL 为 postgresql+asyncpg（不改全局 tests/conftest.py，PG 全局切换属另一 sprint）
-- 建表用 DBModel.metadata.create_all；模型需显式导入（models 包 __init__ 不含 issue/tag/document）
+- 建表用 DBModel.metadata.create_all；模型需显式导入（models 包 __init__ 不含 issue/tag/document/access_token）
 - NullPool：asyncpg 连接绑定事件循环，函数级 fixture 各自持循环，避免跨循环复用连接
-- 认证：dependency_overrides 覆盖 authenticate（access_token 鉴权接入属 S5，此处仅骨架）
+- 认证：client 覆盖 authenticate_contract（S5 契约层鉴权依赖）；
+  raw_client 不覆盖——鉴权用例打真实依赖（vk_ API Key / JWT 对 PG 校验）
 
 数据库：Docker opentask-pg（postgres:16，localhost:5432，opentask/opentask，测试库 opentask_test）。
 """
@@ -14,9 +15,10 @@ import os
 os.environ.setdefault("AUTH_SECRET_KEY", "test-only-secret-key-do-not-use-in-prod")
 
 import uuid
-from datetime import datetime
-from typing import AsyncGenerator
+from datetime import datetime, timedelta
+from typing import AsyncGenerator, Callable, Optional
 
+import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy import delete
@@ -33,13 +35,17 @@ import opentask.repositories.base  # noqa: F401  加载其余模型进 metadata
 from opentask.models.issue import model as _issue_model  # noqa: F401
 from opentask.models.tag.model import Tag  # noqa: F401
 from opentask.models.document.model import Document  # noqa: F401
+from opentask.models.access_token.model import AccessToken  # noqa: F401
 
 from opentask.app import App
-from opentask.auth import authenticate
+from opentask.api.tasks import mapping as contract_mapping
+from opentask.api.tasks.auth import authenticate_contract
 from opentask.models.base import DBModel
 from opentask.models.issue.model import Issue
 from opentask.models.user.model import UserModel
 from opentask.repositories.base import get_session
+from opentask.services.access_token.service import AccessTokenService
+from opentask.models.access_token.schema import AccessTokenCreate
 
 # PostgreSQL 连接串（可用环境变量覆盖）
 PG_TEST_DATABASE_URL = os.getenv(
@@ -148,15 +154,91 @@ async def contract_app(pg_engine: AsyncEngine) -> AsyncGenerator[App, None]:
 async def client(
     contract_app: App, test_user: UserModel
 ) -> AsyncGenerator[AsyncClient, None]:
-    """HTTP 客户端：ASGITransport 直打契约端点，authenticate 覆盖为测试用户"""
-    async def override_authenticate() -> UserModel:
+    """HTTP 客户端：ASGITransport 直打契约端点，authenticate_contract 覆盖为测试用户"""
+    async def override_authenticate_contract() -> UserModel:
         return test_user
 
-    contract_app.dependency_overrides[authenticate] = override_authenticate
+    contract_app.dependency_overrides[authenticate_contract] = (
+        override_authenticate_contract
+    )
     async with AsyncClient(
         transport=ASGITransport(app=contract_app), base_url="http://test"
     ) as ac:
         yield ac
+
+
+@pytest_asyncio.fixture
+async def raw_client(contract_app: App) -> AsyncGenerator[AsyncClient, None]:
+    """HTTP 客户端（不覆盖鉴权）：打真实 authenticate_contract（S5 鉴权用例）
+
+    get_session 仍指向测试 PG；vk_ API Key / JWT 均对库校验。
+    """
+    async with AsyncClient(
+        transport=ASGITransport(app=contract_app), base_url="http://test"
+    ) as ac:
+        yield ac
+
+
+# ============================================================================
+# 鉴权辅助：真实 Access Token（vk_）签发
+# ============================================================================
+
+
+async def create_api_key(db: AsyncSession, user: UserModel, name: str = "ct-key",
+                         expires_days: int | None = None) -> str:
+    """为用户签发真实 API Key（落 access_tokens 表，返回 vk_ 原文）
+
+    expires_days 显式传入过去时间可造「已过期」token（401 用例）。
+    """
+    service = AccessTokenService(db)
+    if expires_days is None:
+        raw_token = (await service.create(str(user.id), AccessTokenCreate(name=name)))[1]
+        return raw_token
+    # 手工落行以精确控制过期时间（service.create 固定 365 天）
+    import hashlib
+    import secrets
+    from opentask.services.access_token.service import TOKEN_PREFIX, TOKEN_BYTES
+    raw_token = TOKEN_PREFIX + secrets.token_hex(TOKEN_BYTES)
+    now = datetime.utcnow()
+    db.add(
+        AccessToken(
+            user_id=str(user.id),
+            name=name,
+            token_hash=hashlib.sha256(raw_token.encode("utf-8")).hexdigest(),
+            token_prefix=raw_token[:7],
+            expires_at=now + timedelta(days=expires_days),
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    await db.commit()
+    return raw_token
+
+
+# ============================================================================
+# 映射配置隔离：用例内注入 contract 配置，结束后恢复真实配置
+# ============================================================================
+
+
+@pytest.fixture
+def mapping_config(monkeypatch: pytest.MonkeyPatch) -> Callable[[Optional[dict]], None]:
+    """注入 contract 配置段并失效映射缓存；teardown 撤销注入并再次失效
+
+    用法：mapping_config({"status_mapping": {...}, ...}) 或 mapping_config(None)
+    （None = 模拟未配置任何 contract 段 → 代码默认表）。
+    """
+    def _set(cfg: Optional[dict]) -> None:
+        if cfg is None:
+            monkeypatch.setattr(contract_mapping, "load_config_file", lambda env: {})
+        else:
+            monkeypatch.setattr(
+                contract_mapping, "load_config_file", lambda env: cfg
+            )
+        contract_mapping.reset_contract_mapping_cache()
+
+    yield _set
+    # monkeypatch 已撤销 load_config_file 注入；失效缓存让后续用例重读真实配置
+    contract_mapping.reset_contract_mapping_cache()
 
 
 # ============================================================================

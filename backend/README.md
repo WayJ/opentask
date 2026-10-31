@@ -175,6 +175,70 @@ pre-commit run --all-files
 - **ReDoc**: http://localhost:3000/redoc
 - **OpenAPI Schema**: http://localhost:3000/openapi.json
 
+## 任务源契约 API（Orca 集成）
+
+OpenTask 以「通用任务源」形态对 Orca 暴露 REST 契约（模拟 Jira 对接模式），路由挂根，与既有 `/api/issues` 并列、互不影响。代码位于 `opentask/api/tasks/`，测试位于 `tests/tasks/`（PostgreSQL）。
+
+### 端点总览
+
+| 端点 | 说明 |
+|---|---|
+| `GET /capabilities` | 能力声明（**公开**）：契约版本、端点支持、鉴权模式、当前生效状态词表 |
+| `POST /tasks/token` | OAuth2 client credentials 换 token（**公开**，凭证即 API Key） |
+| `GET /tasks` | 列表：`status`/`assignee` 过滤 + `limit`/`offset` 分页 + `updated_since` 增量游标（排他语义） |
+| `POST /tasks` | 创建（title/description/assignee/status/labels 完整落库，经 issue service） |
+| `GET /tasks/{task_id}` | 读取（软删除的不可见） |
+| `PATCH /tasks/{task_id}` | 更新（PATCH 语义；状态变更写既有 timeline） |
+| `DELETE /tasks/{task_id}` | 软删除（复用 `is_deleted`，不物理删除） |
+
+除前两个公开端点外，其余端点均需 Bearer 凭证。
+
+### 鉴权
+
+两种模式，均以 `Authorization: Bearer <token>` 携带，复用既有 access_token 体系（用户 API Key，`vk_` 前缀）：
+
+1. **Bearer API Key（推荐，长周期）**：先在 OpenTask 前端「个人设置 → Access Token」或 `POST /api/access-tokens` 创建 API Key（需登录态），直接作为 Bearer 凭证调用契约端点。
+2. **OAuth2 client credentials（短时效 JWT）**：以 API Key 为 client secret 换短时效 JWT（默认 2 小时，`auth.access_expire_minutes` 可配），适合不便长期持有 Key 的调用方：
+
+   ```bash
+   curl -X POST http://localhost:7377/tasks/token \
+     -d "grant_type=client_credentials" \
+     -d "client_id=<可选：Key 归属用户 ID>" \
+     -d "client_secret=<vk_ 开头的 API Key>"
+   # → {"access_token": "<JWT>", "token_type": "Bearer", "expires_in": 7200}
+   ```
+
+**401 语义独立**：缺凭证/凭证无效（错误、过期、吊销、用户禁用）一律返回 `401`，错误体带可辨识错误码字段（区别于 403/503）：
+
+```json
+{"detail": {"code": "CONTRACT_AUTH_MISSING|CONTRACT_AUTH_INVALID", "message": "..."}}
+```
+
+`POST /tasks/token` 的凭证错误同为 401；不支持的 `grant_type` 返回 400（`CONTRACT_AUTH_UNSUPPORTED_GRANT`）。
+
+### 状态映射配置（`contract.status_mapping`）
+
+契约状态词表与 OpenTask IssueStatus 的双向映射可配置（`config/*.yaml`，默认表见 `opentask/api/tasks/mapping.py`；**未配置该段时使用代码默认表**，配置非法时启动后首次访问即报错、拒绝静默降级）：
+
+```yaml
+contract:
+  # key 必须覆盖全部 6 种 IssueStatus；value 为通用状态（可自定义词表）
+  # 反向取规范逆：同一通用状态多值时取枚举序在前者（done ← resolved/closed → resolved）
+  status_mapping:
+    open: todo
+    in_progress: in_progress
+    feedback: in_review
+    resolved: done
+    closed: done
+    rejected: cancelled
+  # 契约层无 type 概念：POST /tasks 落库的默认 issue 类型
+  default_issue_type: feature
+```
+
+- 配置在 `default.yaml` 集中维护，环境配置（development/production/test.yaml）可按键深合并覆盖；**修改后重启进程生效**。
+- `GET /capabilities` 的 `status_vocabulary` 与 `features.status_mapping_source`（`config`/`default`）实时反映生效配置，消费方可据此自适应。
+- 往返保证：`generic → IssueStatus → generic` 对生效词表全部状态恒等（`resolved`/`closed` 同归 `done` 时逆取 `resolved`）。
+
 ## 项目结构
 
 ```
