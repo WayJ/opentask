@@ -310,6 +310,25 @@ AUTH_SECRET_KEY=<密钥> uv run python -m opentask.api.tasks.openapi_export
 
 路由、schema 与错误响应模型（`ContractErrorResponse`，含 401/403/404/503 声明与 Bearer 安全方案）均从代码推导，无手写 spec；`tests/tasks/test_tasks_openapi.py` 对账测试守护一致性（spec 文件与实时构建不一致即测试失败）。
 
+### Jira 线格式兼容层（`/rest/api/2/*`，S7）
+
+让 Orca 的 Jira 集成把 OpenTask 当**自建 Jira（Server/DC）**调用：契约端点（`/tasks`，D12 形状）保持不动，Jira 层与其共用 mapping/auth/schemas 内核。代码位于 `opentask/api/jira/`（keys/jql/converters/auth/errors/router/wiring），经 ASGI 转发路由挂在 tasks 契约路由下（`include_in_schema=False`，不污染契约 OpenAPI）。
+
+| 端点 | 说明 |
+|---|---|
+| `GET /rest/api/2/myself` | 连接验证 + 当前用户（Orca 连接向导的第一跳） |
+| `POST /rest/api/2/search` | JQL 子集搜索（`assignee/reporter = currentUser()`、`status( = / != / in )`、`statusCategory`、`key = / in`、`project`、`summary/description/text ~`、`ORDER BY updated`；子集外 400） |
+| `GET/POST /rest/api/2/issue[/{key}]` | 读取/创建/更新（key 形状 `OPENTASK-{年*10^9+序号}`，如 `ISSUE2026-1 → OPENTASK-2026000000001`；写成功 204） |
+| `GET/POST /rest/api/2/issue/{key}/transitions` | 可流转列表 / 执行流转（transition.id = 通用状态 token） |
+| `GET/POST /rest/api/2/issue/{key}/comment` | 评论（`startAt`/`maxResults`/`total` 翻页） |
+| `PUT /rest/api/2/issue/{key}/assignee` | 分配/取消（server 形状 `{name}`，兼容 `{accountId}`） |
+| `GET /rest/api/2/project`、`/priority`、`/field`、`/issue/createmeta/{proj}/issuetypes[/​{type}]`、`/user[/​assignable]/search`、`/filter/favourite` | 元数据（单虚拟项目 OPENTASK；`/field` 空数组即安全） |
+
+- **鉴权**：`Authorization: Basic base64(user:vk_…)`（密码位即 API Key，用户名位不校验）或 `Bearer vk_…/JWT`，统一走契约 access_token 内核（`api/tasks/auth.resolve_contract_token`）。
+- **错误**：沿用 CONTRACT_* 错误码语义，响应体为 Jira 形状 `{"errorMessages": ["CONTRACT_XXX: …"], "errors": {…}}`（Orca 适配器按该形状解析）。
+- **禁操作联动**：`contract.forbidden_operations` 对 Jira 线同样生效（list/create/get/update 映射到对应契约操作，403 同语义）。
+- **对接 Orca**：Settings → Jira → 添加自建站点（Site URL `http://<host>:<port>`、Server 模式、PAT = `vk_` API Key）；连接即调 `/myself` 验证。端点形状依据与 E2E 证据见 `docs/superpowers/sprints/2026-11-01-S7-orca-jira-probe.md` 与 `…-orca-e2e-evidence.md`；往返测试 `tests/tasks/test_tasks_jira_wire.py`。
+
 ## 项目结构
 
 ```

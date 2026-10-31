@@ -46,6 +46,27 @@ logger = logging.getLogger(__name__)
 _contract_bearer = HTTPBearer(auto_error=False)
 
 
+async def resolve_contract_token(
+    request: Request,
+    token: str,
+    session: AsyncSession,
+) -> Optional[UserModel]:
+    """契约凭证解析内核：vk_ API Key 或 JWT → 用户；无效返回 None
+
+    S7 起为 tasks（Bearer 线格式）与 jira（Basic/Bearer 线格式）两个
+    兼容层共用内核：token 的提取方式由各线格式层自理（HTTPBearer 头 /
+    Basic 密码位），校验与用户解析集中在此，不复制业务。
+    """
+    if token.startswith(TOKEN_PREFIX):
+        return await AccessTokenService(session).validate_token(token)
+    try:
+        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+        return await get_current_user(request, credentials, session)
+    except HTTPException as e:
+        logger.info("契约层 JWT 校验失败: %s", e.detail)
+        return None
+
+
 async def authenticate_contract(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(_contract_bearer),
@@ -68,30 +89,16 @@ async def authenticate_contract(
             f"Authorization scheme 必须是 Bearer（当前: {credentials.scheme!r}）",
         )
 
-    token = credentials.credentials
-
-    # 模式 1：API Key（vk_ 前缀）—— 哈希查库，过期/禁用用户返回 None
-    if token.startswith(TOKEN_PREFIX):
-        user = await AccessTokenService(session).validate_token(token)
-        if user is None:
-            raise contract_error(
-                status.HTTP_401_UNAUTHORIZED,
-                AUTH_CODE_INVALID,
-                "API Key 无效、已过期或用户被禁用",
-            )
-        return user
-
-    # 模式 2：JWT（client credentials 端点签发 / 用户登录态）——
-    # 复用全局校验链（sub 查用户、tv 版本、禁用拦截），异常统一收敛为契约层 401
-    try:
-        return await get_current_user(request, credentials, session)
-    except HTTPException as e:
-        logger.info("契约层 JWT 校验失败: %s", e.detail)
+    user = await resolve_contract_token(
+        request, credentials.credentials, session
+    )
+    if user is None:
         raise contract_error(
             status.HTTP_401_UNAUTHORIZED,
             AUTH_CODE_INVALID,
-            "JWT 无效、已过期或权限不足",
-        ) from e
+            "凭证无效、已过期或用户被禁用（API Key 或 JWT）",
+        )
+    return user
 
 
 async def exchange_client_credentials(

@@ -13,7 +13,7 @@ import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
-from sqlalchemy import String, cast, delete, func, select
+from sqlalchemy import String, cast, delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,6 +31,19 @@ logger = logging.getLogger(__name__)
 # 并发 POST 撞 issue_code 唯一索引时的重试次数（max+1 算法每次重试都会
 # 看到对方已提交的行，编号前进；超出次数说明冲突另有成因，按原样抛出）
 CREATE_RETRY_ATTEMPTS = 3
+
+
+def _ilike_escape(*keywords: Optional[str]) -> list[str]:
+    """关键字 → ILIKE 模式（%kw%，转义 %/_/\\ 防通配注入）；None/空串丢弃"""
+    patterns: list[str] = []
+    for kw in keywords:
+        if not kw:
+            continue
+        escaped = (
+            kw.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        )
+        patterns.append(f"%{escaped}%")
+    return patterns
 
 
 class ContractIssueService(IssueService):
@@ -71,6 +84,12 @@ class ContractIssueService(IssueService):
         updated_since: Optional[datetime] = None,
         limit: int = 50,
         offset: int = 0,
+        reporter_id: Optional[str] = None,
+        issue_codes: Optional[Sequence[str]] = None,
+        title_kw: Optional[str] = None,
+        desc_kw: Optional[str] = None,
+        any_kws: Optional[Sequence[str]] = None,
+        order: str = "asc",
     ) -> Tuple[List[Issue], int]:
         """契约列表查询：过滤 + updated_since 游标 + limit/offset 分页
 
@@ -81,6 +100,11 @@ class ContractIssueService(IssueService):
           恰好等于游标时刻的记录已在上一轮返回，含它会造成重复；
           同一游标重复拉取因此保证零重复。排序 updated_at asc + id asc
           保证分页确定性。
+        - S7 Jira 线格式层追加过滤（默认值不变，/tasks 契约行为不受影响）：
+          reporter_id（报告人）、issue_codes（按编号精确集合）、
+          title_kw/desc_kw/any_kws（标题/描述/任一 ILIKE 关键字，
+          来自 JQL summary~/description~/text~ 翻译）、order（updated
+          排序方向，Jira 线为 desc；契约 /tasks 保持 asc 缺省）。
         """
         query = (
             select(Issue)
@@ -94,6 +118,18 @@ class ContractIssueService(IssueService):
             query = query.where(cast(Issue.status, String).in_(sorted(status)))
         if assignee_id is not None:
             query = query.where(Issue.assignee_id == assignee_id)
+        if reporter_id is not None:
+            query = query.where(Issue.reporter_id == reporter_id)
+        if issue_codes is not None:
+            query = query.where(Issue.issue_code.in_(sorted(set(issue_codes))))
+        for kw in _ilike_escape(title_kw):
+            query = query.where(Issue.title.ilike(kw))
+        for kw in _ilike_escape(desc_kw):
+            query = query.where(Issue.description.ilike(kw))
+        any_kws = any_kws or ()
+        for kw in _ilike_escape(*any_kws):
+            # text ~ 语义：标题或描述命中即可
+            query = query.where(or_(Issue.title.ilike(kw), Issue.description.ilike(kw)))
         if updated_since is not None:
             query = query.where(Issue.updated_at > normalize_updated_since(updated_since))
 
@@ -102,7 +138,12 @@ class ContractIssueService(IssueService):
         )
         total = total_result.scalar() or 0
 
-        query = query.order_by(Issue.updated_at.asc(), Issue.id.asc())
+        updated_col = (
+            Issue.updated_at.desc() if order == "desc" else Issue.updated_at.asc()
+        )
+        id_col = Issue.id.desc() if order == "desc" else Issue.id.asc()
+        query = query.order_by(updated_col, id_col)
+
         query = query.offset(offset).limit(limit)
 
         result = await self.db.execute(query)
