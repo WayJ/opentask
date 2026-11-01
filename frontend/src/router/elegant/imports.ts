@@ -43,6 +43,7 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   "manage_user-detail": () => import("@/views/manage/user-detail/[id].vue"),
   manage_user: () => import("@/views/manage/user/index.vue"),
   "mission-center": () => import("@/views/mission-center/index.vue"),
+  oauth2: () => import("@/views/oauth2/index.vue"),
   "profile_access-tokens": () => import("@/views/profile/access-tokens/index.vue"),
   profile_userinfo: () => import("@/views/profile/userinfo/index.vue"),
   "work-management_cost-projects_create": () => import("@/views/work-management/cost-projects/create/index.vue"),

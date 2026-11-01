@@ -196,6 +196,7 @@ const routeMap: RouteMap = {
   "manage_user": "/manage/user",
   "manage_user-detail": "/manage/user-detail/:id",
   "mission-center": "/mission-center",
+  "oauth2": "/oauth2/authorize",
   "profile": "/profile",
   "profile_access-tokens": "/profile/access-tokens",
   "profile_userinfo": "/profile/userinfo",

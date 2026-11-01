@@ -1,4 +1,5 @@
 export * from './auth';
+export * from './oauth2';
 export * from './route';
 export * from './project';
 export * from './requirement';

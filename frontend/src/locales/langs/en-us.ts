@@ -183,6 +183,21 @@ const local: App.I18n.Schema = {
           content: 'Content'
         },
         page: {
+          oauth2: {
+            consent: {
+              title: 'Authorization Request',
+              lead: '"{appName}" is requesting access to your OpenTask data.',
+              loading: 'Validating the authorization request...',
+              missingParams:
+                'The authorization request is missing required parameters. Please restart it from the application.',
+              invalidRequest: 'The authorization request is invalid or was rejected.',
+              decideFailed: 'Failed to submit the authorization decision. Please retry.',
+              scopeTitle: 'This application will be granted the following permissions',
+              redirectTitle: 'You will be redirected to',
+              approve: 'Allow',
+              deny: 'Deny'
+            }
+          },
           animate: 'Page Animate',
           mode: {
             title: 'Page Animate Mode',
@@ -225,6 +240,7 @@ const local: App.I18n.Schema = {
     }
   },
   route: {
+    oauth2: 'OAuth2 Authorization',
     profile: 'Profile',
     profile_userinfo: 'User Profile',
     login: 'Login',

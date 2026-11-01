@@ -27,6 +27,13 @@ export function setupElegantRouter() {
         return `/login/:module(${moduleReg})?`;
       }
 
+      // OAuth2 授权入口：客户端登记的 authorization_endpoint 即此路径
+      // （OpenTask 侧是标准 OAuth2 授权服务器的浏览器入口，见
+      // docs/superpowers/specs/2026-11-02-oauth2-provider-design.md）
+      if (key === 'oauth2') {
+        return '/oauth2/authorize';
+      }
+
       return routePath;
     },
     onRouteMetaGen(routeName) {
@@ -39,7 +46,9 @@ export function setupElegantRouter() {
         'knowledge-base',
         'knowledge-base_knowledge_detail',
         'knowledge-base_knowledge_edit',
-        'knowledge-base_knowledge_edit_git'
+        'knowledge-base_knowledge_edit_git',
+        // OAuth2 授权同意页：仅经授权入口跳转进入，不出现在菜单
+        'oauth2'
       ];
 
       const meta: Partial<RouteMeta> = {

@@ -50,6 +50,7 @@ declare module "@elegant-router/types" {
     "manage_user": "/manage/user";
     "manage_user-detail": "/manage/user-detail/:id";
     "mission-center": "/mission-center";
+    "oauth2": "/oauth2/authorize";
     "profile": "/profile";
     "profile_access-tokens": "/profile/access-tokens";
     "profile_userinfo": "/profile/userinfo";
@@ -118,6 +119,7 @@ declare module "@elegant-router/types" {
     | "login"
     | "manage"
     | "mission-center"
+    | "oauth2"
     | "profile"
     | "work-management"
     | "workflow"
@@ -166,6 +168,7 @@ declare module "@elegant-router/types" {
     | "manage_user-detail"
     | "manage_user"
     | "mission-center"
+    | "oauth2"
     | "profile_access-tokens"
     | "profile_userinfo"
     | "work-management_cost-projects_create"

@@ -364,6 +364,16 @@ export const generatedRoutes: GeneratedRoute[] = [
     }
   },
   {
+    name: 'oauth2',
+    path: '/oauth2/authorize',
+    component: 'layout.base$view.oauth2',
+    meta: {
+      title: 'oauth2',
+      i18nKey: 'route.oauth2',
+      hideInMenu: true
+    }
+  },
+  {
     name: 'profile',
     path: '/profile',
     component: 'layout.base',
