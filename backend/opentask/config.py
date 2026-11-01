@@ -105,6 +105,9 @@ def get_env_value(key: str, default: Optional[str] = None) -> str:
         'AUTH_JNPF_ENABLED': ['auth', 'jnpf_enabled'],
         'AUTH_ACCESS_EXPIRE_MINUTES': ['auth', 'access_expire_minutes'],
         'AUTH_REFRESH_EXPIRE_DAYS': ['auth', 'refresh_expire_days'],
+        'AUTH_OAUTH_CODE_EXPIRE_SECONDS': ['auth', 'oauth_code_expire_seconds'],
+        'AUTH_OAUTH_REFRESH_EXPIRE_DAYS': ['auth', 'oauth_refresh_expire_days'],
+        'AUTH_OAUTH_CLIENT_SECRET_BYTES': ['auth', 'oauth_client_secret_bytes'],
         'DINGTALK_APP_KEY': ['dingtalk', 'app_key'],
         'DINGTALK_APP_SECRET': ['dingtalk', 'app_secret'],
         'AUTH_DINGTALK_AUTO_REGISTER': ['auth', 'dingtalk_auto_register'],
@@ -276,6 +279,23 @@ class Config(BaseSettings):
     def refresh_expire_days(self) -> int:
         """refresh token 有效期（天）"""
         return int(self._get_value("AUTH_REFRESH_EXPIRE_DAYS", "7"))
+
+    # ===== OAuth2 Provider（授权服务器）配置 =====
+
+    @property
+    def oauth_code_expire_seconds(self) -> int:
+        """OAuth 授权码有效期（秒）——默认 10 分钟"""
+        return int(self._get_value("AUTH_OAUTH_CODE_EXPIRE_SECONDS", "600"))
+
+    @property
+    def oauth_refresh_expire_days(self) -> int:
+        """OAuth refresh token 有效期（天）——默认 30 天"""
+        return int(self._get_value("AUTH_OAUTH_REFRESH_EXPIRE_DAYS", "30"))
+
+    @property
+    def oauth_client_secret_bytes(self) -> int:
+        """OAuth client secret 随机字节数——默认 32"""
+        return int(self._get_value("AUTH_OAUTH_CLIENT_SECRET_BYTES", "32"))
 
     # 钉钉开放平台配置（企业内部应用）
     @property

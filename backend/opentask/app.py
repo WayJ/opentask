@@ -23,6 +23,8 @@ from opentask.api.knowledge.router import router as knowledge_router
 from opentask.api.knowledge_category.router import router as knowledge_category_router
 from opentask.api.issue.router import router as issue_router
 from opentask.api.tasks import router as tasks_contract_router
+from opentask.api.oauth2 import router as oauth2_router
+from opentask.api.oauth2 import read_router as oauth2_read_router
 from opentask.api.attachment.router import router as attachment_router
 from opentask.api.knowledge.webhooks import router as webhook_router
 from opentask.api.user.router import router as user_router
@@ -124,6 +126,18 @@ class App(fastapi.FastAPI):
         # 与 /capabilities 公开），不叠全局 authenticate——其缺头时是 HTTPBearer
         # 的 403 "Not authenticated"，与契约层 401 语义冲突)
         self.include_router(tasks_contract_router)
+        # OAuth2 Provider 路由（自建授权服务器，spec: docs/superpowers/specs/
+        # 2026-11-02-oauth2-provider-design.md）：
+        # - /oauth2/token、/oauth2/userinfo、/oauth2/revoke 是标准协议端点，
+        #   消费者服务端直连，鉴权走各自的 client 凭证 / Bearer 校验；
+        # - /api/oauth2/* 是 SPA 授权入口的配套与 client 注册管理，各自带
+        #   authenticate（会话）或 admin 守卫；
+        # - **不叠全局 common_dependencies**：OAuth 层有自己的鉴权语义，
+        #   叠加会让缺头时的错误体与 OAuth2 协议形状冲突。
+        self.include_router(oauth2_router)
+        # OAuth2 只读数据面（scope 守卫：read:tasks / read:projects /
+        # read:requirements / profile）
+        self.include_router(oauth2_read_router)
         # Attachment routes (公共访问，无需认证)
         self.include_router(attachment_router, dependencies=[])
         # Git routes (需要认证) - TODO: 依赖已删除的 file_storage 等模块，暂时注释

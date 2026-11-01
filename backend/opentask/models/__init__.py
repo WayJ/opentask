@@ -43,6 +43,12 @@ from opentask.models.issue import (
     IssueReaction,
 )
 from opentask.models.issue_collection import IssueCollection
+from opentask.models.oauth2 import (
+    OAuthAccessToken,
+    OAuthAuthorizationCode,
+    OAuthClient,
+    OAuthRefreshToken,
+)
 from opentask.models.work_management import (
     RdGroup,
     RdGroupMember,
@@ -91,6 +97,10 @@ __all__ = [
     "IssueTag",
     "IssueReaction",
     "IssueCollection",
+    "OAuthClient",
+    "OAuthAuthorizationCode",
+    "OAuthAccessToken",
+    "OAuthRefreshToken",
     "RdGroup",
     "RdGroupMember",
     "CostProject",
