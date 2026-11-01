@@ -4,41 +4,9 @@
 - ./frontend   一个vue3的前端
 - ./backend     一个python后端
 
-## MANDATORY: Follow OpenTask Workflow Guide
-
-**ALL AI Agents working on this project MUST follow the OpenTask Workflow Guide.**
-
-The workflow guide is located at: `frontend/public/docs/OPENTASK_WORKFLOW_GUIDE.md`
-
-### Before starting ANY task:
-
-1. **Read the workflow guide** at `frontend/public/docs/OPENTASK_WORKFLOW_GUIDE.md`
-2. **Check if Constitution exists** at `docs/constitution.md`
-3. **Decide which workflow to use**:
-   - **Spec Flow**: For new features, database changes, page development, third-party integrations
-   - **No-Spec Flow**: For simple bug fixes, config changes, refactoring, documentation
-
-### Priority (Highest to Lowest):
-
-1. **Constitution** (`docs/constitution.md`) - if it exists
-2. **OpenTask Workflow Guide** (`frontend/public/docs/OPENTASK_WORKFLOW_GUIDE.md`)
-3. **This AGENTS.md** - project-specific instructions
-
-### Key Decision Rules from Workflow Guide:
-
-| Task Type | Use Workflow |
-|-----------|--------------|
-| 新功能开发 | Spec Flow |
-| 数据库设计 | Spec Flow |
-| 前端页面开发 | Spec Flow |
-| 第三方集成 | Spec Flow |
-| 简单 bug 修复 | No-Spec Flow |
-| 配置修改 | No-Spec Flow |
-| 代码重构 | No-Spec Flow |
-
 ## Legacy Task Workflow (Task.json-based)
 
-**NOTE:** This section is kept for reference. The OpenTask Workflow Guide takes precedence.
+**NOTE:** This section is kept for reference.
 
 ### 规范
 - 接口规范: ./docs/API_SPECIFICATION.md
