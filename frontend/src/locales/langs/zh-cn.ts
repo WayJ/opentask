@@ -179,20 +179,6 @@ const local: App.I18n.Schema = {
           content: '主体滚动'
         },
         page: {
-          oauth2: {
-            consent: {
-              title: '授权确认',
-              lead: '「{appName}」请求访问你的 OpenTask 数据。',
-              loading: '正在校验授权请求…',
-              missingParams: '授权请求缺少必要参数，请从应用重新发起授权。',
-              invalidRequest: '授权请求无效或已被拒绝。',
-              decideFailed: '提交授权决策失败，请重试。',
-              scopeTitle: '该应用将获得以下权限',
-              redirectTitle: '授权后将返回',
-              approve: '同意授权',
-              deny: '拒绝'
-            }
-          },
           animate: '页面切换动画',
           mode: {
             title: '页面切换动画类型',
@@ -306,6 +292,20 @@ const local: App.I18n.Schema = {
     'work-management_my-work_feedback': '工作反馈'
   },
   page: {
+    oauth2: {
+      consent: {
+        title: '授权确认',
+        lead: '「{appName}」请求访问你的 OpenTask 数据。',
+        loading: '正在校验授权请求…',
+        missingParams: '授权请求缺少必要参数，请从应用重新发起授权。',
+        invalidRequest: '授权请求无效或已被拒绝。',
+        decideFailed: '提交授权决策失败，请重试。',
+        scopeTitle: '该应用将获得以下权限',
+        redirectTitle: '授权后将返回',
+        approve: '同意授权',
+        deny: '拒绝'
+      }
+    },
     login: {
       common: {
         loginOrRegister: '登录 / 注册',

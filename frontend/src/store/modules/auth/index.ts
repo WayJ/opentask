@@ -74,7 +74,12 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
   /**
    * Check if current login user is different from previous login user If different, clear all tabs
    *
-   * @returns {boolean} Whether to clear all tabs
+   * @returns {boolean} 是否**换了用户**（换人才需要抑制 redirect 回跳）
+   *
+   * 说明：清标签页与抑制回跳是两件事，此处只把「抑制回跳」限定在
+   * 「确实换了用户」的情形。首次登录（本地无 lastLoginUserId）时清标签页
+   * 本就是空操作，若一并抑制回跳，会让 ?redirect= 指向的页面（如 OAuth2
+   * 授权同意页）被丢弃——授权请求就此丢失。
    */
   function checkTabClear(): boolean {
     if (!userInfo.userId) {
@@ -83,17 +88,18 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
 
     const lastLoginUserId = localStg.get('lastLoginUserId');
 
+    // 换了用户才需要抑制回跳（避免带着上一个用户的上下文跳回目标页）
+    const switchedUser = Boolean(lastLoginUserId) && lastLoginUserId !== userInfo.userId;
+
     // Clear all tabs if current user is different from previous user
     if (!lastLoginUserId || lastLoginUserId !== userInfo.userId) {
       localStg.remove('globalTabs');
       tabStore.clearTabs();
 
       localStg.remove('lastLoginUserId');
-      return true;
     }
 
-    localStg.remove('lastLoginUserId');
-    return false;
+    return switchedUser;
   }
 
   /**
