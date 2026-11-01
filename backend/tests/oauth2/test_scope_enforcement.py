@@ -214,6 +214,47 @@ async def test_read_surface_accepts_authorized_scope(test_client: AsyncClient, t
 
 
 @pytest.mark.asyncio
+async def test_read_surface_tasks_endpoint_works(test_client: AsyncClient, test_session):
+    """只读数据面的任务端点可正常调用（薄封装既有 service 层）
+
+    这条用例覆盖 ``/oauth2/api/tasks`` 的完整路径：状态映射、列表查询、
+    标签与用户名批量预取、契约 DTO 转换——只读面与契约层同源不同面，
+    任何一环的导入/签名漂移都会在此变红。
+    """
+    from opentask.models.user.model import UserModel
+
+    user = UserModel(
+        name="任务面用户",
+        username="read_tasks_user",
+        password_hash=None,
+        role="viewer",
+        status=1,
+    )
+    test_session.add(user)
+    await test_session.commit()
+    await test_session.refresh(user)
+
+    client, _secret = await OAuthClientService(test_session).register(
+        client_id="read-tasks-client",
+        name="任务面",
+        description=None,
+        redirect_uris=[REDIRECT_URI],
+        scopes=READ_SCOPES,
+        created_by=str(user.id),
+    )
+    pair = await OAuthTokenService(test_session).issue(
+        user=user, client_id=client.client_id, scope="read:tasks read:requirements"
+    )
+
+    for endpoint in ("/oauth2/api/tasks", "/oauth2/api/requirements"):
+        response = await test_client.get(
+            endpoint,
+            headers={"Authorization": f"Bearer {pair['access_token']}"},
+        )
+        assert response.status_code == 200, f"{endpoint} -> {response.status_code} {response.text}"
+
+
+@pytest.mark.asyncio
 async def test_missing_bearer_token_returns_401(test_client: AsyncClient):
     """缺 Bearer → 401（不是 403）"""
     response = await test_client.get("/oauth2/api/tasks")

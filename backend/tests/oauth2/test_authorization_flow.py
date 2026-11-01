@@ -37,7 +37,7 @@ async def test_authorize_context_returns_client_info(
         headers=_bearer(oauth_user),
     )
     assert response.status_code == 200, response.text
-    body = response.json()
+    body = response.json()["data"]
     assert body["client_name"] == "dsh-saas 工作台"
     assert body["client_description"] == "小蓝 CoWork 管理后台"
     assert body["scope"] == ["profile", "read:tasks"]
@@ -103,7 +103,7 @@ async def test_deny_returns_access_denied_redirect(
         headers=_bearer(oauth_user),
     )
     assert response.status_code == 200, response.text
-    redirect_to = response.json()["redirect_to"]
+    redirect_to = response.json()["data"]["redirect_to"]
     assert "error=access_denied" in redirect_to
     assert "state=st-deny" in redirect_to
 
@@ -126,7 +126,7 @@ async def test_full_authorization_code_flow(
         headers=_bearer(oauth_user),
     )
     assert approve.status_code == 200, approve.text
-    redirect_to = approve.json()["redirect_to"]
+    redirect_to = approve.json()["data"]["redirect_to"]
     assert "code=" in redirect_to
     assert "state=st-ok" in redirect_to
     code = redirect_to.split("code=")[1].split("&")[0]
@@ -173,7 +173,7 @@ async def test_authorization_code_is_single_use_and_replay_revokes_all(
         },
         headers=_bearer(oauth_user),
     )
-    code = approve.json()["redirect_to"].split("code=")[1].split("&")[0]
+    code = approve.json()["data"]["redirect_to"].split("code=")[1].split("&")[0]
 
     first = await test_client.post(
         "/oauth2/token",

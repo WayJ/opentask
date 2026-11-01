@@ -113,7 +113,6 @@ def _require_admin(current_user: UserModel) -> None:
 
 @router.get(
     "/api/oauth2/authorize/context",
-    response_model=AuthorizeContextView,
     summary="校验授权请求并返回同意页上下文",
 )
 async def authorize_context(
@@ -159,20 +158,21 @@ async def authorize_context(
 
     from urllib.parse import urlparse
 
-    return AuthorizeContextView(
-        client_id=client.client_id,
-        client_name=client.name,
-        client_description=client.description,
-        scope=sorted(split_scopes(scope)),
-        redirect_uri=redirect_uri,
-        redirect_host=urlparse(redirect_uri).netloc,
-        state=state,
+    return success_response(
+        data=AuthorizeContextView(
+            client_id=client.client_id,
+            client_name=client.name,
+            client_description=client.description,
+            scope=sorted(split_scopes(scope)),
+            redirect_uri=redirect_uri,
+            redirect_host=urlparse(redirect_uri).netloc,
+            state=state,
+        )
     )
 
 
 @router.post(
     "/api/oauth2/authorize/approve",
-    response_model=AuthorizeDecisionResponse,
     summary="同意/拒绝授权",
 )
 async def authorize_decision(
@@ -212,8 +212,10 @@ async def authorize_decision(
     if body.decision != "approve":
         params["error"] = "access_denied"
         separator = "&" if "?" in body.redirect_uri else "?"
-        return AuthorizeDecisionResponse(
-            redirect_to=f"{body.redirect_uri}{separator}{urlencode(params)}"
+        return success_response(
+            data=AuthorizeDecisionResponse(
+                redirect_to=f"{body.redirect_uri}{separator}{urlencode(params)}"
+            )
         )
 
     code_service = AuthorizationCodeService(session)
@@ -225,8 +227,10 @@ async def authorize_decision(
     )
     params["code"] = code
     separator = "&" if "?" in body.redirect_uri else "?"
-    return AuthorizeDecisionResponse(
-        redirect_to=f"{body.redirect_uri}{separator}{urlencode(params)}"
+    return success_response(
+        data=AuthorizeDecisionResponse(
+            redirect_to=f"{body.redirect_uri}{separator}{urlencode(params)}"
+        )
     )
 
 
@@ -373,7 +377,6 @@ async def revoke_token(
 
 @router.get(
     "/api/oauth2/clients",
-    response_model=list[OAuthClientView],
     summary="列出 OAuth client",
 )
 async def list_clients(
@@ -383,12 +386,11 @@ async def list_clients(
     """列出全部 client（**不含 secret 明文**）"""
     _require_admin(current_user)
     clients = await OAuthClientService(session).list_clients()
-    return [_client_view(client) for client in clients]
+    return success_response(data=[_client_view(client) for client in clients])
 
 
 @router.post(
     "/api/oauth2/clients",
-    response_model=OAuthClientCreated,
     summary="注册 OAuth client",
 )
 async def register_client(
@@ -410,12 +412,13 @@ async def register_client(
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
-    return OAuthClientCreated(client=_client_view(client), client_secret=secret)
+    return success_response(
+        data=OAuthClientCreated(client=_client_view(client), client_secret=secret)
+    )
 
 
 @router.patch(
     "/api/oauth2/clients/{client_id}",
-    response_model=OAuthClientView,
     summary="更新 OAuth client",
 )
 async def update_client(
@@ -437,12 +440,11 @@ async def update_client(
         )
     except ClientNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    return _client_view(client)
+    return success_response(data=_client_view(client))
 
 
 @router.post(
     "/api/oauth2/clients/{client_id}/rotate-secret",
-    response_model=OAuthClientCreated,
     summary="轮换 client secret",
 )
 async def rotate_client_secret(
@@ -456,7 +458,9 @@ async def rotate_client_secret(
         client, secret = await OAuthClientService(session).rotate_secret(client_id)
     except ClientNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    return OAuthClientCreated(client=_client_view(client), client_secret=secret)
+    return success_response(
+        data=OAuthClientCreated(client=_client_view(client), client_secret=secret)
+    )
 
 
 @router.delete(

@@ -38,7 +38,7 @@ async def test_register_client_returns_secret_once(
         headers=_admin_bearer(admin_user),
     )
     assert response.status_code == 200, response.text
-    body = response.json()
+    body = response.json()["data"]
     assert body["client"]["client_id"] == "crud-client-1"
     assert body["client_secret"].startswith("ocs_")
     assert body["client"]["secret_prefix"].startswith("ocs_")

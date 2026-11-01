@@ -58,7 +58,7 @@ async def read_tasks(
     """
     from opentask.api.tasks.converters import issue_to_contract_task
     from opentask.api.tasks.service import ContractIssueService, get_usernames_by_ids
-    from opentask.api.tasks.status_map import generic_status_to_issue_set
+    from opentask.api.tasks.mapping import generic_status_to_issue_set
     from opentask.models.tag.model import Tag
 
     _, user = payload_and_user
