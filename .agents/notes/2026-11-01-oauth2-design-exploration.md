@@ -1,4 +1,6 @@
-# OAuth2 对接设计探索笔记（2026-11-01）
+# OAuth2 对接设计探索笔记（2026-11-01，设计期）
+# 实施状态（2026-11-02 收口）：OpenTask 侧已交付（7 commit，568 pytest 绿 / lint 0 error / build 成功 / 迁移往返 / 浏览器证据）；dsh-saas 侧已交付（服务端 + 契约 + 前端 + 16 Java 用例 + 1861 admin 用例绿）。
+# 本文件保留设计期核实结论，供后续追溯。
 
 worktree: opentask/tunicate · 分支: WayJ/check-oauth2-support · 终端: term_394e881d-4030-489e-ac5f-b7bcc045b02e
 
