@@ -240,16 +240,25 @@ RFC 7009。`token` + `client_id` + `client_secret`。吊销该 token 对应的 a
 
 ### 5.7 只读数据面 `GET /oauth2/api/*`
 
-| 端点 | 所需 scope | 数据源 |
+| 端点 | 所需 scope | 取数路径 |
 |---|---|---|
-| `GET /oauth2/api/tasks` | `read:tasks` | `ContractIssueService.list_issues_for_contract`（既有 service 层） |
-| `GET /oauth2/api/projects` | `read:projects` | 既有 project service 层 |
-| `GET /oauth2/api/requirements` | `read:requirements` | 既有 requirement service 层 |
+| `GET /oauth2/api/tasks` | `read:tasks` | **通用 issue service**：`IssueService.get_issues(params, visible_dept_ids=…, user_id=…)`——与通用 `GET /api/issues` 同源同口径 |
+| `GET /oauth2/api/projects` | `read:projects` | 既有 project service 层 + `RbacService.get_visible_dept_ids` 收窄 |
+| `GET /oauth2/api/requirements` | `read:requirements` | 既有 requirement service 层 + `RbacService.get_visible_dept_ids` 收窄 |
 | `GET /oauth2/api/me` | `profile` | 当前用户 |
 
-**薄封装**：只做 scope 校验 + 参数整形 + 调用既有 service，不复制业务逻辑、不改通用端点。
+**取数口径（数据范围）**：三个数据端点一律按**代表成员的部门可见集**收窄——`visible_dept_ids = await RbacService(session).get_visible_dept_ids(user)`，再配合「或本人创建」（`user_id`），与通用 `/api/issues`、`/api/projects`、`/api/requirements` 完全一致。
 
-响应形状沿用既有契约层 DTO（`ContractTaskListResponse` 等），便于消费者复用解析。
+> **任务端点为何不走契约层取数**：契约层 `ContractIssueService.list_issues_for_contract` **不带部门可见性过滤**——直接复用会把**整个工作区**的任务集暴露给只读 scope。故任务端点改走通用 issue service 的取数路径；**契约层 service 与 `/tasks` 路由一概未改**（不污染 Orca 对接面，也不需要给契约层加参数）。
+
+**参数**：
+
+| 参数 | 语义 |
+|---|---|
+| `status`（仅任务端点） | **OpenTask 原生任务状态词表**（`IssueStatus`：open / in_progress / feedback / resolved / closed / rejected）——**不是**契约层的通用状态词表（通用词表是集合语义，单值过滤会漏数据，故不采用）；未知值 → 400 `invalid_status` |
+| `limit` / `offset` | 分页窗口（`limit` 上限 50）。通用 service 以 page/page_size 分页，其 offset 是 `(page-1)*page_size`。窗口换算：`page_size=limit`，`page=offset//limit+1`，取本页后切 `[offset%limit:]`；切完不足 `limit` 条且本页已满，再取下一页拼上。最多两次查询，窗口精确 |
+
+**响应形状**沿用既有契约层 DTO（`ContractTaskListResponse`：`items` / `total` / `limit` / `offset`，item 为 `ContractTask`），便于消费者复用解析。
 
 ---
 
@@ -267,6 +276,8 @@ RFC 7009。`token` + `client_id` + `client_secret`。吊销该 token 对应的 a
 3. 返回 `external_user_id`（= OpenTask `user.id`）与 `external_email` 给 dsh-saas 落绑定关系
 
 **已知副作用**：若该用户此前经 JNPF/钉钉同步建过账号且 `username != email`，会另建新账号——OAuth「首次连接自动建号」的常规语义。
+
+**实施状态（2026-11-02）**：`OAuthIdentityService.resolve_or_create` 已实现，但**未被授权流程调用**。`/oauth2/token` 走 `find_by_id(record.user_id)`——谁在同意页点了同意，就代表谁。标准 OAuth2 下身份由授权服务器的登录会话决定；dsh-saas 成员若没有 OpenTask 账号，无法完成同意。另外前端用户名正则 `^[一-龥a-zA-Z0-9_-]{4,16}$` 不允许 `@`、最长 16，与「email 作 username 种子」冲突。本期不改核心 `user` 表、不放宽该正则，登记为待裁定技术债。
 
 ---
 
