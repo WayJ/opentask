@@ -54,8 +54,11 @@ E1/E2 两个 epic 关闭后，仓内遗留的 TD3（Docker 栈重写）虽已销
 4. **`frontend/.env.prod` 从未入库**（`.gitignore` 的 `.env.*` 规则），但 Dockerfile 旧注释
    称「已在仓内」——事实不符。已缓解（Dockerfile 增 `ARG/ENV` 固化前缀 +
    `deploy.sh` 前置校验拦下缺文件/错前缀），根因登记为 **TD9** 待用户裁定是否入库。
-5. **后端镜像单阶段 3.4GB**（gcc 留在运行层）→ 改多阶段，约 600MB；新增构建期
+5. **后端镜像单阶段 3.4GB**（gcc 留在运行层）→ 改多阶段后 **1.8GB**（剩下的是
+   venv 里 numpy/pandas/pyarrow 等真实依赖体积，不是工具链）；新增构建期
    `import opentask.main` 冒烟，运行期缺动态库在构建阶段就炸。
+   另一处耗时点：`COPY --from=ghcr.io/astral-sh/uv:0.12.21` 从 ghcr 拉 23.5MB
+   在国内只有 ~30KB/s（首次拉了 10 分钟），该层之后被 BuildKit 缓存，不再重复付。
 6. **脚本在容器里的两个坑**：`python scripts/x.py` 时 `sys.path[0]` 是 scripts/ 而包在上一级
    （镜像用 `--no-install-project`，项目自身没进 venv）；以及 `opentask.models` 包**没导出**
    `AccessToken` 与 `project_knowledge_bases` 关联表，mapper 配置期报
