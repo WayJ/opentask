@@ -2,6 +2,12 @@
 
 目标机：`112.126.60.109`（Ubuntu 24.04 / 2 vCPU / 1.6GB 内存 / 40G 盘 / Docker 29.8.1 + Compose v5.5.1）
 
+> ⚠️ **当前形态是明文 HTTP 的过渡态，别当生产终态。**
+> 前端登录**明文传输口令**（`frontend/src/service/api/auth.ts`：「密码明文传输，依赖
+> HTTPS」），后端在 JNPF 关闭时按明文比对 bcrypt。因此在接入 TLS 之前，
+> **登录口令与 JWT 都在链路上裸奔**。下一步必做：阿里云 DNS 加 A 记录
+> `opentask.recluse.fun → 112.126.60.109`，然后 `certbot --nginx -d opentask.recluse.fun`。
+
 ---
 
 ## 1. 拓扑
@@ -163,7 +169,7 @@ docker exec opentask-postgres pg_dump -U opentask opentask | gzip > /opt/opentas
 | **内存 1.6GB** | 服务器跑不动 vite 构建 | 前端产物在开发机构建；服务器只做 COPY 打包 |
 | **与 notegit 共存** | 两者共用 `server_name 112.126.60.109` 的 80 站点块 | OpenTask 只加 `location`，不改 notegit 的 `location /`。若将来 notegit 要服务名为 `tasks`/`oauth2`/`api` 的仓库，会与根级路径撞车——需把那些前缀挪走 |
 | **AI 能力未接** | `OPENAI_API_KEY` 未配置，AI 相关功能不可用 | 有 key 后写进 `.env` 再 `docker compose up -d backend` |
-| **JNPF 单点登录关闭** | `AUTH_JNPF_ENABLED=false`：JNPF 地址是内网（`10.1.1.211`），公网机不可达 | 生产走本地账号登录 |
+| **JNPF 单点登录关闭** | `AUTH_JNPF_ENABLED=false`：JNPF 平台地址是内网，公网机不可达 | 生产走本地账号登录 |
 
 ### 网络实测（2026-11-03，目标机）
 
