@@ -72,8 +72,13 @@ async def create_admin(
     password: str,
     display_name: str | None = None,
     reset_password: bool = False,
-) -> int:
-    """返回 0 成功；非 0 表示失败"""
+) -> tuple[int, bool]:
+    """返回 (退出码, 是否真的动过口令)。
+
+    第二个返回值很重要：**账号已存在且未加 --reset-password 时，脚本会跳过**，
+    此时调用方不能把随机生成的口令当作"已设置的密码"打印出去——那是个根本没生效
+    的口令，打印出来只会误导运维。
+    """
     async with SessionCreator() as session:
         # 用户中心播种（幂等）：确保 role 表里有 admin 系统角色
         stats = await seed_user_center(session)
@@ -84,7 +89,7 @@ async def create_admin(
         if user is not None:
             if not reset_password:
                 print(f"账号已存在，未做任何改动：{username}（要重置口令加 --reset-password）")
-                return 0
+                return 0, False
             user.password_hash = _pwd_context.hash(password)
             user.status = 1
             user.failed_attempts = 0
@@ -121,7 +126,7 @@ async def create_admin(
                 print(f"已关联角色：admin（权限点 {stats['permissions']} 项）")
 
         await session.commit()
-    return 0
+    return 0, True
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -149,14 +154,15 @@ def main(argv: list[str] | None = None) -> int:
         generated = True
 
     try:
-        rc = asyncio.run(create_admin(username, password, args.name, args.reset_password))
+        rc, applied = asyncio.run(create_admin(username, password, args.name, args.reset_password))
     except Exception as exc:  # noqa: BLE001 - 脚本入口需要把异常转成退出码
         print(f"失败：{exc}", file=sys.stderr)
         return 1
 
-
-    if rc == 0 and generated:
+    if rc == 0 and generated and applied:
         print(f"口令：{password}（仅此一次，请立即保存）")
+    elif rc == 0 and generated and not applied:
+        print("（本次未新建账号，生成的口令未生效，原口令保持不变）", file=sys.stderr)
     return rc
 
 
