@@ -14,6 +14,12 @@ frontend/
 **/.mypy_cache
 **/.ruff_cache
 
+# macOS AppleDouble 残片（`._<原名>`，含空字节）
+# 由 macOS 的 tar 打进归档时会混进源码树；alembic 会把 `._env.py` 当迁移脚本
+# 加载 → SyntaxError: source code string cannot contain null bytes → 后端起不来
+._*
+**/._*
+
 # 本地数据与日志
 data/
 repos/

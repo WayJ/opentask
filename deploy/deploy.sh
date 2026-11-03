@@ -16,6 +16,11 @@
 #
 set -euo pipefail
 
+# macOS 的 tar 默认把扩展属性打包成 AppleDouble 文件（`._<原名>`），它们是 163 字节的
+# 二进制残片、含空字节。alembic 会把 `._env.py` 当迁移脚本加载 → SyntaxError，
+# 后端容器起不来。COPYFILE_DISABLE=1 关掉这个行为，--exclude 再兜一层。
+export COPYFILE_DISABLE=1
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HOST=""
 REMOTE_DIR="/opt/opentask"
@@ -97,18 +102,22 @@ fi
 
 cp "$ROOT/frontend/nginx.conf" "$BUILD_CTX/nginx.conf"
 cp "$ROOT/frontend/Dockerfile.dist" "$BUILD_CTX/Dockerfile"
-tar -C "$BUILD_CTX" -czf "$BUILD_CTX/frontend-dist.tar.gz" dist nginx.conf Dockerfile
+tar -C "$BUILD_CTX" --exclude='._*' -czf "$BUILD_CTX/frontend-dist.tar.gz" dist nginx.conf Dockerfile
 
 # ---------------------------------------------------------------- 送达
 say "2/5 同步源码、编排文件与前端产物"
 ssh "$HOST" "mkdir -p '$REMOTE_DIR'"
 tar -C "$ROOT" \
+    --exclude='._*' \
     --exclude='backend/.venv' \
     --exclude='backend/**/__pycache__' \
     --exclude='backend/.pytest_cache' \
     --exclude='backend/**/.pytest_cache' \
+    --exclude='backend/config/local.yaml' \
     -czf - backend Dockerfile .dockerignore docker-compose.prod.yml \
     | ssh "$HOST" "tar -C '$REMOTE_DIR' -xzf -"
+# 清掉历史遗留的 AppleDouble 残片（首轮发布带过去过 485 个）
+ssh "$HOST" "find '$REMOTE_DIR' -name '._*' -delete; rm -f '$REMOTE_DIR/backend/config/local.yaml'"
 ssh "$HOST" "mkdir -p '$REMOTE_DIR/data'"
 scp -q "$BUILD_CTX/frontend-dist.tar.gz" "$HOST:$REMOTE_DIR/frontend-dist.tar.gz"
 
@@ -167,14 +176,28 @@ echo "启动栈…"
 docker compose -f docker-compose.prod.yml up -d
 
 echo "等待后端健康…"
+READY=0
 for i in $(seq 1 60); do
     if docker compose -f docker-compose.prod.yml exec -T backend \
         curl -fsS http://127.0.0.1:7377/openapi.json >/dev/null 2>&1; then
         echo "后端就绪"
+        READY=1
         break
+    fi
+    # 崩溃循环（restarting/exited/dead）→ 立刻失败并把日志打出来，别空等两分钟
+    STATE="$(docker inspect -f '{{.State.Status}}' opentask-backend 2>/dev/null || echo unknown)"
+    if [ "$STATE" = "restarting" ] || [ "$STATE" = "exited" ] || [ "$STATE" = "dead" ]; then
+        echo "后端容器状态异常：$STATE —— 日志如下" >&2
+        docker compose -f docker-compose.prod.yml logs --tail 60 backend >&2
+        exit 1
     fi
     sleep 2
 done
+if [ "$READY" -ne 1 ]; then
+    echo "等待后端健康超时（120s）" >&2
+    docker compose -f docker-compose.prod.yml logs --tail 60 backend >&2
+    exit 1
+fi
 docker compose -f docker-compose.prod.yml ps
 REMOTE_SCRIPT
 

@@ -40,6 +40,15 @@ docker compose（项目名 opentask，目录 /opt/opentask）
 | `/tasks/*`、`/capabilities` | 后端 | 任务源契约（外部 agent / Orca 接入，API Key 鉴权） |
 | `/` | notegit | 本机既有站点，本次部署不改动其行为 |
 
+**刻意不外露**的后端顶层路径：`/test/*`（后端自测端点，公开机无需暴露）、
+`/openapi.json`、`/docs`（OpenAPI 文档）。它们只能从服务器本机
+`http://127.0.0.1:7377/...` 访问。
+
+**撞车检查**（决定了上面的路径切分）：后端顶层段有
+`capabilities / healthcheck / oauth2 / tasks / test`，前端 SPA 顶层路由有
+`/oauth2`（授权同意页）等 17 个——**只有 `oauth2` 重名**，所以授权服务器的端点
+必须与 SPA 的路径前缀分离。其余顶层段无冲突。
+
 **OAuth2 端点为何挂在站点根而不是 `/opentask/` 下**：前端授权同意页是 **SPA 路由**
 `/opentask/oauth2/authorize`，而授权服务器的端点是 `/oauth2/token`、`/oauth2/userinfo`、
 `/oauth2/revoke`。两者同名段一旦共用前缀就会撞车（同意页与 token 端点无法区分）。
@@ -155,6 +164,22 @@ docker exec opentask-postgres pg_dump -U opentask opentask | gzip > /opt/opentas
 | **与 notegit 共存** | 两者共用 `server_name 112.126.60.109` 的 80 站点块 | OpenTask 只加 `location`，不改 notegit 的 `location /`。若将来 notegit 要服务名为 `tasks`/`oauth2`/`api` 的仓库，会与根级路径撞车——需把那些前缀挪走 |
 | **AI 能力未接** | `OPENAI_API_KEY` 未配置，AI 相关功能不可用 | 有 key 后写进 `.env` 再 `docker compose up -d backend` |
 | **JNPF 单点登录关闭** | `AUTH_JNPF_ENABLED=false`：JNPF 地址是内网（`10.1.1.211`），公网机不可达 | 生产走本地账号登录 |
+
+### 网络实测（2026-11-03，目标机）
+
+发布前先量过各源站速度，避免"卡住但不知道为什么"：
+
+| 源站 | 实测速度 | 说明 |
+|---|---|---|
+| `deb.debian.org` | **33 KB/s** | 直连极慢，装完构建依赖接近 2 小时 |
+| `mirrors.aliyun.com` | **650 KB/s** | 后端镜像的 `DEBIAN_HOST` 默认走它 |
+| `pypi.org` | 76 KB/s | 用不上——`uv.lock` 锁的本来就是清华镜像 |
+| `pypi.tuna.tsinghua.edu.cn` | 索引页 38KB / 0.04s | `uv.lock` 里 300 个包全部指向它 |
+
+> PyPI 侧**不需要**额外配镜像：uv 不读 `pip.conf`（机器上的 `/etc/pip.conf` 指向
+> `mirrors.cloud.aliyuncs.com` 对 uv 无效），但 `uv.lock` 本身就锁在清华镜像上，
+> `uv sync --frozen` 会按锁文件的 URL 取包。
+
 
 ---
 
