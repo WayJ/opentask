@@ -21,6 +21,8 @@ from opentask.repositories.base import get_session
 from opentask.auth import authenticate
 from opentask.models.user.model import UserModel
 from opentask.utils.response import success_response, error_response, StatusCode
+from opentask.api.workspace.deps import get_optional_workspace_context
+from opentask.services.workspace.service import WorkspaceService
 
 logger = logging.getLogger(__name__)
 
@@ -55,11 +57,17 @@ async def create_project(
     dto: ProjectCreate,
     service: ProjectService = Depends(get_project_service),
     current_user: UserModel = Depends(authenticate),
+    ws_ctx=Depends(get_optional_workspace_context),
 ):
-    """创建项目"""
+    """创建项目（可选 X-Workspace-Id：写入 workspace_id）"""
+    workspace, _member, user = ws_ctx
     # 部门归属快照：取创建人主部门写入（无归属则保持 NULL）
-    dept_id = await RbacService(service.db).get_primary_dept_id(current_user)
-    project = await service.create(dto, dept_id=dept_id)
+    dept_id = await RbacService(service.db).get_primary_dept_id(user)
+    project = await service.create(
+        dto,
+        dept_id=dept_id,
+        workspace_id=workspace.id if workspace else None,
+    )
     return success_response(data=service.to_response(project), message="项目创建成功")
 
 
@@ -68,11 +76,25 @@ async def list_projects(
     active_only: bool = Query(True, description="仅返回活跃项目"),
     service: ProjectService = Depends(get_project_service),
     current_user: UserModel = Depends(authenticate),
+    ws_ctx=Depends(get_optional_workspace_context),
 ):
-    """获取所有项目（数据范围过滤：仅按部门可见集，ALL 档零过滤）"""
-    # 数据范围：ALL → None（零过滤）；SELF → 空集（项目恒不可见）
-    visible_dept_ids = await RbacService(service.db).get_visible_dept_ids(current_user)
-    projects = await service.list_all(active_only, visible_dept_ids=visible_dept_ids)
+    """获取项目列表（部门数据范围 + 工作区隔离）"""
+    workspace, _member, user = ws_ctx
+    allowed = None
+    ws_id = None
+    if workspace is not None:
+        # 显式工作区上下文：以租户成员资格为边界，不再叠加部门 SELF 空集过滤
+        ws_id = workspace.id
+        visible_dept_ids = None
+    else:
+        allowed = await WorkspaceService(service.db).member_workspace_ids(str(user.id))
+        visible_dept_ids = await RbacService(service.db).get_visible_dept_ids(user)
+    projects = await service.list_all(
+        active_only,
+        visible_dept_ids=visible_dept_ids,
+        workspace_id=ws_id,
+        allowed_workspace_ids=allowed,
+    )
     return success_response(data=[service.to_response(p) for p in projects])
 
 

@@ -1,28 +1,28 @@
 <script setup lang="ts">
 import { computed, reactive } from 'vue';
+import { fetchRegister } from '@/service/api';
+import { useAuthStore } from '@/store/modules/auth';
 import { useRouterPush } from '@/hooks/common/router';
 import { useFormRules, useNaiveForm } from '@/hooks/common/form';
-import { useCaptcha } from '@/hooks/business/captcha';
+import { localStg } from '@/utils/storage';
 import { $t } from '@/locales';
 
 defineOptions({
   name: 'Register'
 });
 
+const authStore = useAuthStore();
 const { toggleLoginModule } = useRouterPush();
 const { formRef, validate } = useNaiveForm();
-const { label, isCounting, loading, getCaptcha } = useCaptcha();
 
 interface FormModel {
-  phone: string;
-  code: string;
+  userName: string;
   password: string;
   confirmPassword: string;
 }
 
 const model: FormModel = reactive({
-  phone: '',
-  code: '',
+  userName: '',
   password: '',
   confirmPassword: ''
 });
@@ -31,8 +31,7 @@ const rules = computed<Record<keyof FormModel, App.Global.FormRule[]>>(() => {
   const { formRules, createConfirmPwdRule } = useFormRules();
 
   return {
-    phone: formRules.phone,
-    code: formRules.code,
+    userName: formRules.userName,
     password: formRules.pwd,
     confirmPassword: createConfirmPwdRule(model.password)
   };
@@ -40,23 +39,24 @@ const rules = computed<Record<keyof FormModel, App.Global.FormRule[]>>(() => {
 
 async function handleSubmit() {
   await validate();
-  // request to register
+  const { data, error } = await fetchRegister(model.userName, model.password, model.userName);
+  if (error) {
+    window.$message?.error(error.message || $t('common.error'));
+    return;
+  }
+  if (data?.defaultWorkspaceId) {
+    localStg.set('workspaceId', data.defaultWorkspaceId);
+  }
+  // 走统一登录落盘与拉用户信息
+  await authStore.login(model.userName, model.password);
   window.$message?.success($t('page.login.common.validateSuccess'));
 }
 </script>
 
 <template>
   <NForm ref="formRef" :model="model" :rules="rules" size="large" :show-label="false" @keyup.enter="handleSubmit">
-    <NFormItem path="phone">
-      <NInput v-model:value="model.phone" :placeholder="$t('page.login.common.phonePlaceholder')" />
-    </NFormItem>
-    <NFormItem path="code">
-      <div class="w-full flex-y-center gap-16px">
-        <NInput v-model:value="model.code" :placeholder="$t('page.login.common.codePlaceholder')" />
-        <NButton size="large" :disabled="isCounting" :loading="loading" @click="getCaptcha(model.phone)">
-          {{ label }}
-        </NButton>
-      </div>
+    <NFormItem path="userName">
+      <NInput v-model:value="model.userName" :placeholder="$t('page.login.common.userNamePlaceholder')" />
     </NFormItem>
     <NFormItem path="password">
       <NInput
@@ -75,8 +75,8 @@ async function handleSubmit() {
       />
     </NFormItem>
     <NSpace vertical :size="18" class="w-full">
-      <NButton type="primary" size="large" round block @click="handleSubmit">
-        {{ $t('common.confirm') }}
+      <NButton type="primary" size="large" round block :loading="authStore.loginLoading" @click="handleSubmit">
+        {{ $t('page.login.register.title') }}
       </NButton>
       <NButton size="large" round block @click="toggleLoginModule('pwd-login')">
         {{ $t('page.login.common.back') }}
@@ -84,5 +84,3 @@ async function handleSubmit() {
     </NSpace>
   </NForm>
 </template>
-
-<style scoped></style>

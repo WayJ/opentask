@@ -46,6 +46,8 @@ TABLES = (
     "user_role",
     "department",
     "user_dept",
+    "workspaces",
+    "workspace_members",
     "requirements",
     "requirement_code_sequence",
     "projects",

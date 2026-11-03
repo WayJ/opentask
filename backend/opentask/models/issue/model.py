@@ -65,6 +65,13 @@ class Issue(DBModel):
         index=True,
         comment="项目 ID"
     )
+    workspace_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("workspaces.id"),
+        nullable=True,
+        index=True,
+        comment="所属工作区"
+    )
     task_id: Mapped[Optional[str]] = mapped_column(
         String(36),
         nullable=True,
@@ -255,6 +262,7 @@ class Issue(DBModel):
         Index("idx_issues_status", "status"),
         Index("idx_issues_priority", "priority"),
         Index("idx_issues_project", "project_id"),
+        Index("idx_issues_workspace", "workspace_id"),
         Index("idx_issues_assignee", "assignee_id"),
         Index("idx_issues_reporter", "reporter_id"),
         Index("idx_issues_created_at", "created_at"),

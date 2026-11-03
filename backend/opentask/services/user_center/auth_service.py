@@ -194,3 +194,86 @@ class AuthService:
         return await self.token_service.issue_tokens(
             user, user_agent=user_agent, ip=ip
         )
+
+    async def register(
+        self,
+        username: str,
+        password: str,
+        *,
+        name: str | None = None,
+        user_agent: str | None = None,
+        ip: str | None = None,
+        create_default_workspace: bool = True,
+    ) -> tuple:
+        """开放注册：建本地用户（+ 可选默认工作区）并签发 token 对。
+
+        密码策略与 change_password 一致：≥8 且含字母与数字。
+        username 按 lower 判重，冲突 409。
+        """
+        from sqlalchemy import func, select
+
+        from opentask.services.workspace.service import WorkspaceService
+
+        username = (username or "").strip()
+        if not username or len(username) < 2 or len(username) > 50:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="用户名长度需在 2–50 之间",
+            )
+        if len(password) < 8 or not (
+            re.search(r"[A-Za-z]", password) and re.search(r"[0-9]", password)
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="密码至少 8 位，且需同时包含字母和数字",
+            )
+
+        dup = await self.session.execute(
+            select(UserModel.id)
+            .where(func.lower(UserModel.username) == username.lower())
+            .limit(1)
+        )
+        if dup.first() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"用户名已存在: {username}",
+            )
+        # name 列也常被登录回退查询，避免撞存量
+        name_dup = await self.session.execute(
+            select(UserModel.id).where(UserModel.name == username).limit(1)
+        )
+        if name_dup.first() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"用户名已存在: {username}",
+            )
+
+        display = (name or username).strip()
+        user = UserModel(
+            name=display,
+            username=username,
+            password_hash=_pwd_context.hash(password),
+            must_change_password=False,
+            role="viewer",
+            status=1,
+            token_version=0,
+        )
+        self.session.add(user)
+        await self.session.flush()
+
+        default_workspace_id = None
+        if create_default_workspace:
+            ws = await WorkspaceService(self.session).create_for_owner(
+                name=f"{display}'s Workspace",
+                owner_user_id=str(user.id),
+                slug=username.lower(),
+            )
+            default_workspace_id = ws.id
+
+        await self.session.commit()
+        await self.session.refresh(user)
+
+        pair = await self.token_service.issue_tokens(
+            user, user_agent=user_agent, ip=ip
+        )
+        return user, pair, default_workspace_id

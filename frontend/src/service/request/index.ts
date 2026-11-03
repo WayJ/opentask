@@ -25,6 +25,10 @@ export const request = createFlatRequest(
     async onRequest(config) {
       const Authorization = getAuthorization();
       Object.assign(config.headers, { Authorization });
+      const workspaceId = localStg.get('workspaceId');
+      if (workspaceId) {
+        Object.assign(config.headers, { 'X-Workspace-Id': workspaceId });
+      }
 
       return config;
     },

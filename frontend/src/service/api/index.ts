@@ -12,3 +12,4 @@ export * from './knowledge-base';
 export * from './document';
 export * from './issue';
 export * from './issue-collection';
+export * from './workspace';

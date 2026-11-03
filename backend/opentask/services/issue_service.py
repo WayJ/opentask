@@ -84,6 +84,8 @@ class IssueService:
         params: IssueQueryParams,
         visible_dept_ids: set[str] | None = None,
         user_id: str | None = None,
+        workspace_id: str | None = None,
+        allowed_workspace_ids: list[str] | None = None,
     ) -> Tuple[List[Issue], int]:
         """获取 Issue 列表
 
@@ -119,6 +121,17 @@ class IssueService:
                 or_(
                     Issue.title.ilike(search_pattern),
                     Issue.description.ilike(search_pattern),
+                )
+            )
+
+        # 工作区隔离（E3-S1）
+        if workspace_id is not None:
+            query = query.where(Issue.workspace_id == workspace_id)
+        elif allowed_workspace_ids is not None:
+            query = query.where(
+                or_(
+                    Issue.workspace_id.in_(allowed_workspace_ids),
+                    Issue.workspace_id.is_(None),
                 )
             )
 
@@ -218,10 +231,12 @@ class IssueService:
         data: IssueCreate,
         user_id: str,
         dept_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> Issue:
         """创建 Issue
 
         dept_id: 创建人主部门 id 快照（None 表示无归属，行保持 NULL）
+        workspace_id: 所属工作区（E3-S1）
         """
         # 生成问题编号
         issue_code = await self._generate_issue_code()
@@ -231,6 +246,7 @@ class IssueService:
         issue_data["updated_by"] = user_id
         issue_data["issue_code"] = issue_code
         issue_data["dept_id"] = dept_id  # 部门归属快照
+        issue_data["workspace_id"] = workspace_id
 
         # 自动设置 reporter_id 为当前用户（如果未提供）
         if not issue_data.get("reporter_id"):

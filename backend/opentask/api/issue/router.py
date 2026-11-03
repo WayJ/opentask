@@ -47,6 +47,8 @@ from opentask.models.issue_collection.schema import (
 from opentask.models.issue.enums import RelationType
 from opentask.services.issue_service import IssueService
 from opentask.services.user_center.rbac_service import RbacService
+from opentask.api.workspace.deps import get_optional_workspace_context
+from opentask.services.workspace.service import WorkspaceService
 from opentask.services.storage.service import get_storage_service
 from opentask.services.issue_collection_service import IssueCollectionService
 from opentask.auth import authenticate
@@ -82,8 +84,10 @@ async def get_issues(
     sort_order: str = Query("desc", pattern="^(asc|desc)$", description="排序方向"),
     service: IssueService = Depends(get_issue_service),
     current_user: UserModel = Depends(authenticate),
+    ws_ctx=Depends(get_optional_workspace_context),
 ):
-    """获取 Issue 列表（数据范围过滤：部门可见集 + "或本人创建"，ALL 档零过滤）"""
+    """获取 Issue 列表（部门数据范围 + 工作区隔离）"""
+    workspace, _member, user = ws_ctx
     params = IssueQueryParams(
         page=page,
         page_size=page_size,
@@ -98,11 +102,20 @@ async def get_issues(
         sort_order=sort_order,
     )
 
+    ws_id = workspace.id if workspace is not None else None
+    allowed = None
+    if workspace is None:
+        allowed = await WorkspaceService(service.db).member_workspace_ids(str(user.id))
+        visible_dept_ids = await RbacService(service.db).get_visible_dept_ids(user)
+    else:
+        # 显式工作区：租户隔离优先，跳过部门 SELF 空集
+        visible_dept_ids = None
     issues, total = await service.get_issues(
         params,
-        # 数据范围：ALL → None（零过滤）；SELF → 空集 + creator 条件（只见本人）
-        visible_dept_ids=await RbacService(service.db).get_visible_dept_ids(current_user),
-        user_id=str(current_user.id),
+        visible_dept_ids=visible_dept_ids,
+        user_id=str(user.id),
+        workspace_id=ws_id,
+        allowed_workspace_ids=allowed,
     )
 
     # 使用 IssueResponse 的 field_validator 自动处理用户信息转换
@@ -182,13 +195,20 @@ async def create_issue(
     data: IssueCreate,
     service: IssueService = Depends(get_issue_service),
     current_user: UserModel = Depends(authenticate),
+    ws_ctx=Depends(get_optional_workspace_context),
 ):
-    """创建 Issue"""
+    """创建 Issue（可选 X-Workspace-Id）"""
 
     try:
+        workspace, _member, user = ws_ctx
         # 部门归属快照：取创建人主部门
-        dept_id = await RbacService(service.db).get_primary_dept_id(current_user)
-        issue = await service.create_issue(data, str(current_user.id), dept_id=dept_id)
+        dept_id = await RbacService(service.db).get_primary_dept_id(user)
+        issue = await service.create_issue(
+            data,
+            str(user.id),
+            dept_id=dept_id,
+            workspace_id=workspace.id if workspace else None,
+        )
         return {
             "code": 200,
             "message": "Issue 创建成功",

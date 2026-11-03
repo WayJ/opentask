@@ -97,7 +97,7 @@ class Project(Base):
     __tablename__ = "projects"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, insert_default=generate_uuid)
-    name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, insert_default=True, nullable=False)
 
@@ -108,6 +108,12 @@ class Project(Base):
     dept_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("department.id"), nullable=True, index=True,
         comment="部门归属快照（创建时所属部门）"
+    )
+
+    # 工作区租户（E3-S1；存量回填后非空，模型层暂可空以兼容测试 create_all）
+    workspace_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("workspaces.id"), nullable=True, index=True,
+        comment="所属工作区",
     )
 
     # 关联
@@ -121,6 +127,8 @@ class Project(Base):
 
     __table_args__ = (
         Index("idx_projects_is_active", "is_active"),
+        Index("idx_projects_workspace", "workspace_id"),
+        Index("uq_projects_workspace_name", "workspace_id", "name", unique=True),
     )
 
 

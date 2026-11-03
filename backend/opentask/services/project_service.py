@@ -26,15 +26,22 @@ class ProjectService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def create(self, dto: ProjectCreate, dept_id: str | None = None) -> Project:
+    async def create(
+        self,
+        dto: ProjectCreate,
+        dept_id: str | None = None,
+        workspace_id: str | None = None,
+    ) -> Project:
         """创建项目
 
         dept_id: 创建人主部门 id 快照（None 表示无归属，行保持 NULL）
+        workspace_id: 所属工作区（E3-S1）
         """
         project = Project(
             name=dto.name,
             description=dto.description,
             dept_id=dept_id,  # 部门归属快照：创建时创建人的主部门
+            workspace_id=workspace_id,
         )
         self.db.add(project)
         await self.db.commit()
@@ -56,15 +63,30 @@ class ProjectService:
         self,
         active_only: bool = True,
         visible_dept_ids: set[str] | None = None,
+        workspace_id: str | None = None,
+        allowed_workspace_ids: list[str] | None = None,
     ) -> list[Project]:
         """获取所有项目
 
         visible_dept_ids: 数据范围可见部门集（None=不过滤；项目表无 created_by，
         空集（SELF）时结果恒空——项目均为部门资产）
+        workspace_id: 当前工作区（精确过滤）
+        allowed_workspace_ids: 无精确工作区时，限制在成员工作区 ∪ NULL
         """
+        from sqlalchemy import or_
+
         query = select(Project)
         if active_only:
             query = query.where(Project.is_active == True)
+        if workspace_id is not None:
+            query = query.where(Project.workspace_id == workspace_id)
+        elif allowed_workspace_ids is not None:
+            query = query.where(
+                or_(
+                    Project.workspace_id.in_(allowed_workspace_ids),
+                    Project.workspace_id.is_(None),
+                )
+            )
         # 数据范围过滤（visible_dept_ids=None 时原样返回，旧调用零破坏）
         query = RbacService(session=None).apply_data_scope(
             query,

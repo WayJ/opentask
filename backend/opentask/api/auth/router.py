@@ -54,6 +54,13 @@ class ChangePasswordBody(BaseModel):
     newPassword: str
 
 
+class RegisterBody(BaseModel):
+    """开放注册请求体（与 login 字段风格对齐）"""
+    userName: str = Field(..., min_length=2, max_length=50)
+    password: str
+    name: Optional[str] = None
+
+
 class DingTalkCallbackBody(BaseModel):
     """钉钉免登回调请求体（前端拿到 authCode 后调用）"""
     authCode: str
@@ -451,6 +458,36 @@ async def login_local(
         "name": user.name,
     })
 
+
+
+
+@router.post("/register")
+async def register(
+    body: RegisterBody,
+    request: Request,
+    session=Depends(get_session),
+):
+    """开放注册（E3-S1）：本地账号 + 默认工作区 + 签发 token 对。
+
+    密码载荷与登录一致，经 `_plain_password`（RSA-OAEP 或明文兼容）还原。
+    """
+    client_ip = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("user-agent")
+    auth = AuthService(session)
+    user, pair, default_workspace_id = await auth.register(
+        body.userName,
+        _plain_password(body.password),
+        name=body.name,
+        user_agent=user_agent,
+        ip=client_ip,
+    )
+    return success_response({
+        **pair,
+        "username": user.username or user.name,
+        "userId": str(user.id),
+        "name": user.name,
+        "defaultWorkspaceId": default_workspace_id,
+    })
 
 @router.get("/dingtalk/config")
 async def dingtalk_config():
