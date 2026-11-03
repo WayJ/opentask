@@ -86,7 +86,7 @@ class TestAuthentication:
             assert result is not None
             assert isinstance(result, dict)
             # 应该包含用户信息
-            assert "id" in result or "jnpf_account" in result or "jnpf_name" in result
+            assert "id" in result or "sso_account" in result or "sso_name" in result
         except Exception as e:
             pytest.skip(f"获取用户信息失败: {e}")
 

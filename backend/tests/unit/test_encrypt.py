@@ -1,4 +1,4 @@
-"""JNPF 密码加密工具测试：与前端 encrypt.ts 逐字节等价（J1）
+"""SSO 密码加密工具测试：与前端 encrypt.ts 逐字节等价（J1）
 
 前端实现（frontend/src/utils/encrypt.ts）：
 1. MD5(密码) → 32 位小写 hex 字符串
@@ -6,7 +6,7 @@
 3. 密文 Base64 → Hex
 
 下方已知向量由 node + crypto-js（前端同款依赖）实算得出，
-用于钉死后端实现与前端/JNPF 服务端的兼容性（历史上后端曾误用
+用于钉死后端实现与前端/SSO 服务端的兼容性（历史上后端曾误用
 bytes.fromhex 把密钥折成 16 字节 AES-128，产出与前端不一致的密文）。
 """
 import pytest

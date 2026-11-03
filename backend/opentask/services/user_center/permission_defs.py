@@ -20,7 +20,7 @@ PERMISSIONS: list[dict] = [
     {"code": "manage:user:reset_password", "name": "重置密码", "type": "button", "route_key": None},
     {"code": "manage:user:status", "name": "启禁用户", "type": "button", "route_key": None},
     {"code": "manage:user:role", "name": "分配角色", "type": "button", "route_key": None},
-    {"code": "manage:user:migrate", "name": "JNPF用户迁移", "type": "button", "route_key": None},
+    {"code": "manage:user:migrate", "name": "SSO用户迁移", "type": "button", "route_key": None},
     {"code": "manage:dept:create", "name": "创建部门", "type": "button", "route_key": None},
     {"code": "manage:dept:update", "name": "编辑部门", "type": "button", "route_key": None},
     {"code": "manage:dept:delete", "name": "删除部门", "type": "button", "route_key": None},

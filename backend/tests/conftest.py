@@ -118,8 +118,8 @@ def pytest_addoption(parser):
     """添加 pytest 命令行选项"""
     parser.addoption("--run-expensive", action="store_true", default=False,
                      help="run expensive tests")
-    parser.addoption("--use-jnpf", action="store_true", default=False,
-                     help="use real JNPF service (default: use mock)")
+    parser.addoption("--use-sso", action="store_true", default=False,
+                     help="use real SSO service (default: use mock)")
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]):

@@ -58,7 +58,7 @@ def list_collections(obj: "Context", status, creator, search, page, page_size, a
         for col in rows:
             creator_name = "N/A"
             if col.get("creator"):
-                creator_name = col["creator"].get("name", col["creator"].get("jnpf_name", "Unknown"))
+                creator_name = col["creator"].get("name", col["creator"].get("sso_name", "Unknown"))
             elif col.get("creator_id"):
                 creator_name = col["creator_id"][:8]
 
@@ -103,7 +103,7 @@ def show_collection(obj: "Context", collection_id: str, as_json: bool):
         # Creator info
         creator_name = "N/A"
         if data.get("creator"):
-            creator_name = data["creator"].get("name", data["creator"].get("jnpf_name", "Unknown"))
+            creator_name = data["creator"].get("name", data["creator"].get("sso_name", "Unknown"))
         elif data.get("creator_id"):
             creator_name = data["creator_id"][:8]
 

@@ -1,6 +1,6 @@
 """Token 安全工具函数
 
-提供 JWT token 和 JNPF token 的安全存储和验证功能。
+提供 JWT token 和 SSO token 的安全存储和验证功能。
 """
 import hashlib
 import base64
@@ -69,7 +69,7 @@ def _constant_time_compare(a: str, b: str) -> bool:
 
 
 # ============================================================================
-# JNPF Token 加密工具
+# SSO Token 加密工具
 # ============================================================================
 
 def _get_encryption_key() -> bytes:
@@ -97,24 +97,24 @@ def _get_encryption_key() -> bytes:
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
-        salt=b'opentask-jnpf-token-salt',  # 固定 salt，仅用于 token 加密
+        salt=b'opentask-sso-token-salt',  # 固定 salt，仅用于 token 加密
         iterations=100000,
     )
     key = base64.urlsafe_b64encode(kdf.derive(master_key.encode()))
     return key
 
 
-def encrypt_jnpf_token(token: str) -> str:
-    """加密 JNPF token
+def encrypt_sso_token(token: str) -> str:
+    """加密 SSO token
 
     Args:
-        token: 明文的 JNPF token
+        token: 明文的 SSO token
 
     Returns:
         加密后的 token（Base64 编码）
 
     Example:
-        >>> encrypted = encrypt_jnpf_token("bearer xxx")
+        >>> encrypted = encrypt_sso_token("bearer xxx")
         >>> print(encrypted)
         'gAAAAABh...'
     """
@@ -124,14 +124,14 @@ def encrypt_jnpf_token(token: str) -> str:
     return encrypted.decode('utf-8')
 
 
-def decrypt_jnpf_token(encrypted_token: str) -> str:
-    """解密 JNPF token
+def decrypt_sso_token(encrypted_token: str) -> str:
+    """解密 SSO token
 
     Args:
         encrypted_token: 加密的 token
 
     Returns:
-        明文的 JNPF token
+        明文的 SSO token
 
     Raises:
         ValueError: 如果解密失败（token 已损坏或密钥错误）
@@ -142,7 +142,7 @@ def decrypt_jnpf_token(encrypted_token: str) -> str:
         decrypted = f.decrypt(encrypted_token.encode('utf-8'))
         return decrypted.decode('utf-8')
     except Exception as e:
-        raise ValueError(f"Failed to decrypt JNPF token: {e}")
+        raise ValueError(f"Failed to decrypt SSO token: {e}")
 
 
 # ============================================================================

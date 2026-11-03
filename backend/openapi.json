@@ -11,7 +11,7 @@
           "auth"
         ],
         "summary": "Login",
-        "description": "用户登录：JNPF 启用时走 JNPF 认证，否则走本地账号认证（spec 3.2）\n\n本地路径：\n- AuthService.login_local 校验密码/锁定/禁用状态并签发 token 对\n\nJNPF 路径：\n1. 登录前先查本地同步用户，禁用（status!=1）直接 403\n2. 转发登录请求到 JNPF 平台验证\n3. 验证成功后从 JNPF 获取用户信息\n4. 同步用户信息到 opentask 数据库（加密存储 JNPF token）\n5. TokenService.issue_tokens 签发 access + refresh token 对\n6. 记录安全审计日志\n\n安全改进：\n- access JWT 不落库，每次登录重新签发\n- JNPF token 加密存储\n- 使用时区感知的 datetime",
+        "description": "用户登录：SSO 启用时走 SSO 认证，否则走本地账号认证（spec 3.2）\n\n本地路径：\n- AuthService.login_local 校验密码/锁定/禁用状态并签发 token 对\n\nSSO 路径：\n1. 登录前先查本地同步用户，禁用（status!=1）直接 403\n2. 转发登录请求到 SSO 平台验证\n3. 验证成功后从 SSO 获取用户信息\n4. 同步用户信息到 opentask 数据库（加密存储 SSO token）\n5. TokenService.issue_tokens 签发 access + refresh token 对\n6. 记录安全审计日志\n\n安全改进：\n- access JWT 不落库，每次登录重新签发\n- SSO token 加密存储\n- 使用时区感知的 datetime",
         "operationId": "login_api_auth_login_post",
         "requestBody": {
           "content": {
@@ -258,7 +258,7 @@
           "auth"
         ],
         "summary": "Login Local",
-        "description": "opentask 本地账号登录（保留兼容旧客户端，内部与 /login 未启用 JNPF 时的路径一致）\n\n与 /login(JNPF) 的区别：\n- /login: 走 JNPF 单点登录，需要加密密码\n- /login-local: 使用 opentask 自有账号，密码不加密，直接验证\n\nArgs:\n    username: 用户名\n    password: 明文密码（不加密）\n\nReturns:\n    token 对（access + refresh）和用户信息",
+        "description": "opentask 本地账号登录（保留兼容旧客户端，内部与 /login 未启用 SSO 时的路径一致）\n\n与 /login(SSO) 的区别：\n- /login: 走 SSO 单点登录，需要加密密码\n- /login-local: 使用 opentask 自有账号，密码不加密，直接验证\n\nArgs:\n    username: 用户名\n    password: 明文密码（不加密）\n\nReturns:\n    token 对（access + refresh）和用户信息",
         "operationId": "login_local_api_auth_login_local_post",
         "requestBody": {
           "content": {
@@ -367,7 +367,7 @@
           "auth"
         ],
         "summary": "Get User Info",
-        "description": "获取当前用户信息：真实角色 + 权限下发（Phase 3 Task 3）\n\n- roles：RbacService 解析的角色编码（user_role 关联表优先，桥接 user.role）；\n  未播种库（role 表空）时桥接失败，直接下发 user.role 字符串兜底\n  （角色码不依赖播种，避免生产库漏播种时前端拿不到角色）\n- buttons：button 类权限码（manage:user:create 等，前端 v-per指令用）\n- menus：menu 类权限码对应的 route_key 列表（前端动态菜单/路由用）\n- userName：jnpf_name 优先（前端 user-avatar/欢迎语依赖该字段）",
+        "description": "获取当前用户信息：真实角色 + 权限下发（Phase 3 Task 3）\n\n- roles：RbacService 解析的角色编码（user_role 关联表优先，桥接 user.role）；\n  未播种库（role 表空）时桥接失败，直接下发 user.role 字符串兜底\n  （角色码不依赖播种，避免生产库漏播种时前端拿不到角色）\n- buttons：button 类权限码（manage:user:create 等，前端 v-per指令用）\n- menus：menu 类权限码对应的 route_key 列表（前端动态菜单/路由用）\n- userName：sso_name 优先（前端 user-avatar/欢迎语依赖该字段）",
         "operationId": "get_user_info_api_auth_getUserInfo_get",
         "responses": {
           "200": {
@@ -11349,7 +11349,7 @@
           "用户管理"
         ],
         "summary": "Get Current User",
-        "description": "获取当前登录用户信息\n\nReturns:\n    {\n        \"code\": 200,\n        \"message\": \"success\",\n        \"data\": {\n            \"id\": \"xxx\",\n            \"jnpf_user_id\": \"xxx\",\n            \"jnpf_account\": \"laker\",\n            ...\n        },\n        \"timestamp\": 1234567890\n    }",
+        "description": "获取当前登录用户信息\n\nReturns:\n    {\n        \"code\": 200,\n        \"message\": \"success\",\n        \"data\": {\n            \"id\": \"xxx\",\n            \"sso_user_id\": \"xxx\",\n            \"sso_account\": \"laker\",\n            ...\n        },\n        \"timestamp\": 1234567890\n    }",
         "operationId": "get_current_user_api_users_me_get",
         "responses": {
           "200": {
@@ -11377,7 +11377,7 @@
           "用户管理"
         ],
         "summary": "Get Searchable Users",
-        "description": "获取可搜索的用户列表（用于选择负责人等场景）\n\n任何已登录用户都可以访问，返回简化的用户信息\n只返回启用状态的用户\n\nReturns:\n    {\n        \"code\": 200,\n        \"message\": \"success\",\n        \"data\": [\n            {\n                \"id\": \"xxx\",\n                \"jnpf_account\": \"laker\",\n                \"jnpf_name\": \"张三\",\n                ...\n            }\n        ],\n        \"timestamp\": 1234567890\n    }",
+        "description": "获取可搜索的用户列表（用于选择负责人等场景）\n\n任何已登录用户都可以访问，返回简化的用户信息\n只返回启用状态的用户\n\nReturns:\n    {\n        \"code\": 200,\n        \"message\": \"success\",\n        \"data\": [\n            {\n                \"id\": \"xxx\",\n                \"sso_account\": \"laker\",\n                \"sso_name\": \"张三\",\n                ...\n            }\n        ],\n        \"timestamp\": 1234567890\n    }",
         "operationId": "get_searchable_users_api_users_searchable_get",
         "security": [
           {
@@ -11936,14 +11936,14 @@
         }
       }
     },
-    "/api/user-center/migrate/jnpf": {
+    "/api/user-center/migrate/sso": {
       "post": {
         "tags": [
           "用户中心迁移"
         ],
-        "summary": "Migrate Jnpf",
-        "description": "JNPF 存量用户迁移命令（幂等，可重复执行）\n\n逻辑：扫描 password_hash 为空的存量用户 → 回填 username（缺失时）→\n生成 12 位随机临时密码 bcrypt 落库 → must_change_password=True。\n\n响应 data：{migrated: n, csv: \"username,temp_password\\n...\"}\n临时密码只出现在响应体（供管理员下载分发），不写日志、不落盘。",
-        "operationId": "migrate_jnpf_api_user_center_migrate_jnpf_post",
+        "summary": "Migrate Sso",
+        "description": "SSO 存量用户迁移命令（幂等，可重复执行）\n\n逻辑：扫描 password_hash 为空的存量用户 → 回填 username（缺失时）→\n生成 12 位随机临时密码 bcrypt 落库 → must_change_password=True。\n\n响应 data：{migrated: n, csv: \"username,temp_password\\n...\"}\n临时密码只出现在响应体（供管理员下载分发），不写日志、不落盘。",
+        "operationId": "migrate_sso_api_user_center_migrate_sso_post",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -11951,7 +11951,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "title": "Response Migrate Jnpf Api User Center Migrate Jnpf Post"
+                  "title": "Response Migrate Sso Api User Center Migrate Sso Post"
                 }
               }
             }

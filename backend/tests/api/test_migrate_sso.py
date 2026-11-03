@@ -1,11 +1,11 @@
-"""JNPF 存量用户迁移命令测试（SQLite 内存库旁路 MySQL）
+"""SSO 存量用户迁移命令测试（SQLite 内存库旁路 MySQL）
 
 覆盖（Phase 2 Task 3，Phase 3 Task 2 改为权限码门槛）：
-1. admin + jnpf_enabled=true：3 个无密码用户迁移，CSV 含 3 行，
+1. admin + sso_enabled=true：3 个无密码用户迁移，CSV 含 3 行，
    临时密码可走 /api/auth/login 登录且 mustChangePassword=true
 2. 幂等：重跑 migrated=0，CSV 为空
 3. 无 manage:user:migrate 权限 → 403（权限不足）
-4. jnpf_enabled=false → 403（需开启 JNPF 兼容模式）
+4. sso_enabled=false → 403（需开启 SSO 兼容模式）
 5. username 回填唯一化：重名用户得到不同 username
 """
 import csv
@@ -41,7 +41,7 @@ TABLES = (
     "user_role",
 )
 
-MIGRATE_URL = "/api/user-center/migrate/jnpf"
+MIGRATE_URL = "/api/user-center/migrate/sso"
 
 
 @pytest_asyncio.fixture
@@ -100,7 +100,7 @@ async def _make_user(maker, *, username=None, password=None, **kwargs) -> UserMo
 
 
 async def _login_token(client, maker, *, username, password, role=None) -> str:
-    """建用户 → login-local 登录 → 返回 access token（不依赖 JNPF 开关）"""
+    """建用户 → login-local 登录 → 返回 access token（不依赖 SSO 开关）"""
     kwargs = {"role": role} if role else {}
     await _make_user(maker, username=username, password=password, **kwargs)
     resp = await client.post(
@@ -119,8 +119,8 @@ def _parse_csv(csv_text: str) -> list[tuple[str, str]]:
 
 
 async def _prepare_env(mig, monkeypatch):
-    """开启 JNPF 兼容模式并返回 admin 请求头"""
-    monkeypatch.setattr(type(config), "jnpf_enabled", property(lambda self: True))
+    """开启 SSO 兼容模式并返回 admin 请求头"""
+    monkeypatch.setattr(type(config), "sso_enabled", property(lambda self: True))
     token = await _login_token(
         mig.client, mig.maker,
         username="admin", password="AdminPass123", role="admin",
@@ -131,11 +131,11 @@ async def _prepare_env(mig, monkeypatch):
 async def _seed_legacy_users(maker) -> None:
     """造 3 个无密码存量用户 + 1 个已有 password_hash 的用户
 
-    - jnpf_a：有 jnpf_account（回填 username 应取 jnpf_account）
+    - sso_a：有 sso_account（回填 username 应取 sso_account）
     - legacy1 / legacy2：只有 name 且重名（唯一化应得到不同 username）
     - local_user：已有 password_hash（应跳过）
     """
-    await _make_user(maker, name="用户A", jnpf_account="jnpf_a")
+    await _make_user(maker, name="用户A", sso_account="sso_a")
     await _make_user(maker, name="wang")
     await _make_user(maker, name="wang")
     await _make_user(maker, username="local_user", password="LocalPass123")
@@ -146,7 +146,7 @@ async def _seed_legacy_users(maker) -> None:
 # ============================================================================
 
 async def test_migrate_success_and_login_with_temp_password(mig, monkeypatch):
-    """admin + jnpf_enabled=true → migrated=3；CSV 3 行；临时密码走 /api/auth/login 可登录"""
+    """admin + sso_enabled=true → migrated=3；CSV 3 行；临时密码走 /api/auth/login 可登录"""
     headers = await _prepare_env(mig, monkeypatch)
     await _seed_legacy_users(mig.maker)
 
@@ -158,13 +158,13 @@ async def test_migrate_success_and_login_with_temp_password(mig, monkeypatch):
     rows = _parse_csv(data["csv"])
     assert len(rows) == 3
     usernames = [u for u, _ in rows]
-    # username 回填：jnpf_account 优先
-    assert "jnpf_a" in usernames
+    # username 回填：sso_account 优先
+    assert "sso_a" in usernames
     # local_user 已有密码，不在迁移名单
     assert "local_user" not in usernames
 
     # 抽一个实际走 /api/auth/login 验证临时密码（切回本地登录路径）
-    monkeypatch.setattr(type(config), "jnpf_enabled", property(lambda self: False))
+    monkeypatch.setattr(type(config), "sso_enabled", property(lambda self: False))
     target, temp_password = rows[0]
     login = await mig.client.post(
         "/api/auth/login", json={"userName": target, "password": temp_password}
@@ -270,7 +270,7 @@ async def test_migrate_idempotent_rerun(mig, monkeypatch):
 
 async def test_migrate_forbidden_for_non_admin(mig, monkeypatch):
     """viewer 角色调用 → 403，错误信息为「权限不足」（无 manage:user:migrate）"""
-    monkeypatch.setattr(type(config), "jnpf_enabled", property(lambda self: True))
+    monkeypatch.setattr(type(config), "sso_enabled", property(lambda self: True))
     token = await _login_token(
         mig.client, mig.maker,
         username="viewer1", password="ViewerPass123", role="viewer",
@@ -284,12 +284,12 @@ async def test_migrate_forbidden_for_non_admin(mig, monkeypatch):
 
 
 # ============================================================================
-# 4. jnpf_enabled=false → 403
+# 4. sso_enabled=false → 403
 # ============================================================================
 
-async def test_migrate_forbidden_when_jnpf_disabled(mig, monkeypatch):
-    """jnpf_enabled=false 时 admin 调用 → 403，错误信息为"需开启 JNPF 兼容模式" """
-    monkeypatch.setattr(type(config), "jnpf_enabled", property(lambda self: False))
+async def test_migrate_forbidden_when_sso_disabled(mig, monkeypatch):
+    """sso_enabled=false 时 admin 调用 → 403，错误信息为"需开启 SSO 兼容模式" """
+    monkeypatch.setattr(type(config), "sso_enabled", property(lambda self: False))
     token = await _login_token(
         mig.client, mig.maker,
         username="admin", password="AdminPass123", role="admin",
@@ -299,4 +299,4 @@ async def test_migrate_forbidden_when_jnpf_disabled(mig, monkeypatch):
         MIGRATE_URL, headers={"Authorization": f"Bearer {token}"}
     )
     assert resp.status_code == 403
-    assert "JNPF 兼容模式" in resp.json()["detail"]
+    assert "SSO 兼容模式" in resp.json()["detail"]

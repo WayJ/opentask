@@ -625,7 +625,7 @@ declare namespace App {
   /** Service namespace */
   namespace Service {
     /** Other baseURL key */
-    type OtherBaseURLKey = 'demo' | 'jnpf';
+    type OtherBaseURLKey = 'demo' | 'sso';
 
     interface ServiceConfigItem {
       /** The backend service base url */

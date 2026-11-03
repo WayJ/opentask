@@ -11,7 +11,7 @@
    - 本地 user 有 dingtalk_user_id 不在钉钉集 → status=0 +
      TokenService.revoke_all_user_refresh（吊销全部 refresh token）。
 
-已有用户更新只写 jnpf_name（钉钉姓名写这列），不覆盖 status/role/username。
+已有用户更新只写 sso_name（钉钉姓名写这列），不覆盖 status/role/username。
 """
 import logging
 
@@ -232,7 +232,7 @@ class DingTalkSyncService:
         user = UserModel(
             name=name,
             username=username,
-            jnpf_name=name,
+            sso_name=name,
             password_hash=None,
             role="viewer",
             dingtalk_user_id=userid,
@@ -244,11 +244,11 @@ class DingTalkSyncService:
     async def _update_user(
         self, local: UserModel, detail: dict, existing_depts: dict[str, Department]
     ) -> bool:
-        """已有用户更新：只写 jnpf_name，不覆盖 status/role/username；user_dept 覆盖式跟随"""
+        """已有用户更新：只写 sso_name，不覆盖 status/role/username；user_dept 覆盖式跟随"""
         changed = False
         name = detail.get("name")
-        if name and name != local.jnpf_name:
-            local.jnpf_name = name
+        if name and name != local.sso_name:
+            local.sso_name = name
             changed = True
         dept_changed = await self._overwrite_user_depts(local, detail, existing_depts)
         return changed or dept_changed

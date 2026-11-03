@@ -98,11 +98,11 @@ def get_env_value(key: str, default: Optional[str] = None) -> str:
         'TASK_MONITOR_ENABLED': ['task_monitor', 'enabled'],
         'TASK_MONITOR_CHECK_INTERVAL_MINUTES': ['task_monitor', 'check_interval_minutes'],
         'TASK_MONITOR_TIMEOUT_HOURS': ['task_monitor', 'timeout_hours'],
-        'JNPF_BASE_URL': ['jnpf', 'base_url'],
-        'JNPF_APP_CODE': ['jnpf', 'app_code'],
-        'JNPF_TIMEOUT': ['jnpf', 'timeout'],
+        'SSO_BASE_URL': ['sso', 'base_url'],
+        'SSO_APP_CODE': ['sso', 'app_code'],
+        'SSO_TIMEOUT': ['sso', 'timeout'],
         'CIPHER_KEY': ['cipher', 'key'],
-        'AUTH_JNPF_ENABLED': ['auth', 'jnpf_enabled'],
+        'AUTH_SSO_ENABLED': ['auth', 'sso_enabled'],
         'AUTH_ACCESS_EXPIRE_MINUTES': ['auth', 'access_expire_minutes'],
         'AUTH_REFRESH_EXPIRE_DAYS': ['auth', 'refresh_expire_days'],
         'AUTH_OAUTH_CODE_EXPIRE_SECONDS': ['auth', 'oauth_code_expire_seconds'],
@@ -265,9 +265,9 @@ class Config(BaseSettings):
 
     # 用户中心认证配置
     @property
-    def jnpf_enabled(self) -> bool:
-        """是否启用 JNPF 集成认证"""
-        enabled = self._get_value("AUTH_JNPF_ENABLED", "false")
+    def sso_enabled(self) -> bool:
+        """是否启用 SSO 集成认证"""
+        enabled = self._get_value("AUTH_SSO_ENABLED", "false")
         return enabled.lower() in ("true", "1", "yes")
 
     @property
@@ -420,31 +420,31 @@ class Config(BaseSettings):
     #     return self._get_value("API_PREFIX", "/api")
 
     @property
-    def jnpf_api_prefix(self) -> str:
-        """JNPF API 前缀（用于 nginx 代理）"""
-        return self._get_value("JNPF_API_PREFIX", "/jnpf-api")
+    def sso_api_prefix(self) -> str:
+        """SSO API 前缀（用于 nginx 代理）"""
+        return self._get_value("SSO_API_PREFIX", "/sso-api")
 
-    # JNPF 平台配置
+    # SSO 平台配置
     @property
-    def jnpf_base_url(self) -> str:
-        """JNPF 基础地址（自动去除末尾斜杠，避免拼接时出现双斜杠）"""
-        url = self._get_value("JNPF_BASE_URL", "http://39.183.172.160:29080")
+    def sso_base_url(self) -> str:
+        """SSO 基础地址（自动去除末尾斜杠，避免拼接时出现双斜杠）"""
+        url = self._get_value("SSO_BASE_URL", "http://39.183.172.160:29080")
         # 去除末尾的斜杠，防止拼接URL时出现双斜杠问题
         return url.rstrip('/')
 
     @property
-    def jnpf_app_code(self) -> str:
-        """JNPF App-Code"""
-        return self._get_value("JNPF_APP_CODE", "opentask")
+    def sso_app_code(self) -> str:
+        """SSO App-Code"""
+        return self._get_value("SSO_APP_CODE", "opentask")
 
     @property
-    def jnpf_timeout(self) -> int:
-        """JNPF 请求超时（秒）"""
-        return int(self._get_value("JNPF_TIMEOUT", "10"))
+    def sso_timeout(self) -> int:
+        """SSO 请求超时（秒）"""
+        return int(self._get_value("SSO_TIMEOUT", "10"))
 
     @property
     def cipher_key(self) -> str:
-        """JNPF 密码加密密钥"""
+        """SSO 密码加密密钥"""
         return self._get_value("CIPHER_KEY", "EY8WePvjM5GGwQzn")
 
     # 任务监控服务配置

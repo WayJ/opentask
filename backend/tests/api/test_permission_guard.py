@@ -41,7 +41,7 @@ TABLES = (
 )
 
 USERS_URL = "/api/users"
-MIGRATE_URL = "/api/user-center/migrate/jnpf"
+MIGRATE_URL = "/api/user-center/migrate/sso"
 
 # viewer 播种后的权限集（5 个业务模块的 view 码）
 VIEWER_PERMS = {
@@ -156,7 +156,7 @@ async def test_viewer_forbidden(guard):
 
 async def test_admin_all_allowed(guard, monkeypatch):
     """admin（桥接 role 字符串）：列表/status/role/migrate 全放行"""
-    monkeypatch.setattr(type(config), "jnpf_enabled", property(lambda self: True))
+    monkeypatch.setattr(type(config), "sso_enabled", property(lambda self: True))
     headers = await _login_headers(
         guard, username="admin1", password="AdminPass123", role="admin"
     )
@@ -191,7 +191,7 @@ async def test_admin_all_allowed(guard, monkeypatch):
 
 async def test_maintainer_partial_allowed(guard, monkeypatch):
     """maintainer：列表/status/role 放行；migrate（admin 专属码）→ 403"""
-    monkeypatch.setattr(type(config), "jnpf_enabled", property(lambda self: True))
+    monkeypatch.setattr(type(config), "sso_enabled", property(lambda self: True))
     headers = await _login_headers(
         guard, username="maint1", password="MaintPass123", role="maintainer"
     )

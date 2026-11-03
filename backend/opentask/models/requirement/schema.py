@@ -193,8 +193,8 @@ class UserInfo(BaseModel):
     """用户基本信息"""
     id: str
     name: str | None = Field(None, description="用户名")
-    jnpf_name: str | None = Field(None, description="JNPF 用户名称")
-    jnpf_account: str | None = Field(None, description="JNPF 账号")
+    sso_name: str | None = Field(None, description="SSO 用户名称")
+    sso_account: str | None = Field(None, description="SSO 账号")
 
     model_config = {"from_attributes": True}
 

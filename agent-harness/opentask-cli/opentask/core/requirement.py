@@ -109,7 +109,7 @@ def _resolve_user_id(skin: ReplSkin, client: OpenTaskClient, assignee_input: str
     - "me": Current user
     - "none": Unassign (returns None)
     - UUID: Direct user ID
-    - Username/JNPF account: Search and return user ID
+    - Username/SSO account: Search and return user ID
 
     Args:
         skin: REPL skin for output
@@ -160,14 +160,14 @@ def _resolve_user_id(skin: ReplSkin, client: OpenTaskClient, assignee_input: str
         if len(users) == 1:
             # Only one match - use it
             user_id = users[0].get("id")
-            user_name = users[0].get("jnpf_name") or users[0].get("jnpf_account")
+            user_name = users[0].get("sso_name") or users[0].get("sso_account")
             skin.info(f"Found user: {user_name}")
             return user_id
 
         # Multiple matches - return error (no interactive selection for AI)
         skin.error(f"Multiple users found matching '{assignee_input}' ({len(users)} matches)")
         skin.hint("Use 'me' for yourself, 'none' to unassign, or a valid UUID")
-        matched_names = [u.get('jnpf_account', u.get('jnpf_name', 'Unknown')) for u in users[:3]]
+        matched_names = [u.get('sso_account', u.get('sso_name', 'Unknown')) for u in users[:3]]
         skin.hint(f"Matched users: {', '.join(matched_names)}...")
         return None
 
@@ -425,8 +425,8 @@ def show_requirement(obj: "Context", requirement_id: str, as_json: bool, show_co
                     user_info = comment.get("user_info", {})
                     author_name = (
                         user_info.get("name") or
-                        user_info.get("jnpf_name") or
-                        user_info.get("jnpf_account") or
+                        user_info.get("sso_name") or
+                        user_info.get("sso_account") or
                         comment.get("user_id", "Unknown")[:8]  # Fallback to user_id
                     )
                     content = comment.get("content", "")
@@ -1062,7 +1062,7 @@ def assign_requirement(obj: "Context", requirement_id: str, assignee_input: str,
 
     Assignee formats:
     - User ID (UUID): Direct assignment
-    - Username: Search by name or JNPF account
+    - Username: Search by name or SSO account
     - 'me': Assign to current user
     - 'none': Unassign the requirement
 

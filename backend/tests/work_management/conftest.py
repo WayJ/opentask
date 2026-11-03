@@ -14,8 +14,8 @@ async def test_director_id(test_session):
     # 使用 ORM 模型创建用户
     user = UserModel(
         id=director_uuid,
-        jnpf_account=f"test_director_{uuid.uuid4().hex[:8]}",
-        jnpf_name="测试总监",
+        sso_account=f"test_director_{uuid.uuid4().hex[:8]}",
+        sso_name="测试总监",
         status=1,
         role="admin"
     )
@@ -37,8 +37,8 @@ async def test_leader_id(test_session):
     # 使用 ORM 模型创建用户
     user = UserModel(
         id=leader_uuid,
-        jnpf_account=f"test_leader_{uuid.uuid4().hex[:8]}",
-        jnpf_name="测试组长",
+        sso_account=f"test_leader_{uuid.uuid4().hex[:8]}",
+        sso_name="测试组长",
         status=1,
         role="developer"
     )
@@ -60,8 +60,8 @@ async def test_member_id(test_session):
     # 使用 ORM 模型创建用户
     user = UserModel(
         id=member_uuid,
-        jnpf_account=f"test_member_{uuid.uuid4().hex[:8]}",
-        jnpf_name="测试成员",
+        sso_account=f"test_member_{uuid.uuid4().hex[:8]}",
+        sso_name="测试成员",
         status=1,
         role="viewer"
     )
@@ -103,8 +103,8 @@ async def test_manager_id(test_session):
     # 使用 ORM 模型创建用户
     user = UserModel(
         id=manager_uuid,
-        jnpf_account=f"test_manager_{uuid.uuid4().hex[:8]}",
-        jnpf_name="测试经理",
+        sso_account=f"test_manager_{uuid.uuid4().hex[:8]}",
+        sso_name="测试经理",
         status=1,
         role="manager"
     )
@@ -148,8 +148,8 @@ async def test_assignee_id(test_session):
     # 使用 ORM 模型创建用户
     user = UserModel(
         id=assignee_uuid,
-        jnpf_account=f"test_assignee_{uuid.uuid4().hex[:8]}",
-        jnpf_name="测试被分配人",
+        sso_account=f"test_assignee_{uuid.uuid4().hex[:8]}",
+        sso_name="测试被分配人",
         status=1,
         role="developer"
     )

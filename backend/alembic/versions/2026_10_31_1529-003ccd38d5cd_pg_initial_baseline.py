@@ -215,14 +215,14 @@ def upgrade() -> None:
     sa.Column('analytics_enabled', sa.Boolean(), server_default=sa.text('true'), nullable=False),
     sa.Column('hide_sql_preference', sa.Boolean(), server_default=sa.text('false'), nullable=False),
     sa.Column('openai_base_url', sa.String(length=500), nullable=True),
-    sa.Column('jnpf_user_id', sa.String(length=100), nullable=True, comment='JNPF 用户 ID（唯一索引，用于关联 JNPF 用户）'),
-    sa.Column('jnpf_token', sa.String(length=2048), nullable=True, comment='JNPF 登录 token（加密存储，Fernet 格式）'),
-    sa.Column('jnpf_account', sa.String(length=100), nullable=True, comment='JNPF 账号'),
-    sa.Column('jnpf_name', sa.String(length=100), nullable=True, comment='JNPF 姓名'),
-    sa.Column('organize_id', sa.String(length=100), nullable=True, comment='JNPF 组织 ID'),
-    sa.Column('organize_name', sa.String(length=200), nullable=True, comment='JNPF 组织名称'),
-    sa.Column('position_id', sa.String(length=100), nullable=True, comment='JNPF 岗位 ID'),
-    sa.Column('position_name', sa.String(length=100), nullable=True, comment='JNPF 岗位名称'),
+    sa.Column('sso_user_id', sa.String(length=100), nullable=True, comment='SSO 用户 ID（唯一索引，用于关联 SSO 用户）'),
+    sa.Column('sso_token', sa.String(length=2048), nullable=True, comment='SSO 登录 token（加密存储，Fernet 格式）'),
+    sa.Column('sso_account', sa.String(length=100), nullable=True, comment='SSO 账号'),
+    sa.Column('sso_name', sa.String(length=100), nullable=True, comment='SSO 姓名'),
+    sa.Column('organize_id', sa.String(length=100), nullable=True, comment='SSO 组织 ID'),
+    sa.Column('organize_name', sa.String(length=200), nullable=True, comment='SSO 组织名称'),
+    sa.Column('position_id', sa.String(length=100), nullable=True, comment='SSO 岗位 ID'),
+    sa.Column('position_name', sa.String(length=100), nullable=True, comment='SSO 岗位名称'),
     sa.Column('jwt_expires_at', sa.DateTime(), nullable=True, comment='JWT token 过期时间'),
     sa.Column('username', sa.String(length=50), nullable=True, comment='登录用户名（本地认证）'),
     sa.Column('password_hash', sa.String(length=255), nullable=True, comment='密码哈希'),
@@ -235,10 +235,10 @@ def upgrade() -> None:
     sa.Column('role', sa.String(length=50), nullable=False, comment='用户角色：admin、maintainer、developer、viewer'),
     sa.Column('created_at', sa.DateTime(), nullable=False, comment='创建时间'),
     sa.Column('last_login_time', sa.DateTime(), nullable=True, comment='最后登录时间'),
-    sa.Column('sync_time', sa.DateTime(), nullable=True, comment='JNPF 信息同步时间'),
+    sa.Column('sync_time', sa.DateTime(), nullable=True, comment='SSO 信息同步时间'),
     sa.Column('id', opentask.models.base.CustomUUIDType(length=36), nullable=False),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_user')),
-    sa.UniqueConstraint('jnpf_user_id', name=op.f('uq_user_jnpf_user_id'))
+    sa.UniqueConstraint('sso_user_id', name=op.f('uq_user_sso_user_id'))
     )
     with op.batch_alter_table('user', schema=None) as batch_op:
         batch_op.create_index('uq_user_dingtalk_user_id', ['dingtalk_user_id'], unique=True)

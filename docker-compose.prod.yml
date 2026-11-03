@@ -91,8 +91,8 @@ services:
       CIPHER_KEY: ${CIPHER_KEY:?CIPHER_KEY 必须显式设置}
       # SPA 与后端同源（宿主 nginx 透传），CORS 基本用不上；仍显式声明允许来源
       ALLOWED_ORIGINS: ${PUBLIC_ORIGIN:-http://112.126.60.109}
-      # JNPF 单点登录指向内网地址，公网机不可达——生产走本地账号登录
-      AUTH_JNPF_ENABLED: "false"
+      # SSO 单点登录指向内网地址，公网机不可达——生产走本地账号登录
+      AUTH_SSO_ENABLED: "false"
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
     ports:

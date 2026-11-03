@@ -70,9 +70,9 @@ Expected: 版本号 ≥3.10 且输出 ok。若 `python` 是 WindowsApps 空桩�
 
 ```bash
 cd /d/projects/opentask-worktrees/S1
-grep -rn "api\.oauth\|api/oauth" backend/opentask/ --include="*.py" | grep -v "jnpf_base_url"
+grep -rn "api\.oauth\|api/oauth" backend/opentask/ --include="*.py" | grep -v "sso_base_url"
 ```
-Expected: 无输出（命中的 `/api/oauth/*` 全是 JNPF 外部 URL，已被过滤）
+Expected: 无输出（命中的 `/api/oauth/*` 全是 SSO 外部 URL，已被过滤）
 
 - [ ] **Step 2: 删除文件**
 

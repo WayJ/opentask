@@ -26,7 +26,7 @@ database:
 auth:
   username: "admin"
   password: "123456"
-  cipher_key: "test-cipher-key"  # JNPF 密码加密密钥（真实值放 local.yaml，不提交）
+  cipher_key: "test-cipher-key"  # SSO 密码加密密钥（真实值放 local.yaml，不提交）
 
 # CORS 配置（测试环境允许所有来源）
 cors:

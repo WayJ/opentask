@@ -8,9 +8,9 @@
 5. 改密校验：旧密错 401 / 新密码弱 422 / 成功后旧 access+refresh 全失效
 6. refresh 轮换 + 重放全量吊销（含 /refreshToken 旧路径别名）
 7. logout 吊销 refresh
-8. jnpf_enabled=false 时 /login 走本地路径
+8. sso_enabled=false 时 /login 走本地路径
 9. getUserInfo 真实角色权限下发（Phase 3 Task 3）：
-   admin/viewer 播种后角色与 buttons/menus 分级、jnpf_name 优先、未播种库兜底
+   admin/viewer 播种后角色与 buttons/menus 分级、sso_name 优先、未播种库兜底
 """
 from types import SimpleNamespace
 from unittest import mock
@@ -392,12 +392,12 @@ async def test_logout_revokes_refresh(flow):
 
 
 # ============================================================================
-# 8. jnpf_enabled=false 时 /login 走本地路径
+# 8. sso_enabled=false 时 /login 走本地路径
 # ============================================================================
 
-async def test_login_routes_to_local_when_jnpf_disabled(flow, monkeypatch):
-    """monkeypatch config.jnpf_enabled=False → /login 走本地认证而非 JNPF 转发"""
-    monkeypatch.setattr(type(config), "jnpf_enabled", property(lambda self: False))
+async def test_login_routes_to_local_when_sso_disabled(flow, monkeypatch):
+    """monkeypatch config.sso_enabled=False → /login 走本地认证而非 SSO 转发"""
+    monkeypatch.setattr(type(config), "sso_enabled", property(lambda self: False))
     await _make_user(flow.maker, "henry", "Passw0rd123")
 
     resp = await flow.client.post("/api/auth/login", json=_login_body("henry", "Passw0rd123"))
@@ -425,21 +425,21 @@ async def test_login_local_endpoint_compatible(flow):
 
 
 # ============================================================================
-# 8b. JNPF 路径：转发前服务端加密密码（J1）
+# 8b. SSO 路径：转发前服务端加密密码（J1）
 # ============================================================================
 
-async def test_jnpf_login_forwards_encrypted_password(flow, monkeypatch):
-    """JNPF 登录转发 payload.password 必须是 encrypt_password(明文)，而非明文本身
+async def test_sso_login_forwards_encrypted_password(flow, monkeypatch):
+    """SSO 登录转发 payload.password 必须是 encrypt_password(明文)，而非明文本身
 
-    前端已改为明文提交，JNPF 平台要求密文（MD5+AES-ECB+Hex），
+    前端已改为明文提交，SSO 平台要求密文（MD5+AES-ECB+Hex），
     加密责任收归后端（与前端旧 encrypt.ts 等价，见 tests/unit/test_encrypt.py）。
     """
-    monkeypatch.setattr(type(config), "jnpf_enabled", property(lambda self: True))
+    monkeypatch.setattr(type(config), "sso_enabled", property(lambda self: True))
 
-    # mock JNPF 登录 + CurrentUser 两个响应
+    # mock SSO 登录 + CurrentUser 两个响应
     mock_login_response = mock.Mock()
     mock_login_response.status_code = 200
-    mock_login_response.json.return_value = {"code": 200, "data": {"token": "bearer jnpf_tok"}}
+    mock_login_response.json.return_value = {"code": 200, "data": {"token": "bearer sso_tok"}}
     mock_user_response = mock.Mock()
     mock_user_response.status_code = 200
     mock_user_response.json.return_value = {
@@ -458,7 +458,7 @@ async def test_jnpf_login_forwards_encrypted_password(flow, monkeypatch):
         )
     assert resp.status_code == 200, resp.text
 
-    # 转发给 JNPF 的必须是服务端加密后的密文
+    # 转发给 SSO 的必须是服务端加密后的密文
     from opentask.utils.encrypt import encrypt_password
 
     forwarded = mock_client.post.call_args.kwargs["data"]
@@ -550,10 +550,10 @@ async def test_get_user_info_viewer_permissions(flow):
 
 
 async def test_get_user_info_user_name_priority(flow):
-    """userName 取值优先级：jnpf_name > name > username"""
+    """userName 取值优先级：sso_name > name > username"""
     await _seed(flow)
     await _make_user(
-        flow.maker, "zhang9", "Passw0rd123", role="admin", jnpf_name="张三丰"
+        flow.maker, "zhang9", "Passw0rd123", role="admin", sso_name="张三丰"
     )
 
     token = await _login_token(flow, "zhang9", "Passw0rd123")
@@ -563,7 +563,7 @@ async def test_get_user_info_user_name_priority(flow):
     assert info.status_code == 200, info.text
     data = info.json()["data"]
 
-    # jnpf_name 优先于 name（"用户-zhang9"）与 username（"zhang9"）
+    # sso_name 优先于 name（"用户-zhang9"）与 username（"zhang9"）
     assert data["userName"] == "张三丰"
 
 

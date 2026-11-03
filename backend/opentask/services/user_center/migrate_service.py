@@ -1,8 +1,8 @@
-"""JNPF 存量用户迁移服务（Phase 2 Task 3）
+"""SSO 存量用户迁移服务（Phase 2 Task 3）
 
-目标：把从未设置过本地密码的存量用户（password_hash 为空，含 JNPF 同步用户
+目标：把从未设置过本地密码的存量用户（password_hash 为空，含 SSO 同步用户
 和 username 为空的老用户）批量迁移为可本地登录的账号：
-- username 为空的按 jnpf_account → name → user_<id前8> 回填；
+- username 为空的按 sso_account → name → user_<id前8> 回填；
 - 生成 12 位随机临时密码，bcrypt 哈希后写 password_hash；
 - 置 must_change_password=True，下次登录强制改密。
 
@@ -31,24 +31,24 @@ _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class MigrateService:
-    """JNPF 存量用户迁移"""
+    """SSO 存量用户迁移"""
 
     def __init__(self, session: AsyncSession):
         self.session = session
 
     def _backfill_username(self, user: UserModel, existing: set[str]) -> None:
-        """回填 username：jnpf_account → name → user_<id前8>，大小写唯一化
+        """回填 username：sso_account → name → user_<id前8>，大小写唯一化
 
         existing 为已占用 username 的 lower 归一化集合（含本次已回填的）。
         """
-        base = (user.jnpf_account or "").strip() or (user.name or "").strip()
+        base = (user.sso_account or "").strip() or (user.name or "").strip()
         if not base:
-            # 既无 JNPF 账号也无姓名，用主键前 8 位兜底保证非空
+            # 既无 SSO 账号也无姓名，用主键前 8 位兜底保证非空
             base = f"user_{str(user.id)[:8]}"
         user.username = unique_username(existing, base)
         existing.add(user.username.lower())
 
-    async def migrate_jnpf_users(self) -> dict:
+    async def migrate_sso_users(self) -> dict:
         """迁移全部无本地密码的存量用户，返回 {migrated, csv}
 
         钉钉用户（password_hash 为空但 dingtalk_user_id 非空）不在迁移范围：
@@ -56,7 +56,7 @@ class MigrateService:
         csv 为 "username,temp_password\\n..." 文本（含表头），
         仅供管理员下载分发，不落日志、不落盘；无可迁移用户时 csv 为空串。
         """
-        # 1) 扫描从未设置过本地密码的存量用户（含 JNPF 用户和 username 为空的老用户）；
+        # 1) 扫描从未设置过本地密码的存量用户（含 SSO 用户和 username 为空的老用户）；
         #    排除钉钉用户（dingtalk_user_id 非空）：钉钉同步/免登用户走钉钉通道，
         #    无本地密码语义，不应被塞临时密码 + 强制改密。
         result = await self.session.execute(

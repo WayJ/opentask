@@ -46,7 +46,7 @@ class TokenService:
         """签发 token 对：access JWT（sub/tv/scp）+ refresh（库存哈希）
 
         scope 未显式指定时按用户状态继承：must_change_password 用户一律签发
-        scp=pwd_change 受限 token（login/rotate/JNPF 所有签发点统一生效，
+        scp=pwd_change 受限 token（login/rotate/SSO 所有签发点统一生效，
         受限 refresh 无法通过轮换洗白出无限制 access）。
         """
         if scope is None and user.must_change_password:

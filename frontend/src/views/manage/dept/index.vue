@@ -159,13 +159,13 @@ const memberColumns = [
     key: 'username',
     title: '账号',
     width: 130,
-    render: (row: Api.SystemManage.User) => row.username || row.jnpfAccount || '-'
+    render: (row: Api.SystemManage.User) => row.username || row.ssoAccount || '-'
   },
   {
     key: 'name',
     title: '姓名',
     width: 120,
-    render: (row: Api.SystemManage.User) => row.name || row.jnpfName || '-'
+    render: (row: Api.SystemManage.User) => row.name || row.ssoName || '-'
   },
   {
     key: 'roles',

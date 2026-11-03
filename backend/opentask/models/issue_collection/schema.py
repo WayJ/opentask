@@ -69,14 +69,14 @@ class IssueCollectionResponse(IssueCollectionBase):
             if hasattr(v, 'id'):
                 user_id = str(v.id) if v.id else None
                 user_name = getattr(v, 'name', None)
-                jnpf_name = getattr(v, 'jnpf_name', None)
-                jnpf_account = getattr(v, 'jnpf_account', None)
+                sso_name = getattr(v, 'sso_name', None)
+                sso_account = getattr(v, 'sso_account', None)
                 if user_id:
                     return UserInfo(
                         id=user_id,
                         name=user_name,
-                        jnpf_name=jnpf_name,
-                        jnpf_account=jnpf_account
+                        sso_name=sso_name,
+                        sso_account=sso_account
                     )
         except Exception:
             # 如果访问属性失败（如 SQLAlchemy 异步关系），返回 None

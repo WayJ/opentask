@@ -37,7 +37,7 @@ const demoComments = ref([
     content: '这是一个示例评论，展示了评论卡片的新设计。',
     created_at: new Date().toISOString(),
     user_info: {
-      jnpf_name: '张三'
+      sso_name: '张三'
     }
   },
   {
@@ -45,7 +45,7 @@ const demoComments = ref([
     content: '新的设计看起来更现代了！',
     created_at: new Date(Date.now() - 3600000).toISOString(),
     user_info: {
-      jnpf_name: '李四'
+      sso_name: '李四'
     }
   }
 ]);
@@ -64,7 +64,7 @@ const handleAddComment = (content: string) => {
     content,
     created_at: new Date().toISOString(),
     user_info: {
-      jnpf_name: '当前用户'
+      sso_name: '当前用户'
     }
   });
 };

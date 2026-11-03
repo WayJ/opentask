@@ -2,7 +2,7 @@
 认证系统测试
 
 测试范围：
-- JNPF OAuth 登录 (/api/auth/login)
+- SSO OAuth 登录 (/api/auth/login)
 - 本地登录 (/api/auth/login-local)
 - 获取用户信息 (/api/auth/getUserInfo)
 - 登出 (/api/auth/logout)
@@ -30,8 +30,8 @@ async def test_login_local_success(test_client: AsyncClient, test_session):
     test_user = UserModel(
         name="testuser",
         password_hash=_pwd_context.hash("password123"),  # bcrypt 哈希
-        jnpf_user_id="test_jnpf_id",
-        jnpf_name="Test User"
+        sso_user_id="test_sso_id",
+        sso_name="Test User"
     )
     test_session.add(test_user)
     await test_session.commit()
@@ -65,7 +65,7 @@ async def test_login_local_wrong_password(test_client: AsyncClient, test_session
     test_user = UserModel(
         name="testuser_wrongpw",
         password_hash=_pwd_context.hash("password123"),  # bcrypt 哈希
-        jnpf_user_id=f"test_jnpf_id_{_uuid.uuid4().hex[:8]}"  # 唯一索引，避免与其它用例冲突
+        sso_user_id=f"test_sso_id_{_uuid.uuid4().hex[:8]}"  # 唯一索引，避免与其它用例冲突
     )
     test_session.add(test_user)
     await test_session.commit()
@@ -111,34 +111,34 @@ async def test_login_local_missing_fields(test_client: AsyncClient):
 
 
 # ============================================================================
-# JNPF OAuth 登录测试 (使用 Mock)
+# SSO OAuth 登录测试 (使用 Mock)
 # ============================================================================
 
 @pytest.mark.asyncio
 @mock.patch("opentask.api.auth.router.httpx.AsyncClient")
-async def test_login_jnpf_success(mock_httpx, monkeypatch, test_client: AsyncClient, test_session):
-    """测试 JNPF OAuth 登录成功（需显式启用 JNPF，/login 默认走本地路径）"""
-    monkeypatch.setenv("AUTH_JNPF_ENABLED", "true")
-    # Mock JNPF 登录响应
+async def test_login_sso_success(mock_httpx, monkeypatch, test_client: AsyncClient, test_session):
+    """测试 SSO OAuth 登录成功（需显式启用 SSO，/login 默认走本地路径）"""
+    monkeypatch.setenv("AUTH_SSO_ENABLED", "true")
+    # Mock SSO 登录响应
     mock_login_response = mock.Mock()
     mock_login_response.status_code = 200
     mock_login_response.json.return_value = {
         "code": 200,
         "data": {
-            "token": "bearer test_jnpf_token_12345"
+            "token": "bearer test_sso_token_12345"
         }
     }
 
-    # Mock JNPF 用户信息响应
+    # Mock SSO 用户信息响应
     mock_user_response = mock.Mock()
     mock_user_response.status_code = 200
     mock_user_response.json.return_value = {
         "code": 200,
         "data": {
             "userInfo": {
-                "userId": "jnpf_user_123",
-                "userName": "JNPF User",
-                "userAccount": "jnpf_account",
+                "userId": "sso_user_123",
+                "userName": "SSO User",
+                "userAccount": "sso_account",
                 "organizeId": "org_123",
                 "organizeName": "Test Org"
             }
@@ -160,7 +160,7 @@ async def test_login_jnpf_success(mock_httpx, monkeypatch, test_client: AsyncCli
     response = await test_client.post(
         "/api/auth/login",
         json={
-            "userName": "jnpf_user",
+            "userName": "sso_user",
             "password": "encrypted_password"
         }
     )
@@ -169,16 +169,16 @@ async def test_login_jnpf_success(mock_httpx, monkeypatch, test_client: AsyncCli
     data = response.json()
     assert data["code"] == 200
     assert "token" in data["data"]
-    assert data["data"]["refreshToken"]  # JNPF 路径同样签发 refresh token
-    assert data["data"]["username"] == "JNPF User"
+    assert data["data"]["refreshToken"]  # SSO 路径同样签发 refresh token
+    assert data["data"]["username"] == "SSO User"
 
 
 @pytest.mark.asyncio
 @mock.patch("opentask.api.auth.router.httpx.AsyncClient")
-async def test_login_jnpf_invalid_credentials(mock_httpx, monkeypatch, test_client: AsyncClient):
-    """测试 JNPF OAuth 登录 - 无效凭据（需显式启用 JNPF）"""
-    monkeypatch.setenv("AUTH_JNPF_ENABLED", "true")
-    # Mock JNPF 登录失败响应
+async def test_login_sso_invalid_credentials(mock_httpx, monkeypatch, test_client: AsyncClient):
+    """测试 SSO OAuth 登录 - 无效凭据（需显式启用 SSO）"""
+    monkeypatch.setenv("AUTH_SSO_ENABLED", "true")
+    # Mock SSO 登录失败响应
     mock_login_response = mock.Mock()
     mock_login_response.status_code = 200
     mock_login_response.json.return_value = {
@@ -207,11 +207,11 @@ async def test_login_jnpf_invalid_credentials(mock_httpx, monkeypatch, test_clie
 
 @pytest.mark.asyncio
 @mock.patch("opentask.api.auth.router.httpx.AsyncClient")
-async def test_login_jnpf_timeout(mock_httpx, monkeypatch, test_client: AsyncClient):
-    """测试 JNPF OAuth 登录 - 超时（需显式启用 JNPF）"""
+async def test_login_sso_timeout(mock_httpx, monkeypatch, test_client: AsyncClient):
+    """测试 SSO OAuth 登录 - 超时（需显式启用 SSO）"""
     import httpx
 
-    monkeypatch.setenv("AUTH_JNPF_ENABLED", "true")
+    monkeypatch.setenv("AUTH_SSO_ENABLED", "true")
 
     # Mock 超时异常
     mock_client_instance = mock.AsyncMock()

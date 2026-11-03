@@ -37,7 +37,7 @@ declare namespace Api {
     type UserGender = '1' | '2';
 
     /**
-     * user role (JNPF integration)
+     * user role (SSO integration)
      *
      * - "admin": 系统管理员
      * - "maintainer": 维护者
@@ -46,18 +46,18 @@ declare namespace Api {
      */
     type UserRoleType = 'admin' | 'maintainer' | 'developer' | 'viewer';
 
-    /** user (JNPF integrated) */
+    /** user (SSO integrated) */
     type User = Common.CommonRecord<{
       /** 登录账号（管理端建号写入，唯一标识） */
       username?: string;
       /** 姓名（管理端建号写入） */
       name?: string;
-      /** JNPF user id */
-      jnpfUserId?: string;
-      /** JNPF account */
-      jnpfAccount?: string;
-      /** JNPF name */
-      jnpfName?: string;
+      /** SSO user id */
+      ssoUserId?: string;
+      /** SSO account */
+      ssoAccount?: string;
+      /** SSO name */
+      ssoName?: string;
       /** organize name */
       organizeName?: string;
       /** position name */
@@ -98,8 +98,8 @@ declare namespace Api {
       id: string;
       username?: string | null;
       name?: string | null;
-      jnpf_account?: string | null;
-      jnpf_name?: string | null;
+      sso_account?: string | null;
+      sso_name?: string | null;
       role?: string | null;
       role_codes: string[];
       dept_assignments: DeptAssignment[];
@@ -159,11 +159,11 @@ declare namespace Api {
     /** current user response */
     type CurrentUser = {
       id: string;
-      jnpfUserId?: string;
+      ssoUserId?: string;
       /** 钉钉绑定 userid（null = 未绑定） */
       dingtalkUserId?: string | null;
-      jnpfAccount?: string;
-      jnpfName?: string;
+      ssoAccount?: string;
+      ssoName?: string;
       organizeName?: string;
       positionName?: string;
       role: UserRoleType;

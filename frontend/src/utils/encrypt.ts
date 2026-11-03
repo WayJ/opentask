@@ -1,6 +1,6 @@
 /**
  * 加密工具
- * JNPF 密码加密实现
+ * SSO 密码加密实现
  */
 import CryptoJS from 'crypto-js';
 
@@ -81,8 +81,8 @@ export function encryptByMd5(password: string) {
 }
 
 /**
- * 密码加密（JNPF登录专用）
- * 按照JNPF原项目实现：MD5(密码) → AES-ECB加密 → Hex编码
+ * 密码加密（SSO登录专用）
+ * 按照SSO原项目实现：MD5(密码) → AES-ECB加密 → Hex编码
  * @param password 明文密码
  * @returns 加密后的密码（Hex格式）
  *

@@ -533,7 +533,7 @@ const local: App.I18n.Schema = {
     totalPermissions: '总权限数',
     noPermissions: '暂无权限',
     themeSettings: '主题设置',
-    jnpfAccount: 'JNPF账号管理',
+    ssoAccount: 'SSO账号管理',
     pwd: {
       title: '修改密码',
       submit: '确认修改',

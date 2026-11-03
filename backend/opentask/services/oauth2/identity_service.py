@@ -1,13 +1,13 @@
 """OAuth2 身份对齐服务（外部 email → OpenTask 本地用户）
 
 口径（裁决 G1，**零 schema 变更**）：
-- OpenTask `user` 表**全列无 email**（JNPF / 钉钉同步链亦无），
+- OpenTask `user` 表**全列无 email**（SSO / 钉钉同步链亦无），
   故 email 不作为独立字段落库，而是**作为 username 的种子**；
 - 定位顺序：按 `username` 精确查（lower 归一化）→ 命中即复用；
   未命中则用 `unique_username(existing, email)` 建号（冲突自动 `_2` / `_3`）；
 - 建号风格照 `services/user_center/dingtalk/oauth_service.py::_create_user`：
   `name=展示名`、`role=viewer`、`password_hash=None`；
-- 已知副作用：若该用户此前经 JNPF/钉钉同步建过账号且 `username != email`，
+- 已知副作用：若该用户此前经 SSO/钉钉同步建过账号且 `username != email`，
   会另建新账号——OAuth「首次连接自动建号」的常规语义。
 """
 
@@ -70,7 +70,7 @@ class OAuthIdentityService:
         user = UserModel(
             name=name,
             username=username,
-            jnpf_name=name,
+            sso_name=name,
             password_hash=None,
             role="viewer",
         )

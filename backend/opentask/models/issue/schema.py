@@ -15,8 +15,8 @@ class UserInfo(BaseModel):
     """用户基本信息"""
     id: str
     name: Optional[str] = Field(None, description="用户名")
-    jnpf_name: Optional[str] = Field(None, description="JNPF 用户名称")
-    jnpf_account: Optional[str] = Field(None, description="JNPF 账号")
+    sso_name: Optional[str] = Field(None, description="SSO 用户名称")
+    sso_account: Optional[str] = Field(None, description="SSO 账号")
 
     model_config = ConfigDict(
         from_attributes=True,
@@ -110,18 +110,18 @@ class IssueResponse(IssueBase):
             return None
         if isinstance(v, UserInfo):
             return v
-        # 如果是 UserModel 对象或其他对象，提取 id、name、jnpf_name、jnpf_account
+        # 如果是 UserModel 对象或其他对象，提取 id、name、sso_name、sso_account
         if hasattr(v, 'id'):
             user_id = str(v.id) if v.id else None
             user_name = getattr(v, 'name', None)
-            jnpf_name = getattr(v, 'jnpf_name', None)
-            jnpf_account = getattr(v, 'jnpf_account', None)
+            sso_name = getattr(v, 'sso_name', None)
+            sso_account = getattr(v, 'sso_account', None)
             if user_id:
                 return UserInfo(
                     id=user_id,
                     name=user_name,
-                    jnpf_name=jnpf_name,
-                    jnpf_account=jnpf_account
+                    sso_name=sso_name,
+                    sso_account=sso_account
                 )
         return None
 

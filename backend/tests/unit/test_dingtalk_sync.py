@@ -194,7 +194,7 @@ async def test_first_sync_full_creation(session_maker):
     assert fe.path == f"/{rd.id}/{fe.id}" and str(fe.parent_id) == str(rd.id)
     assert mk.path == f"/{mk.id}" and mk.parent_id is None
 
-    # 用户：role=viewer、无密码、username=钉钉姓名、jnpf_name 写入
+    # 用户：role=viewer、无密码、username=钉钉姓名、sso_name 写入
     u1 = await _user_by_dt(session_maker, "u1")
     u2 = await _user_by_dt(session_maker, "u2")
     u3 = await _user_by_dt(session_maker, "u3")
@@ -202,7 +202,7 @@ async def test_first_sync_full_creation(session_maker):
         assert u.role == "viewer"
         assert u.password_hash is None
         assert u.status == 1
-    assert u1.username == "张三" and u1.jnpf_name == "张三"
+    assert u1.username == "张三" and u1.sso_name == "张三"
     assert u2.username == "李四"
 
     # user_dept 归属：以 detail 的 dept_id_list 为准，主部门取 main_dept_id
@@ -350,7 +350,7 @@ async def test_username_collision_uniquified(session_maker):
 
     dingtalk_zhangsan = await _user_by_dt(session_maker, "u1")
     assert dingtalk_zhangsan.username == "张三_2"
-    assert dingtalk_zhangsan.jnpf_name == "张三"
+    assert dingtalk_zhangsan.sso_name == "张三"
 
 
 async def test_username_collision_with_local_name_only(session_maker):
@@ -499,7 +499,7 @@ async def test_list_dept_users_normal_pagination():
 
 
 # ============================================================================
-# 8. migrate_service 改用公共 unique_username 后行为不变（回归见 tests/api/test_migrate_jnpf.py）
+# 8. migrate_service 改用公共 unique_username 后行为不变（回归见 tests/api/test_migrate_sso.py）
 # 这里补一个公共函数直接单测
 # ============================================================================
 

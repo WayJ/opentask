@@ -73,8 +73,8 @@ export namespace Api.Issue {
   export interface UserInfo {
     id: string;
     name?: string;
-    jnpf_name?: string;
-    jnpf_account?: string;
+    sso_name?: string;
+    sso_account?: string;
   }
 
   /** Issue 基础信息 */
@@ -212,8 +212,8 @@ export namespace Api.Issue {
   export interface UserInfo {
     id: string;
     name?: string;
-    jnpf_name?: string;
-    jnpf_account?: string;
+    sso_name?: string;
+    sso_account?: string;
   }
 
   /** Issue 时间线响应 */

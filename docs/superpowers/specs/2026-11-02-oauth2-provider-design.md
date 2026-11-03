@@ -24,7 +24,7 @@ OpenTask 增 OAuth 2.0 **Provider（授权服务器）**能力，使外部应用
 | Token 内省端点（RFC 7662） | 资源服务器与授权服务器同进程，直接本地校验签名即可 |
 | OAuth token 黑名单 | 吊销走 `oauth_access_tokens.revoked_at` 与 refresh token 表 |
 | 写权限（scope） | 本期只读；写操作不开放给第三方 |
-| 改动既有 `/tasks` 契约层、`/api/*` 通用端点鉴权链、`user` 表结构、JNPF/钉钉同步链 | 边界约束 |
+| 改动既有 `/tasks` 契约层、`/api/*` 通用端点鉴权链、`user` 表结构、SSO/钉钉同步链 | 边界约束 |
 
 ---
 
@@ -264,7 +264,7 @@ RFC 7009。`token` + `client_id` + `client_secret`。吊销该 token 对应的 a
 
 ## 6. 身份对齐（email → OpenTask 用户）
 
-**事实**：OpenTask `user` 表**全列无 email**（`backend/opentask/models/user/model.py`：name / username / password_hash / role / status / token_version / must_change_password / failed_attempts / locked_until / last_login_time / sync_time / jnpf_* / organize_* / position_* / dingtalk_user_id / jwt_expires_at / openai_* / langsmith_* / sentry_*）；JNPF 与钉钉同步链也无 email 字段。**本期不改 `user` 表结构**。
+**事实**：OpenTask `user` 表**全列无 email**（`backend/opentask/models/user/model.py`：name / username / password_hash / role / status / token_version / must_change_password / failed_attempts / locked_until / last_login_time / sync_time / sso_* / organize_* / position_* / dingtalk_user_id / jwt_expires_at / openai_* / langsmith_* / sentry_*）；SSO 与钉钉同步链也无 email 字段。**本期不改 `user` 表结构**。
 
 **流程**（dsh-saas 回调时带 `email` + `display_name`）：
 1. 按 `username` 精确查（lower 归一化）→ 命中即复用该用户
@@ -275,7 +275,7 @@ RFC 7009。`token` + `client_id` + `client_secret`。吊销该 token 对应的 a
    - 风格照 `services/user_center/dingtalk/oauth_service.py:87` `_create_user`
 3. 返回 `external_user_id`（= OpenTask `user.id`）与 `external_email` 给 dsh-saas 落绑定关系
 
-**已知副作用**：若该用户此前经 JNPF/钉钉同步建过账号且 `username != email`，会另建新账号——OAuth「首次连接自动建号」的常规语义。
+**已知副作用**：若该用户此前经 SSO/钉钉同步建过账号且 `username != email`，会另建新账号——OAuth「首次连接自动建号」的常规语义。
 
 **实施状态（2026-11-02）**：`OAuthIdentityService.resolve_or_create` 已实现，但**未被授权流程调用**。`/oauth2/token` 走 `find_by_id(record.user_id)`——谁在同意页点了同意，就代表谁。标准 OAuth2 下身份由授权服务器的登录会话决定；dsh-saas 成员若没有 OpenTask 账号，无法完成同意。另外前端用户名正则 `^[一-龥a-zA-Z0-9_-]{4,16}$` 不允许 `@`、最长 16，与「email 作 username 种子」冲突。本期不改核心 `user` 表、不放宽该正则，登记为待裁定技术债。
 

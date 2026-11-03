@@ -61,10 +61,10 @@ class AvatarOut(BaseModel):
     blob: str
 
 
-# ===== JNPF 集成相关 Schema =====
+# ===== SSO 集成相关 Schema =====
 
-class JnpfUserInfo(BaseModel):
-    """JNPF 用户信息（从 JNPF CurrentUser 接口返回）"""
+class SsoUserInfo(BaseModel):
+    """SSO 用户信息（从 SSO CurrentUser 接口返回）"""
     userId: str
     userAccount: str
     userName: str
@@ -85,9 +85,9 @@ class UserListItem(BaseModel):
     username: Optional[str] = Field(None, alias="username")
     name: Optional[str] = Field(None, alias="name")
     role_codes: list[str] = Field(default_factory=list, alias="roleCodes")
-    jnpf_user_id: Optional[str] = Field(None, alias="jnpfUserId")
-    jnpf_account: Optional[str] = Field(None, alias="jnpfAccount")
-    jnpf_name: Optional[str] = Field(None, alias="jnpfName")
+    sso_user_id: Optional[str] = Field(None, alias="ssoUserId")
+    sso_account: Optional[str] = Field(None, alias="ssoAccount")
+    sso_name: Optional[str] = Field(None, alias="ssoName")
     organize_name: Optional[str] = Field(None, alias="organizeName")
     position_name: Optional[str] = Field(None, alias="positionName")
     role: str = Field("viewer", alias="role")
@@ -102,10 +102,10 @@ class CurrentUserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True, alias_generator=to_camel, populate_by_name=True)
 
     id: str
-    jnpf_user_id: Optional[str] = None
+    sso_user_id: Optional[str] = None
     dingtalk_user_id: Optional[str] = None
-    jnpf_account: Optional[str] = None
-    jnpf_name: Optional[str] = None
+    sso_account: Optional[str] = None
+    sso_name: Optional[str] = None
     organize_name: Optional[str] = None
     position_name: Optional[str] = None
     role: str = "viewer"

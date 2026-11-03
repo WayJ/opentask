@@ -12,8 +12,8 @@ export namespace Api.IssueCollection {
   export interface UserInfo {
     id: string;
     name?: string;
-    jnpf_name?: string;
-    jnpf_account?: string;
+    sso_name?: string;
+    sso_account?: string;
   }
 
   /** 问题集基础信息 */

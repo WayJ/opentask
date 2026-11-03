@@ -397,7 +397,7 @@ class OpenTaskClient:
     def _clear_saved_credentials(self):
         """清空保存的登录凭据（keyring + config）。
 
-        用于重登失败时（凭据已过期，或为迁移前保存的 JNPF 加密密文，
+        用于重登失败时（凭据已过期，或为迁移前保存的 SSO 加密密文，
         二者无法区分），避免后续请求继续用过期凭据重试。
         """
         if not self.config:
@@ -431,7 +431,7 @@ class OpenTaskClient:
 
         1. 先尝试使用 config 中保存的 refresh_token 刷新 token；
         2. 刷新失败（refresh_token 过期/不存在）则用保存的凭据明文重登一次；
-        3. 重登也失败（凭据过期，或为迁移前保存的 JNPF 加密密文）则清空
+        3. 重登也失败（凭据过期，或为迁移前保存的 SSO 加密密文）则清空
            keyring/config 凭据并抛出明确错误，不无限重试。
 
         Args:
@@ -477,7 +477,7 @@ class OpenTaskClient:
                     if new_refresh_token:
                         self.config.refresh_token = new_refresh_token
                 except APIError:
-                    # 3) 重登失败：凭据已过期，或为迁移前保存的 JNPF 加密密文（无法区分）
+                    # 3) 重登失败：凭据已过期，或为迁移前保存的 SSO 加密密文（无法区分）
                     #    一律清空 keyring/config 凭据，要求用户重新登录
                     self._clear_saved_credentials()
                     raise APIError(
@@ -858,8 +858,8 @@ class OpenTaskClient:
     async def login(self, username: str, password: str, _save_to_config: bool = True) -> dict:
         """Login and get JWT token using local authentication.
 
-        Note: Phase 2 后端（jnpf_enabled=false）使用本地 bcrypt 校验，
-        密码以明文提交（不再需要 JNPF 加密）。
+        Note: Phase 2 后端（sso_enabled=false）使用本地 bcrypt 校验，
+        密码以明文提交（不再需要 SSO 加密）。
 
         Args:
             username: Username
@@ -980,9 +980,9 @@ class OpenTaskClient:
                 "data": [
                     {
                         "id": "uuid",
-                        "jnpf_user_id": "jnpf-id",
-                        "jnpf_account": "account",
-                        "jnpf_name": "Display Name"
+                        "sso_user_id": "sso-id",
+                        "sso_account": "account",
+                        "sso_name": "Display Name"
                     },
                     ...
                 ],

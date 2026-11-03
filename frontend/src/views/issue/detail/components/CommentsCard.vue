@@ -10,7 +10,7 @@ interface Comment {
   content: string;
   created_at: string;
   user_info?: {
-    jnpf_name?: string;
+    sso_name?: string;
   };
 }
 
@@ -53,7 +53,7 @@ const formatDateTime = (dateStr: string) => {
 };
 
 const getUserName = (comment: Comment) => {
-  return comment.user_info?.jnpf_name || '未知用户';
+  return comment.user_info?.sso_name || '未知用户';
 };
 </script>
 

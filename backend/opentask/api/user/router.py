@@ -55,8 +55,8 @@ async def get_current_user(
             "message": "success",
             "data": {
                 "id": "xxx",
-                "jnpf_user_id": "xxx",
-                "jnpf_account": "laker",
+                "sso_user_id": "xxx",
+                "sso_account": "laker",
                 ...
             },
             "timestamp": 1234567890
@@ -70,10 +70,10 @@ async def get_current_user(
         "message": "success",
         "data": CurrentUserResponse(
             id=str(current_user.id),
-            jnpf_user_id=current_user.jnpf_user_id,
+            sso_user_id=current_user.sso_user_id,
             dingtalk_user_id=current_user.dingtalk_user_id,
-            jnpf_account=current_user.jnpf_account,
-            jnpf_name=current_user.jnpf_name,
+            sso_account=current_user.sso_account,
+            sso_name=current_user.sso_name,
             organize_name=current_user.organize_name,
             position_name=current_user.position_name,
             role=current_user.role,
@@ -103,8 +103,8 @@ async def get_searchable_users(
             "data": [
                 {
                     "id": "xxx",
-                    "jnpf_account": "laker",
-                    "jnpf_name": "张三",
+                    "sso_account": "laker",
+                    "sso_name": "张三",
                     ...
                 }
             ],
@@ -118,13 +118,13 @@ async def get_searchable_users(
     if keyword and keyword.strip():
         query = query.where(
             or_(
-                UserModel.jnpf_account.ilike(f"%{keyword}%"),
-                UserModel.jnpf_name.ilike(f"%{keyword}%"),
+                UserModel.sso_account.ilike(f"%{keyword}%"),
+                UserModel.sso_name.ilike(f"%{keyword}%"),
             )
         )
 
     # 按账号排序
-    query = query.order_by(UserModel.jnpf_account.asc())
+    query = query.order_by(UserModel.sso_account.asc())
 
     # 限制返回数量（最多返回100个用户）
     query = query.limit(100)
@@ -136,9 +136,9 @@ async def get_searchable_users(
     user_list = [
         {
             "id": str(user.id),
-            "jnpf_user_id": user.jnpf_user_id,
-            "jnpf_account": user.jnpf_account,
-            "jnpf_name": user.jnpf_name,
+            "sso_user_id": user.sso_user_id,
+            "sso_account": user.sso_account,
+            "sso_name": user.sso_name,
         }
         for user in users
     ]
@@ -208,8 +208,8 @@ async def get_users(
     if keyword:
         query = query.where(
             or_(
-                UserModel.jnpf_account.ilike(f"%{keyword}%"),
-                UserModel.jnpf_name.ilike(f"%{keyword}%"),
+                UserModel.sso_account.ilike(f"%{keyword}%"),
+                UserModel.sso_name.ilike(f"%{keyword}%"),
             )
         )
 
@@ -243,9 +243,9 @@ async def get_users(
                 id=str(user.id),
                 username=user.username,
                 name=user.name,
-                jnpf_user_id=user.jnpf_user_id,
-                jnpf_account=user.jnpf_account,
-                jnpf_name=user.jnpf_name,
+                sso_user_id=user.sso_user_id,
+                sso_account=user.sso_account,
+                sso_name=user.sso_name,
                 organize_name=user.organize_name,
                 position_name=user.position_name,
                 role=user.role,
@@ -309,7 +309,7 @@ async def update_user_status(
     if status_update.status == 0:
         await TokenService(session).revoke_all_user_refresh(str(user.id))
 
-    logger.info(f"用户状态更新: {user.jnpf_account} -> {status_update.status} (操作者: {current_user.jnpf_account})")
+    logger.info(f"用户状态更新: {user.sso_account} -> {status_update.status} (操作者: {current_user.sso_account})")
 
     return {
         "code": 200,
@@ -358,7 +358,7 @@ async def update_user_role(
     user.role = role_update.role
     await session.commit()
 
-    logger.info(f"用户角色更新: {user.jnpf_account} {old_role} -> {role_update.role} (操作者: {current_user.jnpf_account})")
+    logger.info(f"用户角色更新: {user.sso_account} {old_role} -> {role_update.role} (操作者: {current_user.sso_account})")
 
     return {
         "code": 200,
@@ -520,8 +520,8 @@ async def get_user_detail(
             "id": str(user.id),
             "username": user.username,
             "name": user.name,
-            "jnpf_account": user.jnpf_account,
-            "jnpf_name": user.jnpf_name,
+            "sso_account": user.sso_account,
+            "sso_name": user.sso_name,
             "role": user.role,
             "role_codes": role_codes,
             "dept_assignments": dept_assignments,

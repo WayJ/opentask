@@ -1,8 +1,8 @@
 """用户中心公共工具函数
 
 - unique_username：username lower 归一化唯一化算法，
-  从 migrate_service 抽出供 JNPF 迁移与钉钉同步复用。
-- generate_temp_password：12 位随机临时密码，供 JNPF 迁移与
+  从 migrate_service 抽出供 SSO 迁移与钉钉同步复用。
+- generate_temp_password：12 位随机临时密码，供 SSO 迁移与
   管理端重置密码复用（明文只出现在响应体，绝不落日志/落盘）。
 
 归一化手法与 Phase 1 迁移（alembic 2026_10_23_0001 _backfill_user_data）

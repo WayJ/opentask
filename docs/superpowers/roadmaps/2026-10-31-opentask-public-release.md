@@ -12,7 +12,7 @@ closed-at: 2026-11-03
 | deliverable | note |
 |---|---|
 | 项目改名落地（vibe_king/vibeking/Vibe King → opentask/OpenTask） | 目录名、Python 包名、CLI 命令名、URL 前缀、品牌文案四类均已替换 |
-| 凭据脱敏，公开仓库不含真实密钥 | API Key、数据库密码、JNPF 加密密钥已移入被忽略的 `config/local.yaml` 与 `.env.*.local` |
+| 凭据脱敏，公开仓库不含真实密钥 | API Key、数据库密码、SSO 加密密钥已移入被忽略的 `config/local.yaml` 与 `.env.*.local` |
 | 企业名与个人邮箱清除 | 「天穹智能」→「WayJ」；QQ 邮箱 → GitHub noreply；保留 soybeanjs 上游 MIT 声明 |
 | 代码可运行性验证通过 | 导入图无断链；后端 pytest 与前端 lint/build 通过 |
 | 首次提交并推送到 github.com/WayJ/opentask | 仓库当前零提交，推送前需建首个 commit |

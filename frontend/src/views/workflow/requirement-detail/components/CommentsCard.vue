@@ -42,10 +42,10 @@ const formatDateTime = (dateStr: string) => {
 };
 
 const getUserName = (comment: RequirementComment) => {
-  // 优先显示 jnpf_name，如果为空则显示 name
-  const jnpfName = comment.user_info?.jnpf_name;
+  // 优先显示 sso_name，如果为空则显示 name
+  const ssoName = comment.user_info?.sso_name;
   const name = comment.user_info?.name;
-  return jnpfName || name || '未知用户';
+  return ssoName || name || '未知用户';
 };
 </script>
 

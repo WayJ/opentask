@@ -32,11 +32,13 @@ ai:
     base_url: "${OPENAI_BASE_URL:}"
   default_model: "openai/gpt4"
 
-# JNPF 平台配置
-jnpf:
-  # JNPF 基础地址（后端直接调用）
-  base_url: "http://39.183.172.160:29080"
-  # JNPF 系统编码
-  app_code: "opentask"
+# SSO 平台配置
+sso:
+  # SSO 基础地址（后端直接调用）
+  # 从环境变量读取：具体地址属于部署侧信息，不进版本库
+  # （SSO 未启用时留空即可）
+  base_url: "${SSO_BASE_URL:}"
+  # SSO 系统编码
+  app_code: "${SSO_APP_CODE:opentask}"
   # 请求超时（秒）
   timeout: 10

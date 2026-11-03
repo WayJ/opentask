@@ -1,6 +1,6 @@
 """
 加密工具
-JNPF 密码加密实现（与前端 encrypt.ts 保持一致）
+SSO 密码加密实现（与前端 encrypt.ts 保持一致）
 
 加密流程：
 1. 对明文密码进行 MD5 加密
@@ -42,7 +42,7 @@ def encrypt_by_aes_ecb(plaintext: str, key: str) -> str:
     注意：密钥取 MD5 hex 字符串的 **UTF-8 字节**（32 字节 → AES-256），
     与前端 encrypt.ts 的 CryptoJS UTF8.parse(defaultKey) 逐字节一致。
     历史实现误用 bytes.fromhex(key) 折成 16 字节（AES-128），
-    产出与前端/JNPF 服务端不一致的密文（已知向量见 tests/unit/test_encrypt.py）。
+    产出与前端/SSO 服务端不一致的密文（已知向量见 tests/unit/test_encrypt.py）。
     """
     # 密钥 = MD5 hex 字符串的 UTF-8 字节（32 字节，AES-256），与前端一致
     key_bytes = key.encode('utf-8')
@@ -76,7 +76,7 @@ def base64_to_hex(base64_string: str) -> str:
 
 def encrypt_password(password: str) -> str:
     """
-    密码加密（JNPF 登录专用）
+    密码加密（SSO 登录专用）
 
     完全按照前端 encrypt.ts 的实现：
     1. MD5(密码) → AES-ECB加密 → Hex编码

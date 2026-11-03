@@ -906,8 +906,8 @@ class IssueService:
 
             return {
                 "id": str(user.id),  # 将 UUID 转换为字符串
-                "jnpf_name": user.jnpf_name,
-                "jnpf_account": user.jnpf_account,
+                "sso_name": user.sso_name,
+                "sso_account": user.sso_account,
                 "name": user.name
             }
         except Exception:

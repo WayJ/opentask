@@ -479,7 +479,7 @@ const local: App.I18n.Schema = {
     totalPermissions: 'Total Permissions',
     noPermissions: 'No permissions',
     themeSettings: 'Theme Settings',
-    jnpfAccount: 'JNPF Account',
+    ssoAccount: 'SSO Account',
     pwd: {
       title: 'Change Password',
       submit: 'Confirm Change',

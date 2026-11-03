@@ -21,38 +21,38 @@ class UserModel(DBModel, UUIDMixin, kw_only=True):
     hide_sql_preference: Mapped[bool] = mapped_column("hide_sql_preference", Boolean, server_default=false())
     openai_base_url: Mapped[str | None] = mapped_column("openai_base_url", String(500), nullable=True)
 
-    # ===== JNPF 集成字段 =====
-    jnpf_user_id: Mapped[str | None] = mapped_column(
-        "jnpf_user_id", String(100), nullable=True, unique=True,
-        comment="JNPF 用户 ID（唯一索引，用于关联 JNPF 用户）"
+    # ===== SSO 集成字段 =====
+    sso_user_id: Mapped[str | None] = mapped_column(
+        "sso_user_id", String(100), nullable=True, unique=True,
+        comment="SSO 用户 ID（唯一索引，用于关联 SSO 用户）"
     )
-    jnpf_token: Mapped[str | None] = mapped_column(
-        "jnpf_token", String(2048), nullable=True,
-        comment="JNPF 登录 token（加密存储，Fernet 格式）"
+    sso_token: Mapped[str | None] = mapped_column(
+        "sso_token", String(2048), nullable=True,
+        comment="SSO 登录 token（加密存储，Fernet 格式）"
     )
-    jnpf_account: Mapped[str | None] = mapped_column(
-        "jnpf_account", String(100), nullable=True,
-        comment="JNPF 账号"
+    sso_account: Mapped[str | None] = mapped_column(
+        "sso_account", String(100), nullable=True,
+        comment="SSO 账号"
     )
-    jnpf_name: Mapped[str | None] = mapped_column(
-        "jnpf_name", String(100), nullable=True,
-        comment="JNPF 姓名"
+    sso_name: Mapped[str | None] = mapped_column(
+        "sso_name", String(100), nullable=True,
+        comment="SSO 姓名"
     )
     organize_id: Mapped[str | None] = mapped_column(
         "organize_id", String(100), nullable=True,
-        comment="JNPF 组织 ID"
+        comment="SSO 组织 ID"
     )
     organize_name: Mapped[str | None] = mapped_column(
         "organize_name", String(200), nullable=True,
-        comment="JNPF 组织名称"
+        comment="SSO 组织名称"
     )
     position_id: Mapped[str | None] = mapped_column(
         "position_id", String(100), nullable=True,
-        comment="JNPF 岗位 ID"
+        comment="SSO 岗位 ID"
     )
     position_name: Mapped[str | None] = mapped_column(
         "position_name", String(100), nullable=True,
-        comment="JNPF 岗位名称"
+        comment="SSO 岗位名称"
     )
 
     # ===== OpenTask JWT Token 字段 =====
@@ -119,7 +119,7 @@ class UserModel(DBModel, UUIDMixin, kw_only=True):
     )
     sync_time: Mapped[datetime | None] = mapped_column(
         "sync_time", DateTime, nullable=True,
-        comment="JNPF 信息同步时间"
+        comment="SSO 信息同步时间"
     )
 
     # 关系 - 用户的 Access Tokens

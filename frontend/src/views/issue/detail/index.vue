@@ -74,7 +74,7 @@ const reactions = ref<Record<string, string[]>>({});
 const projects = ref<Api.Project.Project[]>([]);
 
 // User map for timeline display (reserved for future use)
-// const userMap = ref<Map<string, { jnpf_name?: string; jnpf_account?: string; id: string }>>(new Map());
+// const userMap = ref<Map<string, { sso_name?: string; sso_account?: string; id: string }>>(new Map());
 
 // Project options for select (with safety check)
 const projectOptions = computed(() => {
@@ -223,7 +223,7 @@ function generateIssueAgentPrompt() {
 
   // 获取负责人信息
   const assigneeInfo = issueData.assignee
-    ? issueData.assignee.jnpf_name || issueData.assignee.jnpf_account || issueData.assignee.id
+    ? issueData.assignee.sso_name || issueData.assignee.sso_account || issueData.assignee.id
     : '未分配';
 
   // 生成下一步操作建议
@@ -683,7 +683,7 @@ function formatUserInfo(user: any) {
   if (!user) return '未分配';
   // 如果是对象（新格式）
   if (typeof user === 'object') {
-    return user.jnpf_name || user.name || user.jnpf_account || user.id || '未分配';
+    return user.sso_name || user.name || user.sso_account || user.id || '未分配';
   }
   // 如果是字符串（旧格式，用户ID）
   return user;
@@ -868,7 +868,7 @@ onMounted(() => {
                     <div class="activity-header">
                       <NSpace align="center" :size="8">
                         <NText strong>
-                          {{ comment.user_info?.jnpf_name || comment.user_info?.name || comment.user_id }}
+                          {{ comment.user_info?.sso_name || comment.user_info?.name || comment.user_id }}
                         </NText>
                         <NText depth="3" style="font-size: 12px">
                           {{ formatDateTime(comment.created_at) }}
@@ -953,7 +953,7 @@ onMounted(() => {
               v-model="tempAssignee"
               v-model:editing="editingAssignee"
               label="负责人"
-              :display-value="issue.assignee?.jnpf_name || issue.assignee?.name || issue.assignee_id || '未分配'"
+              :display-value="issue.assignee?.sso_name || issue.assignee?.name || issue.assignee_id || '未分配'"
               placeholder="未分配"
               @save="saveAssignee"
               @cancel="cancelAssignee"
@@ -1034,7 +1034,7 @@ onMounted(() => {
               v-model="tempReporter"
               v-model:editing="editingReporter"
               label="报告人"
-              :display-value="issue.reporter?.jnpf_name || issue.reporter?.name || issue.reporter_id || '未设置'"
+              :display-value="issue.reporter?.sso_name || issue.reporter?.name || issue.reporter_id || '未设置'"
               placeholder="未设置"
               @save="saveReporter"
               @cancel="cancelReporter"

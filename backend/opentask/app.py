@@ -40,7 +40,7 @@ from opentask.api.dashboard.router import router as dashboard_router
 from opentask.auth import authenticate
 from opentask.config import config
 from opentask.errors import UserFacingError, ValidationError
-from opentask.middleware.jnpf_auth import JnpfAuthMiddleware
+from opentask.middleware.sso_auth import SsoAuthMiddleware
 from opentask.repositories.base import NotFoundError, NotUniqueError
 
 logger = logging.getLogger(__name__)
@@ -74,9 +74,9 @@ class App(fastapi.FastAPI):
             allow_headers=["*"],
         )
 
-        # JNPF 认证中间件已禁用 - 使用 opentask JWT 认证代替
+        # SSO 认证中间件已禁用 - 使用 opentask JWT 认证代替
         # 用户通过 /api/auth/login 登录后获得 opentask JWT token
-        # self.add_middleware(JnpfAuthMiddleware)
+        # self.add_middleware(SsoAuthMiddleware)
 
         # 始终启用认证，使用数据库用户系统
         common_dependencies = [Depends(authenticate)]

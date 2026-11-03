@@ -6,7 +6,7 @@ authCode → userid → 用户详情 → 本地用户定位/自动建号 → 签
 2. 按 dingtalk_user_id 查本地用户：
    - 已存在：status != 1 → 403 用户已被禁用；否则直接 issue_tokens；
    - 不存在且 dingtalk_auto_register=true：建号（建号风格与 sync_service
-     _create_user 一致：name/jnpf_name=钉钉姓名、username 唯一化、
+     _create_user 一致：name/sso_name=钉钉姓名、username 唯一化、
      role=viewer、password_hash=None、部门按 dept_id_list 映射本地
      department 并写 user_dept，主部门取 main_dept_id 或第一个，映射
      不上的部门跳过）→ issue_tokens；
@@ -101,7 +101,7 @@ class DingTalkOAuthService:
         user = UserModel(
             name=name,
             username=username,
-            jnpf_name=name,
+            sso_name=name,
             password_hash=None,
             role="viewer",
             dingtalk_user_id=userid,

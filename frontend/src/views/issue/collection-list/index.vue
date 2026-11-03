@@ -73,7 +73,7 @@ const columns: DataTableColumns<Api.IssueCollection.CollectionResponse> = [
         NText,
         {},
         {
-          default: () => row.creator?.jnpf_name || row.creator?.name || row.creator_id
+          default: () => row.creator?.sso_name || row.creator?.name || row.creator_id
         }
       );
     }

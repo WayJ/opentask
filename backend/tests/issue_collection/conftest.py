@@ -43,7 +43,7 @@ async def test_client_with_user(test_client: AsyncClient) -> AsyncClient:
         if not user:
             user = UserModel(
                 name="admin",
-                jnpf_name="管理员",
+                sso_name="管理员",
                 password_hash=_pwd_context.hash("123456"),  # bcrypt 哈希
                 email="admin@test.com"
             )

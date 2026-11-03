@@ -340,7 +340,7 @@ onMounted(() => {
                 <div class="meta-info">
                   <div class="meta-label">创建者</div>
                   <div class="meta-value">
-                    {{ collection.creator?.jnpf_name || collection.creator?.name || collection.creator_id }}
+                    {{ collection.creator?.sso_name || collection.creator?.name || collection.creator_id }}
                   </div>
                 </div>
               </div>

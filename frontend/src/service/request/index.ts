@@ -247,34 +247,34 @@ export const demoRequest = createRequest(
 );
 
 /**
- * JNPF 平台请求实例
- * 用于调用 JNPF 平台的 API（登录、获取用户信息等）
+ * SSO 平台请求实例
+ * 用于调用 SSO 平台的 API（登录、获取用户信息等）
  */
-export const jnpfRequest = createRequest(
+export const ssoRequest = createRequest(
   {
-    baseURL: otherBaseURL.jnpf
+    baseURL: otherBaseURL.sso
   },
   {
     transform(response: AxiosResponse) {
       return response.data;
     },
     async onRequest(config) {
-      // JNPF 需要特殊的请求头
+      // SSO 需要特殊的请求头
       const { headers } = config;
       Object.assign(headers, {
         'App-Code': 'zzzz',
-        'Jnpf-Origin': 'pc',
+        'Sso-Origin': 'pc',
         'Vue-Version': '3'
       });
 
       return config;
     },
     isBackendSuccess(response) {
-      // JNPF 返回格式: { code: 200, msg: 'Success', data: {...} }
+      // SSO 返回格式: { code: 200, msg: 'Success', data: {...} }
       return response.data.code === 200;
     },
     async onBackendFail(response) {
-      // 处理 JNPF 错误
+      // 处理 SSO 错误
       const message = response.data?.msg || '请求失败';
       window.$message?.error(message);
     },

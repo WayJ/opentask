@@ -77,7 +77,7 @@ class AuthService:
                 detail="账户已锁定，请稍后重试",
             )
 
-        # 未设置过密码的账号（如纯 JNPF 同步用户）不能走本地登录
+        # 未设置过密码的账号（如纯 SSO 同步用户）不能走本地登录
         if not user.password_hash:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

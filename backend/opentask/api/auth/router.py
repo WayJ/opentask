@@ -11,6 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from opentask.auth import authenticate
 from opentask.repositories.base import get_session
 from opentask.repositories.user import UserRepository
+from opentask.services.sso_protocol import (
+    UPSTREAM_CLIENT_HEADER,
+    UPSTREAM_CURRENT_USER_PATH,
+    UPSTREAM_LOGIN_PATH,
+    UPSTREAM_TICKET_FIELD,
+)
 from opentask.services.user_center.auth_service import AuthService
 from opentask.services.user_center.dingtalk.client import DingTalkClient, DingTalkError
 from opentask.services.user_center.dingtalk.oauth_service import DingTalkOAuthService
@@ -19,7 +25,7 @@ from opentask.services.user_center.token_service import TokenService
 from opentask.utils.response import success_response as std_success_response, StatusCode
 from opentask.config import config
 from opentask.utils.encrypt import encrypt_password
-from opentask.utils.token_security import encrypt_jnpf_token
+from opentask.utils.token_security import encrypt_sso_token
 
 logger = logging.getLogger(__name__)
 
@@ -73,30 +79,30 @@ async def login(
     session=Depends(get_session),
 ):
     """
-    用户登录：JNPF 启用时走 JNPF 认证，否则走本地账号认证（spec 3.2）
+    用户登录：SSO 启用时走 SSO 认证，否则走本地账号认证（spec 3.2）
 
     本地路径：
     - AuthService.login_local 校验密码/锁定/禁用状态并签发 token 对
 
-    JNPF 路径：
+    SSO 路径：
     1. 登录前先查本地同步用户，禁用（status!=1）直接 403
-    2. 转发登录请求到 JNPF 平台验证
-    3. 验证成功后从 JNPF 获取用户信息
-    4. 同步用户信息到 opentask 数据库（加密存储 JNPF token）
+    2. 转发登录请求到 SSO 平台验证
+    3. 验证成功后从 SSO 获取用户信息
+    4. 同步用户信息到 opentask 数据库（加密存储 SSO token）
     5. TokenService.issue_tokens 签发 access + refresh token 对
     6. 记录安全审计日志
 
     安全改进：
     - access JWT 不落库，每次登录重新签发
-    - JNPF token 加密存储
+    - SSO token 加密存储
     - 使用时区感知的 datetime
     """
     client_ip = request.client.host if request.client else "unknown"
     user_agent = request.headers.get("user-agent")
     logger.info(f"登录请求 - 用户名: {username}, IP: {client_ip}")
 
-    # 未启用 JNPF：走本地账号登录
-    if not config.jnpf_enabled:
+    # 未启用 SSO：走本地账号登录
+    if not config.sso_enabled:
         auth = AuthService(session)
         user, pair = await auth.login_local(
             username, password, user_agent=user_agent, ip=client_ip
@@ -105,38 +111,38 @@ async def login(
             **pair,
             "username": user.username or user.name or username,
             "userId": str(user.id),
-            "jnpfName": user.jnpf_name,
+            "ssoName": user.sso_name,
             "name": user.name,
         })
 
-    # 0. 登录前查本地同步用户：已禁用的账号不允许再走 JNPF 登录
+    # 0. 登录前查本地同步用户：已禁用的账号不允许再走 SSO 登录
     from opentask.repositories.base import NotFoundError
     try:
         existing_user = await UserRepository().get_by_name(session, username)
     except NotFoundError:
         existing_user = None
     if existing_user is not None and existing_user.status != 1:
-        logger.warning(f"JNPF 登录拒绝禁用用户: {username}")
+        logger.warning(f"SSO 登录拒绝禁用用户: {username}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="用户已被禁用",
         )
 
-    # 1. 调用 JNPF 登录接口验证用户凭据
+    # 1. 调用 SSO 登录接口验证用户凭据
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            # 调用 JNPF 登录接口
-            jnpf_response = await client.post(
-                f"{config.jnpf_base_url}/api/oauth/Login",
+            # 调用 SSO 登录接口
+            sso_response = await client.post(
+                f"{config.sso_base_url}{UPSTREAM_LOGIN_PATH}",
                 headers={
                     "Content-Type": "application/x-www-form-urlencoded",
-                    "App-Code": config.jnpf_app_code,
-                    "Jnpf-Origin": "pc",
+                    "App-Code": config.sso_app_code,
+                    UPSTREAM_CLIENT_HEADER: "pc",
                     "Vue-Version": "3"
                 },
                 data={
                     "account": username,
-                    # 前端已改为明文提交，JNPF 平台要求密文（MD5+AES-ECB+Hex），
+                    # 前端已改为明文提交，SSO 平台要求密文（MD5+AES-ECB+Hex），
                     # 加密责任收归后端（与前端旧 encrypt.ts 等价，见 utils/encrypt.py）。
                     # 兼容性：本分支只服务新前端（同版本发布），不再接受旧前端的密文提交——
                     # 明文/密文均为任意字符串，服务端无法可靠区分。
@@ -144,18 +150,18 @@ async def login(
                     "code": "",
                     "origin": "password",
                     "timestamp": "0",
-                    "jnpf_ticket": "",
+                    UPSTREAM_TICKET_FIELD: "",
                     "grant_type": "password"
                 }
             )
 
-            if jnpf_response.status_code != 200:
-                logger.error(f"JNPF 登录失败: {jnpf_response.status_code}")
+            if sso_response.status_code != 200:
+                logger.error(f"SSO 登录失败: {sso_response.status_code}")
                 # 尝试读取响应体获取详细错误信息
                 try:
-                    error_data = jnpf_response.json()
+                    error_data = sso_response.json()
                     error_msg = error_data.get("msg", "用户名或密码错误")
-                    logger.error(f"JNPF 响应详情: {error_data}")
+                    logger.error(f"SSO 响应详情: {error_data}")
                 except:
                     error_msg = "用户名或密码错误"
                 raise HTTPException(
@@ -163,34 +169,34 @@ async def login(
                     detail=error_msg
                 )
 
-            jnpf_data = jnpf_response.json()
+            sso_data = sso_response.json()
 
-            # 检查 JNPF 响应
-            if jnpf_data.get("code") != 200:
-                error_msg = jnpf_data.get("msg", "用户名或密码错误")
-                logger.error(f"JNPF 登录失败: {error_msg}")
-                logger.error(f"JNPF 响应详情: {jnpf_data}")
+            # 检查 SSO 响应
+            if sso_data.get("code") != 200:
+                error_msg = sso_data.get("msg", "用户名或密码错误")
+                logger.error(f"SSO 登录失败: {error_msg}")
+                logger.error(f"SSO 响应详情: {sso_data}")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail=error_msg
                 )
 
-            # 获取 JNPF token
-            jnpf_token = jnpf_data.get("data", {}).get("token")
-            logger.debug("JNPF login response received")
+            # 获取 SSO token
+            sso_token = sso_data.get("data", {}).get("token")
+            logger.debug("SSO login response received")
 
-            # 🔒 加密 JNPF token 后存储
-            encrypted_jnpf_token = encrypt_jnpf_token(jnpf_token)
-            logger.debug(f"JNPF token 已加密存储")
+            # 🔒 加密 SSO token 后存储
+            encrypted_sso_token = encrypt_sso_token(sso_token)
+            logger.debug(f"SSO token 已加密存储")
 
-            # JNPF token 已包含 "bearer " 前缀，根据文档直接使用完整 token
-            # 2. 使用 JNPF token 获取用户信息
+            # SSO token 已包含 "bearer " 前缀，根据文档直接使用完整 token
+            # 2. 使用 SSO token 获取用户信息
             user_info_response = await client.get(
-                f"{config.jnpf_base_url}/api/oauth/CurrentUser",
+                f"{config.sso_base_url}{UPSTREAM_CURRENT_USER_PATH}",
                 headers={
-                    "Authorization": jnpf_token,  # 直接使用完整 token（包含 bearer 前缀）
-                    "App-Code": config.jnpf_app_code,
-                    "Jnpf-Origin": "pc",
+                    "Authorization": sso_token,  # 直接使用完整 token（包含 bearer 前缀）
+                    "App-Code": config.sso_app_code,
+                    UPSTREAM_CLIENT_HEADER: "pc",
                     "Vue-Version": "3"
                 },
                 # params={
@@ -199,15 +205,15 @@ async def login(
                 # }
             )
 
-            logger.debug(f"JNPF CurrentUser 响应状态: {user_info_response.status_code}")
+            logger.debug(f"SSO CurrentUser 响应状态: {user_info_response.status_code}")
 
             if user_info_response.status_code != 200:
-                logger.error(f"获取 JNPF 用户信息失败: {user_info_response.status_code}")
+                logger.error(f"获取 SSO 用户信息失败: {user_info_response.status_code}")
                 # 尝试读取响应体获取详细错误信息
                 try:
                     error_data = user_info_response.json()
                     error_msg = error_data.get("msg", "获取用户信息失败")
-                    logger.error(f"JNPF 响应详情: {error_data}")
+                    logger.error(f"SSO 响应详情: {error_data}")
                 except:
                     error_msg = "获取用户信息失败"
                 raise HTTPException(
@@ -219,18 +225,18 @@ async def login(
 
             if user_info_data.get("code") != 200:
                 error_msg = user_info_data.get("msg", "获取用户信息失败")
-                logger.error(f"获取 JNPF 用户信息失败: {error_msg}")
-                logger.error(f"JNPF 响应详情: {user_info_data}")
+                logger.error(f"获取 SSO 用户信息失败: {error_msg}")
+                logger.error(f"SSO 响应详情: {user_info_data}")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail=error_msg
                 )
 
             # 提取用户详细信息
-            jnpf_user_data = user_info_data.get("data", {})
-            jnpf_user_info = jnpf_user_data.get("userInfo", {})
+            sso_user_data = user_info_data.get("data", {})
+            sso_user_info = sso_user_data.get("userInfo", {})
 
-            logger.info(f"获取到 JNPF 用户信息: {jnpf_user_info.get('userName')}")
+            logger.info(f"获取到 SSO 用户信息: {sso_user_info.get('userName')}")
 
             # 3. 同步用户信息到 opentask 数据库（existing_user 已在步骤 0 查过）
             user = existing_user
@@ -247,10 +253,10 @@ async def login(
                 from opentask.models.user.model import UserModel
                 user = UserModel(
                     name=username,
-                    jnpf_user_id=jnpf_user_info.get("userId", ""),
-                    jnpf_account=jnpf_user_info.get("userAccount", ""),
-                    jnpf_name=jnpf_user_info.get("userName", username),
-                    jnpf_token=encrypted_jnpf_token,  # 🔒 加密存储
+                    sso_user_id=sso_user_info.get("userId", ""),
+                    sso_account=sso_user_info.get("userAccount", ""),
+                    sso_name=sso_user_info.get("userName", username),
+                    sso_token=encrypted_sso_token,  # 🔒 加密存储
                     jwt_expires_at=expires_at,
                     last_login_time=now
                 )
@@ -264,7 +270,7 @@ async def login(
                     update(UserModel.__table__)
                     .where(UserModel.id == user.id)
                     .values(
-                        jnpf_token=encrypted_jnpf_token,
+                        sso_token=encrypted_sso_token,
                         jwt_expires_at=expires_at,
                         last_login_time=now
                     )
@@ -287,21 +293,21 @@ async def login(
             # 5. 返回 token 和用户信息
             return success_response({
                 **pair,
-                "username": jnpf_user_info.get("userName", username),  # 使用 JNPF 的 userName 作为 username
+                "username": sso_user_info.get("userName", username),  # 使用 SSO 的 userName 作为 username
                 "userId": str(user.id),
-                "userAccount": jnpf_user_info.get("userAccount", ""),
-                "organizeId": jnpf_user_info.get("organizeId", ""),
-                "organizeName": jnpf_user_info.get("organizeName", "")
+                "userAccount": sso_user_info.get("userAccount", ""),
+                "organizeId": sso_user_info.get("organizeId", ""),
+                "organizeName": sso_user_info.get("organizeName", "")
             })
 
     except httpx.TimeoutException:
-        logger.error("JNPF API 请求超时")
+        logger.error("SSO API 请求超时")
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
             detail="请求超时"
         )
     except httpx.RequestError as e:
-        logger.error(f"JNPF API 请求失败: {e}")
+        logger.error(f"SSO API 请求失败: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="服务暂时不可用"
@@ -396,10 +402,10 @@ async def login_local(
     session=Depends(get_session),
 ):
     """
-    opentask 本地账号登录（保留兼容旧客户端，内部与 /login 未启用 JNPF 时的路径一致）
+    opentask 本地账号登录（保留兼容旧客户端，内部与 /login 未启用 SSO 时的路径一致）
 
-    与 /login(JNPF) 的区别：
-    - /login: 走 JNPF 单点登录，需要加密密码
+    与 /login(SSO) 的区别：
+    - /login: 走 SSO 单点登录，需要加密密码
     - /login-local: 使用 opentask 自有账号，密码不加密，直接验证
 
     Args:
@@ -426,7 +432,7 @@ async def login_local(
         **pair,
         "username": user.username or user.name or username,
         "userId": str(user.id),
-        "jnpfName": user.jnpf_name,
+        "ssoName": user.sso_name,
         "name": user.name,
     })
 
@@ -481,7 +487,7 @@ async def dingtalk_callback(
         **pair,
         "username": user.username or user.name or "",
         "userId": str(user.id),
-        "jnpfName": user.jnpf_name,
+        "ssoName": user.sso_name,
         "name": user.name,
     })
 
@@ -499,7 +505,7 @@ async def get_user_info(
       （角色码不依赖播种，避免生产库漏播种时前端拿不到角色）
     - buttons：button 类权限码（manage:user:create 等，前端 v-per指令用）
     - menus：menu 类权限码对应的 route_key 列表（前端动态菜单/路由用）
-    - userName：jnpf_name 优先（前端 user-avatar/欢迎语依赖该字段）
+    - userName：sso_name 优先（前端 user-avatar/欢迎语依赖该字段）
     """
     from sqlalchemy import select
 
@@ -531,7 +537,7 @@ async def get_user_info(
 
     return success_response({
         "userId": str(current_user.id),
-        "userName": current_user.jnpf_name or current_user.name or current_user.username,
+        "userName": current_user.sso_name or current_user.name or current_user.username,
         "roles": roles,
         "buttons": buttons,
         "menus": menus,

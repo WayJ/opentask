@@ -588,8 +588,8 @@ class RequirementService:
                     str(user.id): UserInfo(
                         id=str(user.id),
                         name=user.name,
-                        jnpf_name=getattr(user, 'jnpf_name', None),
-                        jnpf_account=getattr(user, 'jnpf_account', None)
+                        sso_name=getattr(user, 'sso_name', None),
+                        sso_account=getattr(user, 'sso_account', None)
                     )
                     for user in users
                 }

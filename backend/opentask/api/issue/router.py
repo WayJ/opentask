@@ -219,8 +219,8 @@ async def collection_to_response(collection, db: AsyncSession) -> dict:
                 creator_data = {
                     "id": str(user.id),
                     "name": user.name,
-                    "jnpf_name": user.jnpf_name,
-                    "jnpf_account": user.jnpf_account
+                    "sso_name": user.sso_name,
+                    "sso_account": user.sso_account
                 }
         except Exception as e:
             logger.warning(f"Failed to load creator for collection {collection.id}: {e}")
@@ -614,8 +614,8 @@ async def get_comments(
             str(user.id): UserInfo(
                 id=str(user.id),
                 name=user.name,
-                jnpf_name=getattr(user, 'jnpf_name', None),
-                jnpf_account=getattr(user, 'jnpf_account', None)
+                sso_name=getattr(user, 'sso_name', None),
+                sso_account=getattr(user, 'sso_account', None)
             )
             for user in users
         }
@@ -998,8 +998,8 @@ async def get_timeline(
             str(user.id): UserInfo(
                 id=str(user.id),
                 name=user.name,
-                jnpf_name=getattr(user, 'jnpf_name', None),
-                jnpf_account=getattr(user, 'jnpf_account', None)
+                sso_name=getattr(user, 'sso_name', None),
+                sso_account=getattr(user, 'sso_account', None)
             )
             for user in users
         }

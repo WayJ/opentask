@@ -130,13 +130,13 @@ const columns = computed(() => {
       key: 'username',
       title: '账号',
       width: 140,
-      render: (row: Api.SystemManage.User) => row.username || row.jnpfAccount || '-'
+      render: (row: Api.SystemManage.User) => row.username || row.ssoAccount || '-'
     },
     {
       key: 'name',
       title: '姓名',
       width: 130,
-      render: (row: Api.SystemManage.User) => row.name || row.jnpfName || '-'
+      render: (row: Api.SystemManage.User) => row.name || row.ssoName || '-'
     },
     {
       key: 'roles',
@@ -230,8 +230,8 @@ function handleToggleStatus(row: Api.SystemManage.User) {
   window.$dialog?.warning({
     title: disabling ? '禁用用户' : '启用用户',
     content: disabling
-      ? `确认禁用 ${row.name || row.username || row.jnpfAccount} 吗？禁用后该用户将无法访问系统。`
-      : `确认启用 ${row.name || row.username || row.jnpfAccount} 吗？`,
+      ? `确认禁用 ${row.name || row.username || row.ssoAccount} 吗？禁用后该用户将无法访问系统。`
+      : `确认启用 ${row.name || row.username || row.ssoAccount} 吗？`,
     positiveText: '确认',
     negativeText: '取消',
     onPositiveClick: async () => {
@@ -254,14 +254,14 @@ const tempPasswordOwner = ref('');
 function handleResetPassword(row: Api.SystemManage.User) {
   window.$dialog?.warning({
     title: '重置密码',
-    content: `确认重置 ${row.name || row.username || row.jnpfAccount} 的密码吗？重置后该用户的当前登录会话将全部失效。`,
+    content: `确认重置 ${row.name || row.username || row.ssoAccount} 的密码吗？重置后该用户的当前登录会话将全部失效。`,
     positiveText: '确认重置',
     negativeText: '取消',
     onPositiveClick: async () => {
       const { error, data: resp } = await fetchResetUserPassword(row.id);
       if (!error && resp) {
         tempPassword.value = resp.tempPassword;
-        tempPasswordOwner.value = row.username || row.jnpfAccount || '';
+        tempPasswordOwner.value = row.username || row.ssoAccount || '';
         tempPasswordVisible.value = true;
       } else {
         window.$message?.error('重置密码失败');

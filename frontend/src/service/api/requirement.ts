@@ -347,7 +347,7 @@ export interface RequirementComment {
   created_at: string;
   updated_at: string;
   user_info?: {
-    jnpf_name?: string;
+    sso_name?: string;
   };
 }
 

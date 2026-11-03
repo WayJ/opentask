@@ -149,10 +149,10 @@ onMounted(() => {
 
           <NDescriptions label-placement="left" :column="2" bordered>
             <NDescriptionsItem :label="$t('profile.account')">
-              {{ userInfo?.jnpfAccount || userInfo?.jnpfName || '-' }}
+              {{ userInfo?.ssoAccount || userInfo?.ssoName || '-' }}
             </NDescriptionsItem>
             <NDescriptionsItem :label="$t('profile.name')">
-              {{ userInfo?.jnpfName || '-' }}
+              {{ userInfo?.ssoName || '-' }}
             </NDescriptionsItem>
             <NDescriptionsItem :label="$t('profile.role')">
               <NTag v-if="userInfo?.role" :type="getRoleTagType(userInfo.role)">

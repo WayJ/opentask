@@ -265,17 +265,17 @@ def auth_me(obj: Context, as_json: bool):
 
             # Try multiple fields for display
             display_name = (
-                user.get("jnpf_name") or
+                user.get("sso_name") or
                 user.get("name") or
                 user.get("username") or
-                user.get("jnpf_account") or
+                user.get("sso_account") or
                 "Unknown"
             )
 
             skin.status_block({
                 "ID": user.get("id", ""),
                 "Name": display_name,
-                "Account": user.get("jnpf_account", "N/A"),
+                "Account": user.get("sso_account", "N/A"),
                 "Role": user.get("role", "N/A"),
                 "Status": "Active" if user.get("status") == 1 else "Inactive"
             })

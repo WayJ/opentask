@@ -56,11 +56,11 @@ minio:
   secure: false  # HTTP（开发环境）
 
 
-# JNPF 平台配置
-jnpf:
-  # JNPF 基础地址（后端直接调用）
+# SSO 平台配置
+sso:
+  # SSO 基础地址（后端直接调用）
   base_url: "http://localhost:29080"
-  # JNPF 系统编码
+  # SSO 系统编码
   app_code: "workSystem"
   # 请求超时（秒）
   timeout: 10

@@ -26,7 +26,7 @@ worktree: opentask/tunicate · 分支: WayJ/check-oauth2-support · 终端: term
 ## 两侧现状（核实结论）
 
 ### OpenTask（backend/opentask）
-- 现有认证：JWT 会话（`jwt_utils.create_access_token` HS256 + `user.token_version`）、`vk_` PAT（`access_tokens` 表，存 SHA-256 哈希）、钉钉免登（`services/user_center/dingtalk/oauth_service.py`）、JNPF 中间件
+- 现有认证：JWT 会话（`jwt_utils.create_access_token` HS256 + `user.token_version`）、`vk_` PAT（`access_tokens` 表，存 SHA-256 哈希）、钉钉免登（`services/user_center/dingtalk/oauth_service.py`）、SSO 中间件
 - 契约层半套 OAuth：`api/tasks/auth.py` 的 `POST /tasks/token` 只做 client_credentials「API Key 换 OAuth2 形状」，无 client 注册、无授权码、无 scope
 - `app.py:85` 有 `# self.include_router(oauth_router)` —— **被注释的占位，oauth_router 文件不存在**，Provider 需从零建
 - 全局鉴权链：`app.py:80` `common_dependencies = [Depends(authenticate)]` → `auth.py:authenticate` → `get_current_user`（JWT / vk_ 双路）
@@ -88,8 +88,8 @@ PKCE · RFC 7591 动态注册 · RFC 7662 introspection 端点 · OAuth token �
 
 **F. 只读面落点** —— 倾向新开 `/oauth2/api/{tasks,projects,requirements}` 薄封装既有 service 层，不改通用端点
 
-**G. 身份对齐落到哪个字段** —— ⚠️ **OpenTask 全库无 email 字段**。`user` 表列：name / username(unique, lower 归一, 长 50) / password_hash / role / status / token_version / must_change_password / failed_attempts / locked_until / last_login_time / sync_time / jnpf_* / organize_* / position_* / dingtalk_user_id / jwt_expires_at / openai_* / langsmith_* / sentry_*。JNPF 集成侧亦无 email（`JnpfUserInfo` 只有 userId/userAccount/userName/headIcon/organize*/position*）。→ 用户拍板的「email 自动匹配/建号」必须在 username 上落地：
-- **G1（倾向）**：email 作 username 种子，`unique_username(existing, email)`（`services/user_center/utils.py`，冲突自动 _2/_3）+ name=display name + role=viewer + password_hash=None（沿钉钉 `_create_user` 风格）；匹配=username 精确查（lower 归一）→ 命中复用，未命中建号；零 schema 变更。副作用：若该用户已有 JNPF/钉钉同步账号且 username≠email，会另建新号
+**G. 身份对齐落到哪个字段** —— ⚠️ **OpenTask 全库无 email 字段**。`user` 表列：name / username(unique, lower 归一, 长 50) / password_hash / role / status / token_version / must_change_password / failed_attempts / locked_until / last_login_time / sync_time / sso_* / organize_* / position_* / dingtalk_user_id / jwt_expires_at / openai_* / langsmith_* / sentry_*。SSO 集成侧亦无 email（`SsoUserInfo` 只有 userId/userAccount/userName/headIcon/organize*/position*）。→ 用户拍板的「email 自动匹配/建号」必须在 username 上落地：
+- **G1（倾向）**：email 作 username 种子，`unique_username(existing, email)`（`services/user_center/utils.py`，冲突自动 _2/_3）+ name=display name + role=viewer + password_hash=None（沿钉钉 `_create_user` 风格）；匹配=username 精确查（lower 归一）→ 命中复用，未命中建号；零 schema 变更。副作用：若该用户已有 SSO/钉钉同步账号且 username≠email，会另建新号
 - G2：给 `user` 加 `email` 列（迁移 + `unique (lower(email)) where email is not null` + 存量回填 null），改核心用户表需回归
 - G3：G1 最小形态，userinfo 仍返回 email 供展示
 

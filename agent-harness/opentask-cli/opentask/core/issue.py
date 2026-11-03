@@ -164,7 +164,7 @@ def _display_issue_details(skin: ReplSkin, client: OpenTaskClient, issue: dict, 
             author = comment.get("author", {})
             author_name = (
                 author.get("name") or
-                author.get("jnpf_name") or
+                author.get("sso_name") or
                 author.get("username") or
                 comment.get("user_id", "Unknown")
             )
@@ -203,7 +203,7 @@ def _resolve_user_id(skin: ReplSkin, client: OpenTaskClient, assignee_input: str
     - "me": Current user
     - "none": Unassign (returns None)
     - UUID: Direct user ID
-    - Username/JNPF account: Search and return user ID
+    - Username/SSO account: Search and return user ID
 
     Args:
         skin: REPL skin for output
@@ -251,14 +251,14 @@ def _resolve_user_id(skin: ReplSkin, client: OpenTaskClient, assignee_input: str
         if len(users) == 1:
             # Only one match - use it
             user_id = users[0].get("id")
-            user_name = users[0].get("jnpf_name") or users[0].get("jnpf_account")
+            user_name = users[0].get("sso_name") or users[0].get("sso_account")
             skin.info(f"Found user: {user_name}")
             return user_id
 
         # Multiple matches - return error (no interactive selection for AI)
         skin.error(f"Multiple users found matching '{assignee_input}' ({len(users)} matches)")
         skin.hint("Use 'me' for yourself, 'none' to unassign, or a valid UUID")
-        matched_names = [u.get('jnpf_account', u.get('jnpf_name', 'Unknown')) for u in users[:3]]
+        matched_names = [u.get('sso_account', u.get('sso_name', 'Unknown')) for u in users[:3]]
         skin.hint(f"Matched users: {', '.join(matched_names)}...")
         return None
 
@@ -563,10 +563,10 @@ def list_my_issues(obj: "Context", status, issue_type, priority, project_id, ope
 
         # Try multiple fields for user display name
         user_name = (
-            user_data.get("jnpf_name") if isinstance(user_data, dict) else None or
+            user_data.get("sso_name") if isinstance(user_data, dict) else None or
             user_data.get("name") if isinstance(user_data, dict) else None or
             user_data.get("username") if isinstance(user_data, dict) else None or
-            user_data.get("jnpf_account") if isinstance(user_data, dict) else None or
+            user_data.get("sso_account") if isinstance(user_data, dict) else None or
             user_id[:8] if user_id else "Unknown"
         )
 
@@ -1556,7 +1556,7 @@ def assign_issue(obj: "Context", issue_id: str, assignee_input: str, as_json: bo
 
     Assignee formats:
     - User ID (UUID): Direct assignment
-    - Username: Search by name or JNPF account
+    - Username: Search by name or SSO account
     - 'me': Assign to current user
     - 'none': Unassign the issue
 
@@ -1604,7 +1604,7 @@ def assign_issue(obj: "Context", issue_id: str, assignee_input: str, as_json: bo
             assignee_name = "Unassigned"
             if assignee_id:
                 assignee = issue.get("assignee", {})
-                assignee_name = assignee.get("name") or assignee.get("jnpf_name") or assignee_id
+                assignee_name = assignee.get("name") or assignee.get("sso_name") or assignee_id
 
             # Ensure assignee_id is explicitly included in the response
             response_data = issue.copy()
@@ -1622,7 +1622,7 @@ def assign_issue(obj: "Context", issue_id: str, assignee_input: str, as_json: bo
 
         if assignee_id:
             assignee = issue.get("assignee", {})
-            assignee_name = assignee.get("name") or assignee.get("jnpf_name") or assignee_id
+            assignee_name = assignee.get("name") or assignee.get("sso_name") or assignee_id
             skin.success(f"Issue assigned to: {assignee_name}")
         else:
             skin.success("Issue unassigned")
@@ -1881,7 +1881,7 @@ def list_comments(obj: "Context", issue_id: str, as_json: bool):
             author = comment.get("author", {})
             author_name = (
                 author.get("name") or
-                author.get("jnpf_name") or
+                author.get("sso_name") or
                 comment.get("user_id", "Unknown")[:8]
             )
 

@@ -1,7 +1,7 @@
 """
 密码加密工具（Python 版本）
 
-JNPF 密码加密流程：
+SSO 密码加密流程：
 1. 对明文密码进行 MD5 加密
 2. 使用 AES-ECB 模式加密（密钥为 MD5(VITE_CIPHER_KEY)）
 3. 直接返回加密结果的 Hex 格式
@@ -16,11 +16,11 @@ CIPHER_KEY = "EY8WePvjM5GGwQzn"
 
 def encrypt_password(password: str) -> str:
     """
-    JNPF 密码加密
+    SSO 密码加密
 
     .. deprecated::
-        Phase 2 起后端默认走本地 bcrypt 校验（jnpf_enabled=false），
-        登录密码以明文提交，不再需要 JNPF 加密。本函数仅保留用于
+        Phase 2 起后端默认走本地 bcrypt 校验（sso_enabled=false），
+        登录密码以明文提交，不再需要 SSO 加密。本函数仅保留用于
         兼容旧的集成环境，后续版本可能移除。
 
     Args:

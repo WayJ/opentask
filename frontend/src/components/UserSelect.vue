@@ -27,8 +27,8 @@ defineEmits<PropsEmits>();
 // 用户列表（使用简化的类型）
 interface SimpleUser {
   id: string;
-  jnpf_account: string;
-  jnpf_name: string;
+  sso_account: string;
+  sso_name: string;
 }
 
 const users = ref<SimpleUser[]>([]);
@@ -76,7 +76,7 @@ const options = computed(() => {
     return [];
   }
   return users.value.map(user => ({
-    label: user.jnpf_name || user.jnpf_account,
+    label: user.sso_name || user.sso_account,
     value: user.id,
     user
   }));
@@ -89,17 +89,17 @@ function handleSelect(value: string | null) {
 
 // 获取用户头像文字
 function getUserAvatar(user: SimpleUser): string {
-  return (user.jnpf_name || user.jnpf_account || '?').charAt(0).toUpperCase();
+  return (user.sso_name || user.sso_account || '?').charAt(0).toUpperCase();
 }
 
 // 获取用户显示名称
 function getUserLabel(user: SimpleUser): string {
-  return user.jnpf_name || user.jnpf_account || '';
+  return user.sso_name || user.sso_account || '';
 }
 
 // 获取用户账号
 function getUserAccount(user: SimpleUser): string {
-  return user.jnpf_account || '';
+  return user.sso_account || '';
 }
 </script>
 

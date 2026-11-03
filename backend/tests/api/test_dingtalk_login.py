@@ -208,7 +208,7 @@ async def test_auto_register_new_user(flow):
     assert user.status == 1
     assert user.password_hash is None
     assert user.name == "张三"
-    assert user.jnpf_name == "张三"
+    assert user.sso_name == "张三"
     assert user.username == "张三_2"
 
     # 部门映射：10/11 都挂上，主部门 = main_dept_id(11)
