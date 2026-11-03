@@ -225,11 +225,13 @@ fi
 # ---------------------------------------------------------------- 宿主 nginx
 if [ "$SKIP_NGINX" -eq 0 ]; then
     say "5/5 宿主 nginx：安装片段 → include → 校验 → reload"
-    ssh "$HOST" "bash -s" "$ROOT" <<'REMOTE_SCRIPT'
+    # 先把片段送过去——远端脚本里的路径是远端的，不能直接用本地路径 cp
+    scp -q "$ROOT/deploy/nginx/opentask-locations.conf" "$HOST:/tmp/opentask-locations.conf"
+    ssh "$HOST" "bash -s" <<'REMOTE_SCRIPT'
 set -euo pipefail
-ROOT="$1"
 mkdir -p /etc/nginx/snippets
-cp "$ROOT/deploy/nginx/opentask-locations.conf" /etc/nginx/snippets/opentask-locations.conf
+cp /tmp/opentask-locations.conf /etc/nginx/snippets/opentask-locations.conf
+rm -f /tmp/opentask-locations.conf
 
 SITE=/etc/nginx/sites-available/notegit
 if ! grep -q "snippets/opentask-locations.conf" "$SITE"; then
