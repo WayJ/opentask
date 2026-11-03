@@ -14,3 +14,4 @@ export * from './issue';
 export * from './issue-collection';
 export * from './workspace';
 export * from './inbox';
+export * from './saved-views';

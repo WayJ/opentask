@@ -45,6 +45,7 @@ from opentask.models.issue import (
 from opentask.models.issue_collection import IssueCollection
 from opentask.models.workspace import Workspace, WorkspaceMember
 from opentask.models.notification import Notification
+from opentask.models.issue_saved_view import IssueSavedView
 from opentask.models.oauth2 import (
     OAuthAccessToken,
     OAuthAuthorizationCode,
@@ -102,6 +103,7 @@ __all__ = [
     "Workspace",
     "WorkspaceMember",
     "Notification",
+    "IssueSavedView",
     "OAuthClient",
     "OAuthAuthorizationCode",
     "OAuthAccessToken",

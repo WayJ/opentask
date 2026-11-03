@@ -5,7 +5,10 @@ import {
   NButton,
   NCard,
   NDataTable,
+  NDropdown,
   NEmpty,
+  NInput,
+  NModal,
   NPagination,
   NSelect,
   NSpace,
@@ -16,7 +19,7 @@ import {
   NText,
   NTooltip
 } from 'naive-ui';
-import type { DataTableColumns } from 'naive-ui';
+import type { DataTableColumns, DropdownOption } from 'naive-ui';
 import {
   getIssuePriorityTagType,
   getIssueStatusTagType,
@@ -27,6 +30,12 @@ import {
 } from '@/constants/issue';
 import { fetchProjectList } from '@/service/api';
 import { issueApi } from '@/service/api/issue';
+import {
+  type SavedView,
+  fetchCreateSavedView,
+  fetchSavedViews,
+  fetchSetSavedViewFavorite
+} from '@/service/api/saved-views';
 import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
 import type { ParsedQuery } from '@/utils/issueSearchParser';
@@ -81,6 +90,133 @@ const filters = reactive({
 
 // 智能搜索
 const smartSearchValue = ref('');
+
+// Saved Views（E4-S1 个人视图）
+const savedViews = ref<SavedView[]>([]);
+const savedViewsLoading = ref(false);
+const saveViewModalVisible = ref(false);
+const saveViewName = ref('');
+const saveViewSubmitting = ref(false);
+const activeSavedViewId = ref<string | null>(null);
+
+async function loadSavedViews() {
+  savedViewsLoading.value = true;
+  try {
+    const response = await fetchSavedViews();
+    savedViews.value = response.data?.rows || [];
+  } catch {
+    savedViews.value = [];
+  } finally {
+    savedViewsLoading.value = false;
+  }
+}
+
+function buildCurrentFilterPayload() {
+  const filter: Record<string, unknown> = {};
+  if (filters.status) filter.status = filters.status;
+  if (filters.type) filter.type = filters.type;
+  if (filters.priority) filter.priority = filters.priority;
+  if (filters.project_id) filter.project_id = filters.project_id;
+  if (filters.search) filter.search = filters.search;
+  filter.tab = activeTab.value;
+  return filter;
+}
+
+function openSaveViewModal() {
+  saveViewName.value = '';
+  saveViewModalVisible.value = true;
+}
+
+async function confirmSaveView() {
+  const name = saveViewName.value.trim();
+  if (!name) {
+    window.$message?.warning('请输入视图名称');
+    return false;
+  }
+  saveViewSubmitting.value = true;
+  try {
+    await fetchCreateSavedView({
+      name,
+      filter: buildCurrentFilterPayload(),
+      sort: { sort_by: 'created_at', sort_order: 'desc' },
+      display: { view_mode: viewMode.value },
+      is_favorite: false
+    });
+    window.$message?.success('视图已保存');
+    await loadSavedViews();
+    return true;
+  } catch {
+    window.$message?.error('保存视图失败');
+    return false;
+  } finally {
+    saveViewSubmitting.value = false;
+  }
+}
+
+async function applySavedView(view: SavedView) {
+  const f = view.filter || {};
+  filters.type = (f.type as Api.Issue.IssueType | undefined) || undefined;
+  filters.priority = (f.priority as Api.Issue.IssuePriority | undefined) || undefined;
+  filters.project_id = (f.project_id as string | undefined) || undefined;
+  filters.status = (f.status as Api.Issue.IssueStatus | undefined) || undefined;
+  filters.search = (f.search as string | undefined) || '';
+  smartSearchValue.value = filters.search || '';
+
+  const tab = (f.tab as 'my_issues' | 'open' | 'closed' | 'all' | undefined) || undefined;
+  if (tab) {
+    activeTab.value = tab;
+  } else if (filters.status) {
+    const openStatuses: Api.Issue.IssueStatus[] = ['open', 'in_progress', 'feedback'];
+    const closedStatuses: Api.Issue.IssueStatus[] = ['closed', 'rejected', 'resolved'];
+    if (openStatuses.includes(filters.status)) activeTab.value = 'open';
+    else if (closedStatuses.includes(filters.status)) activeTab.value = 'closed';
+  }
+
+  if (view.display?.view_mode === 'board' || view.display?.view_mode === 'list') {
+    viewMode.value = view.display.view_mode;
+  }
+
+  activeSavedViewId.value = view.id;
+  pagination.page = 1;
+  await loadIssues();
+  window.$message?.success(`已应用视图「${view.name}」`);
+}
+
+async function toggleActiveViewFavorite() {
+  const id = activeSavedViewId.value;
+  if (!id) {
+    window.$message?.info('请先应用一个已保存视图');
+    return;
+  }
+  const view = savedViews.value.find(v => v.id === id);
+  if (!view) return;
+  try {
+    await fetchSetSavedViewFavorite(view.id, !view.isFavorite);
+    await loadSavedViews();
+    window.$message?.success(view.isFavorite ? '已取消收藏' : '已收藏');
+  } catch {
+    window.$message?.error('更新收藏失败');
+  }
+}
+
+const savedViewDropdownOptions = computed<DropdownOption[]>(() => {
+  if (!savedViews.value.length) {
+    return [{ label: '暂无已保存视图', key: '__empty', disabled: true }];
+  }
+  return savedViews.value.map(v => ({
+    label: v.isFavorite ? `★ ${v.name}` : v.name,
+    key: v.id
+  }));
+});
+
+function handleSavedViewSelect(key: string | number) {
+  const id = String(key);
+  if (id === '__empty') return;
+  const view = savedViews.value.find(v => v.id === id);
+  if (view) {
+    applySavedView(view);
+  }
+}
 
 // 语法帮助显示状态
 const showSyntaxHelp = ref(false);
@@ -503,6 +639,7 @@ const projectOptions = computed(() => {
 onMounted(() => {
   loadProjects();
   loadIssues();
+  loadSavedViews();
 });
 </script>
 
@@ -608,6 +745,34 @@ onMounted(() => {
             />
           </div>
           <div class="search-actions">
+            <NDropdown trigger="click" :options="savedViewDropdownOptions" @select="handleSavedViewSelect">
+              <NButton text size="small" class="action-btn">
+                <icon-mdi-bookmark-outline />
+                <span class="action-btn-text">我的视图</span>
+                <icon-mdi-chevron-down class="chevron-icon" />
+              </NButton>
+            </NDropdown>
+
+            <NTooltip>
+              <template #trigger>
+                <NButton text size="small" class="action-btn" @click="openSaveViewModal">
+                  <icon-mdi-content-save-outline />
+                  <span class="action-btn-text">保存视图</span>
+                </NButton>
+              </template>
+              <div>将当前筛选保存为个人视图</div>
+            </NTooltip>
+
+            <NTooltip v-if="activeSavedViewId">
+              <template #trigger>
+                <NButton text size="small" class="action-btn" @click="toggleActiveViewFavorite">
+                  <icon-mdi-star />
+                  <span class="action-btn-text">收藏</span>
+                </NButton>
+              </template>
+              <div>切换当前视图收藏状态</div>
+            </NTooltip>
+
             <NTooltip>
               <template #trigger>
                 <NButton text size="small" class="action-btn" @click="filtersExpanded = !filtersExpanded">
@@ -697,6 +862,24 @@ onMounted(() => {
         </div>
       </div>
 
+      <!-- Saved View favorites -->
+      <div v-if="savedViews.some(v => v.isFavorite)" class="saved-view-favorites">
+        <NSpace :size="6" align="center">
+          <NText depth="3" style="font-size: 12px">收藏视图</NText>
+          <NTag
+            v-for="v in savedViews.filter(x => x.isFavorite)"
+            :key="v.id"
+            size="small"
+            round
+            :type="activeSavedViewId === v.id ? 'primary' : 'default'"
+            style="cursor: pointer"
+            @click="applySavedView(v)"
+          >
+            ★ {{ v.name }}
+          </NTag>
+        </NSpace>
+      </div>
+
       <!-- Active Filters Tags -->
       <div v-if="hasActiveFilters" class="active-filters">
         <NSpace :size="6">
@@ -766,6 +949,18 @@ onMounted(() => {
         </template>
       </NSpin>
     </NCard>
+
+    <NModal
+      v-model:show="saveViewModalVisible"
+      preset="dialog"
+      title="保存为个人视图"
+      positive-text="保存"
+      negative-text="取消"
+      :loading="saveViewSubmitting"
+      @positive-click="confirmSaveView"
+    >
+      <NInput v-model:value="saveViewName" placeholder="视图名称，例如：我的高优缺陷" maxlength="128" />
+    </NModal>
   </div>
 </template>
 
@@ -1087,6 +1282,10 @@ onMounted(() => {
 }
 
 /* Active Filters */
+.saved-view-favorites {
+  margin: 8px 0 4px;
+}
+
 .active-filters {
   padding: 8px 16px 12px;
   background: #fafbfc;
