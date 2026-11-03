@@ -14,6 +14,7 @@ from opentask.api.agent.router import router as agent_router
 from opentask.api.requirement.router import router as requirement_router
 from opentask.api.project.router import router as project_router
 from opentask.api.workspace import router as workspace_router
+from opentask.api.inbox import router as inbox_router
 # from opentask.api.ai.router import router as ai_router  # 模块不存在，已注释
 from opentask.api.mission_center import router as mission_center_router
 from opentask.api.agent.routes import router as agent_management_router
@@ -93,6 +94,7 @@ class App(fastapi.FastAPI):
         self.include_router(settings_router, dependencies=common_dependencies)
         self.include_router(conversation_router, dependencies=common_dependencies)
         self.include_router(workspace_router)
+        self.include_router(inbox_router)
         self.include_router(agent_router, dependencies=common_dependencies)
         # Requirement routes (需要认证)
         self.include_router(requirement_router, dependencies=common_dependencies)

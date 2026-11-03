@@ -1,6 +1,6 @@
 ---
 epic: E3
-status: active
+status: local-complete
 date: 2026-11-03
 ---
 
@@ -21,14 +21,14 @@ date: 2026-11-03
 ## Definition of Done
 
 - [ ] Epic 下全部 Sprint（S1–S3）已 acceptance 且 state=closed，合并证据写入各 sprint 台账
-- [ ] `cd backend && uv run pytest tests/ -v` 全绿（含新增 register / workspace 隔离用例）
-- [ ] `cd frontend && npm run lint && npm run build` 通过（0 errors）
-- [ ] 开放注册：未登录可自助建号；弱密码 / 重名有明确错误；密码路径复用 login crypto
-- [ ] Workspace：用户可创建、列出「我的」、切换；非成员无法读他区 Project/Issue
-- [ ] Project/Issue 列表与创建强制 workspace 作用域；存量行已回填默认工作区
-- [ ] 看板 + 列表双视图可用且与 status/assignee/position 一致（S2）
-- [ ] Inbox 对指派/评论/@ 产生可读通知流（S3）
-- [ ] DESIGN.md / Naive UI / soybean 令牌被前端改动遵守；无 ⌘K 相关交付
+- [x] `cd backend && uv run pytest tests/ -v` 全绿（含新增 register / workspace 隔离用例）
+- [x] `cd frontend && npm run lint && npm run build` 通过（0 errors）
+- [x] 开放注册：未登录可自助建号；弱密码 / 重名有明确错误；密码路径复用 login crypto
+- [x] Workspace：用户可创建、列出「我的」、切换；非成员无法读他区 Project/Issue
+- [x] Project/Issue 列表与创建强制 workspace 作用域；存量行已回填默认工作区
+- [x] 看板 + 列表双视图可用且与 status/assignee/position 一致（S2）
+- [x] Inbox 对指派/评论/@ 产生可读通知流（S3）
+- [x] DESIGN.md / Naive UI / soybean 令牌被前端改动遵守；无 ⌘K 相关交付
 
 ## Sprint Breakdown
 
@@ -36,7 +36,7 @@ date: 2026-11-03
 |---|---|---|
 | S1 | closed | **开放注册 + Workspace（创建/加入/切换）+ Project/Issue 挂 workspace_id 与隔离**。必须最先做：租户边界影响数据模型与后续视图/通知作用域。evidence: `docs/superpowers/sprints/2026-11-03-E3-S1-plan.md` |
 | S2 | closed | Issue 看板 + 列表双视图；复用 status/assignee/position。evidence: `docs/superpowers/sprints/2026-11-04-E3-S2-plan.md` / `docs/superpowers/acceptances/2026-11-04-E3-S2-acceptance.md` |
-| S3 | pending | Inbox 通知流（assign / comment / @）；通知为库内记录，不做邮件投递 |
+| S3 | closed | Inbox 通知流（assign / comment / @）；通知为库内记录，不做邮件投递。evidence: `docs/superpowers/sprints/2026-11-04-E3-S3-plan.md` / `docs/superpowers/acceptances/2026-11-04-E3-S3-acceptance.md` |
 | S4 | optional | 仅当 S1–S3 合并后仍需跨模块抛光/回归时启用；优先控制在 3 个 sprint |
 
 推荐顺序理由：无 Workspace 则看板与 Inbox 的「可见范围」无法定义；开放注册与默认工作区同事务可降低空租户体验摩擦。
@@ -164,3 +164,5 @@ date: 2026-11-03
 
 - 2026-11-04（UTC+8）：E3-S2 started（分支 `sprint/E3-S2`，基于 S1 tip `9659718`）；实现看板+列表双视图。
 - 2026-11-04（UTC+8）：E3-S2 closed；acceptance `docs/superpowers/acceptances/2026-11-04-E3-S2-acceptance.md`；分支 `sprint/E3-S2` 未推远程。下一步 S3（Inbox）。
+- 2026-11-04（UTC+8）：E3-S3 started（分支 `sprint/E3-S3`，基于 S2 tip `4475f90`）；实现 Inbox 通知流。
+- 2026-11-04（UTC+8）：E3-S3 closed；acceptance `docs/superpowers/acceptances/2026-11-04-E3-S3-acceptance.md`；分支 `sprint/E3-S3` 未推远程。Epic 本地交付齐，合并证据待 SSH/GitHub。

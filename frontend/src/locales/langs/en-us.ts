@@ -234,6 +234,7 @@ const local: App.I18n.Schema = {
     500: 'Server Error',
     'iframe-page': 'Iframe',
     home: 'Home',
+    inbox: 'Inbox',
     dashboard: 'Dev Dashboard',
     projects: 'Projects',
     'projects-detail': 'Project Detail',

@@ -85,6 +85,18 @@ export const generatedRoutes: GeneratedRoute[] = [
     }
   },
   {
+    name: 'inbox',
+    path: '/inbox',
+    component: 'layout.base$view.inbox',
+    meta: {
+      title: 'inbox',
+      i18nKey: 'route.inbox',
+      icon: 'mdi:bell-outline',
+      order: 2.5,
+      hideInMenu: true
+    }
+  },
+  {
     name: 'issue',
     path: '/issue',
     component: 'layout.base',

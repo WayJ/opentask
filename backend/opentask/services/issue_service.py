@@ -29,6 +29,7 @@ from opentask.models.issue.enums import (
     RelationType,
 )
 from opentask.services.user_center.rbac_service import RbacService
+from opentask.services.notification.service import NotificationService
 
 
 class IssueService:
@@ -337,9 +338,11 @@ class IssueService:
                 )
 
         # 记录分配变更
+        assignee_changed_to = None
         if "assignee_id" in update_data:
             old_assignee = await self._get_issue_assignee(issue_id)
             if old_assignee != update_data["assignee_id"]:
+                assignee_changed_to = update_data["assignee_id"]
                 # 获取用户信息对象
                 old_assignee_info = await self._get_user_info_dict(old_assignee)
                 new_assignee_info = await self._get_user_info_dict(update_data["assignee_id"])
@@ -368,7 +371,14 @@ class IssueService:
         await self.db.execute(query)
         await self.db.commit()
 
-        return await self.get_issue(issue_id)
+        issue = await self.get_issue(issue_id)
+        if issue and assignee_changed_to:
+            await NotificationService(self.db).notify_assigned(
+                issue,
+                actor_user_id=user_id,
+                new_assignee_id=assignee_changed_to,
+            )
+        return issue
 
     async def move_issue_on_board(
         self,
@@ -540,6 +550,16 @@ class IssueService:
         await self.db.commit()
         # 注释掉 refresh 以避免枚举值问题
         # await self.db.refresh(comment)
+
+        # Inbox：评论 / @mention 通知（非作者）
+        issue = await self.get_issue(issue_id)
+        if issue:
+            await NotificationService(self.db).notify_comment(
+                issue,
+                actor_user_id=user_id,
+                comment_content=content,
+                comment_id=comment.id,
+            )
         return comment
 
     async def update_comment(

@@ -23,6 +23,7 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   agents: () => import("@/views/agents/index.vue"),
   dashboard: () => import("@/views/dashboard/index.vue"),
   home: () => import("@/views/home/index.vue"),
+  inbox: () => import("@/views/inbox/index.vue"),
   "issue_collection-create": () => import("@/views/issue/collection-create/index.vue"),
   "issue_collection-list": () => import("@/views/issue/collection-list/index.vue"),
   issue_collection: () => import("@/views/issue/collection/[id].vue"),

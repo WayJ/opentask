@@ -170,6 +170,7 @@ const routeMap: RouteMap = {
   "dashboard": "/dashboard",
   "home": "/home",
   "iframe-page": "/iframe-page/:url",
+  "inbox": "/inbox",
   "issue": "/issue",
   "issue_collection": "/issue/collection/:id",
   "issue_collection-create": "/issue/collection-create",

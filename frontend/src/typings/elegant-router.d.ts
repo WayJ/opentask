@@ -24,6 +24,7 @@ declare module "@elegant-router/types" {
     "dashboard": "/dashboard";
     "home": "/home";
     "iframe-page": "/iframe-page/:url";
+    "inbox": "/inbox";
     "issue": "/issue";
     "issue_collection": "/issue/collection/:id";
     "issue_collection-create": "/issue/collection-create";
@@ -112,6 +113,7 @@ declare module "@elegant-router/types" {
     | "dashboard"
     | "home"
     | "iframe-page"
+    | "inbox"
     | "issue"
     | "knowledge-base"
     | "login"
@@ -144,6 +146,7 @@ declare module "@elegant-router/types" {
     | "agents"
     | "dashboard"
     | "home"
+    | "inbox"
     | "issue_collection-create"
     | "issue_collection-list"
     | "issue_collection"
