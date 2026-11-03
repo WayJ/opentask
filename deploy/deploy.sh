@@ -96,13 +96,13 @@ if [ "$SKIP_BUILD" -eq 0 ]; then
         die "dist/index.html 里没有 /opentask/assets/ 引用——VITE_BASE_URL 改动没生效？"
     fi
     say "     产物自检通过（/opentask/assets/ 前缀）"
-else
-    say "1/5 跳过前端构建（--skip-build）"
-fi
 
-cp "$ROOT/frontend/nginx.conf" "$BUILD_CTX/nginx.conf"
-cp "$ROOT/frontend/Dockerfile.dist" "$BUILD_CTX/Dockerfile"
-tar -C "$BUILD_CTX" --exclude='._*' -czf "$BUILD_CTX/frontend-dist.tar.gz" dist nginx.conf Dockerfile
+    cp "$ROOT/frontend/nginx.conf" "$BUILD_CTX/nginx.conf"
+    cp "$ROOT/frontend/Dockerfile.dist" "$BUILD_CTX/Dockerfile"
+    tar -C "$BUILD_CTX" --exclude='._*' -czf "$BUILD_CTX/frontend-dist.tar.gz" dist nginx.conf Dockerfile
+else
+    say "1/5 跳过前端构建（--skip-build）：复用服务器上已有的前端镜像"
+fi
 
 # ---------------------------------------------------------------- 送达
 say "2/5 同步源码、编排文件与前端产物"
@@ -119,14 +119,17 @@ tar -C "$ROOT" \
 # 清掉历史遗留的 AppleDouble 残片（首轮发布带过去过 485 个）
 ssh "$HOST" "find '$REMOTE_DIR' -name '._*' -delete; rm -f '$REMOTE_DIR/backend/config/local.yaml'"
 ssh "$HOST" "mkdir -p '$REMOTE_DIR/data'"
-scp -q "$BUILD_CTX/frontend-dist.tar.gz" "$HOST:$REMOTE_DIR/frontend-dist.tar.gz"
+if [ "$SKIP_BUILD" -eq 0 ]; then
+    scp -q "$BUILD_CTX/frontend-dist.tar.gz" "$HOST:$REMOTE_DIR/frontend-dist.tar.gz"
+fi
 
 # ---------------------------------------------------------------- 服务器起栈
 say "3/5 服务器侧：解包前端产物 → 打包前端镜像 → 构建后端镜像 → 起栈"
-ssh "$HOST" "bash -s" "$REMOTE_DIR" "$RELEASE_TAG" <<'REMOTE_SCRIPT'
+ssh "$HOST" "bash -s" "$REMOTE_DIR" "$RELEASE_TAG" "$SKIP_BUILD" <<'REMOTE_SCRIPT'
 set -euo pipefail
 REMOTE_DIR="$1"
 RELEASE_TAG="$2"
+SKIP_BUILD="$3"
 cd "$REMOTE_DIR"
 
 # --- swap：构建期内存缓冲（机器只有 1.6GB 内存且默认无 swap）---
@@ -143,11 +146,19 @@ else
 fi
 
 # --- 前端产物 → 版本化镜像（原生 amd64，只做 COPY，几秒）---
-rm -rf frontend-build && mkdir frontend-build
-tar -xzf frontend-dist.tar.gz -C frontend-build
-echo "打包前端镜像 opentask-frontend:$RELEASE_TAG …"
-docker build -t "opentask-frontend:$RELEASE_TAG" frontend-build
-rm -rf frontend-build frontend-dist.tar.gz
+if [ "$SKIP_BUILD" -eq 0 ]; then
+    rm -rf frontend-build && mkdir frontend-build
+    tar -xzf frontend-dist.tar.gz -C frontend-build
+    echo "打包前端镜像 opentask-frontend:$RELEASE_TAG …"
+    docker build -t "opentask-frontend:$RELEASE_TAG" frontend-build
+    rm -rf frontend-build frontend-dist.tar.gz
+else
+    echo "跳过前端镜像打包（--skip-build），沿用服务器上已有的镜像"
+    EXISTING="$(docker images --format '{{.Repository}}:{{.Tag}}' | grep '^opentask-frontend:' | head -1)"
+    [ -n "$EXISTING" ] || { echo "服务器上没有任何 opentask-frontend 镜像，无法跳过构建" >&2; exit 1; }
+    echo "沿用 $EXISTING（重打标签为 opentask-frontend:$RELEASE_TAG）"
+    docker tag "$EXISTING" "opentask-frontend:$RELEASE_TAG"
+fi
 
 # --- 密钥：已存在则不覆盖（避免轮换掉线上 JWT 密钥导致全员掉线）---
 if [ ! -f .env ]; then
