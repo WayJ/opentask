@@ -32,6 +32,12 @@ import argparse
 import asyncio
 import secrets
 import sys
+from pathlib import Path
+
+# 路径自举：本脚本以 `python scripts/create_admin_user.py` 调用时，sys.path[0] 是
+# scripts/ 目录，而 opentask 包在**上一级**（backend/opentask）。镜像里后端依赖是
+# `uv sync --no-install-project` 装的——项目自身没有进 venv，故这里必须显式补路径。
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from passlib.context import CryptContext
 from sqlalchemy import select
