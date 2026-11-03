@@ -56,13 +56,13 @@ closed-at: 2026-11-03
 | `frontend/.env.prod.local` | reuse | 承载本地内网地址，已被 .gitignore 忽略 | 2026-10-31 | `.gitignore` .env.*.local |
 | `extensions/chatapp/` | retire | 目录在改名过程中被清空，用户确认不发布；仅保留 `.env.prod.example` | 2026-10-31 | 用户确认 2026-10-31 |
 | `backend/opentask/api/oauth.py`（断链符号链接） | retire | 指向已不存在的 `oauth/router.py`，改名无关的死链 | 2026-10-31 | `find -type l` 检查 |
-| 根目录 `Dockerfile` / `docker-compose.yml` | watch | Node+Prisma 模板残留，与 Python 后端不匹配，发布不依赖，待评估；2026-11-03 已登记为技术债 TD3（owner WayJ），E1 关闭时仍未偿 | 2026-10-31 | Dockerfile 内容；TD3 |
+| 根目录 `Dockerfile` / `docker-compose.yml` | reuse | 2026-11-03 已从 Node+Prisma 模板**重写**为 Python 3.11 + uv 后端镜像 + postgres 15 + 前端 nginx 三件套（新增 `frontend/Dockerfile`、`frontend/nginx.conf`、两份 `.dockerignore`），并删掉后端并不依赖的 redis 服务；TD3 同步销账 | 2026-10-31 → 2026-11-03 | Dockerfile 内容；TD3（已关闭）；全栈真跑证据见 `.agents/notes/2026-11-03-debt-fixes.md` |
 
 ## Open Questions
 
 | id | question | status | resolution |
 |---|---|---|---|
-| Q1 | 部署侧 nginx 是否同步把 `/vibeking/` location 改为 `/opentask/`？ | deferred | 仓库内无 nginx 配置，部署侧不在本仓库控制范围；2026-11-03 移交运维 checklist（见 `.agents/notes/2026-11-03-epic-closure.md`），上线前必须核对，否则线上前端请求 404 |
+| Q1 | 部署侧 nginx 是否同步把 `/vibeking/` location 改为 `/opentask/`？ | deferred | 仓库内无 nginx 配置，部署侧不在本仓库控制范围；2026-11-03 移交运维 checklist（见 `.agents/notes/2026-11-03-epic-closure.md`），上线前必须核对，否则线上前端请求 404。2026-11-03 补：仓内新增**参考配置** `frontend/nginx.conf`（前端容器内形态：静态托管 + `location /opentask/ { proxy_pass http://backend:7377/; }`），运维侧可据此对齐；该文件是容器内配置，**不等于**生产 nginx 已同步 |
 | Q2 | 后端包 `backend/vibeking` → `backend/opentask` 改名后，已有的 `.venv` 环境与 IDE 索引是否需要重建？ | closed | 无需重建（2026-11-03）：`.venv` 由 uv 按 `pyproject.toml` 管理，`opentask` 包为 editable 安装，改名后 `uv run pytest` 全绿即证明环境自愈；IDE 索引若仍旧需开发者本地刷新一次缓存（非仓库事项） |
 | Q3 | `docs.vibeking.com` / `support@vibeking.com` 等外部链接是否需要指向新域名？ | deferred | 域名归属不在本仓库，2026-11-03 移交用户确认（见 `.agents/notes/2026-11-03-epic-closure.md`）；仓库内已无指向这两个域名的链接 |
 | Q4 | 根目录 Node/Prisma 模板 Dockerfile 是删除还是重写为 Python 版？ | deferred | 不阻塞发布；已登记为 TD3（`docs/tech-debt-tracker.md`），owner WayJ |

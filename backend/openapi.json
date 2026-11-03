@@ -10563,6 +10563,704 @@
         }
       }
     },
+    "/api/oauth2/authorize/context": {
+      "get": {
+        "tags": [
+          "OAuth2"
+        ],
+        "summary": "校验授权请求并返回同意页上下文",
+        "description": "同意页展示前调用：校验 client / redirect_uri / scope，并返回展示信息\n\n校验失败按 RFC 6749 §4.1.2.1 处理：\n- redirect_uri 非法 → **不重定向**，直接 400（防开放重定向）；\n- 其余非法 → 400 + error 字段。",
+        "operationId": "authorize_context_api_oauth2_authorize_context_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "客户端标识",
+              "title": "Client Id"
+            },
+            "description": "客户端标识"
+          },
+          {
+            "name": "redirect_uri",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "回调地址",
+              "title": "Redirect Uri"
+            },
+            "description": "回调地址"
+          },
+          {
+            "name": "response_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "授权类型（仅 code）",
+              "default": "code",
+              "title": "Response Type"
+            },
+            "description": "授权类型（仅 code）"
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "请求的 scope（空格分隔）",
+              "default": "",
+              "title": "Scope"
+            },
+            "description": "请求的 scope（空格分隔）"
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "客户端自带状态串",
+              "title": "State"
+            },
+            "description": "客户端自带状态串"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/oauth2/authorize/approve": {
+      "post": {
+        "tags": [
+          "OAuth2"
+        ],
+        "summary": "同意/拒绝授权",
+        "description": "同意 → 签发授权码并返回应跳转 URL；拒绝 → 返回带 error 的跳转 URL\n\n此处**重新校验**全部参数（不信任前端回传），授权码 10 分钟 TTL、一次性消费。",
+        "operationId": "authorize_decision_api_oauth2_authorize_approve_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthorizeDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/oauth2/token": {
+      "post": {
+        "tags": [
+          "OAuth2"
+        ],
+        "summary": "换取令牌（authorization_code / refresh_token）",
+        "description": "授权码 / refresh token 换令牌\n\n错误形状按 RFC 6749 §5.2：``{error, error_description}``。",
+        "operationId": "issue_token_oauth2_token_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_issue_token_oauth2_token_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthTokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oauth2/userinfo": {
+      "get": {
+        "tags": [
+          "OAuth2"
+        ],
+        "summary": "用户信息",
+        "description": "返回代表用户的基础信息\n\n``email`` 为**外部传入的原始 email**（OpenTask user 表无 email 列，\nemail 作为 username 种子落库，见 spec §6）。",
+        "operationId": "userinfo_oauth2_userinfo_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthUserInfo"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/oauth2/revoke": {
+      "post": {
+        "tags": [
+          "OAuth2"
+        ],
+        "summary": "吊销令牌",
+        "description": "吊销令牌——**始终 200**，不泄露令牌是否存在（RFC 7009）",
+        "operationId": "revoke_token_oauth2_revoke_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthRevokeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/oauth2/clients": {
+      "get": {
+        "tags": [
+          "OAuth2"
+        ],
+        "summary": "列出 OAuth client",
+        "description": "列出全部 client（**不含 secret 明文**）",
+        "operationId": "list_clients_api_oauth2_clients_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "OAuth2"
+        ],
+        "summary": "注册 OAuth client",
+        "description": "注册 client——**client_secret 明文仅此一次返回**",
+        "operationId": "register_client_api_oauth2_clients_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthClientCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/oauth2/clients/{client_id}": {
+      "patch": {
+        "tags": [
+          "OAuth2"
+        ],
+        "summary": "更新 OAuth client",
+        "description": "更新 client 元信息",
+        "operationId": "update_client_api_oauth2_clients__client_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Client Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthClientUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "OAuth2"
+        ],
+        "summary": "删除 OAuth client",
+        "description": "删除 client（级联清理其授权码与令牌）",
+        "operationId": "delete_client_api_oauth2_clients__client_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Client Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/oauth2/clients/{client_id}/rotate-secret": {
+      "post": {
+        "tags": [
+          "OAuth2"
+        ],
+        "summary": "轮换 client secret",
+        "description": "轮换 client secret——**新明文仅此一次返回**",
+        "operationId": "rotate_client_secret_api_oauth2_clients__client_id__rotate_secret_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Client Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oauth2/api/me": {
+      "get": {
+        "tags": [
+          "OAuth2 API"
+        ],
+        "summary": "当前代表用户",
+        "description": "返回代表用户的基础信息",
+        "operationId": "read_me_oauth2_api_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/oauth2/api/tasks": {
+      "get": {
+        "tags": [
+          "OAuth2 API"
+        ],
+        "summary": "任务列表（只读，按成员可见集收窄）",
+        "description": "列出代表用户可见的任务\n\n取数口径 = **通用 issue API**（``IssueService.get_issues`` + 部门可见集），\n与 ``GET /api/issues`` 同源同口径：按该成员的 ``visible_dept_ids`` 收窄\n（外加「或本人创建」），**不是**契约层 ``/tasks`` 的取数——后者不带部门\n可见性过滤，若直接复用会把整个工作区的任务集暴露给只读 scope。\n\n响应形状仍沿用契约层 ``ContractTaskListResponse``（items/total/limit/offset），\n便于消费者复用解析；契约层的 service 与路由一概未改（不污染 Orca 对接面）。",
+        "operationId": "read_tasks_oauth2_api_tasks_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "任务状态过滤（OpenTask 原生任务状态词表）",
+              "title": "Status"
+            },
+            "description": "任务状态过滤（OpenTask 原生任务状态词表）"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "description": "分页大小",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "分页大小"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "分页偏移",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "分页偏移"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oauth2/api/projects": {
+      "get": {
+        "tags": [
+          "OAuth2 API"
+        ],
+        "summary": "项目列表（只读）",
+        "description": "列出代表用户可见的项目（RBAC 部门可见集过滤，与通用端点一致）",
+        "operationId": "read_projects_oauth2_api_projects_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "active_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "仅返回活跃项目",
+              "default": true,
+              "title": "Active Only"
+            },
+            "description": "仅返回活跃项目"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oauth2/api/requirements": {
+      "get": {
+        "tags": [
+          "OAuth2 API"
+        ],
+        "summary": "需求列表（只读）",
+        "description": "列出代表用户可见的需求（数据范围与通用端点一致）",
+        "operationId": "read_requirements_oauth2_api_requirements_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "需求状态过滤",
+              "title": "Status"
+            },
+            "description": "需求状态过滤"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/attachments/{attachment_id}/download": {
       "get": {
         "tags": [
@@ -13204,6 +13902,47 @@
         "title": "AssignRequest",
         "description": "分配需求 Schema"
       },
+      "AuthorizeDecisionRequest": {
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "title": "Client Id"
+          },
+          "redirect_uri": {
+            "type": "string",
+            "title": "Redirect Uri"
+          },
+          "scope": {
+            "type": "string",
+            "title": "Scope",
+            "default": ""
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          },
+          "decision": {
+            "type": "string",
+            "title": "Decision",
+            "description": "approve / deny"
+          }
+        },
+        "type": "object",
+        "required": [
+          "client_id",
+          "redirect_uri",
+          "decision"
+        ],
+        "title": "AuthorizeDecisionRequest",
+        "description": "同意/拒绝决策"
+      },
       "AvatarOut": {
         "properties": {
           "blob": {
@@ -13369,6 +14108,62 @@
         },
         "type": "object",
         "title": "Body_issue_contract_token_tasks_token_post"
+      },
+      "Body_issue_token_oauth2_token_post": {
+        "properties": {
+          "grant_type": {
+            "type": "string",
+            "title": "Grant Type"
+          },
+          "client_id": {
+            "type": "string",
+            "title": "Client Id"
+          },
+          "client_secret": {
+            "type": "string",
+            "title": "Client Secret"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "redirect_uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Redirect Uri"
+          },
+          "refresh_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "grant_type",
+          "client_id",
+          "client_secret"
+        ],
+        "title": "Body_issue_token_oauth2_token_post"
       },
       "Body_login_api_auth_login_post": {
         "properties": {
@@ -15495,6 +16290,264 @@
           "options"
         ],
         "title": "MessageOut"
+      },
+      "OAuthClientCreate": {
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Client Id",
+            "description": "客户端公开标识"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "description": "应用名称（同意页展示）"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "应用描述（同意页展示）"
+          },
+          "redirect_uris": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Redirect Uris",
+            "description": "回调地址白名单"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Scopes",
+            "description": "允许的 scope 集合"
+          },
+          "grant_types": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grant Types",
+            "description": "允许的授权类型；默认 authorization_code + refresh_token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "client_id",
+          "name",
+          "redirect_uris"
+        ],
+        "title": "OAuthClientCreate",
+        "description": "注册 OAuth client"
+      },
+      "OAuthClientUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "redirect_uris": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Redirect Uris"
+          },
+          "scopes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scopes"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status",
+            "description": "ACTIVE / DISABLED"
+          }
+        },
+        "type": "object",
+        "title": "OAuthClientUpdate",
+        "description": "更新 OAuth client 元信息"
+      },
+      "OAuthRevokeRequest": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "client_id": {
+            "type": "string",
+            "title": "Client Id"
+          },
+          "client_secret": {
+            "type": "string",
+            "title": "Client Secret"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "client_id",
+          "client_secret"
+        ],
+        "title": "OAuthRevokeRequest",
+        "description": "吊销请求"
+      },
+      "OAuthTokenResponse": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "default": "Bearer"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In"
+          },
+          "refresh_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Token"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "expires_in"
+        ],
+        "title": "OAuthTokenResponse",
+        "description": "token 端点成功响应"
+      },
+      "OAuthUserInfo": {
+        "properties": {
+          "sub": {
+            "type": "string",
+            "title": "Sub"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sub"
+        ],
+        "title": "OAuthUserInfo",
+        "description": "用户信息端点响应"
       },
       "PGETaskCreate": {
         "properties": {

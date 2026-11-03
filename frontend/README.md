@@ -74,6 +74,23 @@ pnpm build
 
 参考 [代码同步](https://docs.soybeanjs.cn/zh/guide/sync) 文档。
 
+## 容器化部署
+
+前端提供自己的镜像（构建期 pnpm/vite → 运行期 nginx 托管静态资源）：
+
+```bash
+# 在 frontend/ 目录下构建（上下文为 frontend/）
+docker build -f frontend/Dockerfile -t opentask-frontend frontend
+
+# 或用仓库根的编排起全栈（postgres + 后端 7377 + 前端 8080）
+cd .. && AUTH_SECRET_KEY=$(openssl rand -hex 32) docker compose up -d
+```
+
+**关键点：API 前缀由反向代理剥离。** 生产构建的 `VITE_SERVICE_BASE_URL=/opentask/`（见 `.env.prod`），
+而后端路由**不带** `/opentask` 前缀——前缀由 nginx 负责剥离并反代到后端 7377。
+容器内的参考配置见 `frontend/nginx.conf`（`location /opentask/ { proxy_pass http://backend:7377/; }`）。
+部署到生产时，**运维侧的 nginx 必须做同样的事**：静态托管 + `/opentask/` 反代，否则前端请求 404。
+
 ## Git 提交规范
 
 本项目已内置 `commit` 命令，您可以通过执行 `pnpm commit` 来生成符合 [Conventional Commits]([conventionalcommits](https://www.conventionalcommits.org/)) 规范的提交信息。在提交PR时，请务必使用 `commit` 命令来创建提交信息，以确保信息的规范性。

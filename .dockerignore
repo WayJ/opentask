@@ -1,0 +1,33 @@
+# 后端镜像的构建上下文是仓库根目录，这里排掉与后端无关的大目录与本地产物。
+.git
+.gitignore
+**/.DS_Store
+
+# 前端（compose 中前端服务使用 ./frontend 作为独立上下文）
+frontend/
+
+# Python 本地环境与缓存
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+
+# 本地数据与日志
+data/
+repos/
+logs/
+*.log
+
+# 凭据类文件（任何形态都不进镜像层）
+backend/config/local.yaml
+**/.env.local
+**/.env.*.local
+**/*.pem
+**/*.key
+
+# 生成物
+backend/openapi.json
+backend/openapi_current.json
+backend/openapi_contract.json

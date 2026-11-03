@@ -1,4 +1,16 @@
-version: '3.8'
+# OpenTask 本地编排（postgres + 后端 + 前端）
+#
+# 取代此前的 Node+Prisma + MySQL 模板（改名前残留，与本仓栈不符）。
+# 现栈：PostgreSQL 15（ADR D11）+ Python 3.11 后端（端口固定 7377）+ vue3 前端（nginx 托管）。
+#
+# 起停：
+#   AUTH_SECRET_KEY=$(openssl rand -hex 32) docker compose up -d
+#   docker compose logs -f backend
+#   docker compose down
+#
+# 注：后端不使用 redis（代码中无 redis 依赖），故编排里不设 redis 服务。
+
+name: opentask
 
 services:
   postgres:
@@ -6,27 +18,14 @@ services:
     container_name: opentask-postgres
     environment:
       POSTGRES_USER: opentask
-      POSTGRES_PASSWORD: opentask-password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-opentask}
       POSTGRES_DB: opentask
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U opentask"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7-alpine
-    container_name: opentask-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -36,33 +35,33 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: opentask-backend
-    environment:
-      DATABASE_URL: postgresql://opentask:opentask-password@postgres:5432/opentask
-      REDIS_URL: redis://redis:6379
-      PORT: 3000
-      NODE_ENV: production
-    ports:
-      - "3000:3000"
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
+    environment:
+      APP_ENV: production
+      # 显式要求：config.py 对 AUTH_SECRET_KEY fail-closed，缺失即拒启动
+      AUTH_SECRET_KEY: ${AUTH_SECRET_KEY:?AUTH_SECRET_KEY 必须显式设置（fail-closed）}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: opentask
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-opentask}
+      POSTGRES_DATABASE: opentask
+      DATA_DIRECTORY: /app/data
+    ports:
+      - "7377:7377"
     volumes:
-      - ./repos:/workspace/repos
+      - ./data:/app/data
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: opentask-frontend
-    environment:
-      VITE_API_URL: http://localhost:3000
-    ports:
-      - "5173:5173"
     depends_on:
       - backend
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
 
 volumes:
   postgres-data:
-  redis-data:

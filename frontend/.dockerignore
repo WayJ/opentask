@@ -1,0 +1,16 @@
+# 前端镜像构建上下文排项
+node_modules
+dist
+docs
+.vscode
+.idea
+
+# 本地环境覆盖（含内网地址等本机配置，不进镜像）
+.env.local
+.env.*.local
+
+**/node_modules
+**/dist
+
+.DS_Store
+*.log

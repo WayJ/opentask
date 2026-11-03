@@ -141,6 +141,29 @@ cp .env.test.example .env.test
 pnpm dev
 ```
 
+### Docker 一键起栈
+
+不想配本地环境时，用仓库根的编排起全栈（PostgreSQL 15 + 后端 7377 + 前端 8080）：
+
+```bash
+# AUTH_SECRET_KEY 是 JWT 签名密钥，缺失直接拒起（compose 的 fail-closed 插值）
+export AUTH_SECRET_KEY=$(openssl rand -hex 32)
+
+docker compose up -d --build
+docker compose logs -f backend
+docker compose down          # 停止并移除容器（数据卷保留）
+```
+
+| 服务 | 地址 | 说明 |
+|---|---|---|
+| 前端 | http://localhost:8080 | nginx 托管静态资源 + 反代 `/opentask/` → 后端 |
+| 后端 | http://localhost:7377 | 启动前自动 `alembic upgrade head` |
+| 数据库 | localhost:5432 | `opentask` / `opentask`（可用 `POSTGRES_PASSWORD` 覆盖） |
+
+> **API 前缀由反向代理剥离**：生产构建的 `VITE_SERVICE_BASE_URL=/opentask/`，而后端路由不带该前缀——
+> 前缀由 nginx 负责剥离。容器内参考配置见 `frontend/nginx.conf`；**部署到生产时，运维侧的 nginx
+> 必须做同样的事**，否则前端请求 404。
+
 ### CLI 工具 (为 AI Agent 设计)
 
 ```bash

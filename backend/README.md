@@ -210,9 +210,12 @@ pre-commit run --all-files
 
 启动服务后，可以通过以下地址访问 API 文档：
 
-- **Swagger UI**: http://localhost:3000/docs
-- **ReDoc**: http://localhost:3000/redoc
-- **OpenAPI Schema**: http://localhost:3000/openapi.json
+- **Swagger UI**: http://localhost:7377/docs
+- **ReDoc**: http://localhost:7377/redoc
+- **OpenAPI Schema**: http://localhost:7377/openapi.json
+
+> 全量 spec 另随代码提交为 `backend/openapi.json` / `backend/openapi_current.json`（两份内容一致）。
+> 路由变更后需重新导出：`cd backend && uv run python scripts/export_openapi.py`（脚本见 `backend/scripts/export_openapi.py`）。
 
 ## 任务源契约 API（Orca 集成）
 
@@ -328,6 +331,7 @@ AUTH_SECRET_KEY=<密钥> uv run python -m opentask.api.tasks.openapi_export
 - **错误**：沿用 CONTRACT_* 错误码语义，响应体为 Jira 形状 `{"errorMessages": ["CONTRACT_XXX: …"], "errors": {…}}`（Orca 适配器按该形状解析）。
 - **禁操作联动**：`contract.forbidden_operations` 对 Jira 线同样生效（list/create/get/update 映射到对应契约操作，403 同语义）。
 - **对接 Orca**：Settings → Jira → 添加自建站点（Site URL `http://<host>:<port>`、Server 模式、PAT = `vk_` API Key）；连接即调 `/myself` 验证。端点形状依据与 E2E 证据见 `docs/superpowers/sprints/2026-11-01-S7-orca-jira-probe.md` 与 `…-orca-e2e-evidence.md`；往返测试 `tests/tasks/test_tasks_jira_wire.py`。
+- **完整契约文档**：本节是速查摘要；**仓内权威契约**为 `backend/docs/jira-wire.md`（18 个端点全表、请求/响应形状、JQL 支持子集、状态映射、错误码表、已知边界）。该层以 ASGI catch-all 挂载、不进 OpenAPI spec，故文档漂移由 `tests/tasks/test_jira_wire_doc.py` 拦截（新增端点未写文档即测试红）。
 
 ## 项目结构
 
@@ -384,12 +388,12 @@ alembic stamp head
 ### 问题：端口已被占用
 
 ```bash
-# 查找占用端口的进程
-lsof -i :3000
-
-# 或使用其他端口
-python -m uvicorn opentask.main:app --reload --port 3001
+# 查找占用端口的进程（后端端口固定 7377）
+lsof -i :7377
 ```
+
+后端端口**固定为 7377**（见 `backend/AGENTS.md`：禁止修改后端服务端口）。端口被占用时，
+先关闭占用该端口的服务，再重新启动，不要改用其他端口。
 
 ### 问题：导入错误
 
