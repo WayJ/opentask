@@ -47,6 +47,12 @@ from opentask.models.user_center import Role, UserRole
 from opentask.repositories.base import SessionCreator
 from opentask.services.user_center.seed import seed_user_center
 
+# UserModel.access_tokens 是字符串式 relationship（"AccessToken"），而
+# opentask.models 包**没有导出** AccessToken（只导出了同名的 OAuthAccessToken）。
+# 应用侧能跑是因为别的模块先导入了它；本脚本不加载 app，故必须显式导入，
+# 否则 mapper 配置期报 "expression 'AccessToken' failed to locate a name"。
+from opentask.models.access_token.model import AccessToken  # noqa: F401
+
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
