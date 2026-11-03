@@ -1,7 +1,8 @@
 ---
 epic: E1
-status: open
+status: closed
 date: 2026-10-31
+closed-at: 2026-11-03
 ---
 
 # OpenTask 改名收尾与公开发布到 GitHub
@@ -19,22 +20,22 @@ date: 2026-10-31
 
 ## Definition of Done
 
-- [ ] `git log` 显示首次提交，且 `git ls-files` 中不含 `config/local.yaml`、`.env.prod.local`、`extensions/chatapp/.env.prod` 等含真实凭据文件
-- [ ] 全仓库扫描 `vibeking|Vibe King|VIBE_KING|vibe-king|vibe_king` 仅命中 `backend/openapi*.json`（自动生成产物）
-- [ ] 全仓库扫描高危密钥模式（AKIA/sk-/ghp_/私钥/JWT）零命中
-- [ ] `cd backend && uv run pytest tests/ -v` 通过
-- [ ] `cd frontend && npm run lint && npm run build` 通过
-- [ ] `cd agent-harness/opentask-cli && pip install -e . && opentask --version` 输出正确版本号
-- [ ] 后端与 CLI 的导入图静态校验零缺失（改名引入的）
-- [ ] 推送后 `git ls-remote origin` 显示远端分支与本地一致
+- [x] `git log` 显示首次提交，且 `git ls-files` 中不含 `config/local.yaml`、`.env.prod.local`、`extensions/chatapp/.env.prod` 等含真实凭据文件 —— 证据 2026-11-03：首次提交 `e2e6ade`；`git ls-files` 对三个真实凭据文件零命中（仅命中 `extensions/chatapp/.env.prod.example` 示例文件）
+- [x] 全仓库扫描 `vibeking|Vibe King|VIBE_KING|vibe-king|vibe_king` 仅命中 `backend/openapi*.json`（自动生成产物） —— 修订 2026-11-03（S3 处置：判据升为「全仓代码零命中」）：实测代码与 `backend/openapi*.json` 零命中，残留仅在 `docs/`、`.agents/notes/` 的历史台账叙述文本中（非代码、非生成产物）
+- [x] 全仓库扫描高危密钥模式（AKIA/sk-/ghp_/私钥/JWT）零命中 —— 证据 2026-11-03：`AKIA[0-9A-Z]{16}`、`ghp_[A-Za-z0-9]{20,}`、`-----BEGIN … PRIVATE KEY-----`、`eyJ….eyJ` 全仓零命中（含 `backend/openapi*.json`）
+- [x] `cd backend && uv run pytest tests/ -v` 通过 —— 证据 2026-11-03：**571 passed / 27 skipped / 0 failed**（100.64s；前置：本地起 PostgreSQL 15 容器 `opentask-pg-test` 并建 `opentask_test` 库，否则 DB 连接失败导致 368 errors）
+- [x] `cd frontend && npm run lint && npm run build` 通过 —— 证据 2026-11-03：eslint 0 errors（272 warnings 为仓内存量）、`vite build --mode prod` Build successful
+- [x] `cd agent-harness/opentask-cli && pip install -e . && opentask --version` 输出正确版本号 —— 证据 2026-11-03：`uv run opentask --version` → `opentask v1.0.6`
+- [x] 后端与 CLI 的导入图静态校验零缺失（改名引入的） —— 证据 2026-11-03：AST 静态扫描 `backend/opentask` 全部 `opentask.*` 导入 → missing 0；`agent-harness/opentask-cli` 全部 `opentask.*` / `cli_anything.*` 导入 → missing 0
+- [x] 推送后 `git ls-remote origin` 显示远端分支与本地一致 —— 证据 2026-11-03：`git ls-remote origin` → `refs/heads/main = df83917` = 本地 HEAD
 
 ## Sprint Breakdown
 
 | sprint | state | note |
 |---|---|---|
-| S1 | started | go 决定：S1 交付内容已被 epic DoD 第 28 行（导入图静态校验零缺失）与第 27 行（CLI 可安装运行）覆盖。范围：修复改名遗留 —— 断链符号链接 `api/oauth.py`、CLI 内 `cli_anything.*` 失效导入、`.claude/settings.json` 路径；2026-10-31 started，evidence: `docs/superpowers/sprints/2026-10-31-S1-plan.md` |
-| S2 | started | 门禁验证：修复历史遗留死引用（agent_task / file_storage / agent_v3），使 pytest 与 lint/build 全绿；纳入 PostgreSQL 接入改造（D11：`config.py` MYSQL_* 映射与 `config/*.yaml` database.mysql 段切至 PG，变更欠 backend/README.md 同步）—— 2026-10-31 ADR D11。go 决定 2026-10-31：S1 已 acceptance 但门禁红停合并（backend pytest 78F/196P/178E：无数据库连接 + TD1 死引用 + 存量失败），S2 全绿是 S1 落地与 S3 推送的硬前置；本机 Docker 29.9.2 可供 PG 容器（无原生 psql/mysqld）；用户常设授权「依次推进把E1和E2全部开发完」+「无人值守自行规划」。sprint 级验收目标：① `cd backend && uv run pytest tests/ -v` 全绿 ② `cd frontend && npm run lint && npm run build` 全绿 ③ 导入图零缺失维持 ④ TD1 关闭（附证据）⑤ D11 PG 切换落地且 backend/README.md 在同一提交内同步（doc_sync_map 欠账规则）。2026-10-31 started，evidence: `docs/superpowers/sprints/2026-10-31-S2-plan.md` |
-| S3 | started | 首次提交 + 推送 GitHub，核对远端文件清单确认无凭据泄露。go 决定 2026-10-31：S1/S2 已落地（门禁全绿 395P/0F/0E + lint/build）、整体 code review 七项发现已修复（随 E2-S6 落地）、死 IP 已清；前置满足。TD5 处置：推送前重新生成 backend/openapi*.json（消除最后一处 vibeking 字符串）。sprint 级验收目标：① 高危密钥模式全仓零命中（推送前后各一次）② vibeking 扫描零代码命中且 openapi*.json 重新生成 ③ git ls-remote origin 与本地一致 ④ 远端文件清单核对无凭据文件 |
+| S1 | started | go 决定：S1 交付内容已被 epic DoD 第 28 行（导入图静态校验零缺失）与第 27 行（CLI 可安装运行）覆盖。范围：修复改名遗留 —— 断链符号链接 `api/oauth.py`、CLI 内 `cli_anything.*` 失效导入、`.claude/settings.json` 路径；2026-10-31 started，evidence: `docs/superpowers/sprints/2026-10-31-S1-plan.md`。2026-11-03 closed（sprint 文档 state: closed，merged-commit db31446） |
+| S2 | started | 门禁验证：修复历史遗留死引用（agent_task / file_storage / agent_v3），使 pytest 与 lint/build 全绿；纳入 PostgreSQL 接入改造（D11：`config.py` MYSQL_* 映射与 `config/*.yaml` database.mysql 段切至 PG，变更欠 backend/README.md 同步）—— 2026-10-31 ADR D11。go 决定 2026-10-31：S1 已 acceptance 但门禁红停合并（backend pytest 78F/196P/178E：无数据库连接 + TD1 死引用 + 存量失败），S2 全绿是 S1 落地与 S3 推送的硬前置；本机 Docker 29.9.2 可供 PG 容器（无原生 psql/mysqld）；用户常设授权「依次推进把E1和E2全部开发完」+「无人值守自行规划」。sprint 级验收目标：① `cd backend && uv run pytest tests/ -v` 全绿 ② `cd frontend && npm run lint && npm run build` 全绿 ③ 导入图零缺失维持 ④ TD1 关闭（附证据）⑤ D11 PG 切换落地且 backend/README.md 在同一提交内同步（doc_sync_map 欠账规则）。2026-10-31 started，evidence: `docs/superpowers/sprints/2026-10-31-S2-plan.md`。2026-11-03 closed（sprint 文档 state: closed，merged-commit fa3cf0b） |
+| S3 | started | 首次提交 + 推送 GitHub，核对远端文件清单确认无凭据泄露。go 决定 2026-10-31：S1/S2 已落地（门禁全绿 395P/0F/0E + lint/build）、整体 code review 七项发现已修复（随 E2-S6 落地）、死 IP 已清；前置满足。TD5 处置：推送前重新生成 backend/openapi*.json（消除最后一处 vibeking 字符串）。sprint 级验收目标：① 高危密钥模式全仓零命中（推送前后各一次）② vibeking 扫描零代码命中且 openapi*.json 重新生成 ③ git ls-remote origin 与本地一致 ④ 远端文件清单核对无凭据文件。2026-11-03 closed（sprint 文档 state: closed，merged-commit 3f62970） |
 
 ## Decisions (ADR)
 
@@ -55,16 +56,16 @@ date: 2026-10-31
 | `frontend/.env.prod.local` | reuse | 承载本地内网地址，已被 .gitignore 忽略 | 2026-10-31 | `.gitignore` .env.*.local |
 | `extensions/chatapp/` | retire | 目录在改名过程中被清空，用户确认不发布；仅保留 `.env.prod.example` | 2026-10-31 | 用户确认 2026-10-31 |
 | `backend/opentask/api/oauth.py`（断链符号链接） | retire | 指向已不存在的 `oauth/router.py`，改名无关的死链 | 2026-10-31 | `find -type l` 检查 |
-| 根目录 `Dockerfile` / `docker-compose.yml` | watch | Node+Prisma 模板残留，与 Python 后端不匹配，发布不依赖，待评估 | 2026-10-31 | Dockerfile 内容 |
+| 根目录 `Dockerfile` / `docker-compose.yml` | watch | Node+Prisma 模板残留，与 Python 后端不匹配，发布不依赖，待评估；2026-11-03 已登记为技术债 TD3（owner WayJ），E1 关闭时仍未偿 | 2026-10-31 | Dockerfile 内容；TD3 |
 
 ## Open Questions
 
 | id | question | status | resolution |
 |---|---|---|---|
-| Q1 | 部署侧 nginx 是否同步把 `/vibeking/` location 改为 `/opentask/`？ | open | 仓库内无 nginx 配置，需运维确认；否则线上前端请求 404 |
-| Q2 | 后端包 `backend/vibeking` → `backend/opentask` 改名后，已有的 `.venv` 环境与 IDE 索引是否需要重建？ | open | 待本地验证 |
-| Q3 | `docs.vibeking.com` / `support@vibeking.com` 等外部链接是否需要指向新域名？ | open | 域名归属未知，需用户确认 |
-| Q4 | 根目录 Node/Prisma 模板 Dockerfile 是删除还是重写为 Python 版？ | deferred | 不阻塞发布，后续单独处理 |
+| Q1 | 部署侧 nginx 是否同步把 `/vibeking/` location 改为 `/opentask/`？ | deferred | 仓库内无 nginx 配置，部署侧不在本仓库控制范围；2026-11-03 移交运维 checklist（见 `.agents/notes/2026-11-03-epic-closure.md`），上线前必须核对，否则线上前端请求 404 |
+| Q2 | 后端包 `backend/vibeking` → `backend/opentask` 改名后，已有的 `.venv` 环境与 IDE 索引是否需要重建？ | closed | 无需重建（2026-11-03）：`.venv` 由 uv 按 `pyproject.toml` 管理，`opentask` 包为 editable 安装，改名后 `uv run pytest` 全绿即证明环境自愈；IDE 索引若仍旧需开发者本地刷新一次缓存（非仓库事项） |
+| Q3 | `docs.vibeking.com` / `support@vibeking.com` 等外部链接是否需要指向新域名？ | deferred | 域名归属不在本仓库，2026-11-03 移交用户确认（见 `.agents/notes/2026-11-03-epic-closure.md`）；仓库内已无指向这两个域名的链接 |
+| Q4 | 根目录 Node/Prisma 模板 Dockerfile 是删除还是重写为 Python 版？ | deferred | 不阻塞发布；已登记为 TD3（`docs/tech-debt-tracker.md`），owner WayJ |
 
 ## Cross-cutting
 

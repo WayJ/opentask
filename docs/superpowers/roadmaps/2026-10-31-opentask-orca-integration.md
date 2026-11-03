@@ -1,7 +1,8 @@
 ---
 epic: E2
-status: open
+status: closed
 date: 2026-10-31
+closed-at: 2026-11-03
 ---
 
 # OpenTask 对接 Orca 任务源集成（模拟 Jira 模式）
@@ -19,24 +20,24 @@ date: 2026-10-31
 
 ## Definition of Done
 
-- [ ] Orca 用「自定义任务源」注册 OpenTask 后，OpenTask 的 issue 能在 Orca 侧正常列出、读取、创建、更新、状态流转
-- [ ] `GET /tasks` 支持 `updated_since` 增量游标，重复拉取同一游标不返回重复数据
-- [ ] `POST /tasks` 创建的 issue 回传到 OpenTask 后，字段（title/description/assignee/status/labels）完整落库
-- [ ] `PATCH /tasks/{id}` 更新状态后，OpenTask 内部 issue 状态同步变更，并写入既有 timeline 记录
-- [ ] `DELETE /tasks/{id}` 采用软删除（OpenTask 现有 `is_deleted` 语义），不物理删除数据
-- [ ] 状态映射可通过配置调整，未配置时使用默认映射表且能正确往返（Orca → OpenTask → Orca）
-- [ ] 契约 OpenAPI spec 已生成并随代码发布，字段与实现一致
-- [ ] 端点不可达、鉴权失败、schema 违规三类错误有独立的错误码与可读消息
-- [ ] 该 API 层有单元测试覆盖 CRUD 全路径与增量游标边界
+- [x] Orca 用「自定义任务源」注册 OpenTask 后，OpenTask 的 issue 能在 Orca 侧正常列出、读取、创建、更新、状态流转 —— 修订 2026-11-03（依据 ADR D13）：本机 Orca 构建无「自定义任务源」注册面，改由 Jira 线格式路径达成同一验收口径（Orca 自建 Jira 集成直指 OpenTask 后端，五操作真实走通）。证据：`docs/superpowers/acceptances/2026-11-01-S7-acceptance.md`；探测与调用面证据 `docs/superpowers/sprints/2026-11-01-S7-orca-jira-probe.md`
+- [x] `GET /tasks` 支持 `updated_since` 增量游标，重复拉取同一游标不返回重复数据 —— 证据：`backend/tests/tasks/test_tasks_contract.py::test_same_cursor_repeat_pull_zero_duplicates`、`test_cursor_exclusive_boundary_semantics`、`test_cursor_sees_updates`
+- [x] `POST /tasks` 创建的 issue 回传到 OpenTask 后，字段（title/description/assignee/status/labels）完整落库 —— 证据：`backend/tests/tasks/test_tasks_contract.py::test_create_task_full_persistence`、`test_create_task_defaults`
+- [x] `PATCH /tasks/{id}` 更新状态后，OpenTask 内部 issue 状态同步变更，并写入既有 timeline 记录 —— 证据：`backend/tests/tasks/test_tasks_contract.py::test_patch_task_fields_and_status_writes_timeline`、`test_patch_task_labels_replace_writes_timeline`
+- [x] `DELETE /tasks/{id}` 采用软删除（OpenTask 现有 `is_deleted` 语义），不物理删除数据 —— 证据：`backend/tests/tasks/test_tasks_contract.py::test_delete_task_soft_delete`
+- [x] 状态映射可通过配置调整，未配置时使用默认映射表且能正确往返（Orca → OpenTask → Orca） —— 证据：`backend/tests/tasks/test_tasks_mapping_config.py`（12 例）、`test_tasks_contract.py::test_generic_roundtrip_identity`、`test_default_table_shape`
+- [x] 契约 OpenAPI spec 已生成并随代码发布，字段与实现一致 —— 证据：`backend/openapi_contract.json`（契约层 4 路径，version 1.0）+ `backend/tests/tasks/test_tasks_openapi.py`（7 例）；注：Jira 线格式层以 ASGI catch-all 挂载，FastAPI 不建模、不污染契约 spec，以 S7 探测文档为准（S7 验收记录同口径）
+- [x] 端点不可达、鉴权失败、schema 违规三类错误有独立的错误码与可读消息 —— 证据：`backend/tests/tasks/test_tasks_errors.py`（21 例，401/403/503 独立错误码）
+- [x] 该 API 层有单元测试覆盖 CRUD 全路径与增量游标边界 —— 证据：`backend/tests/tasks/` 共 131 例（contract 25 / auth+capabilities 16 / errors 21 / mapping 12 / openapi 7 / review_fixes 10 / jira_wire 40），全量 pytest 绿
 
 ## Sprint Breakdown
 
 | sprint | state | note |
 |---|---|---|
-| S4 | started | 契约 API 层 + 字段映射（Issue ↔ 通用任务模型）。编号修订 2026-10-31：原 S1，因 sprint id 全树唯一规则（E1 已物化 S1–S3），E2 stubs 顺延为 S4–S6。go 决定 2026-10-31：用户常设授权「依次推进把E1和E2全部开发完」+「无人值守自行规划」；D6 模拟 Jira 模式、D7 并列路由、D8 软删除、D9 复用 access_token、D10 updated_since 游标均已 ADR 定案；形状三问由 D12 裁定（/tasks 挂根、assignee 字符串+metadata.username、labels↔tags）。sprint 级验收目标：① `GET/POST /tasks` 与 `GET/PATCH/DELETE /tasks/{id}` 可用且字段符合通用任务模型 ② 过滤/分页/updated_since 增量游标可用且重复拉取不重复 ③ CRUD 全路径 + 游标边界有单元测试 ④ 导入图零缺失维持。2026-10-31 started，evidence: `docs/superpowers/sprints/2026-10-31-S4-plan.md` |
-| S5 | ready | 状态映射配置 + 鉴权接入 + 能力检查端点。编号修订 2026-10-31：原 S2，同上。go 决定 2026-10-31：用户常设授权 + 明确要求 sprint 级 worktree 并行；S4 已交付契约层与默认状态表，本 sprint 将其配置化并补齐 D9 鉴权（API Key Bearer 与 OAuth2 client credentials 两模式）与 `GET /capabilities` 端点；sprint 级验收目标：① 状态映射可经配置调整且往返正确（epic DoD 6）② access_token 鉴权两模式可用（401 语义独立可辨识）③ /capabilities 返回端点支持与契约版本 ④ tests/tasks 扩展鉴权与映射用例全绿 |
-| S6 | started | OpenAPI 文档生成 + 错误语义 + 契约测试与 Orca 侧端到端联调。编号修订 2026-10-31：原 S3，同上。go 决定 2026-10-31：用户指示「继续推进整体迭代」；S4 契约层与 S5 鉴权/映射/capabilities 已落地 main（fb6df35），S6 是 E2 收官前置；受 HC1 约束（错误码沿用 CONTRACT_AUTH_* 命名）。sprint 级验收目标：① 契约 OpenAPI spec 生成且随代码发布、字段与实现一致（epic DoD 7）② 401/403/503 三类错误独立错误码与可读消息（DoD 8）③ 契约测试补全错误路径 ④ Orca 自定义任务源注册联调用例执行并留证（DoD 1——若本机无 Orca 侧注册环境则记录 blocked 项与替代证据）。2026-10-31 started，evidence: `docs/superpowers/sprints/2026-10-31-S6-plan.md` |
-| S7 | ready | Jira 线格式兼容层：模拟 Jira REST API 必要子集（/rest/api/2/），Orca 自建 Jira 集成直指 OpenTask。go 决定 2026-10-31：用户确认「orca 可以使用自建的 jira」（ADR D13）；S6 已实证本机无自定义任务源注册面，此为唯一真实验证路径。sprint 级验收目标：① Orca 以自建 Jira 模式注册本机后端成功 ② 列出/读取/创建/更新/状态流转五操作真实走通并留证 ③ Jira 线格式端点有契约测试 ④ 与 /tasks 契约层共用映射鉴权内核无重复实现 |
+| S4 | started | 契约 API 层 + 字段映射（Issue ↔ 通用任务模型）。编号修订 2026-10-31：原 S1，因 sprint id 全树唯一规则（E1 已物化 S1–S3），E2 stubs 顺延为 S4–S6。go 决定 2026-10-31：用户常设授权「依次推进把E1和E2全部开发完」+「无人值守自行规划」；D6 模拟 Jira 模式、D7 并列路由、D8 软删除、D9 复用 access_token、D10 updated_since 游标均已 ADR 定案；形状三问由 D12 裁定（/tasks 挂根、assignee 字符串+metadata.username、labels↔tags）。sprint 级验收目标：① `GET/POST /tasks` 与 `GET/PATCH/DELETE /tasks/{id}` 可用且字段符合通用任务模型 ② 过滤/分页/updated_since 增量游标可用且重复拉取不重复 ③ CRUD 全路径 + 游标边界有单元测试 ④ 导入图零缺失维持。2026-10-31 started，evidence: `docs/superpowers/sprints/2026-10-31-S4-plan.md`。2026-11-03 closed（sprint 文档 state: closed，merged-commit f6c64be） |
+| S5 | started | 状态映射配置 + 鉴权接入 + 能力检查端点。编号修订 2026-10-31：原 S2，同上。go 决定 2026-10-31：用户常设授权 + 明确要求 sprint 级 worktree 并行；S4 已交付契约层与默认状态表，本 sprint 将其配置化并补齐 D9 鉴权（API Key Bearer 与 OAuth2 client credentials 两模式）与 `GET /capabilities` 端点；sprint 级验收目标：① 状态映射可经配置调整且往返正确（epic DoD 6）② access_token 鉴权两模式可用（401 语义独立可辨识）③ /capabilities 返回端点支持与契约版本 ④ tests/tasks 扩展鉴权与映射用例全绿。2026-11-03 closed（sprint 文档 state: closed，merged-commit fb6df35；stub state 于本日由 `ready` 更正为 `started`——该行此前未随物化同步，属事实性更正） |
+| S6 | started | OpenAPI 文档生成 + 错误语义 + 契约测试与 Orca 侧端到端联调。编号修订 2026-10-31：原 S3，同上。go 决定 2026-10-31：用户指示「继续推进整体迭代」；S4 契约层与 S5 鉴权/映射/capabilities 已落地 main（fb6df35），S6 是 E2 收官前置；受 HC1 约束（错误码沿用 CONTRACT_AUTH_* 命名）。sprint 级验收目标：① 契约 OpenAPI spec 生成且随代码发布、字段与实现一致（epic DoD 7）② 401/403/503 三类错误独立错误码与可读消息（DoD 8）③ 契约测试补全错误路径 ④ Orca 自定义任务源注册联调用例执行并留证（DoD 1——若本机无 Orca 侧注册环境则记录 blocked 项与替代证据）。2026-10-31 started，evidence: `docs/superpowers/sprints/2026-10-31-S6-plan.md`。2026-11-03 closed（sprint 文档 state: closed，merged-commit bc74282） |
+| S7 | started | Jira 线格式兼容层：模拟 Jira REST API 必要子集（/rest/api/2/），Orca 自建 Jira 集成直指 OpenTask。go 决定 2026-10-31：用户确认「orca 可以使用自建的 jira」（ADR D13）；S6 已实证本机无自定义任务源注册面，此为唯一真实验证路径。sprint 级验收目标：① Orca 以自建 Jira 模式注册本机后端成功 ② 列出/读取/创建/更新/状态流转五操作真实走通并留证 ③ Jira 线格式端点有契约测试 ④ 与 /tasks 契约层共用映射鉴权内核无重复实现。2026-11-03 closed（sprint 文档 state: closed，merged-commit f0bad1a；stub state 于本日由 `ready` 更正为 `started`——该行此前未随物化同步，属事实性更正） |
 
 ## Decisions (ADR)
 
