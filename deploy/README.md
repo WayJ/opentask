@@ -86,6 +86,45 @@ docker compose（项目名 opentask，目录 /opt/opentask）
 5. **宿主 nginx**——装 `/etc/nginx/snippets/opentask-locations.conf`，把 `include` 插进既有
    `server_name 112.126.60.109` 站点块，`nginx -t` 通过后 reload。
 
+### 登录口令的传输加密
+
+部署形态是**明文 HTTP**（没有域名就签不了 HTTPS 证书），所以口令**不能**明文提交。
+当前做法：**RSA-OAEP 非对称加密**。
+
+```
+前端（SPA）                          服务端
+  ├─ 公钥 VITE_LOGIN_PUBLIC_KEY  ──→  /opt/opentask/data/login_public.pem（可公开）
+  └─ 用公钥加密口令 → base64 密文  ──→  /opt/opentask/data/login_private.pem（600，私钥）
+                                     后端用私钥解密 → 比对 bcrypt
+```
+
+| 项 | 说明 |
+|---|---|
+| 算法 | RSA-OAEP / SHA-256（MGF1-SHA256），2048 位 |
+| 公钥 | 打进前端 bundle（`VITE_LOGIN_PUBLIC_KEY`，base64 的 SPKI DER），由 `deploy.sh` 从服务器取回后以构建参数注入 |
+| 私钥 | 只在服务器：`/opt/opentask/data/login_private.pem`（chmod 600，随 data 卷持久化），**不进镜像** |
+| 参数一致性 | 前端用 node-forge（纯 JS——`crypto.subtle` 只在安全上下文可用，明文 HTTP 页面拿不到），后端用 cryptography；两边 OAEP 参数已实测互通 |
+| 兼容性 | 没配置公钥时前端发明文，后端解不开时回退按明文处理 → CLI 等未接入加密的客户端照常工作 |
+
+**轮换**（怀疑私钥泄露时）：
+
+```bash
+cd /opt/opentask
+docker compose -f docker-compose.prod.yml exec backend     python scripts/generate_login_keys.py --force
+# ⚠ 换公钥后必须**重新构建前端**（VITE_LOGIN_PUBLIC_KEY 变了），否则新前端登录解不开
+./deploy/deploy.sh --host root@112.126.60.109
+```
+
+**这套机制防什么、不防什么**：
+
+| | |
+|---|---|
+| ✅ 防 | 被动抓包（代理日志、共享网络嗅探）——密文没有私钥解不开 |
+| ⚠️ 不防 | **主动中间人**：HTTP 下前端 bundle 与公钥都可被替换，攻击者能换掉公钥再收明文 |
+| ⚠️ 不防 | **JWT 仍是明文**：access token 在 Authorization 头里传输，抓包可劫持会话 |
+
+→ 完整的保护仍需 TLS（加 A 记录后 `certbot --nginx` 即可）。
+
 ### 密钥
 
 服务器 `/opt/opentask/.env`（`chmod 600`，不入版本库）：

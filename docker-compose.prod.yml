@@ -88,6 +88,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 必须显式设置}
       POSTGRES_DATABASE: opentask
       DATA_DIRECTORY: /app/data
+      # 登录口令传输加密的私钥（RSA-OAEP）；私钥只在本机 data 卷里，镜像内不含
+      LOGIN_PRIVATE_KEY_PATH: /app/data/login_private.pem
       CIPHER_KEY: ${CIPHER_KEY:?CIPHER_KEY 必须显式设置}
       # SPA 与后端同源（宿主 nginx 透传），CORS 基本用不上；仍显式声明允许来源
       ALLOWED_ORIGINS: ${PUBLIC_ORIGIN:-http://112.126.60.109}

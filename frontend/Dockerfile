@@ -39,6 +39,13 @@ ARG VITE_SERVICE_BASE_URL=/opentask/
 ENV VITE_BASE_URL=${VITE_BASE_URL}
 ENV VITE_SERVICE_BASE_URL=${VITE_SERVICE_BASE_URL}
 
+# 登录口令传输加密用的**服务端公钥**（SPKI DER 的 base64）。
+# 私钥只在服务器（<DATA_DIRECTORY>/login_private.pem），公钥打进 bundle 后前端用它
+# 做 RSA-OAEP 加密——这样链路是明文 HTTP 时，抓包拿到的也只是解不开的密文。
+# 由 deploy/deploy.sh 从服务器取回后以 --build-arg 传入；为空则登录走明文。
+ARG VITE_LOGIN_PUBLIC_KEY=
+ENV VITE_LOGIN_PUBLIC_KEY=${VITE_LOGIN_PUBLIC_KEY}
+
 # vite build --mode prod
 RUN pnpm build
 

@@ -82,6 +82,32 @@ E1/E2 两个 epic 关闭后，仓内遗留的 TD3（Docker 栈重写）虽已销
 - `backend/scripts/create_admin_user.py` —— 初始管理员（幂等）+ 5 例单测
 - `backend/alembic/versions/2026_11_03_1900-b7e2c9140d3a_rename_user_sso_columns.py` —— SSO 列改名
 
+## 登录口令的传输加密（用户要求「密码加密，不要依赖 https」）
+
+部署形态是明文 HTTP（无域名 → 签不了 HTTPS 证书），口令明文提交不可接受。方案：
+
+**RSA-OAEP / SHA-256 非对称**——私钥只在服务器，公钥打进前端 bundle。
+
+| 侧 | 实现 | 关键约束 |
+|---|---|---|
+| 前端 | node-forge（新增依赖 1.3.1 + @types/node-forge） | **`crypto.subtle` 只在安全上下文可用**，明文 HTTP 页面是 undefined → 必须用纯 JS 库；crypto-js 4.x 已移除 RSA 模块 |
+| 后端 | cryptography（已有依赖） | 私钥 `<DATA_DIRECTORY>/login_private.pem`（600，不进镜像） |
+
+- **实测互通**：node-forge 加密 → Python cryptography 解密成功；两边 OAEP 参数
+  （SHA-256 + MGF1-SHA256 + 空 label）一致
+- **踩坑**：node-forge 的 `publicKey.encrypt` 是**位置参数**
+  `encrypt(data, 'RSA-OAEP', {md, mgf1})`——旧版对象式 API 会静默产出**非法密文**
+  （我第一次就踩了，Python 侧解密直接 ValueError）；node-forge 的 decrypt 返回的是
+  **字节串**，中文要 `decodeUtf8` 才还原
+- **发布流程改动**：`deploy.sh` 顺序重构为「同步 → 起后端 → 生成密钥对 → 取回公钥 →
+  构建前端（注入公钥）→ 打包前端镜像 → 全栈起停」，因为公钥必须在前端构建**之前**
+  就存在于服务器
+- 测试：后端 8 例（往返/明文回退/无密钥/公钥格式）+ 前端 4 例（往返/随机性/中文）
+
+**剩余风险（已写进 deploy/README.md）**：这套机制防**被动抓包**；但明文 HTTP 下前端
+bundle 与公钥都可被替换 → 防不了**主动中间人**；且 **JWT 仍是明文**（在
+Authorization 头里），抓包可劫持会话。完整保护仍需 TLS。
+
 ## 资源清理（用户授权「服务器上其他服务都可以关掉」）
 
 | 动作 | 效果 |

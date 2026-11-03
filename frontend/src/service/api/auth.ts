@@ -1,5 +1,6 @@
 import { axios } from '@sa/axios';
 import { getServiceBaseURL } from '@/utils/service';
+import { encryptLoginPassword } from '@/utils/loginCrypto';
 import { request } from '../request';
 
 const isHttpProxy = import.meta.env.DEV && import.meta.env.VITE_HTTP_PROXY === 'Y';
@@ -14,18 +15,23 @@ const { baseURL } = getServiceBaseURL(import.meta.env, isHttpProxy);
 const refreshInstance = axios.create({ baseURL });
 
 /**
- * Login - 调用 opentask 登录接口（密码明文传输，依赖 HTTPS）
+ * Login - 调用 opentask 登录接口
+ *
+ * 口令在提交前用**服务端公钥**做 RSA-OAEP 加密（见 utils/loginCrypto）——这样即使
+ * 链路是明文 HTTP，抓包拿到的也只是解不开的密文。没有配置公钥时原样提交明文，
+ * 服务端会回退按明文处理。
  *
  * @param userName User name
  * @param password Password
  */
-export function fetchLogin(userName: string, password: string) {
+export async function fetchLogin(userName: string, password: string) {
+  const encryptedPassword = await encryptLoginPassword(password);
   return request<Api.Auth.LoginToken>({
     url: '/api/auth/login',
     method: 'post',
     data: {
       userName,
-      password
+      password: encryptedPassword
     }
   });
 }

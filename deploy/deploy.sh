@@ -69,12 +69,100 @@ die() { printf '\033[1;31m!!! %s\033[0m\n' "$*" >&2; exit 1; }
 
 say "目标: $HOST  目录: $REMOTE_DIR  版本: $RELEASE_TAG"
 
-# ---------------------------------------------------------------- 前端产物
+# ---------------------------------------------------------------- 送达源码
+# 顺序说明：**先**把后端源码送到服务器并起好后端（登录加密的密钥对由后端容器生成，
+# 公钥要注入前端构建），**再**构建前端产物。
 BUILD_CTX="$(mktemp -d)"
 trap 'rm -rf "$BUILD_CTX"' EXIT
 
+say "1/6 同步源码与编排文件到服务器"
+ssh "$HOST" "mkdir -p '$REMOTE_DIR'"
+tar -C "$ROOT" \
+    --exclude='._*' \
+    --exclude='backend/.venv' \
+    --exclude='backend/**/__pycache__' \
+    --exclude='backend/.pytest_cache' \
+    --exclude='backend/**/.pytest_cache' \
+    --exclude='backend/config/local.yaml' \
+    -czf - backend Dockerfile .dockerignore docker-compose.prod.yml \
+    | ssh "$HOST" "tar -C '$REMOTE_DIR' -xzf -"
+# 清掉历史遗留的 AppleDouble 残片（首轮发布带过去过 485 个）
+ssh "$HOST" "find '$REMOTE_DIR' -name '._*' -delete; rm -f '$REMOTE_DIR/backend/config/local.yaml'"
+ssh "$HOST" "mkdir -p '$REMOTE_DIR/data'"
+
+# ---------------------------------------------------------------- 登录加密密钥对
+say "2/6 服务器侧：构建后端镜像 → 起后端 → 生成登录加密密钥对 → 取回公钥"
+LOGIN_PUBKEY=""
 if [ "$SKIP_BUILD" -eq 0 ]; then
-    say "1/5 构建前端产物（仓内 builder 阶段：node:22 + pnpm 9.15.9）"
+    LOGIN_PUBKEY="$(ssh "$HOST" "bash -s" "$REMOTE_DIR" "$RELEASE_TAG" <<'REMOTE_SCRIPT'
+set -euo pipefail
+REMOTE_DIR="$1"
+RELEASE_TAG="$2"
+cd "$REMOTE_DIR"
+export RELEASE_TAG
+
+# --- swap：构建期内存缓冲（机器只有 1.6GB 内存且默认无 swap）---
+if [ "$(swapon --show | wc -l)" -eq 0 ]; then
+    echo "创建 2G swapfile（构建期缓冲）…" >&2
+    fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048
+    chmod 600 /swapfile
+    mkswap /swapfile >/dev/null
+    swapon /swapfile
+    grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+
+# --- 密钥：已存在则不覆盖（避免轮换掉线上 JWT 密钥导致全员掉线）---
+if [ ! -f .env ]; then
+    gen() { python3 -c 'import secrets;print(secrets.token_hex(32))'; }
+    cat > .env <<EOF
+# OpenTask 生产密钥（生成于 $(date -u +%Y-%m-%dT%H:%M:%SZ)）
+# chmod 600；**不要提交到版本库**；轮换 AUTH_SECRET_KEY 会让所有已签发 JWT 失效
+AUTH_SECRET_KEY=$(gen)
+POSTGRES_PASSWORD=$(gen)
+CIPHER_KEY=$(gen)
+PUBLIC_ORIGIN=http://112.126.60.109
+RELEASE_TAG=$RELEASE_TAG
+EOF
+    chmod 600 .env
+    echo "已生成 .env（密钥随机生成）" >&2
+fi
+
+echo "构建后端镜像（原生 amd64）…" >&2
+docker compose -f docker-compose.prod.yml build backend
+docker compose -f docker-compose.prod.yml up -d postgres backend
+
+echo "等待后端健康…" >&2
+READY=0
+for i in $(seq 1 60); do
+    if docker compose -f docker-compose.prod.yml exec -T backend \
+        curl -fsS http://127.0.0.1:7377/openapi.json >/dev/null 2>&1; then
+        READY=1
+        break
+    fi
+    STATE="$(docker inspect -f '{{.State.Status}}' opentask-backend 2>/dev/null || echo unknown)"
+    if [ "$STATE" = "restarting" ] || [ "$STATE" = "exited" ] || [ "$STATE" = "dead" ]; then
+        echo "后端容器状态异常：$STATE —— 日志如下" >&2
+        docker compose -f docker-compose.prod.yml logs --tail 60 backend >&2
+        exit 1
+    fi
+    sleep 2
+done
+[ "$READY" = "1" ] || { echo "等待后端健康超时" >&2; docker compose -f docker-compose.prod.yml logs --tail 60 backend >&2; exit 1; }
+
+# --- 登录口令加密的密钥对（私钥留在 data 卷，公钥给前端构建用）---
+docker compose -f docker-compose.prod.yml exec -T backend \
+    python scripts/generate_login_keys.py >/dev/null
+docker compose -f docker-compose.prod.yml exec -T backend \
+    python scripts/generate_login_keys.py --print-public
+REMOTE_SCRIPT
+)"
+    [ -n "$LOGIN_PUBKEY" ] || die "没拿到登录加密公钥"
+    say "     登录加密公钥已就绪（${#LOGIN_PUBKEY} 字节 base64）"
+fi
+
+# ---------------------------------------------------------------- 前端产物
+if [ "$SKIP_BUILD" -eq 0 ]; then
+    say "3/6 构建前端产物（仓内 builder 阶段：node:22 + pnpm 9.15.9）"
 
     # 前置校验：frontend/.env.prod 不在版本库（.gitignore 的 ".env.*" 规则，
     # 仓内只入库 .env.example 模板），必须由构建机的本地文件提供。缺了就早失败，
@@ -86,7 +174,9 @@ if [ "$SKIP_BUILD" -eq 0 ]; then
             || die "$ENV_FILE 里没有 '$kv' —— 路径前缀拓扑要求这两个值（见 deploy/README.md）"
     done
 
-    docker build --target builder -t opentask-fe-builder:"$RELEASE_TAG" "$ROOT/frontend"
+    docker build --target builder \
+        --build-arg "VITE_LOGIN_PUBLIC_KEY=$LOGIN_PUBKEY" \
+        -t opentask-fe-builder:"$RELEASE_TAG" "$ROOT/frontend"
     CID="$(docker create opentask-fe-builder:"$RELEASE_TAG")"
     docker cp "$CID:/app/dist" "$BUILD_CTX/dist"
     docker rm "$CID" >/dev/null
@@ -101,49 +191,22 @@ if [ "$SKIP_BUILD" -eq 0 ]; then
     cp "$ROOT/frontend/Dockerfile.dist" "$BUILD_CTX/Dockerfile"
     tar -C "$BUILD_CTX" --exclude='._*' -czf "$BUILD_CTX/frontend-dist.tar.gz" dist nginx.conf Dockerfile
 else
-    say "1/5 跳过前端构建（--skip-build）：复用服务器上已有的前端镜像"
+    say "3/6 跳过前端构建（--skip-build）：复用服务器上已有的前端镜像"
 fi
 
-# ---------------------------------------------------------------- 送达
-say "2/5 同步源码、编排文件与前端产物"
-ssh "$HOST" "mkdir -p '$REMOTE_DIR'"
-tar -C "$ROOT" \
-    --exclude='._*' \
-    --exclude='backend/.venv' \
-    --exclude='backend/**/__pycache__' \
-    --exclude='backend/.pytest_cache' \
-    --exclude='backend/**/.pytest_cache' \
-    --exclude='backend/config/local.yaml' \
-    -czf - backend Dockerfile .dockerignore docker-compose.prod.yml \
-    | ssh "$HOST" "tar -C '$REMOTE_DIR' -xzf -"
-# 清掉历史遗留的 AppleDouble 残片（首轮发布带过去过 485 个）
-ssh "$HOST" "find '$REMOTE_DIR' -name '._*' -delete; rm -f '$REMOTE_DIR/backend/config/local.yaml'"
-ssh "$HOST" "mkdir -p '$REMOTE_DIR/data'"
 if [ "$SKIP_BUILD" -eq 0 ]; then
     scp -q "$BUILD_CTX/frontend-dist.tar.gz" "$HOST:$REMOTE_DIR/frontend-dist.tar.gz"
 fi
 
 # ---------------------------------------------------------------- 服务器起栈
-say "3/5 服务器侧：解包前端产物 → 打包前端镜像 → 构建后端镜像 → 起栈"
+say "4/6 服务器侧：打包前端镜像 → 全栈起停 → 状态确认"
 ssh "$HOST" "bash -s" "$REMOTE_DIR" "$RELEASE_TAG" "$SKIP_BUILD" <<'REMOTE_SCRIPT'
 set -euo pipefail
 REMOTE_DIR="$1"
 RELEASE_TAG="$2"
 SKIP_BUILD="$3"
 cd "$REMOTE_DIR"
-
-# --- swap：构建期内存缓冲（机器只有 1.6GB 内存且默认无 swap）---
-if [ "$(swapon --show | wc -l)" -eq 0 ]; then
-    echo "创建 2G swapfile（构建期缓冲）…"
-    fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048
-    chmod 600 /swapfile
-    mkswap /swapfile >/dev/null
-    swapon /swapfile
-    grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
-    echo "swap 已启用"
-else
-    echo "swap 已存在，跳过"
-fi
+export RELEASE_TAG
 
 # --- 前端产物 → 版本化镜像（原生 amd64，只做 COPY，几秒）---
 if [ "$SKIP_BUILD" -eq 0 ]; then
@@ -160,30 +223,7 @@ else
     docker tag "$EXISTING" "opentask-frontend:$RELEASE_TAG"
 fi
 
-# --- 密钥：已存在则不覆盖（避免轮换掉线上 JWT 密钥导致全员掉线）---
-if [ ! -f .env ]; then
-    gen() { python3 -c 'import secrets;print(secrets.token_hex(32))'; }
-    cat > .env <<EOF
-# OpenTask 生产密钥（生成于 $(date -u +%Y-%m-%dT%H:%M:%SZ)）
-# chmod 600；**不要提交到版本库**；轮换 AUTH_SECRET_KEY 会让所有已签发 JWT 失效
-AUTH_SECRET_KEY=$(gen)
-POSTGRES_PASSWORD=$(gen)
-CIPHER_KEY=$(gen)
-PUBLIC_ORIGIN=http://112.126.60.109
-RELEASE_TAG=$RELEASE_TAG
-EOF
-    chmod 600 .env
-    echo "已生成 .env（密钥随机生成）"
-else
-    echo ".env 已存在，保持不变"
-fi
-
-export RELEASE_TAG
-
-echo "构建后端镜像（原生 amd64）…"
-docker compose -f docker-compose.prod.yml build backend
-
-echo "启动栈…"
+echo "启动全栈…"
 docker compose -f docker-compose.prod.yml up -d
 
 echo "等待后端健康…"
@@ -191,11 +231,9 @@ READY=0
 for i in $(seq 1 60); do
     if docker compose -f docker-compose.prod.yml exec -T backend \
         curl -fsS http://127.0.0.1:7377/openapi.json >/dev/null 2>&1; then
-        echo "后端就绪"
         READY=1
         break
     fi
-    # 崩溃循环（restarting/exited/dead）→ 立刻失败并把日志打出来，别空等两分钟
     STATE="$(docker inspect -f '{{.State.Status}}' opentask-backend 2>/dev/null || echo unknown)"
     if [ "$STATE" = "restarting" ] || [ "$STATE" = "exited" ] || [ "$STATE" = "dead" ]; then
         echo "后端容器状态异常：$STATE —— 日志如下" >&2
@@ -204,16 +242,13 @@ for i in $(seq 1 60); do
     fi
     sleep 2
 done
-if [ "$READY" -ne 1 ]; then
-    echo "等待后端健康超时（120s）" >&2
-    docker compose -f docker-compose.prod.yml logs --tail 60 backend >&2
-    exit 1
-fi
+[ "$READY" = "1" ] || { echo "等待后端健康超时" >&2; docker compose -f docker-compose.prod.yml logs --tail 60 backend >&2; exit 1; }
+
 docker compose -f docker-compose.prod.yml ps
 REMOTE_SCRIPT
 
 # 管理员（口令经环境变量传，不进命令行历史）
-say "4/5 创建初始管理员"
+say "5/6 创建初始管理员"
 if [ -n "$ADMIN_PASSWORD" ]; then
     ssh "$HOST" "cd '$REMOTE_DIR' && docker compose -f docker-compose.prod.yml exec -T \
         backend python scripts/create_admin_user.py --username '$ADMIN_USER' --password '$ADMIN_PASSWORD' --reset-password"
@@ -224,7 +259,7 @@ fi
 
 # ---------------------------------------------------------------- 宿主 nginx
 if [ "$SKIP_NGINX" -eq 0 ]; then
-    say "5/5 宿主 nginx：安装片段 → include → 校验 → reload"
+    say "6/6 宿主 nginx：安装片段 → include → 校验 → reload"
     # 先把片段送过去——远端脚本里的路径是远端的，不能直接用本地路径 cp
     scp -q "$ROOT/deploy/nginx/opentask-locations.conf" "$HOST:/tmp/opentask-locations.conf"
     ssh "$HOST" "bash -s" <<'REMOTE_SCRIPT'

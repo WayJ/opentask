@@ -60,6 +60,8 @@ declare namespace Env {
     readonly VITE_SERVICE_EXPIRED_TOKEN_CODES: string;
     /** when the route mode is static, the defined super role */
     readonly VITE_STATIC_SUPER_ROLE: string;
+    /** 登录口令加密用的服务端公钥（SPKI DER 的 base64）；未配置时登录走明文 */
+    readonly VITE_LOGIN_PUBLIC_KEY: string;
     /**
      * other backend service base url
      *

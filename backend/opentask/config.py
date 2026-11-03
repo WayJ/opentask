@@ -226,6 +226,18 @@ class Config(BaseSettings):
         return self._get_value("DATA_DIRECTORY", str(Path(USER_DATA_DIR) / "data"))
 
     @property
+    def login_private_key_path(self) -> str:
+        """登录口令加密的私钥路径（RSA-OAEP，私钥只在服务端）
+
+        默认落在 DATA_DIRECTORY 下（生产即 /app/data/login_private.pem，由 compose
+        的 ./data 卷挂进来）；未配置/不存在时后端回退按明文处理口令。
+        """
+        return self._get_value(
+            "LOGIN_PRIVATE_KEY_PATH",
+            str(Path(self.data_directory) / "login_private.pem"),
+        )
+
+    @property
     def templates_path(self) -> Path:
         return Path(__file__).parent.parent / "templates"
 

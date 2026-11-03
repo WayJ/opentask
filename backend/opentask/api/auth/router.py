@@ -25,6 +25,7 @@ from opentask.services.user_center.token_service import TokenService
 from opentask.utils.response import success_response as std_success_response, StatusCode
 from opentask.config import config
 from opentask.utils.encrypt import encrypt_password
+from opentask.utils.login_crypto import decrypt_login_payload
 from opentask.utils.token_security import encrypt_sso_token
 
 logger = logging.getLogger(__name__)
@@ -71,6 +72,20 @@ def _build_dingtalk_client() -> DingTalkClient:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
+
+def _plain_password(payload: str) -> str:
+    """把登录载荷还原成明文口令。
+
+    前端用 RSA-OAEP 加密口令后提交（公钥在前端 bundle，私钥只在服务端），
+    这样即使链路是明文 HTTP，截获的也只是解不开的密文。
+
+    解不开时**原样返回**——兼容明文提交的客户端（CLI、本地开发、未配置密钥对的
+    环境）。RSA-OAEP 是随机化的，明文口令几乎不可能被误判为合法密文。
+    """
+    decrypted = decrypt_login_payload(payload)
+    return decrypted if decrypted is not None else payload
+
+
 @router.post("/login")
 async def login(
     username: Annotated[str, Body(alias="userName", alias_priority=2)],
@@ -105,7 +120,7 @@ async def login(
     if not config.sso_enabled:
         auth = AuthService(session)
         user, pair = await auth.login_local(
-            username, password, user_agent=user_agent, ip=client_ip
+            username, _plain_password(password), user_agent=user_agent, ip=client_ip
         )
         return success_response({
             **pair,
@@ -146,7 +161,7 @@ async def login(
                     # 加密责任收归后端（与前端旧 encrypt.ts 等价，见 utils/encrypt.py）。
                     # 兼容性：本分支只服务新前端（同版本发布），不再接受旧前端的密文提交——
                     # 明文/密文均为任意字符串，服务端无法可靠区分。
-                    "password": encrypt_password(password),
+                    "password": encrypt_password(_plain_password(password)),
                     "code": "",
                     "origin": "password",
                     "timestamp": "0",
@@ -422,7 +437,7 @@ async def login_local(
 
     auth = AuthService(session)
     user, pair = await auth.login_local(
-        username, password, user_agent=user_agent, ip=client_ip
+        username, _plain_password(password), user_agent=user_agent, ip=client_ip
     )
 
     logger.info(f"本地登录成功 - 用户: {username}, ID: {user.id}")
