@@ -247,7 +247,25 @@ class IssueQueryParams(BaseModel):
 # Bulk Operation Schemas
 # ============================================================================
 
+class IssueBoardMoveItem(BaseModel):
+    """看板列内重排单项"""
+    issue_id: str = Field(..., description="Issue ID")
+    position: int = Field(..., ge=0, description="目标排序位置（0-based）")
+
+
+class IssueBoardMove(BaseModel):
+    """看板拖拽落盘：原子更新 status + position，可选同列重排"""
+    issue_id: str = Field(..., description="被拖动的 Issue ID")
+    status: IssueStatus = Field(..., description="目标状态列")
+    position: int = Field(..., ge=0, description="目标列内位置（0-based）")
+    ordered_ids: Optional[List[str]] = Field(
+        None,
+        description="目标列完整有序 ID 列表（含被拖动项）；若提供则按序重写各 position",
+    )
+
+
 class IssueBulkUpdate(BaseModel):
+
     """批量更新 Schema"""
     issue_ids: List[str] = Field(..., min_length=1, description="Issue ID 列表")
     status: Optional[IssueStatus] = None

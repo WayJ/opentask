@@ -35,7 +35,7 @@ date: 2026-11-03
 | sprint | state | note |
 |---|---|---|
 | S1 | closed | **开放注册 + Workspace（创建/加入/切换）+ Project/Issue 挂 workspace_id 与隔离**。必须最先做：租户边界影响数据模型与后续视图/通知作用域。evidence: `docs/superpowers/sprints/2026-11-03-E3-S1-plan.md` |
-| S2 | pending | Issue 看板 + 列表双视图；复用 status/assignee/position；在 S1 工作区上下文内切换视图 |
+| S2 | closed | Issue 看板 + 列表双视图；复用 status/assignee/position。evidence: `docs/superpowers/sprints/2026-11-04-E3-S2-plan.md` / `docs/superpowers/acceptances/2026-11-04-E3-S2-acceptance.md` |
 | S3 | pending | Inbox 通知流（assign / comment / @）；通知为库内记录，不做邮件投递 |
 | S4 | optional | 仅当 S1–S3 合并后仍需跨模块抛光/回归时启用；优先控制在 3 个 sprint |
 
@@ -161,3 +161,6 @@ date: 2026-11-03
 ## 进度注记
 
 - 2026-11-04（UTC+8）：E3-S1 closed；acceptance `docs/superpowers/acceptances/2026-11-03-E3-S1-acceptance.md`；分支 `sprint/E3-S1` 未推远程。下一步 S2（看板+列表）。
+
+- 2026-11-04（UTC+8）：E3-S2 started（分支 `sprint/E3-S2`，基于 S1 tip `9659718`）；实现看板+列表双视图。
+- 2026-11-04（UTC+8）：E3-S2 closed；acceptance `docs/superpowers/acceptances/2026-11-04-E3-S2-acceptance.md`；分支 `sprint/E3-S2` 未推远程。下一步 S3（Inbox）。

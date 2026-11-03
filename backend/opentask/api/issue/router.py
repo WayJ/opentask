@@ -29,6 +29,7 @@ from opentask.models.issue.schema import (
     IssueQueryParams,
     IssueBulkUpdate,
     IssueBulkDelete,
+    IssueBoardMove,
     IssueStatistics,
     IssueReactionCreate,
     IssueReactionResponse,
@@ -218,6 +219,41 @@ async def create_issue(
     except Exception as e:
         logger.error(f"创建 Issue 失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@router.post("/board/move")
+async def move_issue_on_board(
+    data: IssueBoardMove,
+    service: IssueService = Depends(get_issue_service),
+    current_user: UserModel = Depends(authenticate),
+    ws_ctx=Depends(get_optional_workspace_context),
+):
+    """看板拖拽落盘：原子更新 status + position（可选 ordered_ids 同列重排）。
+
+    若带 X-Workspace-Id，则校验 Issue 属于该工作区。
+    """
+    workspace, _member, user = ws_ctx
+    try:
+        issue = await service.move_issue_on_board(
+            data,
+            str(user.id),
+            workspace_id=workspace.id if workspace else None,
+        )
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except Exception as e:
+        logger.error(f"看板移动 Issue 失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return {
+        "code": 200,
+        "message": "Issue 看板位置已更新",
+        "data": IssueResponse.model_validate(issue),
+        "timestamp": 0,
+    }
 
 
 # ========================================================================

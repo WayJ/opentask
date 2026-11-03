@@ -57,6 +57,22 @@ export const issueApi = {
   },
 
   /**
+   * 看板拖拽落盘（status + position，可选 ordered_ids）
+   */
+  moveOnBoard: (data: {
+    issue_id: string;
+    status: Api.Issue.IssueStatus;
+    position: number;
+    ordered_ids?: string[];
+  }) => {
+    return request<Api.Issue.Issue>({
+      url: '/api/issues/board/move',
+      method: 'POST',
+      data
+    });
+  },
+
+  /**
    * 删除 Issue
    */
   deleteIssue: (id: string) => {

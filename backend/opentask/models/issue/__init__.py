@@ -34,6 +34,8 @@ from .schema import (
     IssueQueryParams,
     IssueBulkUpdate,
     IssueBulkDelete,
+    IssueBoardMove,
+    IssueBoardMoveItem,
     IssueStatistics,
 )
 
@@ -69,5 +71,7 @@ __all__ = [
     "IssueQueryParams",
     "IssueBulkUpdate",
     "IssueBulkDelete",
+    "IssueBoardMove",
+    "IssueBoardMoveItem",
     "IssueStatistics",
 ]

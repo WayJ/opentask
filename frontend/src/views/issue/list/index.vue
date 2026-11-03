@@ -32,6 +32,7 @@ import { useAuthStore } from '@/store/modules/auth';
 import type { ParsedQuery } from '@/utils/issueSearchParser';
 import IssueSmartSearch from '@/components/IssueSmartSearch.vue';
 import type { Api } from '@/typings/api';
+import IssueBoard from './modules/IssueBoard.vue';
 
 defineOptions({
   name: 'IssueList'
@@ -61,6 +62,10 @@ const pagination = reactive({
 
 // Tab 状态
 const activeTab = ref<'my_issues' | 'open' | 'closed' | 'all'>('open');
+
+// 双视图：list | board（同数据源）
+const viewMode = ref<'list' | 'board'>('list');
+const filteredIssues = ref<Api.Issue.Issue[]>([]);
 
 // 筛选框展开状态（默认关闭）
 const filtersExpanded = ref(false);
@@ -171,10 +176,11 @@ function applyTabAndFilters() {
     );
   }
 
-  // 更新分页总数
+  // 更新分页总数与看板全量（未分页）
+  filteredIssues.value = filtered;
   pagination.itemCount = filtered.length;
 
-  // 应用分页：只取当前页的数据
+  // 应用分页：只取当前页的数据（列表视图）
   const start = (pagination.page - 1) * pagination.pageSize;
   const end = start + pagination.pageSize;
   issues.value = filtered.slice(start, end);
@@ -506,12 +512,36 @@ onMounted(() => {
       <template #header>
         <NSpace align="center" justify="space-between" style="width: 100%">
           <NText strong style="font-size: 16px">Issue 管理</NText>
-          <NButton type="primary" @click="createIssue">
-            <template #icon>
-              <icon-mdi-plus />
-            </template>
-            新建 Issue
-          </NButton>
+          <NSpace align="center">
+            <NButton
+              size="small"
+              :type="viewMode === 'list' ? 'primary' : 'default'"
+              secondary
+              @click="viewMode = 'list'"
+            >
+              <template #icon>
+                <icon-mdi-view-list />
+              </template>
+              列表
+            </NButton>
+            <NButton
+              size="small"
+              :type="viewMode === 'board' ? 'primary' : 'default'"
+              secondary
+              @click="viewMode = 'board'"
+            >
+              <template #icon>
+                <icon-mdi-view-column />
+              </template>
+              看板
+            </NButton>
+            <NButton type="primary" @click="createIssue">
+              <template #icon>
+                <icon-mdi-plus />
+              </template>
+              新建 Issue
+            </NButton>
+          </NSpace>
         </NSpace>
       </template>
 
@@ -707,28 +737,33 @@ onMounted(() => {
       </div>
 
       <NSpin :show="loading">
-        <NEmpty v-if="!loading && issues.length === 0" description="暂无 Issue" size="large" />
-        <div v-else>
-          <NDataTable
-            :columns="columns"
-            :data="issues"
-            :row-key="(row: Api.Issue.Issue) => row.id"
-            :scroll-x="1400"
-            striped
-            size="small"
-          />
-          <div class="pagination-wrapper">
-            <NPagination
-              v-model:page="pagination.page"
-              :page-size="pagination.pageSize"
-              :item-count="pagination.itemCount"
-              :page-sizes="pagination.pageSizes"
-              show-size-picker
-              @update:page="handlePageChange"
-              @update:page-size="handlePageSizeChange"
+        <template v-if="viewMode === 'board'">
+          <IssueBoard :issues="filteredIssues" @changed="loadIssues" />
+        </template>
+        <template v-else>
+          <NEmpty v-if="!loading && issues.length === 0" description="暂无 Issue" size="large" />
+          <div v-else>
+            <NDataTable
+              :columns="columns"
+              :data="issues"
+              :row-key="(row: Api.Issue.Issue) => row.id"
+              :scroll-x="1400"
+              striped
+              size="small"
             />
+            <div class="pagination-wrapper">
+              <NPagination
+                v-model:page="pagination.page"
+                :page-size="pagination.pageSize"
+                :item-count="pagination.itemCount"
+                :page-sizes="pagination.pageSizes"
+                show-size-picker
+                @update:page="handlePageChange"
+                @update:page-size="handlePageSizeChange"
+              />
+            </div>
           </div>
-        </div>
+        </template>
       </NSpin>
     </NCard>
   </div>

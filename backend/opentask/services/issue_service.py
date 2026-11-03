@@ -19,6 +19,7 @@ from opentask.models.issue.schema import (
     IssueCreate,
     IssueUpdate,
     IssueBulkUpdate,
+    IssueBoardMove,
     IssueQueryParams,
 )
 from opentask.models.issue.enums import (
@@ -149,9 +150,24 @@ class IssueService:
         result = await self.db.execute(count_query)
         total = result.scalar()
 
-        # 排序
-        sort_column = getattr(Issue, params.sort_by, Issue.created_at)
-        if params.sort_order == "asc":
+        # 排序（白名单；position 支持看板同源排序，NULL 靠后）
+        allowed_sort = {
+            "created_at",
+            "updated_at",
+            "position",
+            "priority",
+            "status",
+            "title",
+            "due_date",
+        }
+        sort_key = params.sort_by if params.sort_by in allowed_sort else "created_at"
+        sort_column = getattr(Issue, sort_key)
+        if sort_key == "position":
+            if params.sort_order == "asc":
+                query = query.order_by(sort_column.asc().nulls_last(), Issue.created_at.asc())
+            else:
+                query = query.order_by(sort_column.desc().nulls_last(), Issue.created_at.desc())
+        elif params.sort_order == "asc":
             query = query.order_by(sort_column.asc())
         else:
             query = query.order_by(sort_column.desc())
@@ -353,6 +369,67 @@ class IssueService:
         await self.db.commit()
 
         return await self.get_issue(issue_id)
+
+    async def move_issue_on_board(
+        self,
+        data: IssueBoardMove,
+        user_id: str,
+        *,
+        workspace_id: str | None = None,
+    ) -> Issue:
+        """看板拖拽：原子更新 status + position，可选重写目标列 ordered_ids。
+
+        workspace_id 若提供，则要求目标 Issue（及 ordered_ids）属于该工作区。
+        """
+        issue = await self.get_issue(data.issue_id)
+        if not issue:
+            raise LookupError("Issue 不存在")
+        if workspace_id is not None and issue.workspace_id != workspace_id:
+            raise PermissionError("Issue 不属于当前工作区")
+
+        # 主卡片：走 update_issue 以复用 status timeline
+        await self.update_issue(
+            data.issue_id,
+            IssueUpdate(status=data.status, position=data.position),
+            user_id,
+        )
+
+        if data.ordered_ids:
+            # 校验并批量写 position（同事务外再 commit；ordered 项跳过已由 update 写过的主卡亦可再写）
+            for idx, oid in enumerate(data.ordered_ids):
+                if oid == data.issue_id:
+                    # 已写；仍允许校正 position 为序中下标
+                    if idx != data.position:
+                        await self.db.execute(
+                            update(Issue)
+                            .where(Issue.id == oid, Issue.is_deleted == False)
+                            .values(position=idx, updated_by=user_id)
+                        )
+                    continue
+                other = await self.get_issue(oid)
+                if not other:
+                    raise LookupError(f"Issue 不存在: {oid}")
+                if workspace_id is not None and other.workspace_id != workspace_id:
+                    raise PermissionError("ordered_ids 含非本工作区 Issue")
+                if other.status != data.status.value and other.status != data.status:
+                    # 仅允许重排目标列内卡片；若列表含他列则强制改 status
+                    await self.update_issue(
+                        oid,
+                        IssueUpdate(status=data.status, position=idx),
+                        user_id,
+                    )
+                else:
+                    await self.db.execute(
+                        update(Issue)
+                        .where(Issue.id == oid, Issue.is_deleted == False)
+                        .values(position=idx, updated_by=user_id)
+                    )
+            await self.db.commit()
+
+        moved = await self.get_issue(data.issue_id)
+        if not moved:
+            raise LookupError("Issue 不存在")
+        return moved
 
     async def delete_issue(self, issue_id: str, user_id: str) -> bool:
         """删除 Issue（软删除）"""
