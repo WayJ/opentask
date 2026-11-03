@@ -279,16 +279,24 @@ RFC 7009。`token` + `client_id` + `client_secret`。吊销该 token 对应的 a
 
 **实施状态（2026-11-02）**：`OAuthIdentityService.resolve_or_create` 已实现，但**未被授权流程调用**。`/oauth2/token` 走 `find_by_id(record.user_id)`——谁在同意页点了同意，就代表谁。标准 OAuth2 下身份由授权服务器的登录会话决定；dsh-saas 成员若没有 OpenTask 账号，无法完成同意。另外前端用户名正则 `^[一-龥a-zA-Z0-9_-]{4,16}$` 不允许 `@`、最长 16，与「email 作 username 种子」冲突。本期不改核心 `user` 表、不放宽该正则，登记为待裁定技术债。
 
+**裁定结论（2026-11-03，用户拍板）**：**走「维持标准 OAuth2 语义」路线**——成员须**先有 OpenTask 账号**才能完成授权同意，授权流不接入自动建号。
+
+- 产品口径：资源所有者身份由**授权服务器的登录会话**决定（谁在同意页点同意就代表谁）。dsh-saas 侧成员若无 OpenTask 账号，需先注册/登录 OpenTask，再发起连接。
+- 因此 `OAuthIdentityService.resolve_or_create` **保留在仓内但不接线**（含其单测），作为未来若改口径时的现成实现；本期不改核心 `user` 表、不放宽前端正则。
+- 需求侧动作（非本仓）：dsh-saas 的「连接 OpenTask」入口需在引导文案中说明「需先有 OpenTask 账号」，并给出注册入口。
+- 技术债 TD6 据此销账，证据见 `docs/tech-debt-tracker.md` 与 `.agents/notes/2026-11-03-debt-fixes.md`。
+- 顺带**订正本节前述的一个误解**（2026-11-03 复核）：前端 `REG_USER_NAME` 正则只约束**前端表单**，后端 `user.username` 是 `String(50)` 唯一索引且**无格式校验**——该正则**不构成**服务端自动建号的障碍。真正的待裁定项从来是**身份来源与信任模型**（email 从哪来、客户端可否代断言 email），而非正则。
+
 ---
 
 ## 7. 前端同意页
 
 | 项 | 内容 |
 |---|---|
-| 文件 | `frontend/src/views/oauth2/consent.vue` |
-| 路由 | 由 elegant-router 从 views 目录生成（`pnpm gen-route`），路由名 `oauth2_consent`，路径 `/oauth2/consent` |
+| 文件 | `frontend/src/views/oauth2/index.vue`（**实际落地路径**，与本节初稿写的 `consent.vue` 不同——2026-11-03 订正） |
+| 路由 | 由 elegant-router 从 views 目录生成（`pnpm gen-route`），路由名 `oauth2`，路径 `/oauth2/authorize`（初稿写 `/oauth2/consent`，以实现为准） |
 | 展示 | 应用名、应用描述、申请的 scope 清单（中文映射）、目标 redirect_uri 主机名 |
-| 交互 | 「同意授权」/「拒绝」按钮；同意走 `POST /oauth2/authorize/approve`，拒绝走 `decision=deny` |
+| 交互 | 「同意授权」/「拒绝」按钮；同意走 `POST /api/oauth2/authorize/approve`，拒绝走 `decision=deny`（初稿写 `/oauth2/authorize/approve`，**实际后端路径带 `/api` 前缀**） |
 | 未登录 | 复用既有路由守卫 `?redirect=` 机制，登录后自动回到同意页 |
 | API | 新增 `frontend/src/service/api/oauth2.ts`，沿用既有 `request` 封装 |
 

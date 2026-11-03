@@ -333,6 +333,29 @@ AUTH_SECRET_KEY=<密钥> uv run python -m opentask.api.tasks.openapi_export
 - **对接 Orca**：Settings → Jira → 添加自建站点（Site URL `http://<host>:<port>`、Server 模式、PAT = `vk_` API Key）；连接即调 `/myself` 验证。端点形状依据与 E2E 证据见 `docs/superpowers/sprints/2026-11-01-S7-orca-jira-probe.md` 与 `…-orca-e2e-evidence.md`；往返测试 `tests/tasks/test_tasks_jira_wire.py`。
 - **完整契约文档**：本节是速查摘要；**仓内权威契约**为 `backend/docs/jira-wire.md`（18 个端点全表、请求/响应形状、JQL 支持子集、状态映射、错误码表、已知边界）。该层以 ASGI catch-all 挂载、不进 OpenAPI spec，故文档漂移由 `tests/tasks/test_jira_wire_doc.py` 拦截（新增端点未写文档即测试红）。
 
+## OAuth2 Provider（对外授权）
+
+OpenTask 作为 OAuth2 **授权服务器**（Provider），供外部应用代表用户读取 OpenTask 数据。
+代码位于 `opentask/api/oauth2/`（router / read_api / dependencies / schemas）与
+`opentask/services/oauth2/`，测试位于 `tests/oauth2/`。
+
+| 端点 | 说明 |
+|---|---|
+| `GET /api/oauth2/authorize/context` | 校验授权请求（client / redirect_uri / scope），返回同意页上下文 |
+| `POST /api/oauth2/authorize/approve` | 同意 / 拒绝 → 返回跳转 URL（带 `code` 与 `state`） |
+| `POST /oauth2/token` | 授权码换令牌（RFC 6749 §5 **标准**响应体，不走本仓 `{code,message,data}` 包装——包装会破坏 OAuth2 互操作性） |
+| `GET /oauth2/userinfo` | 当前代表用户信息 |
+| `POST /oauth2/revoke` | 吊销令牌 |
+| `GET/POST/PATCH/DELETE /api/oauth2/clients` | 客户端注册管理（**管理员权限**） |
+| `GET /oauth2/api/{me,tasks,projects,requirements}` | 只读数据面（按 scope 与**成员可见集**收窄） |
+
+- **scope**：`profile` / `read:tasks` / `read:projects` / `read:requirements`；scope 不足 → 403 `insufficient_scope`，请求 scope ⊄ 客户端允许集 → `invalid_scope`。
+- **令牌**：JWT，claims = `sub`（user.id）+ `tv`（token_version）+ `aud`（client_id）+ `scope` + `jti` + `exp`；**用 `scope` 不用 `scp`**（`scp` 已被内部受限令牌占用，语义互斥）。授权码一次性消费、10min TTL，重放即吊销该用户全部 OAuth 令牌。
+- **前提（重要）**：资源所有者身份由**授权服务器的登录会话**决定——成员须**先有 OpenTask 账号**
+  并登录，才能完成同意（2026-11-03 产品口径，详见 `docs/superpowers/specs/2026-11-02-oauth2-provider-design.md` §280）。
+- **安全边界**：带 `aud` 的 OAuth 令牌**进不了**通用 `/api/*` 与契约层 `/tasks`（既有鉴权链校验
+  aud 不匹配即 401），只读 scope 不会被越权扩大；不带 `aud` 的既有会话令牌不受影响。
+
 ## 项目结构
 
 ```
