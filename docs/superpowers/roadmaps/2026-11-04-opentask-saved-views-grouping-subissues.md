@@ -21,7 +21,7 @@ date: 2026-11-04
 - [ ] Epic 下全部 Sprint（S1–S3）已 acceptance 且 state=closed，合并证据写入各 sprint 台账
 - [ ] `cd backend && uv run pytest tests/ -v` 全绿（含 Saved Views 隔离 / 分组 / 子 Issue 用例）
 - [ ] `cd frontend && npm run lint && npm run build` 通过（0 errors）
-- [ ] Saved Views：用户可保存/列出/应用/收藏/删除个人视图；跨用户不可见
+- [x] Saved Views：用户可保存/列出/应用/收藏/删除个人视图；跨用户不可见
 - [ ] 列表分组：可按属性泳道呈现且与筛选一致（S2）
 - [ ] 子 Issue：可建父子、列表嵌套、父级约束正确（S3）
 - [ ] DESIGN.md / Naive UI / soybean 令牌被前端改动遵守；无 ⌘K / 工作区共享视图交付
@@ -30,7 +30,7 @@ date: 2026-11-04
 
 | sprint | state | note |
 |---|---|---|
-| S1 | started | **个人 Saved Views**：模型 + API + Issue 列表工具栏保存/应用/收藏。evidence: `docs/superpowers/sprints/2026-11-04-E4-S1-plan.md` |
+| S1 | closed | **个人 Saved Views**：模型 + API + Issue 列表工具栏保存/应用/收藏。evidence: `docs/superpowers/sprints/2026-11-04-E4-S1-plan.md` / `docs/superpowers/acceptances/2026-11-04-E4-S1-acceptance.md` |
 | S2 | planned | Issue 列表按属性分组泳道（assignee/priority/type）；可复用 `display_json.group_by`。 |
 | S3 | planned | 一等公民子 Issue：`parent_issue_id` + 嵌套列表；非 IssueRelation。 |
 
@@ -141,3 +141,4 @@ date: 2026-11-04
 ## 进度注记
 
 - 2026-11-04（UTC+8）：E4 启动；Way 拍板个人 Views + 三 Sprint；分支 `sprint/E4-S1`（基 E3-S3 tip `61d2f40`）；worktree `/workspace/opentask-worktrees/E4-S1`；不推远程。
+- 2026-11-04（UTC+8）：E4-S1 closed；acceptance `docs/superpowers/acceptances/2026-11-04-E4-S1-acceptance.md`；分支 `sprint/E4-S1` 未推远程。下一步 S2（列表分组泳道）。
