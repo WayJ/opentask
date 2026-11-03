@@ -156,7 +156,9 @@ docker compose -f docker-compose.prod.yml exec -T backend \
     python scripts/generate_login_keys.py --print-public
 REMOTE_SCRIPT
 )"
-    [ -n "$LOGIN_PUBKEY" ] || die "没拿到登录加密公钥"
+    # 只留 base64 行——防止任何日志/提示混进公钥里
+    LOGIN_PUBKEY="$(printf '%s' "$LOGIN_PUBKEY" | tr -d '\r' | grep -E '^[A-Za-z0-9+/=]+$' | tail -1)"
+    [ -n "$LOGIN_PUBKEY" ] || die "没拿到登录加密公钥（服务器侧输出异常）"
     say "     登录加密公钥已就绪（${#LOGIN_PUBKEY} 字节 base64）"
 fi
 
