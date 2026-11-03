@@ -47,11 +47,16 @@ from opentask.models.user_center import Role, UserRole
 from opentask.repositories.base import SessionCreator
 from opentask.services.user_center.seed import seed_user_center
 
-# UserModel.access_tokens 是字符串式 relationship（"AccessToken"），而
-# opentask.models 包**没有导出** AccessToken（只导出了同名的 OAuthAccessToken）。
-# 应用侧能跑是因为别的模块先导入了它；本脚本不加载 app，故必须显式导入，
-# 否则 mapper 配置期报 "expression 'AccessToken' failed to locate a name"。
-from opentask.models.access_token.model import AccessToken  # noqa: F401
+# 加载 app 的真实导入图，确保 SQLAlchemy mapper 能解析全部关系。
+#
+# 为什么不能自己扫 models 包：`opentask/models/__init__.py` 只导出部分模型，
+# 其余靠路由模块"顺带"导入（`models/access_token/model.py` 的 AccessToken、
+# `models/project_knowledge_base.py` 的 project_knowledge_bases 关联表……）。
+# 而**全量扫描反而不行**——仓内有已退役未删除的 `models/datainsight/`（其
+# `__init__.py` 仍 import 一个已不存在的 `.report`），导入它会让 mapper 配置
+# 报 "expression 'AnalysisReport' failed to locate a name"。
+# 应用能跑正是因为它只导入自己需要的那些——所以直接复用应用的导入图最稳。
+import opentask.main  # noqa: F401,E402  仅为触发模型注册
 
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -148,6 +153,7 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as exc:  # noqa: BLE001 - 脚本入口需要把异常转成退出码
         print(f"失败：{exc}", file=sys.stderr)
         return 1
+
 
     if rc == 0 and generated:
         print(f"口令：{password}（仅此一次，请立即保存）")
