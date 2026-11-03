@@ -103,6 +103,27 @@ sh run_server_nohup.sh
 
 ```
 
+### 容器化发布与初始管理员
+
+生产发布用仓库根的 `docker-compose.prod.yml`（端口只绑回环，外部经宿主 nginx 进入），
+完整流程见 `deploy/README.md`。
+
+**全新部署的库是空的**——`alembic upgrade head` 只建表不播种账号，而后端**没有注册接口**
+（只有登录），所以发布后必须显式建出第一个管理员：
+
+```bash
+# 在后端容器内执行（发布机 /opt/opentask）
+docker compose -f docker-compose.prod.yml exec backend \
+    python scripts/create_admin_user.py --username admin
+
+# 重置已有账号的口令
+docker compose -f docker-compose.prod.yml exec backend \
+    python scripts/create_admin_user.py --username admin --password '新口令' --reset-password
+```
+
+脚本幂等：账号已存在默认跳过（不覆盖口令）；会先跑一遍用户中心播种，再把用户显式挂到
+`admin` 角色；口令只存 bcrypt 哈希，库里无明文。
+
 ### 验证服务运行
 
 ```bash

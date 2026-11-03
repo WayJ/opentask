@@ -86,10 +86,35 @@ docker build -f frontend/Dockerfile -t opentask-frontend frontend
 cd .. && AUTH_SECRET_KEY=$(openssl rand -hex 32) docker compose up -d
 ```
 
-**关键点：API 前缀由反向代理剥离。** 生产构建的 `VITE_SERVICE_BASE_URL=/opentask/`（见 `.env.prod`），
-而后端路由**不带** `/opentask` 前缀——前缀由 nginx 负责剥离并反代到后端 7377。
-容器内的参考配置见 `frontend/nginx.conf`（`location /opentask/ { proxy_pass http://backend:7377/; }`）。
-部署到生产时，**运维侧的 nginx 必须做同样的事**：静态托管 + `/opentask/` 反代，否则前端请求 404。
+### 路径前缀拓扑
+
+生产把整个应用挂在 `/opentask/` 前缀下（见 `.env.prod`）：
+
+| 变量 | 值 | 作用 |
+|---|---|---|
+| `VITE_BASE_URL` | `/opentask/` | vite base（产物资源引用 `/opentask/assets/*`）+ router base（history 模式路由基址） |
+| `VITE_SERVICE_BASE_URL` | `/opentask/` | axios baseURL → 后端调用落在 `/opentask/api/*` |
+
+后端路由**不带** `/opentask` 前缀（见 `backend/opentask/app.py`），前缀由 nginx 剥离：
+
+```
+/opentask/assets/*  → 静态资源（带 hash，长期缓存）
+/opentask/api/*     → 后端 7377 的 /api/*
+/opentask/<路由>    → index.html（SPA history fallback）
+```
+
+前端容器内的参考配置见 `frontend/nginx.conf`；宿主 nginx（生产部署侧）需要做同样的分流，
+仓内参考配置在 `deploy/nginx/opentask-locations.conf`，完整发布说明见 `deploy/README.md`。
+**运维侧的 nginx 漏掉前缀分流，前端请求就会 404。**
+
+> 本地开发不受影响：开发走 `.env.test`（`VITE_BASE_URL=/`，
+> `VITE_SERVICE_BASE_URL=http://localhost:7377`），由 vite dev server 代理。
+
+### 低内存机器上的发布
+
+生产服务器内存不够跑 `pnpm install + vite build` 时，用**预构建产物**路径：
+开发机构建出 `dist`，传到服务器后由 `frontend/Dockerfile.dist` 打包成镜像
+（只有 COPY，原生架构几秒完成）。完整流程见 `deploy/deploy.sh`。
 
 ## Git 提交规范
 

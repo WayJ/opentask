@@ -1,0 +1,111 @@
+# OpenTask 生产编排（服务器侧专用）
+#
+# 与仓库根的 docker-compose.yml（本地开发编排）分开：
+#   - 端口一律绑定 127.0.0.1，只由宿主 nginx 对外暴露。公网机上数据库与
+#     后端绝不能裸奔在全网卡（compose 的默认 "7377:7377" 是 0.0.0.0 绑定）。
+#   - 后端镜像在服务器上**原生构建**（amd64，无跨架构模拟）。
+#   - 前端镜像由开发机 `docker buildx build --platform linux/amd64` 产出后
+#     docker save/scp/docker load 送达——服务器只有 1.6GB 内存，不做 vite 构建。
+#     镜像构建脚本见 deploy/deploy.sh。
+#
+# 目录约定（服务器）：
+#   /opt/opentask/
+#     ├── backend/               后端源码（构建后端镜像的上下文）
+#     ├── Dockerfile              后端镜像定义（仓库根那份）
+#     ├── .dockerignore
+#     ├── docker-compose.prod.yml 本文件
+#     ├── .env                   密钥（chmod 600，不入库）
+#     └── data/                  DATA_DIRECTORY 持久化目录
+#
+# 起停：
+#   cd /opt/opentask
+#   docker compose -f docker-compose.prod.yml up -d
+#   docker compose -f docker-compose.prod.yml logs -f backend
+#   docker compose -f docker-compose.prod.yml down
+#
+# 必需环境变量（置于同目录 .env，chmod 600；缺失即 fail-closed 拒启动）：
+#   AUTH_SECRET_KEY   JWT 签名密钥（config.py 显式禁止默认值）
+#   POSTGRES_PASSWORD 数据库口令
+#   CIPHER_KEY        口令加密密钥
+# 可选：OPENAI_API_KEY / OPENAI_BASE_URL / PUBLIC_ORIGIN / RELEASE_TAG
+
+name: opentask
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: opentask-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: opentask
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 必须显式设置}
+      POSTGRES_DB: opentask
+      # 刻意不映射端口：生产库只在 compose 内网可达，由后端容器直连
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opentask -d opentask"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: opentask-backend:${RELEASE_TAG:-prod}
+    container_name: opentask-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_ENV: production
+      # 显式要求：config.py 对 AUTH_SECRET_KEY fail-closed，缺失即拒启动
+      AUTH_SECRET_KEY: ${AUTH_SECRET_KEY:?AUTH_SECRET_KEY 必须显式设置（fail-closed）}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: opentask
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 必须显式设置}
+      POSTGRES_DATABASE: opentask
+      DATA_DIRECTORY: /app/data
+      CIPHER_KEY: ${CIPHER_KEY:?CIPHER_KEY 必须显式设置}
+      # SPA 与后端同源（宿主 nginx 透传），CORS 基本用不上；仍显式声明允许来源
+      ALLOWED_ORIGINS: ${PUBLIC_ORIGIN:-http://112.126.60.109}
+      # JNPF 单点登录指向内网地址，公网机不可达——生产走本地账号登录
+      AUTH_JNPF_ENABLED: "false"
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+    ports:
+      # 只绑回环：外部一律经宿主 nginx 进入
+      - "127.0.0.1:7377:7377"
+    volumes:
+      - ./data:/app/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  frontend:
+    # 预构建镜像（开发机 buildx --platform linux/amd64 产出后送达）
+    image: opentask-frontend:${RELEASE_TAG:-prod}
+    container_name: opentask-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:8080:80"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  postgres-data:

@@ -2,10 +2,9 @@
 
 ## 未关闭
 
-**当前无未关闭条目**（TD1–TD8 全部销账；TD6 于 2026-11-03 由用户拍板「维持标准 OAuth2 语义」结清）。
-
 | id | severity | item | repayment criteria | owner | date | evidence |
 |---|---|---|---|---|---|---|
+| TD9 | medium | **生产前端构建依赖未入库的 `frontend/.env.prod`**：`.gitignore` 的 `.env.*` 规则把仓内所有 `.env.*` 排除在外（只入库 `.env.example` 模板），但前端生产构建的绝大多数 `VITE_*` 配置（路由模式 history、成功码 200、静态超管角色 `R_SUPER`、存储前缀、登出/过期码……）只存在于 `frontend/.env.prod`。`frontend/Dockerfile` 的旧注释「前端 .env.prod 已在仓内」与事实不符——该文件 `git log` 无任何提交记录。后果：换台机器 / 全新 clone 做生产构建会得到**不可用产物**（路由基址回落 `/`、成功码缺失），而路径前缀部署要求 `VITE_BASE_URL=/opentask/` | 二选一：① **入库 `frontend/.env.prod`**（该文件无任何密钥，只是构建配置；需在 `.gitignore` 加 `!frontend/.env.prod` 例外，与现有「只入库 .env.example」的约定冲突，需用户拍板）② 保持不入库，但把生产构建所需的 `VITE_*` 集合**显式化**：由 `frontend/Dockerfile` 的 `ARG`/`ENV` 覆盖全部构建必需项，并让 `frontend/.env.example` 与之对齐，使「无 .env.prod 也能构建出正确产物」。无论走哪条，判据都是：**在只有 `.env.example` 的干净检出上跑 `docker build --target builder`，产物 index.html 里的资源引用为 `/opentask/assets/*`，且 SPA 路由模式为 history** | WayJ | 2026-11-03 | `git ls-files frontend/ \| grep env` → 仅 `.env.example`；`git log --all -- frontend/.env.prod` → 空；`git check-ignore -v frontend/.env.prod` → `.gitignore:80:.env.*`。**已做的缓解**：`frontend/Dockerfile` 增 `ARG/ENV VITE_BASE_URL`、`VITE_SERVICE_BASE_URL`（Vite 里 process.env 优先级高于 .env 文件，故前缀不再漂移）；`deploy/deploy.sh` 增加前置校验——`.env.prod` 缺失或两个前缀值不符即**构建前**失败并给出可操作提示 |
 
 ## 已关闭（Closed）
 
