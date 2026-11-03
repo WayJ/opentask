@@ -634,8 +634,10 @@ Constitution → Requirements → Plan → Tasks → Implementation → Review �
 /workflow/plan                 # Plan 管理
 /workflow/tasks                # 任务管理
 /workflow/tasks/:id            # 任务详情
-/workflow-guide                # 工作流指南
 ```
+
+> 注：「工作流指南」页面（`/workflow-guide`）与「任务中心」页面（`/mission-center`）已于 2026-11-03 下线，
+> 本文档仅保留为参考资料，不再有对应前端入口。
 
 ### API 端点
 

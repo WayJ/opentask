@@ -354,16 +354,6 @@ export const generatedRoutes: GeneratedRoute[] = [
     ]
   },
   {
-    name: 'mission-center',
-    path: '/mission-center',
-    component: 'layout.base$view.mission-center',
-    meta: {
-      title: 'mission-center',
-      i18nKey: 'route.mission-center',
-      order: 8
-    }
-  },
-  {
     name: 'oauth2',
     path: '/oauth2/authorize',
     component: 'layout.base$view.oauth2',
@@ -608,17 +598,5 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       }
     ]
-  },
-  {
-    name: 'workflow-guide',
-    path: '/workflow-guide',
-    component: 'layout.base$view.workflow-guide',
-    meta: {
-      title: 'workflow-guide',
-      i18nKey: 'route.workflow-guide',
-      icon: 'mdi:help-circle-outline',
-      order: 1,
-      constant: true
-    }
   }
 ];

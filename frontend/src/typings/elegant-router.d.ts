@@ -49,7 +49,6 @@ declare module "@elegant-router/types" {
     "manage_role": "/manage/role";
     "manage_user": "/manage/user";
     "manage_user-detail": "/manage/user-detail/:id";
-    "mission-center": "/mission-center";
     "oauth2": "/oauth2/authorize";
     "profile": "/profile";
     "profile_access-tokens": "/profile/access-tokens";
@@ -75,7 +74,6 @@ declare module "@elegant-router/types" {
     "workflow_projects": "/workflow/projects";
     "workflow_requirement-detail": "/workflow/requirement-detail";
     "workflow_requirements": "/workflow/requirements";
-    "workflow-guide": "/workflow-guide";
   };
 
   /**
@@ -118,12 +116,10 @@ declare module "@elegant-router/types" {
     | "knowledge-base"
     | "login"
     | "manage"
-    | "mission-center"
     | "oauth2"
     | "profile"
     | "work-management"
     | "workflow"
-    | "workflow-guide"
   >;
 
   /**
@@ -167,7 +163,6 @@ declare module "@elegant-router/types" {
     | "manage_role"
     | "manage_user-detail"
     | "manage_user"
-    | "mission-center"
     | "oauth2"
     | "profile_access-tokens"
     | "profile_userinfo"
@@ -183,7 +178,6 @@ declare module "@elegant-router/types" {
     | "work-management_work-assignments_create"
     | "work-management_work-assignments_detail"
     | "work-management_work-assignments_list"
-    | "workflow-guide"
     | "workflow_project-detail"
     | "workflow_projects"
     | "workflow_requirement-detail"

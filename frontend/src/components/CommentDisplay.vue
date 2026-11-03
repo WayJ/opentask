@@ -41,11 +41,11 @@ const renderedMarkdown = computed(() => {
   // 使用 markdown-it 渲染 markdown
   let html = md.render(props.content) as string;
 
-  // 替换任务卡片标记
+  // 替换任务卡片标记（任务中心页面已下线，卡片仅作展示，不再跳转）
   props.embeddedTasks.forEach(task => {
     const marker = `[TASK:${task.id}]`;
     const taskCardHtml = `
-      <div class="embedded-task-card" onclick="window.open('/mission-center/tasks/${task.id}', '_blank')">
+      <div class="embedded-task-card">
         <div class="task-header">
           <span class="task-id">#${task.id.substring(0, 8)}</span>
           <span class="task-status">${task.status}</span>
@@ -69,7 +69,7 @@ const renderedMarkdown = computed(() => {
 <style scoped>
 /* 使用全局 markdown-body 样式，只保留特殊的任务卡片样式 */
 
-/* 嵌入任务卡片样式 */
+/* 嵌入任务卡片样式（任务中心已下线，卡片不可点击） */
 .embedded-task-card {
   display: inline-flex;
   flex-direction: column;
@@ -77,18 +77,9 @@ const renderedMarkdown = computed(() => {
   padding: 8px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-radius: 4px;
-  cursor: pointer;
   color: white;
   margin: 6px 0;
-  transition:
-    transform 0.2s,
-    box-shadow 0.2s;
   font-size: 12px;
-}
-
-.embedded-task-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
 .task-header {

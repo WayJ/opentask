@@ -10,6 +10,5 @@ export * from './perm';
 export * from './knowledge-category';
 export * from './knowledge-base';
 export * from './document';
-export * from './mission-center';
 export * from './issue';
 export * from './issue-collection';

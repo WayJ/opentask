@@ -284,7 +284,6 @@ const local: App.I18n.Schema = {
     'work-management_my-work': 'My Work',
     'work-management_my-work_weekly': 'Weekly View',
     'work-management_my-work_feedback': 'Work Feedback',
-    'workflow-guide': 'Workflow Guide',
     issue: 'Issue Management',
     issue_create: 'Create Issue',
     issue_detail: 'Issue Detail',
@@ -293,8 +292,7 @@ const local: App.I18n.Schema = {
     issue_collection: 'Issue Collection',
     'issue_collection-list': 'Collection List',
     'issue_collection-detail': 'Collection Detail',
-    'issue_collection-create': 'Create Collection',
-    'mission-center': 'Mission Center'
+    'issue_collection-create': 'Create Collection'
   },
   page: {
     oauth2: {

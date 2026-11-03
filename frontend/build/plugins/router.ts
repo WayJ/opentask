@@ -39,7 +39,7 @@ export function setupElegantRouter() {
     onRouteMetaGen(routeName) {
       const key = routeName as RouteKey;
 
-      const constantRoutes: RouteKey[] = ['login', '403', '404', '500', 'workflow-guide'];
+      const constantRoutes: RouteKey[] = ['login', '403', '404', '500'];
 
       // 详情页路由应该隐藏在菜单中
       const hideInMenuRoutes: RouteKey[] = [

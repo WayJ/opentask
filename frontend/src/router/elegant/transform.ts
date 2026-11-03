@@ -195,7 +195,6 @@ const routeMap: RouteMap = {
   "manage_role": "/manage/role",
   "manage_user": "/manage/user",
   "manage_user-detail": "/manage/user-detail/:id",
-  "mission-center": "/mission-center",
   "oauth2": "/oauth2/authorize",
   "profile": "/profile",
   "profile_access-tokens": "/profile/access-tokens",
@@ -220,8 +219,7 @@ const routeMap: RouteMap = {
   "workflow_project-detail": "/workflow/project-detail",
   "workflow_projects": "/workflow/projects",
   "workflow_requirement-detail": "/workflow/requirement-detail",
-  "workflow_requirements": "/workflow/requirements",
-  "workflow-guide": "/workflow-guide"
+  "workflow_requirements": "/workflow/requirements"
 };
 
 /**
