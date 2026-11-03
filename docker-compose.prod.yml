@@ -58,6 +58,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # 国内机器直连 deb.debian.org 只有 ~33KB/s（装完构建依赖接近 2 小时），
+        # 阿里云镜像约 650KB/s。目标机在阿里云，默认走它。
+        DEBIAN_HOST: ${DEBIAN_HOST:-mirrors.aliyun.com}
     image: opentask-backend:${RELEASE_TAG:-prod}
     container_name: opentask-backend
     restart: unless-stopped

@@ -26,7 +26,25 @@ ENV PYTHONUNBUFFERED=1 \
 #   git                          → GitPython（opentask.services.git_knowledge_service 在 import 期就要 git 可执行文件，
 #                                  缺它后端直接 ImportError 起不来）
 #   curl                         → 健康检查
-RUN apt-get update \
+#
+# DEBIAN_HOST：可换 Debian 镜像源（只换主机名，协议沿用原 URI）。
+# 国内机器直连 deb.debian.org 实测仅 ~33KB/s（装完这批依赖接近 2 小时），
+# 换 mirrors.aliyun.com 约 650KB/s。发布编排里按目标机所在地覆盖。
+ARG DEBIAN_HOST=deb.debian.org
+RUN set -eux; \
+    if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
+        sed -i \
+            -e "s|deb\.debian\.org/debian-security|${DEBIAN_HOST}/debian-security|g" \
+            -e "s|deb\.debian\.org/debian|${DEBIAN_HOST}/debian|g" \
+            /etc/apt/sources.list.d/debian.sources; \
+    fi; \
+    if [ -f /etc/apt/sources.list ]; then \
+        sed -i \
+            -e "s|deb\.debian\.org/debian-security|${DEBIAN_HOST}/debian-security|g" \
+            -e "s|deb\.debian\.org/debian|${DEBIAN_HOST}/debian|g" \
+            /etc/apt/sources.list; \
+    fi; \
+    apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential \
         libpq-dev \

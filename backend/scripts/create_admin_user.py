@@ -107,7 +107,8 @@ async def create_admin(
     return 0
 
 
-def main() -> int:
+def build_parser() -> argparse.ArgumentParser:
+    """命令行契约（抽出来便于单测）"""
     parser = argparse.ArgumentParser(description="创建/重置 OpenTask 初始管理员账号")
     parser.add_argument("--username", default=None, help="登录用户名（默认 admin）")
     parser.add_argument("--password", default=None, help="口令（不给则随机生成并打印）")
@@ -117,7 +118,11 @@ def main() -> int:
         action="store_true",
         help="账号已存在时重置口令（默认只跳过，不覆盖）",
     )
-    args = parser.parse_args()
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
 
     username = args.username or "admin"
     password = args.password
