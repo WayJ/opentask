@@ -1,5 +1,33 @@
+
+/** E28：拼导出 query（与列表常用过滤对齐） */
+export function buildIssueExportParams(filters: Record<string, unknown> = {}) {
+  const allowed = ['status', 'priority', 'type', 'project_id', 'assignee_id', 'cycle_id', 'search'] as const;
+  const out: Record<string, string> = {};
+  for (const key of allowed) {
+    const v = filters[key];
+    if (v !== undefined && v !== null && v !== '') out[key] = String(v);
+  }
+  return out;
+}
+
+/** E28：格式化导入结果摘要 */
+export function formatIssueImportSummary(data: {
+  created?: number;
+  updated?: number;
+  errors?: { row: number; message: string }[];
+}) {
+  const created = data.created ?? 0;
+  const updated = data.updated ?? 0;
+  const errors = data.errors ?? [];
+  const base = `创建 ${created} · 更新 ${updated}`;
+  if (!errors.length) return base;
+  const first = errors.slice(0, 3).map(e => `行${e.row}: ${e.message}`).join('；');
+  const more = errors.length > 3 ? ` 等 ${errors.length} 条错误` : '';
+  return `${base} · 错误 ${errors.length}（${first}${more}）`;
+}
+
 /** Issue API 客户端 */
-import { request } from '@/service/request';
+import { downloadRequest, request } from '@/service/request';
 import type { Api } from '@/typings/api';
 
 /**
@@ -27,6 +55,36 @@ export const issueApi = {
       url: '/api/issues',
       method: 'GET',
       params: cleanedParams
+    });
+  },
+
+  /** E28：导出 CSV（blob） */
+  exportIssuesCsv: (params?: Record<string, unknown>) => {
+    return downloadRequest<Blob>({
+      url: '/api/issues/export.csv',
+      method: 'GET',
+      params: buildIssueExportParams(params || {}),
+      responseType: 'blob'
+    });
+  },
+
+  /** E28：导入模板 CSV */
+  downloadImportTemplateCsv: () => {
+    return downloadRequest<Blob>({
+      url: '/api/issues/import/template.csv',
+      method: 'GET',
+      responseType: 'blob'
+    });
+  },
+
+  /** E28：导入 CSV */
+  importIssuesCsv: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request<{ created: number; updated: number; errors: { row: number; message: string }[] }>({
+      url: '/api/issues/import',
+      method: 'POST',
+      data: form
     });
   },
 

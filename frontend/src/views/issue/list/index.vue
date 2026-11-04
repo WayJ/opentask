@@ -32,7 +32,7 @@ import {
 } from '@/constants/issue';
 import { fetchProjectList } from '@/service/api';
 import { type CycleItem, fetchCycles } from '@/service/api/cycles';
-import { issueApi } from '@/service/api/issue';
+import { formatIssueImportSummary, issueApi } from '@/service/api/issue';
 import {
   type SavedView,
   fetchCreateSavedView,
@@ -873,6 +873,76 @@ function createIssue() {
   });
 }
 
+// E28 · CSV export / import
+const showImportModal = ref(false);
+const importLoading = ref(false);
+const importSummary = ref('');
+const importFileInput = ref<HTMLInputElement | null>(null);
+
+async function exportIssuesCsv() {
+  try {
+    const blob = await issueApi.exportIssuesCsv({
+      status: filters.status,
+      priority: filters.priority,
+      type: filters.type,
+      project_id: filters.project_id,
+      assignee_id: filters.assignee_id,
+      cycle_id: filters.cycle_id,
+      search: filters.search
+    });
+    const url = URL.createObjectURL(blob as Blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'issues-export.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    window.$message?.success('已导出 CSV');
+  } catch (e) {
+    console.error(e);
+    window.$message?.error('导出失败');
+  }
+}
+
+async function downloadImportTemplate() {
+  try {
+    const blob = await issueApi.downloadImportTemplateCsv();
+    const url = URL.createObjectURL(blob as Blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'issues-import-template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    console.error(e);
+    window.$message?.error('模板下载失败');
+  }
+}
+
+function openImportModal() {
+  importSummary.value = '';
+  showImportModal.value = true;
+}
+
+async function onImportFileChange(ev: Event) {
+  const input = ev.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  importLoading.value = true;
+  importSummary.value = '';
+  try {
+    const data = await issueApi.importIssuesCsv(file);
+    importSummary.value = formatIssueImportSummary(data || {});
+    window.$message?.success(importSummary.value);
+    await loadIssues();
+  } catch (e) {
+    console.error(e);
+    window.$message?.error('导入失败');
+  } finally {
+    importLoading.value = false;
+    input.value = '';
+  }
+}
+
 // Handle filter change
 async function handleFilterChange() {
   // 筛选条件改变后，重新获取所有数据
@@ -1238,6 +1308,18 @@ onUnmounted(() => {
               </template>
               看板
             </NButton>
+            <NButton size="small" secondary :loading="importLoading" @click="exportIssuesCsv">
+              <template #icon>
+                <icon-mdi-download />
+              </template>
+              Export
+            </NButton>
+            <NButton size="small" secondary @click="openImportModal">
+              <template #icon>
+                <icon-mdi-upload />
+              </template>
+              Import
+            </NButton>
             <NButton type="primary" @click="createIssue">
               <template #icon>
                 <icon-mdi-plus />
@@ -1598,6 +1680,15 @@ onUnmounted(() => {
       </NSpin>
       <IssueBulkBar @done="loadIssues" />
     </NCard>
+
+    <NModal v-model:show="showImportModal" preset="card" title="导入 Issue CSV" style="width: 480px">
+      <NSpace vertical>
+        <NText depth="3">列需含 title；可选 issue_code（本工作区已存在则更新）。</NText>
+        <NButton size="small" secondary @click="downloadImportTemplate">下载模板 CSV</NButton>
+        <input ref="importFileInput" type="file" accept=".csv,text/csv" @change="onImportFileChange" />
+        <NText v-if="importSummary" type="success">{{ importSummary }}</NText>
+      </NSpace>
+    </NModal>
 
     <NModal
       v-model:show="saveViewModalVisible"
