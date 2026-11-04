@@ -24,6 +24,6 @@
 - FE vitest：**259 passed**；`pnpm build` 成功
 
 ## tip
-- SHA：`sprint/E33-S1` tip（以 `git rev-parse HEAD` 为准）
+- SHA：以 `git rev-parse HEAD` 为准（本文件提交后 tip）
 - 未 push / 未开 PR
 - **不自开 E34**
