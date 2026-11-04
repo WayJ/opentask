@@ -12,9 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from opentask.models.automation.model import (
     ACTION_TYPES,
+    CF_CONDITION_OPS,
     TRIGGER_TYPES,
     AutomationRule,
 )
+from opentask.models.custom_field.model import CustomField, IssueCustomFieldValue
 from opentask.models.issue.model import Issue, IssueTag
 from opentask.models.issue.schema import IssueUpdate
 from opentask.models.tag.model import Tag
@@ -275,7 +277,104 @@ class AutomationService:
         if has_label is not None:
             if not await self._issue_has_label(issue.id, issue.workspace_id, has_label):
                 return False
+        cf_cond = cond.get("customField")
+        if cf_cond is None:
+            cf_cond = cond.get("custom_field")
+        if cf_cond is not None:
+            if not await self._match_custom_field_condition(issue, cf_cond):
+                return False
         return True
+
+    async def _resolve_custom_field(
+        self, *, workspace_id: str, ref: dict[str, Any]
+    ) -> Optional[CustomField]:
+        """Resolve by fieldId/id or key. Unknown → None (no raise)."""
+        if not isinstance(ref, dict):
+            return None
+        field_id = ref.get("fieldId") or ref.get("field_id") or ref.get("id")
+        key = ref.get("key")
+        if field_id:
+            row = (
+                await self.db.execute(
+                    select(CustomField).where(
+                        CustomField.id == str(field_id),
+                        CustomField.workspace_id == workspace_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            return row
+        if key:
+            row = (
+                await self.db.execute(
+                    select(CustomField).where(
+                        CustomField.workspace_id == workspace_id,
+                        CustomField.key == str(key),
+                    )
+                )
+            ).scalar_one_or_none()
+            return row
+        return None
+
+    async def _issue_cf_value(self, issue_id: str, field_id: str) -> Any:
+        row = (
+            await self.db.execute(
+                select(IssueCustomFieldValue).where(
+                    IssueCustomFieldValue.issue_id == issue_id,
+                    IssueCustomFieldValue.field_id == field_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            return None
+        return row.value_json
+
+    @staticmethod
+    def _cf_is_empty(value: Any) -> bool:
+        if value is None:
+            return True
+        if isinstance(value, str) and value == "":
+            return True
+        if isinstance(value, list) and len(value) == 0:
+            return True
+        return False
+
+    async def _match_custom_field_condition(
+        self, issue: Issue, cf_cond: Any
+    ) -> bool:
+        """E33: customField condition. Unknown field → False (no 500)."""
+        if not isinstance(cf_cond, dict):
+            return False
+        field = await self._resolve_custom_field(
+            workspace_id=issue.workspace_id, ref=cf_cond
+        )
+        if field is None:
+            return False
+        op = str(cf_cond.get("op") or "eq").strip().lower()
+        if op not in CF_CONDITION_OPS:
+            return False
+        current = await self._issue_cf_value(issue.id, field.id)
+        expected = cf_cond.get("value")
+
+        if op == "is_set":
+            return not self._cf_is_empty(current)
+        if op == "is_empty":
+            return self._cf_is_empty(current)
+        if op == "eq":
+            return current == expected
+        if op == "neq":
+            return current != expected
+        if op == "contains":
+            if field.type == "multi_select":
+                if not isinstance(current, list):
+                    return False
+                return expected in current
+            if field.type == "text":
+                if not isinstance(current, str) or expected is None:
+                    return False
+                return str(expected) in current
+            # other types: degrade to eq
+            return current == expected
+        return False
 
     async def _issue_has_label(
         self, issue_id: str, workspace_id: str, has_label: Any
@@ -369,6 +468,51 @@ class AutomationService:
                         "ruleId": rule.id,
                         "ruleName": rule.name,
                     },
+                )
+            elif action == "set_custom_field":
+                from fastapi import HTTPException as FastAPIHTTPException
+
+                from opentask.services.custom_field.service import (
+                    CustomFieldService,
+                    validate_value,
+                )
+
+                key = cfg.get("key")
+                field_id = cfg.get("fieldId") if "fieldId" in cfg else cfg.get("field_id")
+                if key is None and field_id is None:
+                    raise ValueError("set_custom_field 需要 key 或 fieldId")
+                svc = CustomFieldService(self.db)
+                try:
+                    if field_id is not None:
+                        field = await svc.get(
+                            workspace_id=issue.workspace_id, field_id=str(field_id)
+                        )
+                    else:
+                        field = await svc.get_by_key(
+                            workspace_id=issue.workspace_id, key=str(key)
+                        )
+                    if field.archived_at is not None:
+                        raise FastAPIHTTPException(
+                            status_code=400, detail=f"字段 {field.key} 已归档，不可写入"
+                        )
+                    # Pre-validate so we never dirty the shared request session
+                    validate_value(field, cfg.get("value"))
+                except FastAPIHTTPException as exc:
+                    logger.warning(
+                        "automation set_custom_field failed rule=%s issue=%s: %s",
+                        rule.id,
+                        issue.id,
+                        getattr(exc, "detail", exc),
+                    )
+                    return
+                entry: dict[str, Any] = {
+                    "fieldId": field.id,
+                    "value": cfg.get("value"),
+                }
+                await svc.upsert_issue_values(
+                    workspace_id=issue.workspace_id,
+                    issue_id=issue.id,
+                    entries=[entry],
                 )
             else:
                 raise ValueError(f"未知 action: {action}")

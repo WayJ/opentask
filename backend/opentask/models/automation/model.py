@@ -32,6 +32,15 @@ ACTION_TYPES = (
     "add_label",
     "set_priority",
     "add_comment",
+    "set_custom_field",  # E33
+)
+
+CF_CONDITION_OPS = (
+    "eq",
+    "neq",
+    "contains",
+    "is_set",
+    "is_empty",
 )
 
 
