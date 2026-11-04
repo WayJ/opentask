@@ -2,11 +2,13 @@
 import { onMounted, ref } from 'vue';
 import { NAlert, NCard, NSpace, NSpin, NSwitch, NText } from 'naive-ui';
 import {
+  type NotifChannelKey,
   type NotifPrefKey,
   type NotifPrefs,
-  NOTIF_PREF_KEYS,
   NOTIF_PREF_LABELS,
+  NOTIF_PREF_LIST_KEYS,
   fetchNotifPrefs,
+  isDigestToggleDisabled,
   isEmailToggleDisabled,
   updateNotifPrefs
 } from '@/service/api/notif-prefs';
@@ -31,13 +33,21 @@ async function load() {
   }
 }
 
-async function toggle(key: NotifPrefKey | 'email_enabled', value: boolean) {
+async function toggle(key: NotifPrefKey | NotifChannelKey, value: boolean) {
   if (!prefs.value) return;
   const prev = prefs.value[key];
   prefs.value = { ...prefs.value, [key]: value };
+  // Turning off due_reminder also clears digest locally for UX
+  if (key === 'due_reminder' && !value && prefs.value.due_reminder_digest) {
+    prefs.value = { ...prefs.value, due_reminder_digest: false };
+  }
   saving.value = true;
   try {
-    const { data, error } = await updateNotifPrefs({ [key]: value });
+    const body: Partial<Record<NotifPrefKey | NotifChannelKey, boolean>> = { [key]: value };
+    if (key === 'due_reminder' && !value) {
+      body.due_reminder_digest = false;
+    }
+    const { data, error } = await updateNotifPrefs(body);
     if (error) {
       prefs.value = { ...prefs.value, [key]: prev };
       window.$message?.error?.(error.message || '保存失败');
@@ -59,7 +69,7 @@ onMounted(load);
       <NText depth="3" class="mb-12px block">按当前工作区生效；关闭后对应类型不再写入 Inbox（关注关系仍保留）。</NText>
       <NSpin :show="loading">
         <NSpace v-if="prefs" vertical :size="12">
-          <div v-for="key in NOTIF_PREF_KEYS" :key="key" class="flex items-center justify-between py-6px">
+          <div v-for="key in NOTIF_PREF_LIST_KEYS" :key="key" class="flex items-center justify-between py-6px">
             <NText>{{ NOTIF_PREF_LABELS[key] }}</NText>
             <NSwitch
               :value="prefs[key]"
@@ -69,6 +79,33 @@ onMounted(load);
           </div>
         </NSpace>
         <NText v-else depth="3">加载中…</NText>
+      </NSpin>
+    </NCard>
+
+    <NCard title="到期提醒" :bordered="false" class="mt-16px">
+      <NText depth="3" class="mb-12px block">
+        按 UTC 日历日扫描；即将到期 = 今日起 3 日内；逾期每日至多一条。邮件仍受「启用出站邮件」与 SMTP 约束。外部调度
+        <code>POST /api/inbox/run-due-reminders</code>，无内置 cron。
+      </NText>
+      <NSpin :show="loading">
+        <NSpace v-if="prefs" vertical :size="12">
+          <div class="flex items-center justify-between py-6px">
+            <NText>到期提醒</NText>
+            <NSwitch
+              :value="prefs.due_reminder"
+              :disabled="saving"
+              @update:value="(v: boolean) => toggle('due_reminder', v)"
+            />
+          </div>
+          <div class="flex items-center justify-between py-6px">
+            <NText>合并为每日摘要</NText>
+            <NSwitch
+              :value="prefs.due_reminder_digest"
+              :disabled="saving || isDigestToggleDisabled(prefs)"
+              @update:value="(v: boolean) => toggle('due_reminder_digest', v)"
+            />
+          </div>
+        </NSpace>
       </NSpin>
     </NCard>
 

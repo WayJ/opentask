@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  isDigestToggleDisabled,
   isEmailToggleDisabled,
   mergeNotifPrefs,
-  NOTIF_PREF_KEYS
+  NOTIF_PREF_KEYS,
+  NOTIF_PREF_LIST_KEYS
 } from './notif-prefs';
 
 describe('notif-prefs helpers', () => {
@@ -33,5 +35,22 @@ describe('notif-prefs helpers', () => {
     expect(isEmailToggleDisabled({ email_configured: false })).toBe(true);
     expect(isEmailToggleDisabled({ email_configured: true })).toBe(false);
     expect(isEmailToggleDisabled(null)).toBe(true);
+  });
+
+  it('due_reminder defaults true; digest false', () => {
+    const m = mergeNotifPrefs();
+    expect(m.due_reminder).toBe(true);
+    expect(m.due_reminder_digest).toBe(false);
+  });
+
+  it('isDigestToggleDisabled when due_reminder off', () => {
+    expect(isDigestToggleDisabled({ due_reminder: true })).toBe(false);
+    expect(isDigestToggleDisabled({ due_reminder: false })).toBe(true);
+    expect(isDigestToggleDisabled(null)).toBe(true);
+  });
+
+  it('list keys exclude due_reminder (own card)', () => {
+    expect(NOTIF_PREF_LIST_KEYS).not.toContain('due_reminder');
+    expect(NOTIF_PREF_KEYS).toContain('due_reminder');
   });
 });

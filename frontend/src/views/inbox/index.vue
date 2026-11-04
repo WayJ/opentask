@@ -32,7 +32,9 @@ const typeLabel: Record<string, string> = {
   project_health: '项目健康',
   status_changed: '状态',
   subscribed_update: '关注更新',
-  due_date_changed: '截止日期'
+  due_date_changed: '截止日期',
+  due_reminder: '到期提醒',
+  due_reminder_digest: '到期摘要'
 };
 
 const empty = computed(() => !loading.value && rows.value.length === 0);

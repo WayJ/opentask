@@ -7,13 +7,17 @@ export const NOTIF_PREF_KEYS = [
   'issue_status',
   'due_date_changed',
   'issue_watch_event',
-  'automation_comment'
+  'automation_comment',
+  'due_reminder'
 ] as const;
 
 export type NotifPrefKey = (typeof NOTIF_PREF_KEYS)[number];
 
-/** E30 channel toggle (not a type key). */
-export type NotifChannelKey = 'email_enabled';
+/** Keys rendered in the generic type list (due_reminder has its own card). */
+export const NOTIF_PREF_LIST_KEYS = NOTIF_PREF_KEYS.filter(k => k !== 'due_reminder');
+
+/** E30 channel toggle / E39 digest mode (not TYPE gates). */
+export type NotifChannelKey = 'email_enabled' | 'due_reminder_digest';
 
 export interface NotifPrefs {
   userId: string;
@@ -25,6 +29,8 @@ export interface NotifPrefs {
   due_date_changed: boolean;
   issue_watch_event: boolean;
   automation_comment: boolean;
+  due_reminder: boolean;
+  due_reminder_digest: boolean;
   email_enabled: boolean;
   email_configured: boolean;
 }
@@ -36,7 +42,8 @@ export const NOTIF_PREF_LABELS: Record<NotifPrefKey, string> = {
   issue_status: '状态变更（关注）',
   due_date_changed: '截止日期变更',
   issue_watch_event: '关注更新',
-  automation_comment: '自动化评论'
+  automation_comment: '自动化评论',
+  due_reminder: '到期提醒'
 };
 
 export function fetchNotifPrefs() {
@@ -56,15 +63,16 @@ export function sendNotifEmailTest() {
   });
 }
 
-/** Helper for vitest / UI: merge partial into defaults (types all true; email_enabled false). */
+/** Helper for vitest / UI: merge partial into defaults. */
 export function mergeNotifPrefs(
   partial?: Partial<Record<NotifPrefKey | NotifChannelKey, boolean>> | null
-): Record<NotifPrefKey, boolean> & { email_enabled: boolean } {
+): Record<NotifPrefKey, boolean> & { email_enabled: boolean; due_reminder_digest: boolean } {
   const base = Object.fromEntries(NOTIF_PREF_KEYS.map(k => [k, true])) as Record<
     NotifPrefKey,
     boolean
-  > & { email_enabled: boolean };
+  > & { email_enabled: boolean; due_reminder_digest: boolean };
   base.email_enabled = false;
+  base.due_reminder_digest = false;
   if (!partial) return base;
   for (const k of NOTIF_PREF_KEYS) {
     if (typeof partial[k] === 'boolean') base[k] = partial[k] as boolean;
@@ -72,9 +80,19 @@ export function mergeNotifPrefs(
   if (typeof partial.email_enabled === 'boolean') {
     base.email_enabled = partial.email_enabled;
   }
+  if (typeof partial.due_reminder_digest === 'boolean') {
+    base.due_reminder_digest = partial.due_reminder_digest;
+  }
   return base;
 }
 
 export function isEmailToggleDisabled(prefs: Pick<NotifPrefs, 'email_configured'> | null | undefined) {
   return !prefs?.email_configured;
+}
+
+/** Digest mode requires due_reminder on. */
+export function isDigestToggleDisabled(
+  prefs: Pick<NotifPrefs, 'due_reminder'> | null | undefined
+) {
+  return !prefs?.due_reminder;
 }
