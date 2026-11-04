@@ -47,7 +47,14 @@ async def list_workspaces(
     current_user: UserModel = Depends(authenticate),
     session: AsyncSession = Depends(get_session),
 ):
-    rows = await WorkspaceService(session).list_for_user(str(current_user.id))
+    svc = WorkspaceService(session)
+    # E16: lazily purge orphan Default Workspace seed on list
+    try:
+        await svc.cleanup_orphan_default_workspace()
+        await session.commit()
+    except Exception:
+        await session.rollback()
+    rows = await svc.list_for_user(str(current_user.id))
     return success_response(data=[_ws_out(ws, role) for ws, role in rows])
 
 

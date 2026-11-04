@@ -1,4 +1,7 @@
 """
+E16: 本文件为遗留手工脚本（依赖真实 agent_tasks 表、无 pytest fixture）。
+已从 pytest 采集路径排除（pytest.ini testpaths=tests）；保留供本地 `python -m` 调试。
+
 测试任务协议的两个核心规则：
 
 规则1: 超时任务自动失败

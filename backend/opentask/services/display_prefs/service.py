@@ -14,7 +14,7 @@ DEFAULT_FIELDS: dict[str, bool] = {
     "assignee": True,
     "priority": True,
     "labels": True,
-    "estimate_points": False,
+    "estimate_points": True,
     "due_date": False,
     "project": False,
     "cycle": False,
