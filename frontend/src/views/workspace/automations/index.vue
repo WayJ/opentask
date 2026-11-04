@@ -6,6 +6,7 @@ import {
   NCard,
   NDataTable,
   NInput,
+  NInputNumber,
   NSelect,
   NSpace,
   NSwitch,
@@ -24,7 +25,9 @@ import {
   summarizeAutomationRule,
   withCustomFieldCondition,
   withCustomFieldConditions,
-  MAX_CUSTOM_FIELD_CONDITIONS
+  withDelayMinutes,
+  MAX_CUSTOM_FIELD_CONDITIONS,
+  MAX_DELAY_MINUTES
 } from '@/service/api/automations';
 import { type CustomFieldRow, fetchCustomFields } from '@/service/api/custom-fields';
 
@@ -54,7 +57,9 @@ const form = reactive({
   triggerTo: '',
   extraCfKey: null as string | null,
   extraCfOp: 'eq' as CustomFieldConditionOp,
-  extraCfValue: ''
+  extraCfValue: '',
+  // E38 delay
+  delayMinutes: 0 as number
 });
 
 const triggerOptions = [
@@ -132,15 +137,34 @@ function syncConditionFromHelpers() {
 }
 
 function syncActionFromHelpers() {
-  if (form.actionType !== 'set_custom_field') return;
-  if (!form.actionCfKey) {
-    form.actionConfigText = '{}';
-    return;
+  let base: Record<string, unknown> = {};
+  try {
+    if (form.actionConfigText.trim()) base = parseAutomationJson(form.actionConfigText);
+  } catch {
+    base = {};
   }
-  form.actionConfigText = JSON.stringify({
-    key: form.actionCfKey,
-    value: coerceHelperValue(form.actionCfValue)
-  });
+  if (form.actionType === 'set_custom_field') {
+    if (!form.actionCfKey) {
+      base = {};
+    } else {
+      base = {
+        ...base,
+        key: form.actionCfKey,
+        value: coerceHelperValue(form.actionCfValue)
+      };
+    }
+  }
+  form.actionConfigText = JSON.stringify(withDelayMinutes(base, form.delayMinutes || 0));
+}
+
+function syncDelayIntoActionConfig() {
+  let base: Record<string, unknown> = {};
+  try {
+    if (form.actionConfigText.trim()) base = parseAutomationJson(form.actionConfigText);
+  } catch {
+    base = {};
+  }
+  form.actionConfigText = JSON.stringify(withDelayMinutes(base, form.delayMinutes || 0));
 }
 
 function coerceHelperValue(raw: string): unknown {
@@ -170,6 +194,10 @@ watch(
 watch(
   () => [form.actionType, form.actionCfKey, form.actionCfValue],
   () => syncActionFromHelpers()
+);
+watch(
+  () => form.delayMinutes,
+  () => syncDelayIntoActionConfig()
 );
 
 const columns: DataTableColumns<AutomationRuleRow> = [
@@ -244,7 +272,7 @@ async function createRule() {
   let condition: Record<string, unknown> | null = null;
   try {
     triggerConfig = parseAutomationJson(form.triggerConfigText);
-    actionConfig = parseAutomationJson(form.actionConfigText);
+    actionConfig = withDelayMinutes(parseAutomationJson(form.actionConfigText), form.delayMinutes || 0);
     if (form.conditionText.trim()) {
       condition = parseAutomationJson(form.conditionText);
     }
@@ -278,6 +306,8 @@ async function createRule() {
     form.triggerTo = '';
     form.actionCfKey = null;
     form.actionCfValue = '';
+    form.delayMinutes = 0;
+    form.actionConfigText = '{"priority":"high"}';
     window.$message?.success?.('已创建');
     await load();
   } finally {
@@ -331,6 +361,14 @@ onMounted(load);
             v-model:value="form.triggerConfigText"
             placeholder='triggerConfig JSON 如 {"to":"in_progress"}'
             style="width: 260px"
+          />
+          <NInputNumber
+            v-model:value="form.delayMinutes"
+            :min="0"
+            :max="MAX_DELAY_MINUTES"
+            :show-button="false"
+            placeholder="延迟分钟(0=立即)"
+            style="width: 150px"
           />
           <NInput
             v-model:value="form.actionConfigText"

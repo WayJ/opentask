@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
+  formatDelaySummary,
   getCustomFieldCondition,
   getCustomFieldConditions,
+  getDelayMinutes,
   MAX_CUSTOM_FIELD_CONDITIONS,
   parseAutomationJson,
   summarizeAutomationRule,
   summarizeCfChangedTrigger,
   withCustomFieldCondition,
-  withCustomFieldConditions
+  withCustomFieldConditions,
+  withDelayMinutes
 } from './automations';
 
 describe('automations helpers', () => {
@@ -96,6 +99,28 @@ describe('automations helpers', () => {
         { key: 'region', op: 'eq', value: 'us' }
       ]
     });
+  });
+
+  it('withDelayMinutes / getDelayMinutes', () => {
+    expect(withDelayMinutes({ priority: 'high' }, 0)).toEqual({ priority: 'high' });
+    expect(withDelayMinutes({ priority: 'high', delay_minutes: 5 }, 0)).toEqual({ priority: 'high' });
+    expect(withDelayMinutes({ priority: 'high' }, 60)).toEqual({
+      priority: 'high',
+      delay_minutes: 60
+    });
+    expect(getDelayMinutes({ delayMinutes: 15 })).toBe(15);
+    expect(formatDelaySummary(60)).toBe('delay 1h');
+    expect(formatDelaySummary(5)).toBe('delay 5m');
+  });
+
+  it('summarizeAutomationRule includes delay', () => {
+    expect(
+      summarizeAutomationRule({
+        condition: null,
+        actionType: 'set_priority',
+        actionConfig: { priority: 'high', delay_minutes: 60 }
+      })
+    ).toBe('delay 1h → set_priority');
   });
 
   it('summarizeCfChangedTrigger + rule with trigger', () => {

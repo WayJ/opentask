@@ -889,6 +889,12 @@ class OpenTaskClient:
     async def update_automation(self, rule_id: str, payload: dict) -> dict:
         return await self.patch(f"/api/automations/{rule_id}", data=payload)
 
+    async def run_due_automations(self) -> dict:
+        return await self.post("/api/automations/run-due")
+
+    async def list_automation_pending(self, status: str = "pending") -> dict:
+        return await self.get("/api/automations/pending", params={"status": status})
+
 
     # ========================================================================
     # Outbound Webhooks (E29)

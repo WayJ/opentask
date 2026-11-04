@@ -73,7 +73,11 @@ def automation_list(obj, as_json):
 @click.option("--trigger", "trigger_type", required=True, type=click.Choice(TRIGGERS, case_sensitive=False))
 @click.option("--action", "action_type", required=True, type=click.Choice(ACTIONS, case_sensitive=False))
 @click.option("--trigger-config", default="{}", help='JSON object；cf-changed 例 {"field_key":"tier","from":"free","to":"pro"}')
-@click.option("--action-config", default="{}", help="JSON object；set_custom_field 例 {\"key\":\"tier\",\"value\":\"pro\"}")
+@click.option(
+    "--action-config",
+    default="{}",
+    help='JSON；含 delay_minutes 例 {"priority":"high","delay_minutes":60}',
+)
 @click.option(
     "--condition",
     default=None,
@@ -85,6 +89,7 @@ def automation_list(obj, as_json):
 def automation_create(
     obj, name, trigger_type, action_type, trigger_config, action_config, condition, disabled, as_json
 ):
+    """创建规则。action-config 可含 delay_minutes（0=即时，1…10080）。"""
     config: Config = obj.config
     json_mode = as_json or obj.json_mode
     if not require_workspace_id(config, json_mode):
@@ -227,3 +232,72 @@ def automation_disable(obj, rule_id, as_json):
         obj.skin.success(f"已禁用: {(data.get('id') or rule_id)[:8]}")
     except APIError as e:
         handle_api_error(e, json_mode)
+
+
+@automation_cli.command(name="run-due")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def automation_run_due(obj, as_json):
+    """执行到期的延迟动作（UTC）。外部 tick，无进程内 cron。"""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.run_due_automations())
+        if json_mode:
+            echo_json(True, data=data, message="run-due")
+            return
+        processed = (data or {}).get("processed", 0)
+        executed = (data or {}).get("executed", 0)
+        cancelled = (data or {}).get("cancelled", 0)
+        failed = (data or {}).get("failed", 0)
+        obj.skin.success(
+            f"processed={processed} executed={executed} cancelled={cancelled} failed={failed}"
+        )
+        for err in (data or {}).get("errors") or []:
+            obj.skin.info(
+                f"  pending={err.get('pendingId')} issue={err.get('issueId')} {err.get('message')}"
+            )
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@automation_cli.command(name="pending")
+@click.option("--status", default="pending", show_default=True, help="pending|done|cancelled|failed")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def automation_pending(obj, status, as_json):
+    """列出当前工作区延迟动作队列（默认 pending，最多 100）。"""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.list_automation_pending(status=status))
+        if json_mode:
+            echo_json(True, data=data)
+            return
+        rows = (data or {}).get("rows", []) if isinstance(data, dict) else []
+        if not rows:
+            obj.skin.info("无 pending 动作")
+            return
+        obj.skin.table(
+            ["Status", "RunAt", "Action", "Rule", "Issue", "Id"],
+            [
+                [
+                    r.get("status") or "",
+                    (r.get("runAt") or "")[:19],
+                    r.get("actionType") or "",
+                    (r.get("ruleId") or "")[:8],
+                    (r.get("issueId") or "")[:8],
+                    (r.get("id") or "")[:8],
+                ]
+                for r in rows
+            ],
+        )
+    except APIError as e:
+        handle_api_error(e, json_mode)
+

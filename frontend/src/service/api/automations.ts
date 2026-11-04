@@ -205,6 +205,46 @@ export function withCustomFieldConditions(
   return base;
 }
 
+export const MAX_DELAY_MINUTES = 10080;
+
+/** Read delay_minutes / delayMinutes from actionConfig; 0 if missing. */
+export function getDelayMinutes(cfg: Record<string, unknown> | null | undefined): number {
+  if (!cfg) return 0;
+  const raw = cfg.delay_minutes ?? cfg.delayMinutes;
+  if (raw == null) return 0;
+  const n = typeof raw === 'number' ? raw : Number(raw);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.min(Math.floor(n), MAX_DELAY_MINUTES);
+}
+
+/** Merge delay into actionConfig. delay<=0 strips keys. */
+export function withDelayMinutes(
+  cfg: Record<string, unknown> | null | undefined,
+  delay: number
+): Record<string, unknown> {
+  const base = { ...(cfg || {}) };
+  delete base.delay_minutes;
+  delete base.delayMinutes;
+  const n = Number(delay);
+  if (!Number.isFinite(n) || n <= 0) return base;
+  const clamped = Math.min(Math.max(Math.floor(n), 1), MAX_DELAY_MINUTES);
+  base.delay_minutes = clamped;
+  return base;
+}
+
+/** Format delay for summary: 90 → "delay 1h30m", 60 → "delay 1h", 5 → "delay 5m" */
+export function formatDelaySummary(minutes: number): string {
+  const m = Math.floor(minutes);
+  if (m <= 0) return '';
+  if (m % 60 === 0) return `delay ${m / 60}h`;
+  if (m > 60) {
+    const h = Math.floor(m / 60);
+    const r = m % 60;
+    return `delay ${h}h${r}m`;
+  }
+  return `delay ${m}m`;
+}
+
 /** triggerConfig 摘要：custom_field_changed 字段过滤 */
 export function summarizeCfChangedTrigger(cfg: Record<string, unknown> | null | undefined): string {
   if (!cfg) return '';
@@ -237,10 +277,14 @@ export function summarizeAutomationRule(
       parts.push(`cf:${ref} ${cf.op} ${JSON.stringify(cf.value)}`);
     }
   }
+  const delay = getDelayMinutes(row.actionConfig);
+  const delayPrefix = delay > 0 ? `${formatDelaySummary(delay)} → ` : '';
   if (row.actionType === 'set_custom_field') {
     const cfg = row.actionConfig || {};
     const ref = cfg.key ?? cfg.fieldId ?? cfg.field_id ?? '?';
-    parts.push(`set cf:${ref}=${JSON.stringify(cfg.value)}`);
+    parts.push(`${delayPrefix}set cf:${ref}=${JSON.stringify(cfg.value)}`);
+  } else if (delay > 0) {
+    parts.push(`${formatDelaySummary(delay)} → ${row.actionType}`);
   }
   return parts.join(' · ') || '—';
 }
