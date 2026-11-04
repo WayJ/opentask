@@ -244,7 +244,11 @@ class IssueVcsService:
                     IssueVcsLink.provider == "github",
                 )
             )
-            return result.scalar_one_or_none()
+            row = result.scalar_one_or_none()
+            # PR numbers are per-repo; refuse cross-URL external_id collisions
+            if row and pr_url and row.pr_url and row.pr_url != pr_url:
+                return None
+            return row
         return None
 
     async def upsert_github_pr(

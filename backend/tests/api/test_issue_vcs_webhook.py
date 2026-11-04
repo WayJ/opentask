@@ -185,7 +185,19 @@ async def test_webhook_unmatched_404(test_client: AsyncClient, monkeypatch):
 @pytest.mark.asyncio
 async def test_webhook_bad_signature_401(test_client: AsyncClient, monkeypatch):
     monkeypatch.setenv("WEBHOOK_GITHUB_SECRET", "super-secret")
-    payload = {"action": "opened", "pull_request": {"html_url": "https://x/1", "number": 1}}
+    # unique URL/number so valid-sig follow-up cannot collide with other suite links
+    uniq = uuid.uuid4().hex[:10]
+    payload = {
+        "action": "opened",
+        "pull_request": {
+            "html_url": f"https://github.com/example/no-match-{uniq}/pull/88001",
+            "number": 88001,
+            "state": "open",
+            "merged": False,
+            "title": f"orphan-{uniq}",
+            "head": {"ref": "main"},
+        },
+    }
     body = json.dumps(payload).encode()
     resp = await test_client.post(
         "/api/webhooks/github/pull-request",
@@ -197,7 +209,6 @@ async def test_webhook_bad_signature_401(test_client: AsyncClient, monkeypatch):
     )
     assert resp.status_code == 401, resp.text
 
-    # valid signature still needs matchable issue — use empty after clearing? keep 401 path covered
     dig = hmac.new(b"super-secret", body, hashlib.sha256).hexdigest()
     resp2 = await test_client.post(
         "/api/webhooks/github/pull-request",
@@ -207,5 +218,5 @@ async def test_webhook_bad_signature_401(test_client: AsyncClient, monkeypatch):
             "X-Hub-Signature-256": f"sha256={dig}",
         },
     )
-    # signature ok but incomplete / unmatched
-    assert resp2.status_code in (400, 404), resp2.text
+    # signature ok but unmatched head.ref / no existing link
+    assert resp2.status_code == 404, resp2.text
