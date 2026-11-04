@@ -28,7 +28,7 @@
 - FE vitest：**262 passed**；`pnpm/vite build` 成功
 
 ## tip
-- SHA：以本 acceptance 提交后 `git rev-parse HEAD` 为准
+- SHA：`ba5b8e0fd6d1002eaca2a48d9eba58e4b3489825`
 - 未 push / 未开 PR
 - **不自开 E36**
 
