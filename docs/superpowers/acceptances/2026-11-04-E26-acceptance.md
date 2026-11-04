@@ -8,7 +8,7 @@
 ✅ 本地齐套（未 push）
 
 ## tip
-`dad8018`（`dad8018d1afdd595ed391d27b20cca862d7a3cad`）
+ ()
 
 ## 测试数
 - BE pytest：873 passed / 4 flake（`test_auth`×3 + `test_user_search` 隔离复跑全绿；与 E26 无关）/ 24 skipped；本 Epic `tests/api/test_automations.py` **7P**
