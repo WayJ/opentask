@@ -8,20 +8,37 @@
 
 | 项 | 状态 | 说明 |
 |----|------|------|
-| A prefs/views `cf:<key>` | ⏳ | |
-| B FE Board/List 分桶 | ⏳ | |
-| C BE 薄校验 + include/keys | ⏳ | |
-| D CLI 1.21.0 | ⏳ | |
+| A prefs/views `cf:<key>` | ✅ | normalize 接受形态；写路径校验 WS+类型；非法 400；读非法回退 none；并入 custom_field_keys |
+| B FE Board/List 分桶 | ✅ | groupIssuesBy/boardSwimlanes 支持 cf:；single_select/boolean/text|number|date；空桶 __empty__；Display 下拉含允许类型 CF；选中自动 include |
+| C BE 薄校验 | ✅ | 复用 CF list；负例 unknown/archived/multi_select/跨租户 → 400；无新聚合 API |
+| D CLI 1.21.0 | ✅ | `--group-by` 接受系统值或 cf:<key>；help 示例；version 1.21.0 |
 
 ## ADR
-见 design D1–D7。
+| ID | 决定 |
+|----|------|
+| D1 | 编码 `cf:<field_key>` |
+| D2 | 允许 single_select/boolean/text/number/date；禁 multi_select |
+| D3 | 写严格 400；读非法 → none |
+| D4 | 矩阵客户端计算 |
+| D5 | 拖拽不改 CF |
+| D6 | CLI 1.21.0 |
+| D7 | 非目标见 design §7；不 push；不自开 E38 |
 
-## TDD / 测试
-（收口补）
+## TDD
+- 红：prefs 丢弃 cf: / 不 400；FE isGroupByKey/分桶失败；CLI 仍 1.20.0（已跑）
+- 绿：`tests/api/test_e37_board_cf_swimlanes.py` **5P**；FE utils 增测绿；`tests/test_e37_cf_group_by.py` **3P**
+
+## 测试
+- BE pytest：**934 passed** / 24 skipped（全量一次跑中 `test_tasks_jira_wire::test_user_search` 1 条偶发失败，单跑复测绿；与 E37 无关）
+- CLI：**466 passed** / 89 skipped
+- FE vitest：**273 passed**；`pnpm/vite build` 成功
+
+## 非目标（未做）
+- multi_select 泳道 / 拖拽改 CF / 公式字段 / 服务端预聚合矩阵 / E38
 
 ## tip
-- SHA：以 `git rev-parse HEAD` 为准
+- SHA：`b4cfafb`（`git rev-parse HEAD` → `b4cfafb96e78280b7d4dc89b51e99fda9b248e5e`；以本 tip commit 后 HEAD 为准）
 - 未 push / 未开 PR
-- **不自开 E38**
+- **不自开 E38** · **STOP 待命**
 
-`superpowers: design/plan/TDD/verify/acceptance = pending`
+`superpowers: design/plan/TDD/verify/acceptance = ok`

@@ -20,8 +20,8 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-04-e37-board-cf-
 ---
 
 ### Task 1 — Docs
-- [ ] plan 入库（本文件）
-- [ ] acceptance 骨架 `docs/superpowers/acceptances/2026-11-04-E37-acceptance.md`；收口补 tip/测数
+- [x] plan 入库（本文件）
+- [x] acceptance 骨架 `docs/superpowers/acceptances/2026-11-04-E37-acceptance.md`；收口补 tip/测数
 
 ### Task 2 — BE：display prefs / saved views `cf:<key>` 校验（TDD）
 
@@ -42,18 +42,18 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-04-e37-board-cf-
     - `on_write=False`：非法 → 该维回退 `"none"`
     - 若 swimlane_by 或 group_by 为 `cf:key`，把 `key` 去重并入 `custom_field_keys`
 
-- [ ] **Step 1: 红测** — `test_e37_board_cf_swimlanes.py`：
+- [x] **Step 1: 红测** — `test_e37_board_cf_swimlanes.py`：
   - PUT display prefs `swimlane_by=cf:severity`（先建 single_select）→ 200；回读同值；`custom_field_keys` 含 severity
   - `group_by=cf:severity` 同理
   - unknown key / 他租户同名 key / archived / `multi_select` key → **400**
   - saved view create/update 同校验
   - GET 含历史非法 `cf:gone` 的 prefs → 读回 `none`（可直接写 DB 或绕过校验写入再 get）
-- [ ] **Step 2: 跑测确认红**
-- [ ] **Step 3: 最小实现绿**
+- [x] **Step 2: 跑测确认红**
+- [x] **Step 3: 最小实现绿**
   - 扩展 `normalize_display_json` 接受 `cf:` 形态 + `custom_field_keys`
   - `DisplayPrefsService.upsert/get` 走 `validate_and_normalize_display`
   - SavedView create/update：display 非空时同样校验后写入规范化 JSON
-- [ ] **Step 4: commit** `feat(E37): BE validate cf: swimlane/group_by on prefs/views`
+- [x] **Step 4: commit** `feat(E37): BE validate cf: swimlane/group_by on prefs/views`
 
 ### Task 3 — FE：groupBy / swimlanes / Display（TDD）
 
@@ -78,9 +78,9 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-04-e37-board-cf-
 - 选中 `cf:key`：自动把 key 并入 `customFieldKeys`；`needCf` 亦在 `groupBy`/`swimlaneBy` 为 `cf:` 时为 true
 - prefs 读到 multi_select 的 `cf:`（或 FE 侧类型不允许）→ 回退 `none` + toast
 
-- [ ] **Step 1: 红测** groupIssuesBy(`cf:severity`) 分桶；空值；boolean；board 矩阵行数；isGroupByKey/isSwimlaneBy 接受 `cf:x`
-- [ ] **Step 2: 实现绿 + Display 面板选项 + index include/merge**
-- [ ] **Step 3: vitest 绿；commit** `feat(E37): FE Board/List CF swimlanes + Display`
+- [x] **Step 1: 红测** groupIssuesBy(`cf:severity`) 分桶；空值；boolean；board 矩阵行数；isGroupByKey/isSwimlaneBy 接受 `cf:x`
+- [x] **Step 2: 实现绿 + Display 面板选项 + index include/merge**
+- [x] **Step 3: vitest 绿；commit** `feat(E37): FE Board/List CF swimlanes + Display`
 
 ### Task 4 — CLI 1.21.0
 
@@ -90,16 +90,16 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-04-e37-board-cf-
 - Modify: 全仓 CLI 历史 version 断言 `1.20.0` → `1.21.0`
 - Test: `agent-harness/opentask-cli/tests/test_e37_cf_group_by.py`
 
-- [ ] **Step 1: 红测** version 含 1.21.0；`issue list --help` 含 `cf:` / `--group-by`
-- [ ] **Step 2: 实现** — `--group-by` 本地接受（若 API 无对应 query，至少 CLI 校验形态并在 JSON/提示中带上；契约测证明 option 被 Click 接受不报 bad choice）
-- [ ] **Step 3: 同步 version 断言；commit** `feat(E37): CLI 1.21.0 — issue list --group-by cf:<key>`
+- [x] **Step 1: 红测** version 含 1.21.0；`issue list --help` 含 `cf:` / `--group-by`
+- [x] **Step 2: 实现** — `--group-by` 本地接受（若 API 无对应 query，至少 CLI 校验形态并在 JSON/提示中带上；契约测证明 option 被 Click 接受不报 bad choice）
+- [x] **Step 3: 同步 version 断言；commit** `feat(E37): CLI 1.21.0 — issue list --group-by cf:<key>`
 
 ### Task 5 — 门禁 + acceptance
-- [ ] BE 定向 `test_e37_board_cf_swimlanes.py` + 全量 pytest（记录 passed/skip；`test_user_search` flake 注明）
-- [ ] CLI pytest 全量
-- [ ] FE vitest + build
-- [ ] acceptance 写 tip + 测数；`superpowers: design/plan/TDD/verify/acceptance = ok`
-- [ ] **STOP**；不 push；不自开 E38
+- [x] BE 定向 `test_e37_board_cf_swimlanes.py` + 全量 pytest（记录 passed/skip；`test_user_search` flake 注明）
+- [x] CLI pytest 全量
+- [x] FE vitest + build
+- [x] acceptance 写 tip + 测数；`superpowers: design/plan/TDD/verify/acceptance = ok`
+- [x] **STOP**；不 push；不自开 E38
 
 ## ADR（对齐 design）
 | ID | 决定 |
