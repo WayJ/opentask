@@ -27,7 +27,7 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e51-webhook-p
 - Create: `docs/superpowers/plans/2026-11-05-e51-webhook-pack-subscription-filter.md`（本文件）
 - Create: `docs/superpowers/acceptances/2026-11-05-E51-acceptance.md`（骨架；收口补 tip/测数）
 
-- [ ] **Step 1:** 入库 plan + acceptance 骨架并 commit
+- [x] **Step 1:** 入库 plan + acceptance 骨架并 commit
 
 ---
 
@@ -47,8 +47,8 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e51-webhook-p
 **Interfaces:**
 - Produces: 五事件可订阅；cycle/estimate/project 双发；pause/resume 专用；未订阅不投
 
-- [ ] **Step 1: 红测**（见下方测试骨架）
-- [ ] **Step 2: 跑红 → 最小实现绿 → commit**
+- [x] **Step 1: 红测**（见下方测试骨架）
+- [x] **Step 2: 跑红 → 最小实现绿 → commit**
 
 测试骨架要点：
 ```python
@@ -90,7 +90,7 @@ def test_webhook_events_include_e51_pack():
   - 「集成常用」按钮调用 `applyIntegrationPreset`；可「清除预设」
   - 投递详情：`eventFilter` 下拉（全部 + WEBHOOK_EVENTS）；`filteredDeliveries` 叠 statusFilter + eventFilter
 
-- [ ] **Step 1: 红测 vitest → 绿 → commit**
+- [x] **Step 1: 红测 vitest → 绿 → commit**
 
 ---
 
@@ -111,16 +111,16 @@ def test_webhook_events_include_e51_pack():
   create help 文案可指向 `webhook events`
 - Create: `agent-harness/opentask-cli/tests/test_e51_webhook_pack.py`
 
-- [ ] **Step 1: 红测 version / events 子命令 / EVENTS 含五名 → 绿 → commit**
+- [x] **Step 1: 红测 version / events 子命令 / EVENTS 含五名 → 绿 → commit**
 
 ---
 
 ### Task 5 — F：门禁 + acceptance tip
 
-- [ ] BE 定向 `test_e51*` + 回归 `test_e44*` / `test_e48*` / `test_e41*`；全量记 passed（`test_user_search` flake 可记）
-- [ ] CLI 全量；确认 pins 全 **1.35.0**
-- [ ] FE vitest + `npm run build`
-- [ ] 填 acceptance；最终 tip；**STOP**；不 push；不 E52
+- [x] BE 定向 `test_e51*` + 回归 `test_e44*` / `test_e48*` / `test_e41*`；全量记 passed（`test_user_search` flake 可记）
+- [x] CLI 全量；确认 pins 全 **1.35.0**
+- [x] FE vitest + `npm run build`
+- [x] 填 acceptance；最终 tip；**STOP**；不 push；不 E52
 
 ---
 
