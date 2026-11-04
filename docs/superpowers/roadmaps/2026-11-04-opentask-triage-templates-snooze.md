@@ -36,7 +36,7 @@ date: 2026-11-04
 
 | sprint | state | note |
 |---|---|---|
-| S1 | planned | Triage 模型 + API + FE 队列（accept/decline/duplicate） |
+| S1 | **closed**（local） | Triage；acceptance `2026-11-04-E9-S1-acceptance.md`；未推远程 |
 | S2 | planned | Issue 模板表/API + 创建流/⌘K 接线；种子自 FE `ISSUE_TEMPLATES` |
 | S3 | planned | Inbox snooze + 打磨 + Epic local-complete |
 
@@ -95,3 +95,4 @@ date: 2026-11-04
 | date | note |
 |---|---|
 | 2026-11-04 | Phase 1：explore + roadmap + design + S1 stub；worktree `E9-S1` @ `77990b4`；**无**产品实现、**无**推远程 |
+| 2026-11-04 | E9-S1 local-complete：Triage API+FE；pytest 736；未开 S2；未推远程 |
