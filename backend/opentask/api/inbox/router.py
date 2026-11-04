@@ -44,6 +44,7 @@ class PrefsBody(BaseModel):
     due_reminder: Optional[bool] = None
     due_reminder_digest: Optional[bool] = None
     sla_breached: Optional[bool] = None
+    webhook_delivery_alert: Optional[bool] = None
     email_enabled: Optional[bool] = None
 
 
@@ -87,7 +88,7 @@ async def put_inbox_preferences(
 ):
     """E27：upsert 本人偏好；仅改传入字段。"""
     ws, _member, user = ctx
-    updates = {k: getattr(body, k) for k in PREF_KEYS if getattr(body, k) is not None}
+    updates = {k: getattr(body, k) for k in PREF_KEYS if hasattr(body, k) and getattr(body, k) is not None}
     if body.due_reminder_digest is not None:
         updates["due_reminder_digest"] = body.due_reminder_digest
     if body.email_enabled is not None:
