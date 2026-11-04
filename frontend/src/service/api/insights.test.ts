@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { countOpenFromStatus, sumCompletedLastDays } from './insights';
+import {
+  buildInsightsSummaryParams,
+  countOpenFromStatus,
+  insightsExportUrl,
+  sumCompletedLastDays,
+  sumVelocityPoints
+} from './insights';
 
 describe('insights helpers', () => {
   it('countOpenFromStatus excludes done', () => {
@@ -21,5 +27,52 @@ describe('insights helpers', () => {
     ];
     expect(sumCompletedLastDays(rows, 2)).toBe(4);
     expect(sumCompletedLastDays(rows, 7)).toBe(13);
+  });
+
+  it('buildInsightsSummaryParams omits empty values', () => {
+    expect(buildInsightsSummaryParams(undefined)).toEqual({});
+    expect(buildInsightsSummaryParams({})).toEqual({});
+    expect(
+      buildInsightsSummaryParams({
+        cycleId: '',
+        projectId: null,
+        labelId: undefined
+      })
+    ).toEqual({});
+    expect(
+      buildInsightsSummaryParams({
+        cycleId: 'c1',
+        projectId: 'p1',
+        labelId: 7,
+        assigneeLimit: 5
+      })
+    ).toEqual({ cycleId: 'c1', projectId: 'p1', labelId: 7, assigneeLimit: 5 });
+  });
+
+  it('sumVelocityPoints handles empty window', () => {
+    expect(sumVelocityPoints(undefined)).toBe(0);
+    expect(sumVelocityPoints([])).toBe(0);
+    expect(
+      sumVelocityPoints([
+        { date: '2026-11-01', completedPoints: 3 },
+        { date: '2026-11-02', completedPoints: 5 }
+      ])
+    ).toBe(8);
+    expect(
+      sumVelocityPoints(
+        [
+          { date: '2026-11-01', completedPoints: 3 },
+          { date: '2026-11-02', completedPoints: 5 }
+        ],
+        1
+      )
+    ).toBe(5);
+  });
+
+  it('insightsExportUrl builds query', () => {
+    expect(insightsExportUrl()).toBe('/api/insights/export.csv');
+    expect(insightsExportUrl({ projectId: 'p1', labelId: 3 })).toBe(
+      '/api/insights/export.csv?projectId=p1&labelId=3'
+    );
   });
 });

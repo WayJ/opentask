@@ -4,16 +4,26 @@ import {
   type CycleItem,
   type InsightsSummary,
   countOpenFromStatus,
+  downloadInsightsExport,
   fetchCycles,
-  fetchInsightsSummary
+  fetchInsightsSummary,
+  fetchProjectList,
+  sumVelocityPoints,
+  tagApi,
+  type TagItem
 } from '@/service/api';
 
 defineOptions({ name: 'InsightsPage' });
 
 const loading = ref(false);
+const exporting = ref(false);
 const summary = ref<InsightsSummary | null>(null);
 const cycles = ref<CycleItem[]>([]);
+const projects = ref<Api.Project.Project[]>([]);
+const labels = ref<TagItem[]>([]);
 const selectedCycleId = ref<string | null>(null);
+const selectedProjectId = ref<string | null>(null);
+const selectedLabelId = ref<number | null>(null);
 
 const empty = computed(() => {
   if (loading.value || !summary.value) return false;
@@ -22,6 +32,8 @@ const empty = computed(() => {
 });
 
 const openCount = computed(() => countOpenFromStatus(summary.value?.statusCounts));
+
+const velocityTotal = computed(() => sumVelocityPoints(summary.value?.estimateVelocity?.buckets));
 
 const statusEntries = computed(() =>
   Object.entries(summary.value?.statusCounts || {})
@@ -43,6 +55,9 @@ const maxAssignee = computed(() =>
 const maxDay = computed(() =>
   Math.max(1, ...(summary.value?.createdVsCompleted || []).flatMap(d => [d.created, d.completed]))
 );
+const maxVelocity = computed(() =>
+  Math.max(1, ...(summary.value?.estimateVelocity?.buckets || []).map(b => Number(b.completedPoints || 0)))
+);
 
 const cycleOptions = computed(() =>
   cycles.value.map(c => ({
@@ -50,6 +65,28 @@ const cycleOptions = computed(() =>
     value: c.id
   }))
 );
+
+const projectOptions = computed(() =>
+  projects.value.map(p => ({
+    label: p.name,
+    value: p.id
+  }))
+);
+
+const labelOptions = computed(() =>
+  labels.value.map(t => ({
+    label: t.name,
+    value: t.id
+  }))
+);
+
+function currentParams() {
+  return {
+    cycleId: selectedCycleId.value || undefined,
+    projectId: selectedProjectId.value || undefined,
+    labelId: selectedLabelId.value ?? undefined
+  };
+}
 
 async function loadCycles() {
   try {
@@ -65,19 +102,39 @@ async function loadCycles() {
   }
 }
 
+async function loadProjects() {
+  try {
+    const response = await fetchProjectList();
+    projects.value = response.data || [];
+  } catch {
+    projects.value = [];
+  }
+}
+
+async function loadLabels() {
+  try {
+    const { data, error } = await tagApi.list();
+    if (error || !data) {
+      labels.value = [];
+      return;
+    }
+    labels.value = data.rows || [];
+  } catch {
+    labels.value = [];
+  }
+}
+
 async function loadSummary() {
   loading.value = true;
   try {
-    const { data, error } = await fetchInsightsSummary({
-      cycleId: selectedCycleId.value || undefined
-    });
+    const { data, error } = await fetchInsightsSummary(currentParams());
     if (error || !data) {
       window.$message?.error(error?.message || '加载 Insights 失败');
       summary.value = null;
       return;
     }
     summary.value = data;
-    if (data.cycleSnapshot?.cycleId) {
+    if (data.cycleSnapshot?.cycleId && !selectedCycleId.value) {
       selectedCycleId.value = data.cycleSnapshot.cycleId;
     }
   } finally {
@@ -85,13 +142,31 @@ async function loadSummary() {
   }
 }
 
-async function onCycleChange(value: string | null) {
-  selectedCycleId.value = value;
+async function onFilterChange() {
   await loadSummary();
 }
 
+async function onExportCsv() {
+  exporting.value = true;
+  try {
+    const blob = await downloadInsightsExport(currentParams());
+    const url = URL.createObjectURL(blob as Blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'insights-export.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    window.$message?.success('已导出 CSV');
+  } catch (e) {
+    console.error(e);
+    window.$message?.error('导出失败');
+  } finally {
+    exporting.value = false;
+  }
+}
+
 onMounted(async () => {
-  await loadCycles();
+  await Promise.all([loadCycles(), loadProjects(), loadLabels()]);
   await loadSummary();
 });
 </script>
@@ -101,19 +176,40 @@ onMounted(async () => {
     <div class="mb-16px flex flex-wrap items-center justify-between gap-12px">
       <div>
         <h2 class="m-0 text-20px font-medium">Insights</h2>
-        <p class="mb-0 mt-4px text-13px opacity-60">工作区只读效能摘要（lite）</p>
+        <p class="mb-0 mt-4px text-13px opacity-60">工作区效能摘要（可按项目 / 标签 / Cycle 切片）</p>
       </div>
-      <div class="flex items-center gap-8px">
+      <div class="flex flex-wrap items-center gap-8px">
+        <span class="text-12px opacity-60">Project</span>
+        <NSelect
+          v-model:value="selectedProjectId"
+          clearable
+          placeholder="全部项目"
+          :options="projectOptions"
+          class="filter-select"
+          size="small"
+          @update:value="onFilterChange"
+        />
+        <span class="text-12px opacity-60">Label</span>
+        <NSelect
+          v-model:value="selectedLabelId"
+          clearable
+          placeholder="全部标签"
+          :options="labelOptions"
+          class="filter-select"
+          size="small"
+          @update:value="onFilterChange"
+        />
         <span class="text-12px opacity-60">Cycle</span>
         <NSelect
-          :value="selectedCycleId"
+          v-model:value="selectedCycleId"
           clearable
           placeholder="默认 Active"
           :options="cycleOptions"
-          class="cycle-select"
+          class="filter-select"
           size="small"
-          @update:value="onCycleChange"
+          @update:value="onFilterChange"
         />
+        <NButton size="small" secondary :loading="exporting" @click="onExportCsv">导出 CSV</NButton>
       </div>
     </div>
 
@@ -121,7 +217,7 @@ onMounted(async () => {
       <NEmpty v-if="empty" description="暂无 Issue。创建几条后回来看分布与趋势。" class="py-48px" />
 
       <template v-else-if="summary">
-        <NGrid :x-gap="16" :y-gap="16" cols="1 s:2 m:4" responsive="screen">
+        <NGrid :x-gap="16" :y-gap="16" cols="1 s:2 m:5" responsive="screen">
           <NGi>
             <NCard size="small">
               <div class="text-12px opacity-60">开放 Issue</div>
@@ -153,6 +249,12 @@ onMounted(async () => {
               <div class="mt-4px text-26px font-medium">
                 {{ summary.cycleSnapshot ? summary.cycleSnapshot.estimatePointsSum : '—' }}
               </div>
+            </NCard>
+          </NGi>
+          <NGi>
+            <NCard size="small">
+              <div class="text-12px opacity-60">近 14 日完成估点</div>
+              <div class="mt-4px text-26px font-medium">{{ velocityTotal }}</div>
             </NCard>
           </NGi>
         </NGrid>
@@ -238,6 +340,33 @@ onMounted(async () => {
             </NCard>
           </NGi>
         </NGrid>
+
+        <NCard class="mt-16px" size="small" title="估点速度 · 近 14 日 completed points">
+          <div v-if="!(summary.estimateVelocity?.buckets || []).length" class="text-12px opacity-50">
+            无速度数据
+          </div>
+          <div v-else class="velocity-table">
+            <div class="velocity-head">
+              <span>日期</span>
+              <span>Points</span>
+              <span>柱</span>
+            </div>
+            <div
+              v-for="bucket in summary.estimateVelocity?.buckets || []"
+              :key="bucket.date"
+              class="velocity-row"
+            >
+              <span class="mono">{{ bucket.date.slice(5) }}</span>
+              <span>{{ bucket.completedPoints }}</span>
+              <span class="bars">
+                <i
+                  class="bar velocity"
+                  :style="{ width: `${(Number(bucket.completedPoints || 0) / maxVelocity) * 100}%` }"
+                />
+              </span>
+            </div>
+          </div>
+        </NCard>
       </template>
     </NSpin>
   </div>
@@ -247,10 +376,11 @@ onMounted(async () => {
 .insights-page {
   padding: 16px 20px 32px;
 }
-.cycle-select {
-  width: 220px;
+.filter-select {
+  width: 180px;
 }
-.trend-table {
+.trend-table,
+.velocity-table {
   font-size: 12px;
 }
 .trend-head,
@@ -261,7 +391,16 @@ onMounted(async () => {
   align-items: center;
   padding: 4px 0;
 }
-.trend-head {
+.velocity-head,
+.velocity-row {
+  display: grid;
+  grid-template-columns: 52px 56px 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 0;
+}
+.trend-head,
+.velocity-head {
   opacity: 0.55;
   border-bottom: 1px solid rgba(128, 128, 128, 0.2);
   margin-bottom: 4px;
@@ -288,5 +427,9 @@ onMounted(async () => {
 }
 .bar.completed {
   background: rgba(24, 160, 88, 0.75);
+}
+.bar.velocity {
+  height: 8px;
+  background: rgba(250, 140, 22, 0.8);
 }
 </style>
