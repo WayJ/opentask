@@ -214,6 +214,7 @@ const routeMap: RouteMap = {
   "settings_notifications": "/settings/notifications",
   "settings_recurrences": "/settings/recurrences",
   "settings_webhooks": "/settings/webhooks",
+  "settings_sla": "/settings/sla",
   "triage": "/triage",
   "work-management": "/work-management",
   "work-management_cost-projects": "/work-management/cost-projects",

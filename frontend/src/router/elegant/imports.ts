@@ -59,6 +59,7 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   settings_notifications: () => import("@/views/settings/notifications/index.vue"),
   settings_recurrences: () => import("@/views/settings/recurrences/index.vue"),
   settings_webhooks: () => import("@/views/settings/webhooks/index.vue"),
+  settings_sla: () => import("@/views/settings/sla/index.vue"),
   triage: () => import("@/views/triage/index.vue"),
   "work-management_cost-projects_create": () => import("@/views/work-management/cost-projects/create/index.vue"),
   "work-management_cost-projects_detail": () => import("@/views/work-management/cost-projects/detail/[id].vue"),

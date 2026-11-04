@@ -5,7 +5,8 @@ export const WEBHOOK_EVENTS = [
   'issue.updated',
   'issue.status_changed',
   'comment.created',
-  'issue.custom_field_changed'
+  'issue.custom_field_changed',
+  'issue.sla_breached'
 ] as const;
 
 export const WEBHOOK_EVENT_LABELS: Record<(typeof WEBHOOK_EVENTS)[number], string> = {
@@ -13,7 +14,8 @@ export const WEBHOOK_EVENT_LABELS: Record<(typeof WEBHOOK_EVENTS)[number], strin
   'issue.updated': 'Issue 更新',
   'issue.status_changed': 'Issue 状态变更',
   'comment.created': '评论创建',
-  'issue.custom_field_changed': '自定义字段变更'
+  'issue.custom_field_changed': '自定义字段变更',
+  'issue.sla_breached': 'SLA 违约'
 };
 
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];

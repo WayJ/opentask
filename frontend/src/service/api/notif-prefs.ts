@@ -8,7 +8,8 @@ export const NOTIF_PREF_KEYS = [
   'due_date_changed',
   'issue_watch_event',
   'automation_comment',
-  'due_reminder'
+  'due_reminder',
+  'sla_breached'
 ] as const;
 
 export type NotifPrefKey = (typeof NOTIF_PREF_KEYS)[number];
@@ -30,6 +31,7 @@ export interface NotifPrefs {
   issue_watch_event: boolean;
   automation_comment: boolean;
   due_reminder: boolean;
+  sla_breached: boolean;
   due_reminder_digest: boolean;
   email_enabled: boolean;
   email_configured: boolean;
@@ -43,7 +45,8 @@ export const NOTIF_PREF_LABELS: Record<NotifPrefKey, string> = {
   due_date_changed: '截止日期变更',
   issue_watch_event: '关注更新',
   automation_comment: '自动化评论',
-  due_reminder: '到期提醒'
+  due_reminder: '到期提醒',
+  sla_breached: 'SLA 违约'
 };
 
 export function fetchNotifPrefs() {

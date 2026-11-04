@@ -393,7 +393,18 @@ const customRoutes: CustomRoute[] = [
           i18nKey: 'route.settings_recurrences',
           order: 4
         }
-      }
+      },
+      {
+        name: 'settings_sla',
+        path: '/settings/sla',
+        component: 'view.settings_sla',
+        meta: {
+          title: 'settings_sla',
+          i18nKey: 'route.settings_sla',
+          keepAlive: true
+        }
+      },
+
     ]
   },
   {

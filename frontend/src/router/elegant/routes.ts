@@ -556,6 +556,15 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'settings_webhooks',
           i18nKey: 'route.settings_webhooks'
         }
+      },
+      {
+        name: 'settings_sla',
+        path: '/settings/sla',
+        component: 'view.settings_sla',
+        meta: {
+          title: 'settings_sla',
+          i18nKey: 'route.settings_sla'
+        }
       }
     ]
   },

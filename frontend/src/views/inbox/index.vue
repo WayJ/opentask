@@ -34,7 +34,8 @@ const typeLabel: Record<string, string> = {
   subscribed_update: '关注更新',
   due_date_changed: '截止日期',
   due_reminder: '到期提醒',
-  due_reminder_digest: '到期摘要'
+  due_reminder_digest: '到期摘要',
+  sla_breached: 'SLA 违约'
 };
 
 const empty = computed(() => !loading.value && rows.value.length === 0);

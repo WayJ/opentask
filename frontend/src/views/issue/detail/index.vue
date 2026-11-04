@@ -31,6 +31,12 @@ import { fetchAddFavorite, fetchFavorites, fetchRemoveFavorite } from '@/service
 import { type CustomerRequestRow, fetchCustomerRequests } from '@/service/api/customer-requests';
 import { fetchIssueBranchName } from '@/service/api/issue-vcs';
 import type { IssueCustomFieldValue } from '@/service/api/custom-fields';
+import {
+  type SlaClockRow,
+  fetchIssueSla,
+  formatSlaRemaining,
+  slaBadgeType
+} from '@/service/api/sla';
 import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
 import { subscribeWorkspaceRealtime } from '@/composables/use-workspace-realtime';
@@ -67,6 +73,7 @@ const pinLoading = ref(false);
 const watching = ref(false);
 const linkedCustomerRequests = ref<CustomerRequestRow[]>([]);
 const customFields = ref<IssueCustomFieldValue[]>([]);
+const slaClocks = ref<SlaClockRow[]>([]);
 const watchLoading = ref(false);
 const watchers = ref<Array<{ user_id: string; username?: string; name?: string }>>([]);
 const copyBranchLoading = ref(false);
@@ -226,6 +233,12 @@ async function loadIssue() {
     const data = await issueStore.getIssue(issueId.value);
     issue.value = data;
     customFields.value = ((data as any)?.customFields as IssueCustomFieldValue[]) || [];
+    try {
+      const slaRes = await fetchIssueSla(issueId.value);
+      slaClocks.value = (!slaRes.error && slaRes.data?.rows) ? slaRes.data.rows : [];
+    } catch {
+      slaClocks.value = [];
+    }
     // 加载相关数据
     Promise.all([
       loadComments(),
@@ -1675,6 +1688,18 @@ onUnmounted(() => {
             </div>
 
             <!-- Custom fields (E25) -->
+            <div v-if="slaClocks.length" id="issue-sla" class="sidebar-section">
+              <div class="sidebar-section-title">SLA</div>
+              <div v-for="c in slaClocks" :key="c.id" style="margin-bottom: 6px">
+                <NTag size="small" :type="slaBadgeType(c.status)" :bordered="false">
+                  {{ c.policyName || c.policyId.slice(0, 8) }} · {{ c.status }}
+                </NTag>
+                <NText v-if="c.status === 'running'" depth="3" style="font-size: 12px; margin-left: 6px">
+                  {{ formatSlaRemaining(c.deadlineAt) }}
+                </NText>
+              </div>
+            </div>
+
             <div id="issue-custom-fields" class="sidebar-section">
               <div class="sidebar-section-title">
                 <span>自定义字段</span>
