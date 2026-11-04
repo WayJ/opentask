@@ -2,7 +2,7 @@
 
 **Verdict:** **pass**
 
-**pass** — S2 范围交付： + list  隔离 + 权限（member+ 建；creator 或 WS owner 写共享；他人 personal 404；viewer 读共享不可建/Save As）+  + favorite 仅 personal + FE 分区下拉 /「共享给工作区」/ 另存为。门禁：全量 pytest **666 passed, 27 skipped, 0 failed**（含 15 条 saved_views）；vitest sections **4 passed**； **0 errors** / 259 warnings； 成功。**无** display prefs / board swimlanes。未推远程。Epic E7 仍 **active** → 接下 S3。
+**pass** — S2 范围交付：`issue_saved_views.is_shared` + list `{personal,shared,rows}` 隔离 + 权限（member+ 建；creator 或 WS owner 写共享；他人 personal 404；viewer 读共享不可建/Save As）+ `POST /saved-views/{id}/save-as` + favorite 仅 personal + FE 分区下拉 /「共享给工作区」/ 另存为。门禁：全量 pytest **666 passed, 27 skipped, 0 failed**（含 15 条 saved_views）；vitest sections **4 passed**；`npm run lint` **0 errors** / 259 warnings；`npm run build` 成功。**无** display prefs / board swimlanes。未推远程。Epic E7 仍 **active** → 接下 S3。
 
 **Fingerprint (impl tip):** `8ca308aa00af87ddcad0875665edee04b0e196c1`
 **Branch:** `sprint/E7-S2`
