@@ -986,6 +986,38 @@ class OpenTaskClient:
             data={"deliveryLogIds": list(delivery_log_ids)},
         )
 
+    async def get_webhook_alert_settings(self, webhook_id: str | None = None) -> dict:
+        params: dict = {}
+        if webhook_id:
+            params["webhook_id"] = webhook_id
+        return await self.get("/api/webhooks/alerts", params=params or None)
+
+    async def set_webhook_alert_settings(
+        self, settings: dict, *, webhook_id: str | None = None
+    ) -> dict:
+        body: dict = {"settings": settings}
+        if webhook_id:
+            body["webhookId"] = webhook_id
+        return await self.patch("/api/webhooks/alerts", data=body)
+
+    async def mute_webhook_alerts(
+        self, until: str, *, webhook_id: str | None = None
+    ) -> dict:
+        body: dict = {"until": until}
+        if webhook_id:
+            body["webhookId"] = webhook_id
+        return await self.post("/api/webhooks/alerts/mute", data=body)
+
+    async def unmute_webhook_alerts(self, webhook_id: str | None = None) -> dict:
+        params: dict = {}
+        if webhook_id:
+            params["webhook_id"] = webhook_id
+        return await self.post("/api/webhooks/alerts/unmute", params=params or None)
+
+    async def run_webhook_alert_eval(self) -> dict:
+        return await self.post("/api/webhooks/run-alert-eval")
+
+
 
     # ========================================================================
     # Issue Forms (E31)

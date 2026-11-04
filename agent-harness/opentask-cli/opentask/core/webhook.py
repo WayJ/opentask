@@ -455,3 +455,167 @@ def webhook_dead_letter_retry(obj, ids, ids_csv, as_json):
     except APIError as e:
         handle_api_error(e, json_mode)
 
+
+@webhook_cli.group(name="alerts")
+def webhook_alerts():
+    """死信告警设置（E57）。"""
+    pass
+
+
+@webhook_alerts.command(name="show")
+@click.option("--webhook-id", default=None, help="可选：查看钩覆盖 + effective")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def webhook_alerts_show(obj, webhook_id, as_json):
+    """显示 WS（或钩）告警设置。"""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.get_webhook_alert_settings(webhook_id=webhook_id))
+        if json_mode:
+            echo_json(True, data=data)
+            return
+        settings = (data or {}).get("effective") or (data or {}).get("settings") or {}
+        obj.skin.success(
+            "enabled={e} windowHours={w} deadThreshold={d} consecutive={c} autoDisable={a} muteUntil={m}".format(
+                e=settings.get("enabled"),
+                w=settings.get("windowHours"),
+                d=settings.get("deadThreshold"),
+                c=settings.get("consecutiveDeadThreshold"),
+                a=settings.get("autoDisable"),
+                m=settings.get("muteUntil"),
+            )
+        )
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@webhook_alerts.command(name="set")
+@click.option("--webhook-id", default=None, help="可选：写钩覆盖")
+@click.option("--enabled/--disabled", default=None)
+@click.option("--window-hours", type=int, default=None)
+@click.option("--dead-threshold", type=int, default=None)
+@click.option("--consecutive-dead-threshold", type=int, default=None)
+@click.option("--clear-consecutive", is_flag=True, help="清除连续阈值（null）")
+@click.option("--auto-disable/--no-auto-disable", default=None)
+@click.option("--mute-until", default=None, help="ISO muteUntil")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def webhook_alerts_set(
+    obj,
+    webhook_id,
+    enabled,
+    window_hours,
+    dead_threshold,
+    consecutive_dead_threshold,
+    clear_consecutive,
+    auto_disable,
+    mute_until,
+    as_json,
+):
+    """设置 WS 或钩告警字段。"""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    settings = {}
+    if enabled is not None:
+        settings["enabled"] = bool(enabled)
+    if window_hours is not None:
+        settings["windowHours"] = window_hours
+    if dead_threshold is not None:
+        settings["deadThreshold"] = dead_threshold
+    if clear_consecutive:
+        settings["consecutiveDeadThreshold"] = None
+    elif consecutive_dead_threshold is not None:
+        settings["consecutiveDeadThreshold"] = consecutive_dead_threshold
+    if auto_disable is not None:
+        settings["autoDisable"] = bool(auto_disable)
+    if mute_until is not None:
+        settings["muteUntil"] = mute_until or None
+    if not settings:
+        raise click.ClickException("请至少提供一个设置字段")
+    client = make_client(config)
+    try:
+        data = asyncio.run(
+            client.set_webhook_alert_settings(settings, webhook_id=webhook_id)
+        )
+        if json_mode:
+            echo_json(True, data=data, message="alerts-set")
+            return
+        obj.skin.success("告警设置已更新")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@webhook_alerts.command(name="mute")
+@click.option("--until", required=True, help="ISO datetime")
+@click.option("--webhook-id", default=None)
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def webhook_alerts_mute(obj, until, webhook_id, as_json):
+    """静音告警至指定时间。"""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.mute_webhook_alerts(until, webhook_id=webhook_id))
+        if json_mode:
+            echo_json(True, data=data, message="muted")
+            return
+        obj.skin.success(f"已静音至 {until}")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@webhook_alerts.command(name="unmute")
+@click.option("--webhook-id", default=None)
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def webhook_alerts_unmute(obj, webhook_id, as_json):
+    """取消静音。"""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.unmute_webhook_alerts(webhook_id=webhook_id))
+        if json_mode:
+            echo_json(True, data=data, message="unmuted")
+            return
+        obj.skin.success("已取消静音")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@webhook_cli.command(name="run-alert-eval")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def webhook_run_alert_eval(obj, as_json):
+    """外部 tick：评估死信告警。"""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.run_webhook_alert_eval())
+        if json_mode:
+            echo_json(True, data=data, message="run-alert-eval")
+            return
+        obj.skin.success(
+            "alerts={a} autoDisabled={d} checked={c}".format(
+                a=(data or {}).get("alerts"),
+                d=(data or {}).get("autoDisabled"),
+                c=(data or {}).get("checked"),
+            )
+        )
+    except APIError as e:
+        handle_api_error(e, json_mode)
+

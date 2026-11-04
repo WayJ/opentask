@@ -1,4 +1,4 @@
-"""E43 CLI: formula cf filter surfaces + version 1.40.0."""
+"""E43 CLI: formula cf filter surfaces + version 1.41.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli
@@ -8,7 +8,7 @@ def test_version_1_27_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.40.0" in result.output
+    assert "1.41.0" in result.output
 
 
 def test_issue_list_cf_help_mentions_custom_fields():
