@@ -97,4 +97,4 @@ date: 2026-11-04
 | 2026-11-04 | Phase 1：explore + roadmap + design + S1 stub；worktree `E9-S1` @ `77990b4`；**无**产品实现、**无**推远程 |
 | 2026-11-04 | E9-S1 local-complete：Triage API+FE；pytest 736；未开 S2；未推远程 |
 | 2026-11-04 | E9-S2 local-complete：issue_templates CRUD+seed+FE；pytest 744（+8 templates）；未开 S3；未推远程 |
-| 2026-11-04 | **E9 Epic local-complete**：S3 snooze + DoD；pytest 751；tip `75e3dedb3b2a31137c4530c8875460624e114b6c`；未开 E10；未推远程 |
+| 2026-11-04 | **E9 Epic local-complete**：S3 snooze + DoD；pytest 751；tip `262e9f404936d3d2135fba84c9577646fab1c0f6`；未开 E10；未推远程 |
