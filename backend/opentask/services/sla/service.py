@@ -47,15 +47,23 @@ def _wall_elapsed(start: datetime, end: datetime) -> int:
 
 def compute_deadline(now: datetime, minutes: int, ws: Workspace | None) -> datetime:
     if ws is not None and is_business_hours_enabled(ws.timezone, ws.business_hours):
-        windows = normalize_windows((ws.business_hours or {}).get("windows"))
-        return add_business_minutes(now, int(minutes), str(ws.timezone), windows)
+        bh = ws.business_hours or {}
+        windows = normalize_windows(bh.get("windows"))
+        exceptions = bh.get("exceptions") or []
+        return add_business_minutes(
+            now, int(minutes), str(ws.timezone), windows, exceptions=exceptions
+        )
     return _wall_deadline(now, minutes)
 
 
 def compute_elapsed(start: datetime, end: datetime, ws: Workspace | None) -> int:
     if ws is not None and is_business_hours_enabled(ws.timezone, ws.business_hours):
-        windows = normalize_windows((ws.business_hours or {}).get("windows"))
-        return elapsed_business_minutes(start, end, str(ws.timezone), windows)
+        bh = ws.business_hours or {}
+        windows = normalize_windows(bh.get("windows"))
+        exceptions = bh.get("exceptions") or []
+        return elapsed_business_minutes(
+            start, end, str(ws.timezone), windows, exceptions=exceptions
+        )
     return _wall_elapsed(start, end)
 
 
