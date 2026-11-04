@@ -199,8 +199,49 @@ const filters = reactive({
   type: undefined as Api.Issue.IssueType | undefined,
   project_id: undefined as string | undefined,
   cycle_id: undefined as string | undefined,
-  search: ''
+  search: '',
+  assignee_id: undefined as string | undefined,
+  reporter_id: undefined as string | undefined,
+  watching: undefined as boolean | undefined,
+  due_soon: undefined as boolean | undefined
 });
+
+const scopeTitle = computed(() => {
+  if (filters.watching) return '我关注的';
+  if (filters.due_soon) return '即将到期';
+  if (filters.assignee_id === 'me') return '指派给我';
+  if (filters.reporter_id === 'me') return '我创建的';
+  return null;
+});
+
+function clearScope() {
+  applyScopeFromQuery(undefined);
+  const nextQuery = { ...route.query };
+  delete nextQuery.scope;
+  router.replace({ query: nextQuery });
+  pagination.page = 1;
+  loadIssues();
+}
+
+function applyScopeFromQuery(scope: unknown) {
+  filters.assignee_id = undefined;
+  filters.reporter_id = undefined;
+  filters.watching = undefined;
+  filters.due_soon = undefined;
+  if (scope === 'assigned') {
+    filters.assignee_id = 'me';
+    activeTab.value = 'my_issues';
+  } else if (scope === 'created') {
+    filters.reporter_id = 'me';
+    activeTab.value = 'all';
+  } else if (scope === 'watching') {
+    filters.watching = true;
+    activeTab.value = 'all';
+  } else if (scope === 'due_soon') {
+    filters.due_soon = true;
+    activeTab.value = 'all';
+  }
+}
 
 // 智能搜索
 const smartSearchValue = ref('');
@@ -483,7 +524,11 @@ async function loadIssues() {
         type: filters.type,
         project_id: filters.project_id,
         cycle_id: filters.cycle_id,
-        search: filters.search || undefined
+        search: filters.search || undefined,
+        assignee_id: filters.assignee_id,
+        reporter_id: filters.reporter_id,
+        watching: filters.watching,
+        due_soon: filters.due_soon
       });
 
       if (response.data?.rows) {
@@ -1023,6 +1068,15 @@ watch(
   }
 );
 
+watch(
+  () => route.query.scope,
+  scope => {
+    applyScopeFromQuery(scope);
+    pagination.page = 1;
+    loadIssues();
+  }
+);
+
 onMounted(async () => {
   loadProjects();
   loadCycles();
@@ -1033,6 +1087,7 @@ onMounted(async () => {
   if (typeof cycleQ === 'string' && cycleQ) {
     filters.cycle_id = cycleQ;
   }
+  applyScopeFromQuery(route.query.scope);
   if (typeof viewId === 'string' && viewId) {
     await applySavedViewById(viewId);
   } else {
@@ -1045,6 +1100,9 @@ onMounted(async () => {
 <template>
   <div class="issue-list-container">
     <NCard :bordered="false">
+      <NAlert v-if="scopeTitle" type="info" :bordered="false" class="mb-12px" closable @close="clearScope">
+        当前视图：{{ scopeTitle }}
+      </NAlert>
       <template #header>
         <NSpace align="center" justify="space-between" style="width: 100%">
           <NText strong style="font-size: 16px">Issue 管理</NText>

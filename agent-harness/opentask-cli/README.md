@@ -2,7 +2,7 @@
 
 面向人类与 AI Agent 的 OpenTask 命令行客户端。
 
-**Version**: **v1.3.0** · Python 3.8+ · 默认 API `http://localhost:7377`
+**Version**: **v1.4.0** · Python 3.8+ · 默认 API `http://localhost:7377`
 
 ## 主轴（E14）
 
@@ -29,6 +29,9 @@ opentask workspace use <workspace-id>
 opentask project list
 opentask issue create -t "CLI smoke" --json
 opentask issue show KEY-1 --json
+opentask issue list --mine --json
+opentask issue list --watching --json
+opentask issue list --due-soon --json
 opentask cycle list --json
 opentask label list --json
 opentask triage list --json

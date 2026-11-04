@@ -209,6 +209,61 @@ class NotificationService:
             body=body,
         )
 
+    async def notify_due_date_changed(
+        self,
+        issue: Issue,
+        *,
+        actor_user_id: str,
+        old_due=None,
+        new_due=None,
+    ) -> list[Notification]:
+        """E19：due_date 变更 → assignee + watchers（跳过 actor）。"""
+        if not issue.workspace_id:
+            return []
+
+        def _fmt(v):
+            if v is None:
+                return "—"
+            if hasattr(v, "isoformat"):
+                try:
+                    return v.isoformat()[:10]
+                except Exception:
+                    return str(v)[:10]
+            return str(v)[:10]
+
+        body = f"{_fmt(old_due)} → {_fmt(new_due)}"
+        title = f"「{issue.title}」截止日期已更新"
+        created: list[Notification] = []
+
+        if issue.assignee_id and str(issue.assignee_id) != str(actor_user_id):
+            n = await self.create(
+                workspace_id=issue.workspace_id,
+                recipient_user_id=str(issue.assignee_id),
+                actor_user_id=actor_user_id,
+                type="due_date_changed",
+                resource_type="issue",
+                resource_id=issue.id,
+                title=title,
+                body=body,
+            )
+            if n:
+                created.append(n)
+
+        exclude = {str(issue.assignee_id)} if issue.assignee_id else set()
+        watcher_notes = await self.notify_watchers(
+            issue,
+            actor_user_id=actor_user_id,
+            type="due_date_changed",
+            title=title,
+            body=body,
+            exclude_user_ids=exclude,
+            commit=False,
+        )
+        created.extend(watcher_notes)
+        if created:
+            await self.db.commit()
+        return created
+
     async def _resolve_mentions(
         self, workspace_id: str, content: str, *, actor_user_id: str
     ) -> set[str]:

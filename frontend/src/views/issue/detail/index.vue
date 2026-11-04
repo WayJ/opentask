@@ -62,6 +62,7 @@ const pinnedFavoriteId = ref<string | null>(null);
 const pinLoading = ref(false);
 const watching = ref(false);
 const watchLoading = ref(false);
+const watchers = ref<Array<{ user_id: string; username?: string; name?: string }>>([]);
 const copyBranchLoading = ref(false);
 
 // Comments
@@ -1095,15 +1096,22 @@ async function loadWatchState() {
   const id = issueId.value;
   if (!id) {
     watching.value = false;
+    watchers.value = [];
     return;
   }
   try {
     const response = await fetchIssueWatchers(id);
     const rows = (response as any).data || [];
-    watching.value = (Array.isArray(rows) ? rows : []).some((r: any) => r.user_id === currentUserId.value);
+    watchers.value = Array.isArray(rows) ? rows : [];
+    watching.value = watchers.value.some((r: any) => r.user_id === currentUserId.value);
   } catch {
     watching.value = false;
+    watchers.value = [];
   }
+}
+
+function watcherLabel(w: { user_id: string; username?: string; name?: string }) {
+  return w.name || w.username || w.user_id.slice(0, 8);
 }
 
 async function toggleWatch() {
@@ -1120,6 +1128,7 @@ async function toggleWatch() {
       watching.value = true;
       window.$message?.success('已关注 Issue');
     }
+    await loadWatchState();
   } catch {
     window.$message?.error('关注操作失败');
   } finally {
@@ -1495,6 +1504,30 @@ onMounted(() => {
                 <NDatePicker v-model:value="tempDueDate" type="date" size="small" />
               </template>
             </EditableField>
+
+            <!-- Watchers (E19) -->
+            <div class="sidebar-section watchers-block">
+              <div class="sidebar-section-title">关注者</div>
+              <NEmpty v-if="!watchers.length" description="暂无关注者" size="small" />
+              <NSpace v-else vertical :size="4">
+                <div v-for="w in watchers" :key="w.user_id" class="watcher-row">
+                  <NAvatar round size="small" class="watcher-avatar">
+                    {{ watcherLabel(w).slice(0, 1).toUpperCase() }}
+                  </NAvatar>
+                  <NText class="watcher-name">{{ watcherLabel(w) }}</NText>
+                  <NButton
+                    v-if="w.user_id === currentUserId"
+                    text
+                    size="tiny"
+                    type="primary"
+                    :loading="watchLoading"
+                    @click="toggleWatch"
+                  >
+                    取消
+                  </NButton>
+                </div>
+              </NSpace>
+            </div>
 
             <!-- Reporter -->
             <EditableField
@@ -2214,6 +2247,25 @@ onMounted(() => {
   font-size: 12px;
   line-height: 1.6;
   color: var(--color-border-subtle);
+}
+
+.watchers-block {
+  margin: 8px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-hairline, rgba(0, 0, 0, 0.06));
+}
+.watcher-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.watcher-avatar {
+  flex-shrink: 0;
+  font-size: 11px;
+}
+.watcher-name {
+  flex: 1;
+  font-size: 13px;
 }
 </style>
 

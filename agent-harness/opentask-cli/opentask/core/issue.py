@@ -285,6 +285,9 @@ def _resolve_user_id(skin: ReplSkin, client: OpenTaskClient, assignee_input: str
 @click.option("--priority", "-p", help="Filter by priority")
 @click.option("--project", "-P", "project_id", help="Filter by project ID")
 @click.option("--assignee", "-a", "assignee_id", help="Filter by assignee ID (use 'me' for current user)")
+@click.option("--mine", is_flag=True, help="E19: assigned to me (assignee=me)")
+@click.option("--watching", is_flag=True, help="E19: issues I watch")
+@click.option("--due-soon", "due_soon", is_flag=True, help="E19: due within 3 days (open)")
 @click.option("--search", help="Search keyword")
 @click.option("--open-only", is_flag=True, help="Show only open issues (shorthand for --status open)")
 @click.option("--recent", is_flag=True, help="Show issues created in last 7 days")
@@ -297,7 +300,7 @@ def _resolve_user_id(skin: ReplSkin, client: OpenTaskClient, assignee_input: str
 @click.option("--sort-order", default="desc", help="Sort order (asc/desc)")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.pass_obj
-def list_issues(obj: "Context", status, issue_type, priority, project_id, assignee_id, search, open_only, recent, updated_today, overdue, unassigned, page, page_size, sort_by, sort_order, as_json):
+def list_issues(obj: "Context", status, issue_type, priority, project_id, assignee_id, mine, watching, due_soon, search, open_only, recent, updated_today, overdue, unassigned, page, page_size, sort_by, sort_order, as_json):
     """List issues with filtering and pagination.
 
     Advanced filters:
@@ -343,9 +346,13 @@ def list_issues(obj: "Context", status, issue_type, priority, project_id, assign
     if not project_id and config.active_project_id:
         project_id = config.active_project_id
 
+    # --mine → assignee me
+    if mine and not assignee_id:
+        assignee_id = "me"
+
     # Resolve assignee_id if provided
     resolved_assignee_id = assignee_id
-    if assignee_id:
+    if assignee_id and assignee_id != "me":
         resolved_assignee_id = _resolve_user_id(skin, client, assignee_id)
 
     try:
@@ -363,7 +370,9 @@ def list_issues(obj: "Context", status, issue_type, priority, project_id, assign
             recent=recent,
             updated_today=updated_today,
             overdue=overdue,
-            unassigned=unassigned
+            unassigned=unassigned,
+            watching=watching,
+            due_soon=due_soon,
         ))
 
         if json_mode:

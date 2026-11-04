@@ -9,14 +9,38 @@ from opentask.models.issue.model import Issue
 from opentask.models.issue_watcher.model import IssueWatcher
 
 
-def serialize_watcher(w: IssueWatcher) -> dict:
+def serialize_watcher(w: IssueWatcher, *, username: str | None = None, name: str | None = None) -> dict:
     return {
         "id": w.id,
         "workspace_id": w.workspace_id,
         "issue_id": w.issue_id,
         "user_id": w.user_id,
+        "username": username,
+        "name": name,
         "created_at": w.created_at,
     }
+
+
+async def enrich_watchers(db: AsyncSession, rows: list[IssueWatcher]) -> list[dict]:
+    """Attach username/name for UI display."""
+    from opentask.models.user.model import UserModel
+
+    ids = [str(r.user_id) for r in rows if r.user_id]
+    users: dict[str, UserModel] = {}
+    if ids:
+        q = await db.execute(select(UserModel).where(UserModel.id.in_(ids)))
+        users = {str(u.id): u for u in q.scalars().all()}
+    out = []
+    for r in rows:
+        u = users.get(str(r.user_id))
+        out.append(
+            serialize_watcher(
+                r,
+                username=getattr(u, "username", None) if u else None,
+                name=(getattr(u, "name", None) or getattr(u, "sso_name", None)) if u else None,
+            )
+        )
+    return out
 
 
 class IssueWatcherService:

@@ -913,6 +913,7 @@ class OpenTaskClient:
         priority: str | None = None,
         project_id: str | None = None,
         assignee_id: str | None = None,
+        reporter_id: str | None = None,
         search: str | None = None,
         sort_by: str = "created_at",
         sort_order: str = "desc",
@@ -920,7 +921,10 @@ class OpenTaskClient:
         recent: bool = False,
         updated_today: bool = False,
         overdue: bool = False,
-        unassigned: bool = False
+        unassigned: bool = False,
+        watching: bool = False,
+        due_soon: bool = False,
+        due_before: str | None = None,
     ) -> dict:
         """List issues with filtering.
 
@@ -956,6 +960,8 @@ class OpenTaskClient:
             params["project_id"] = project_id
         if assignee_id:
             params["assignee_id"] = assignee_id
+        if reporter_id:
+            params["reporter_id"] = reporter_id
         if search:
             params["search"] = search
         if recent:
@@ -966,6 +972,12 @@ class OpenTaskClient:
             params["overdue"] = "true"
         if unassigned:
             params["unassigned"] = "true"
+        if watching:
+            params["watching"] = "true"
+        if due_soon:
+            params["due_soon"] = "true"
+        if due_before:
+            params["due_before"] = due_before
 
         return await self.get("/api/issues", params=params)
 

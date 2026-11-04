@@ -128,11 +128,14 @@ async def get_issues(
     status: Optional[str] = Query(None, description="状态筛选"),
     priority: Optional[str] = Query(None, description="优先级筛选"),
     project_id: Optional[str] = Query(None, description="项目 ID"),
-    assignee_id: Optional[str] = Query(None, description="负责人 ID"),
-    reporter_id: Optional[str] = Query(None, description="报告人 ID"),
+    assignee_id: Optional[str] = Query(None, description="负责人 ID；传 me 表示当前用户"),
+    reporter_id: Optional[str] = Query(None, description="报告人 ID；传 me 表示当前用户"),
     search: Optional[str] = Query(None, description="搜索关键词"),
     cycle_id: Optional[str] = Query(None, description="Cycle ID；__none__ 表示无 Cycle"),
     milestone_id: Optional[str] = Query(None, description="Milestone ID；__none__ 表示无里程碑"),
+    watching: Optional[bool] = Query(None, description="E19：仅我关注的"),
+    due_before: Optional[str] = Query(None, description="E19：due_date ≤ YYYY-MM-DD"),
+    due_soon: Optional[bool] = Query(None, description="E19：3 日内到期且未关闭"),
     sort_by: str = Query("created_at", description="排序字段"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$", description="排序方向"),
     service: IssueService = Depends(get_issue_service),
@@ -141,6 +144,8 @@ async def get_issues(
 ):
     """获取 Issue 列表（部门数据范围 + 工作区隔离）"""
     workspace, _member, user = ws_ctx
+    resolved_assignee = str(user.id) if assignee_id == "me" else assignee_id
+    resolved_reporter = str(user.id) if reporter_id == "me" else reporter_id
     params = IssueQueryParams(
         page=page,
         page_size=page_size,
@@ -148,11 +153,14 @@ async def get_issues(
         status=status,  # type: ignore
         priority=priority,  # type: ignore
         project_id=project_id,
-        assignee_id=assignee_id,
-        reporter_id=reporter_id,
+        assignee_id=resolved_assignee,
+        reporter_id=resolved_reporter,
         search=search,
         cycle_id=cycle_id,
         milestone_id=milestone_id,
+        watching=watching,
+        due_before=due_before,
+        due_soon=due_soon,
         sort_by=sort_by,
         sort_order=sort_order,
     )
@@ -1776,7 +1784,7 @@ async def list_issue_watchers(
 ):
     from opentask.services.issue_watcher.service import (
         IssueWatcherService,
-        serialize_watcher,
+        enrich_watchers,
     )
 
     ws, _member, _user = ctx
@@ -1784,7 +1792,8 @@ async def list_issue_watchers(
     return {
         "code": 200,
         "message": "success",
-        "data": [serialize_watcher(r) for r in rows],
+        "data": await enrich_watchers(db, rows),
+
         "timestamp": 0,
     }
 

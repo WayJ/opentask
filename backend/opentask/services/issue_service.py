@@ -1,6 +1,6 @@
 """Issue 服务层"""
 from typing import Optional, List, Tuple, Dict, Any
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update, delete, or_, and_
 from sqlalchemy.orm import selectinload, joinedload
@@ -38,6 +38,16 @@ from opentask.models.workspace.model import Workspace
 
 class IssueService:
     """Issue 服务"""
+
+    @staticmethod
+    def _naive_utc(value):
+        """TIMESTAMP WITHOUT TIME ZONE：去掉 tzinfo（按 UTC 墙钟）。"""
+        if value is None:
+            return None
+        if isinstance(value, datetime) and value.tzinfo is not None:
+            return value.replace(tzinfo=None)
+        return value
+
 
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -140,6 +150,42 @@ class IssueService:
                     Issue.issue_code.ilike(search_pattern),
                     Issue.legacy_issue_code.ilike(search_pattern),
                 )
+            )
+
+        # E19：watching / due_before / due_soon
+        if getattr(params, "watching", None) and user_id:
+            from opentask.models.issue_watcher.model import IssueWatcher
+
+            query = query.join(
+                IssueWatcher,
+                and_(
+                    IssueWatcher.issue_id == Issue.id,
+                    IssueWatcher.user_id == str(user_id),
+                ),
+            )
+        if getattr(params, "due_before", None):
+            try:
+                before = date.fromisoformat(str(params.due_before)[:10])
+            except ValueError:
+                before = None
+            if before is not None:
+                query = query.where(
+                    Issue.due_date.is_not(None),
+                    func.date(Issue.due_date) <= before,
+                )
+        if getattr(params, "due_soon", None):
+            today = date.today()
+            until = today + timedelta(days=3)
+            closed = {
+                IssueStatus.CLOSED.value,
+                IssueStatus.RESOLVED.value,
+                IssueStatus.REJECTED.value,
+            }
+            query = query.where(
+                Issue.due_date.is_not(None),
+                func.date(Issue.due_date) >= today,
+                func.date(Issue.due_date) <= until,
+                Issue.status.notin_(list(closed)),
             )
 
         # 工作区隔离（E3-S1）
@@ -375,6 +421,8 @@ class IssueService:
 
         issue_data = data.model_dump()
         issue_data.pop("template_id", None)
+        if "due_date" in issue_data:
+            issue_data["due_date"] = self._naive_utc(issue_data.get("due_date"))
         await self._validate_parent_issue_id(
             issue_id=None,
             parent_issue_id=issue_data.get("parent_issue_id"),
@@ -500,6 +548,35 @@ class IssueService:
                     },
                 )
 
+        # E19：截止日期变更
+        due_date_changed = None  # (old, new)
+        if "due_date" in update_data:
+            update_data["due_date"] = self._naive_utc(update_data.get("due_date"))
+            old_due_q = await self.db.execute(
+                select(Issue.due_date).where(Issue.id == issue_id)
+            )
+            old_due = old_due_q.scalar_one_or_none()
+            new_due = update_data.get("due_date")
+            # normalize for compare
+            def _due_key(v):
+                if v is None:
+                    return None
+                if isinstance(v, datetime):
+                    return v.replace(tzinfo=None).isoformat()
+                return str(v)
+
+            if _due_key(old_due) != _due_key(new_due):
+                due_date_changed = (old_due, new_due)
+                await self._add_timeline(
+                    issue_id=issue_id,
+                    action_type=TimelineAction.DUE_DATE_CHANGED,
+                    user_id=user_id,
+                    action_data={
+                        "from": old_due.isoformat() if isinstance(old_due, datetime) else old_due,
+                        "to": new_due.isoformat() if isinstance(new_due, datetime) else new_due,
+                    },
+                )
+
         # 记录分配变更
         assignee_changed_to = None
         if "assignee_id" in update_data:
@@ -550,6 +627,14 @@ class IssueService:
                 actor_user_id=user_id,
                 old_status=str(old_s_val) if old_s_val is not None else None,
                 new_status=str(new_s_val),
+            )
+        if issue and due_date_changed:
+            old_d, new_d = due_date_changed
+            await NotificationService(self.db).notify_due_date_changed(
+                issue,
+                actor_user_id=user_id,
+                old_due=old_d,
+                new_due=new_d,
             )
         return issue
 

@@ -280,6 +280,18 @@ class IssueQueryParams(BaseModel):
         None,
         description="Milestone ID 筛选；传 __none__ 表示无里程碑",
     )
+    watching: Optional[bool] = Field(
+        None,
+        description="E19：仅当前用户关注的 Issue（需配合 user_id）",
+    )
+    due_before: Optional[str] = Field(
+        None,
+        description="E19：due_date 日期 ≤ YYYY-MM-DD",
+    )
+    due_soon: Optional[bool] = Field(
+        None,
+        description="E19：今日起 3 日内到期且未关闭",
+    )
     sort_by: str = Field("created_at", description="排序字段")
     sort_order: str = Field("desc", pattern="^(asc|desc)$", description="排序方向")
 

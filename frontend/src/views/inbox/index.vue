@@ -27,7 +27,8 @@ const typeLabel: Record<string, string> = {
   mentioned: '提及',
   project_health: '项目健康',
   status_changed: '状态',
-  subscribed_update: '关注更新'
+  subscribed_update: '关注更新',
+  due_date_changed: '截止日期'
 };
 
 const empty = computed(() => !loading.value && rows.value.length === 0);

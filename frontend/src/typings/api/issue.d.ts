@@ -169,6 +169,9 @@ export namespace Api.Issue {
     search?: string;
     cycle_id?: string;
     milestone_id?: string;
+    watching?: boolean;
+    due_before?: string;
+    due_soon?: boolean;
     sort_by?: string;
     sort_order?: 'asc' | 'desc';
   }
