@@ -3,7 +3,7 @@
 日期：2026-11-05（Asia/Shanghai）  
 分支：`sprint/E50-S1`  
 基线：`a77e2cf`  
-**tip：** _(本 commit 后补 SHA)_
+**tip：** `fcea4b8`（全文 `fcea4b8978a72950b7890fafc0d0ec7d9a8676a1`）
 
 ## 范围落地
 
