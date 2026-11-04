@@ -3,8 +3,7 @@ export function isModK(event: { key: string; metaKey: boolean; ctrlKey: boolean 
   return (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k';
 }
 
-const EDITABLE_SELECTOR =
-  'input, textarea, select, [contenteditable="true"], .n-input, .n-base-selection-input';
+const EDITABLE_SELECTOR = 'input, textarea, select, [contenteditable="true"], .n-input, .n-base-selection-input';
 
 /**
  * True when the event target is (or is inside) an editable control.
