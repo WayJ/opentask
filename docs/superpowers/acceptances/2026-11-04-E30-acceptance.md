@@ -8,7 +8,7 @@
 ✅ 本地齐套（未 push）
 
 ## tip
-（commit 后回填）
+`c037f5b` (`c037f5b4dcd241d89916d6f9729387d7b9de6ed6`)
 
 ## 测试数
 - BE pytest：897 passed / 1 flake（`test_user_search`，与既往 Epic 同款）/ 24 skipped；本 Epic `tests/api/test_email_notifications.py` **7P**
