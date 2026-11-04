@@ -18,6 +18,7 @@ from opentask.api.inbox import router as inbox_router
 from opentask.api.saved_views import router as saved_views_router
 from opentask.api.display_prefs import router as display_prefs_router
 from opentask.api.cycles import router as cycles_router
+from opentask.api.search import router as search_router
 from opentask.api.favorites import router as favorites_router
 from opentask.api.triage import router as triage_router
 from opentask.api.issue_templates import router as issue_templates_router
@@ -110,6 +111,7 @@ class App(fastapi.FastAPI):
         self.include_router(saved_views_router)
         self.include_router(display_prefs_router)
         self.include_router(cycles_router)
+        self.include_router(search_router)
         self.include_router(favorites_router)
         self.include_router(triage_router)
         self.include_router(issue_templates_router)
