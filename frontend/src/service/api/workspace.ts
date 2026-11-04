@@ -16,6 +16,8 @@ export interface WorkspaceItem {
   gitStatusHooksEnabled?: boolean;
   gitHookOnPrOpen?: string;
   gitHookOnPrMerged?: string;
+  timezone?: string | null;
+  businessHours?: { enabled?: boolean; windows?: Record<string, { start: string; end: string }[]> } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -45,6 +47,8 @@ export function fetchUpdateWorkspace(
     gitStatusHooksEnabled?: boolean;
     gitHookOnPrOpen?: string;
     gitHookOnPrMerged?: string;
+    timezone?: string | null;
+    businessHours?: { enabled?: boolean; windows?: Record<string, { start: string; end: string }[]> } | null;
   }
 ) {
   return request<WorkspaceItem>({ url: `/api/workspaces/${id}`, method: 'patch', data });

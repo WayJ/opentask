@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { h, onMounted, reactive, ref } from 'vue';
+import { computed, h, onMounted, reactive, ref } from 'vue';
 import {
   type DataTableColumns,
   NButton,
@@ -22,6 +22,23 @@ import {
   fetchUpdateSlaPolicy,
   slaMetricLabel
 } from '@/service/api/sla';
+import {
+  type WorkspaceItem,
+  fetchUpdateWorkspace,
+  fetchWorkspace,
+  fetchWorkspaceList
+} from '@/service/api/workspace';
+import { localStg } from '@/utils/storage';
+import {
+  WEEKDAY_KEYS,
+  WEEKDAY_LABELS,
+  type WeekdayKey,
+  emptyWindows,
+  normalizeBusinessHours,
+  normalizeWindows,
+  validateTimezoneClient,
+  weekdayPreset0918
+} from '@/utils/businessHours';
 
 defineOptions({ name: 'SettingsSlaPage' });
 
@@ -41,6 +58,94 @@ const form = reactive({
 });
 
 const statusOptions = ISSUE_STATUSES.map(v => ({ label: v, value: v }));
+
+const workspace = ref<WorkspaceItem | null>(null);
+const bhSaving = ref(false);
+const bhForm = reactive({
+  timezone: 'Asia/Shanghai',
+  enabled: false,
+  windows: emptyWindows() as Record<WeekdayKey, { start: string; end: string }[]>
+});
+const timezoneOptions = [
+  { label: 'Asia/Shanghai', value: 'Asia/Shanghai' },
+  { label: 'UTC', value: 'UTC' },
+  { label: 'America/Los_Angeles', value: 'America/Los_Angeles' },
+  { label: 'America/New_York', value: 'America/New_York' },
+  { label: 'Europe/London', value: 'Europe/London' }
+];
+const isOwner = computed(() => workspace.value?.role === 'owner');
+
+async function resolveWorkspaceId(): Promise<string | null> {
+  const cached = localStg.get('workspaceId');
+  if (cached) return String(cached);
+  const { data, error } = await fetchWorkspaceList();
+  if (error || !data?.length) return null;
+  localStg.set('workspaceId', data[0].id);
+  return data[0].id;
+}
+
+async function loadBusinessHours() {
+  const wsId = await resolveWorkspaceId();
+  if (!wsId) return;
+  const { data, error } = await fetchWorkspace(wsId);
+  if (error || !data) return;
+  workspace.value = data;
+  const bh = normalizeBusinessHours(data.businessHours || null);
+  bhForm.timezone = data.timezone || 'Asia/Shanghai';
+  bhForm.enabled = bh.enabled;
+  bhForm.windows = bh.windows;
+}
+
+function applyWeekdayPreset() {
+  bhForm.windows = weekdayPreset0918();
+}
+
+function setDaySegments(day: WeekdayKey, raw: string) {
+  // raw: "09:00-12:00,13:00-18:00" or empty
+  const parts = String(raw || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+  const segs = parts.map(p => {
+    const [start, end] = p.split('-').map(x => x.trim());
+    return { start: start || '', end: end || '' };
+  });
+  bhForm.windows[day] = segs;
+}
+
+function daySegmentsText(day: WeekdayKey): string {
+  return (bhForm.windows[day] || []).map(s => `${s.start}-${s.end}`).join(',');
+}
+
+async function saveBusinessHours() {
+  if (!workspace.value || !isOwner.value) return;
+  bhSaving.value = true;
+  try {
+    let tz: string | null;
+    let windows;
+    try {
+      tz = validateTimezoneClient(bhForm.timezone);
+      windows = normalizeWindows(bhForm.windows);
+    } catch (e: any) {
+      window.$message?.error?.(e?.message || '时段非法');
+      return;
+    }
+    const { data, error } = await fetchUpdateWorkspace(workspace.value.id, {
+      timezone: tz,
+      businessHours: { enabled: bhForm.enabled, windows }
+    });
+    if (error || !data) {
+      window.$message?.error?.(error?.message || '保存失败');
+      return;
+    }
+    workspace.value = data;
+    window.$message?.success?.('营业时段已保存（running/paused deadline 已重算）');
+    await loadBusinessHours();
+  } finally {
+    bhSaving.value = false;
+  }
+}
+
 const metricOptions = [
   { label: '状态停留 (time_in_status)', value: 'time_in_status' },
   { label: '首次响应 (first_response)', value: 'first_response' }
@@ -183,7 +288,7 @@ onMounted(load);
         </NSpace>
       </template>
       <NText depth="3" style="display:block;margin-bottom:12px;font-size:12px">
-        支持「状态停留」与「首次响应」两种 metric（UTC 日历分钟）。首次响应：非创建者首条评论即满足；指派不算。stop 为空时进入 resolved/closed/rejected 即满足。进入暂停状态时不计时，离开后按剩余时间续跑。无内置 cron，请外部调度 POST /api/sla/run-due。
+        支持「状态停留」与「首次响应」两种 metric。默认墙钟分钟；下方启用营业时后按营业分钟。首次响应：非创建者首条评论即满足；指派不算。stop 为空时进入 resolved/closed/rejected 即满足。进入暂停状态时不计时，离开后按剩余时间续跑。无内置 cron，请外部调度 POST /api/sla/run-due。
       </NText>
       <NDataTable :columns="columns" :data="rows" :loading="loading" size="small" />
     </NCard>
@@ -210,6 +315,37 @@ onMounted(load);
           <NSwitch v-model:value="form.notifyWatchers" />
         </NSpace>
         <NButton type="primary" :loading="creating" @click="create">创建</NButton>
+      </NSpace>
+    </NCard>
+
+    <NCard title="营业时段（SLA business hours）" :bordered="false" style="margin-top:16px">
+      <NText depth="3" style="display:block;margin-bottom:12px;font-size:12px">
+        工作区级 IANA 时区 + 周内营业窗口。启用后 SLA deadline / pause 剩余按营业分钟计算；关闭则回退墙钟。配置保存后批量重算 running/paused。每日最多 2 段，格式 09:00-12:00,13:00-18:00。
+      </NText>
+      <NSpace vertical>
+        <NSpace align="center">
+          <span>启用营业时</span>
+          <NSwitch v-model:value="bhForm.enabled" :disabled="!isOwner" />
+          <NSelect
+            v-model:value="bhForm.timezone"
+            :options="timezoneOptions"
+            style="width:220px"
+            :disabled="!isOwner"
+            filterable
+            tag
+          />
+          <NButton size="small" :disabled="!isOwner" @click="applyWeekdayPreset">工作日 09–18</NButton>
+        </NSpace>
+        <div v-for="day in WEEKDAY_KEYS" :key="day" style="display:flex;gap:8px;align-items:center">
+          <span style="width:48px">{{ WEEKDAY_LABELS[day] }}</span>
+          <NInput
+            :value="daySegmentsText(day)"
+            :disabled="!isOwner"
+            placeholder="空=非营业；例 09:00-12:00,13:00-18:00"
+            @update:value="(v: string) => setDaySegments(day, v)"
+          />
+        </div>
+        <NButton type="primary" :loading="bhSaving" :disabled="!isOwner" @click="saveBusinessHours">保存营业时段</NButton>
       </NSpace>
     </NCard>
   </div>
