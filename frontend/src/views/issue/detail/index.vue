@@ -36,6 +36,7 @@ import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
 import IssueReactions from '@/components/IssueReactions.vue';
 import UserSelect from '@/components/UserSelect.vue';
 import AttachmentList from '@/components/common/AttachmentList.vue';
+import EntityDocsPanel from '@/components/entity-docs/EntityDocsPanel.vue';
 import EditableField from '@/components/EditableField.vue';
 import type { Api } from '@/typings/api';
 
@@ -1152,6 +1153,10 @@ onMounted(() => {
               <AttachmentList :issue-id="issueId" :attachments="attachments" @refresh="loadAttachments" />
             </NSpin>
           </NCard>
+
+          <div v-if="issueId" class="mt-12px">
+            <EntityDocsPanel parent-type="issue" :parent-id="issueId" />
+          </div>
 
           <!-- Comments & Timeline -->
           <div class="issue-activity">

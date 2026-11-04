@@ -12,6 +12,7 @@ import {
   fetchSetInitiativeProjects,
   fetchUpdateInitiative
 } from '@/service/api';
+import EntityDocsPanel from '@/components/entity-docs/EntityDocsPanel.vue';
 
 defineOptions({ name: 'InitiativeDetailPage' });
 
@@ -237,6 +238,8 @@ onMounted(async () => {
             </NFormItem>
           </NForm>
         </NCard>
+
+        <EntityDocsPanel v-if="id" parent-type="initiative" :parent-id="id" />
       </div>
     </NSpin>
   </div>

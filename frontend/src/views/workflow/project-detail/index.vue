@@ -24,6 +24,7 @@ import {
 } from '@/service/api';
 import { useAuthStore } from '@/store/modules/auth';
 import { useProjectStore } from '@/store/modules/project';
+import EntityDocsPanel from '@/components/entity-docs/EntityDocsPanel.vue';
 import {
   HEALTH_LABELS,
   HEALTH_TAG_TYPE,
@@ -635,6 +636,10 @@ onMounted(() => {
           <NText v-if="project.description">{{ project.description }}</NText>
           <NText v-else depth="3">暂无描述</NText>
         </NCard>
+
+        <div v-if="projectId" class="mt-4">
+          <EntityDocsPanel parent-type="project" :parent-id="projectId" />
+        </div>
 
         <NCard title="健康历史" :bordered="false" class="mt-4">
           <NSpin :show="healthLoading">
