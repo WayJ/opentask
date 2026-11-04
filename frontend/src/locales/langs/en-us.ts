@@ -338,13 +338,14 @@ const local: App.I18n.Schema = {
   },
   page: {
     search: {
-      placeholder: 'Search issues, projects, docs, members…',
+      placeholder: 'Search issues, projects, docs, members, comments…',
       hint: 'Type to search. Or open the command palette with ⌘K.',
       empty: 'No matches',
       groupIssues: 'Issues',
       groupProjects: 'Projects',
       groupDocs: 'Docs',
-      groupMembers: 'Members'
+      groupMembers: 'Members',
+      groupComments: 'Comments'
     },
     profile: {
       pwd: {

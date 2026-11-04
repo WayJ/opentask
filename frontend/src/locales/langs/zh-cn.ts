@@ -333,13 +333,14 @@ const local: App.I18n.Schema = {
   },
   page: {
     search: {
-      placeholder: '搜索 Issue、项目、文档、成员…',
+      placeholder: '搜索 Issue、项目、文档、成员、评论…',
       hint: '输入关键词开始搜索。也可用 ⌘K 打开命令面板。',
       empty: '没有匹配结果',
       groupIssues: 'Issues',
       groupProjects: '项目',
       groupDocs: '文档',
-      groupMembers: '成员'
+      groupMembers: '成员',
+      groupComments: '评论'
     },
     profile: {
       pwd: {

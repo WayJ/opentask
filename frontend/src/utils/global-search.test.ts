@@ -62,3 +62,39 @@ describe('buildSearchPagePath', () => {
     expect(buildSearchPagePath('  OT-1 ')).toEqual({ path: '/search', query: { q: 'OT-1' } });
   });
 });
+
+
+describe('E62 comments group', () => {
+  it('flattens comments with issue deep-link (Q5a)', () => {
+    const flat = flattenSearchResults({
+      issues: [],
+      projects: [],
+      docs: [],
+      members: [],
+      comments: [
+        {
+          id: 'c1',
+          issueId: 'i1',
+          issueCode: 'OT-9',
+          snippet: 'found in discussion',
+          rank: 0.8
+        }
+      ]
+    });
+    expect(flat).toHaveLength(1);
+    expect(flat[0].group).toBe('comments');
+    expect(flat[0].href).toEqual({ path: '/issue/detail', query: { id: 'i1' } });
+    expect(flat[0].subtitle).toContain('OT-9');
+    expect(flat[0].rank).toBe(0.8);
+  });
+
+  it('tolerates missing comments key', () => {
+    const flat = flattenSearchResults({
+      issues: [{ id: 'i1', issueCode: 'OT-1', title: 'T' }],
+      projects: [],
+      docs: [],
+      members: []
+    } as any);
+    expect(flat.map(f => f.group)).toEqual(['issues']);
+  });
+});

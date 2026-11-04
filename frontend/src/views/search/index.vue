@@ -14,7 +14,7 @@ const router = useRouter();
 const query = ref(String(route.query.q || ''));
 const loading = ref(false);
 const error = ref('');
-const result = ref<GlobalSearchResult>({ issues: [], projects: [], docs: [], members: [] });
+const result = ref<GlobalSearchResult>({ issues: [], projects: [], docs: [], members: [], comments: [] });
 const activeIndex = ref(0);
 
 const flat = computed(() => flattenSearchResults(result.value));
@@ -24,13 +24,14 @@ const groupLabel = (g: SearchGroupId) => {
     issues: $t('page.search.groupIssues'),
     projects: $t('page.search.groupProjects'),
     docs: $t('page.search.groupDocs'),
-    members: $t('page.search.groupMembers')
+    members: $t('page.search.groupMembers'),
+    comments: $t('page.search.groupComments')
   };
   return map[g];
 };
 
 const grouped = computed(() => {
-  const order: SearchGroupId[] = ['issues', 'projects', 'docs', 'members'];
+  const order: SearchGroupId[] = ['issues', 'projects', 'docs', 'members', 'comments'];
   return order
     .map(g => ({
       id: g,
@@ -44,18 +45,18 @@ async function runSearch(q: string) {
   const trimmed = q.trim();
   error.value = '';
   if (!trimmed) {
-    result.value = { issues: [], projects: [], docs: [], members: [] };
+    result.value = { issues: [], projects: [], docs: [], members: [], comments: [] };
     activeIndex.value = 0;
     return;
   }
   loading.value = true;
   try {
     const data = await fetchGlobalSearch(trimmed, 12);
-    result.value = data || { issues: [], projects: [], docs: [], members: [] };
+    result.value = data || { issues: [], projects: [], docs: [], members: [], comments: [] };
     activeIndex.value = flat.value.length ? 0 : -1;
   } catch (e: any) {
     error.value = e?.message || String(e);
-    result.value = { issues: [], projects: [], docs: [], members: [] };
+    result.value = { issues: [], projects: [], docs: [], members: [], comments: [] };
     activeIndex.value = -1;
   } finally {
     loading.value = false;

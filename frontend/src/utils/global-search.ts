@@ -1,6 +1,6 @@
-/** Pure helpers for Linear-style global Search page (E17/E60). */
+/** Pure helpers for Linear-style global Search page (E17/E60/E62). */
 
-export type SearchGroupId = 'issues' | 'projects' | 'docs' | 'members';
+export type SearchGroupId = 'issues' | 'projects' | 'docs' | 'members' | 'comments';
 
 export interface SearchFlatItem {
   id: string;
@@ -12,7 +12,7 @@ export interface SearchFlatItem {
 }
 
 export interface SearchGroupsInput {
-  issues: Array<{
+  issues?: Array<{
     id: string;
     issueCode: string;
     title: string;
@@ -20,14 +20,14 @@ export interface SearchGroupsInput {
     rank?: number;
     snippet?: string;
   }>;
-  projects: Array<{
+  projects?: Array<{
     id: string;
     name: string;
     description?: string;
     rank?: number;
     snippet?: string;
   }>;
-  docs: Array<{
+  docs?: Array<{
     id: string;
     title: string;
     parentType: string;
@@ -35,7 +35,17 @@ export interface SearchGroupsInput {
     snippet?: string;
     rank?: number;
   }>;
-  members: Array<{ userId: string; name?: string | null; username?: string | null; role: string }>;
+  members?: Array<{ userId: string; name?: string | null; username?: string | null; role: string }>;
+  /** E62: optional for older clients / missing key safety */
+  comments?: Array<{
+    id: string;
+    issueId: string;
+    issueCode: string;
+    snippet?: string;
+    rank?: number;
+    authorUserId?: string;
+    createdAt?: string;
+  }>;
 }
 
 const SNIPPET_MAX = 120;
@@ -111,6 +121,17 @@ export function flattenSearchResults(data: SearchGroupsInput): SearchFlatItem[] 
       title: label,
       subtitle: m.role,
       href: { path: '/workspace/members' }
+    });
+  }
+  for (const c of data.comments || []) {
+    const snip = clipSnippet(c.snippet);
+    out.push({
+      id: `comment:${c.id}`,
+      group: 'comments',
+      title: snip || c.issueCode || c.id,
+      subtitle: [c.issueCode, snip].filter(Boolean).join(' · '),
+      href: { path: '/issue/detail', query: { id: c.issueId } },
+      rank: c.rank
     });
   }
   return out;

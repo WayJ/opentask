@@ -1,4 +1,4 @@
-/** E17/E60: workspace-scoped global search */
+/** E17/E60/E62: workspace-scoped global search */
 import { request } from '@/service/request';
 
 export interface SearchIssueHit {
@@ -37,11 +37,22 @@ export interface SearchMemberHit {
   name?: string | null;
 }
 
+export interface SearchCommentHit {
+  id: string;
+  issueId: string;
+  issueCode: string;
+  snippet?: string;
+  rank?: number;
+  authorUserId?: string;
+  createdAt?: string;
+}
+
 export interface GlobalSearchResult {
   issues: SearchIssueHit[];
   projects: SearchProjectHit[];
   docs: SearchDocHit[];
   members: SearchMemberHit[];
+  comments?: SearchCommentHit[];
 }
 
 export function fetchGlobalSearch(q: string, limit = 10) {
