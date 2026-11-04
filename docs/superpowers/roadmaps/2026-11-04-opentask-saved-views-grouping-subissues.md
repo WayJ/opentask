@@ -22,7 +22,7 @@ date: 2026-11-04
 - [ ] `cd backend && uv run pytest tests/ -v` 全绿（含 Saved Views 隔离 / 分组 / 子 Issue 用例）
 - [ ] `cd frontend && npm run lint && npm run build` 通过（0 errors）
 - [x] Saved Views：用户可保存/列出/应用/收藏/删除个人视图；跨用户不可见
-- [ ] 列表分组：可按属性泳道呈现且与筛选一致（S2）
+- [x] 列表分组：可按属性泳道呈现且与筛选一致（S2）
 - [ ] 子 Issue：可建父子、列表嵌套、父级约束正确（S3）
 - [ ] DESIGN.md / Naive UI / soybean 令牌被前端改动遵守；无 ⌘K / 工作区共享视图交付
 
@@ -31,7 +31,7 @@ date: 2026-11-04
 | sprint | state | note |
 |---|---|---|
 | S1 | closed | **个人 Saved Views**：模型 + API + Issue 列表工具栏保存/应用/收藏。evidence: `docs/superpowers/sprints/2026-11-04-E4-S1-plan.md` / `docs/superpowers/acceptances/2026-11-04-E4-S1-acceptance.md` |
-| S2 | active | Issue 列表按属性分组泳道（assignee/priority/type/status）；客户端分组；`display_json.group_by`。evidence: `docs/superpowers/sprints/2026-11-04-E4-S2-plan.md` |
+| S2 | closed | Issue 列表分组泳道（客户端 none/status/assignee/priority/type；display.group_by）。evidence: `docs/superpowers/sprints/2026-11-04-E4-S2-plan.md` / `docs/superpowers/acceptances/2026-11-04-E4-S2-acceptance.md` |
 | S3 | planned | 一等公民子 Issue：`parent_issue_id` + 嵌套列表；非 IssueRelation。 |
 
 推荐顺序理由：Saved Views 先固化筛选/排序配置契约，S2 分组与 S3 嵌套可挂在同一列表呈现层；个人作用域不阻塞后续共享视图另开 Epic。
@@ -143,3 +143,4 @@ date: 2026-11-04
 - 2026-11-04（UTC+8）：E4 启动；Way 拍板个人 Views + 三 Sprint；分支 `sprint/E4-S1`（基 E3-S3 tip `61d2f40`）；worktree `/workspace/opentask-worktrees/E4-S1`；不推远程。
 - 2026-11-04（UTC+8）：E4-S1 closed；acceptance `docs/superpowers/acceptances/2026-11-04-E4-S1-acceptance.md`；分支 `sprint/E4-S1` 未推远程。下一步 S2（列表分组泳道）。
 - 2026-11-04（UTC+8）：E4-S2 started；分支 `sprint/E4-S2`（基 E4-S1 tip `cf748eb`）；worktree `/workspace/opentask-worktrees/E4-S2`；客户端 groupBy；不推远程。
+- 2026-11-04（UTC+8）：E4-S2 closed；acceptance `docs/superpowers/acceptances/2026-11-04-E4-S2-acceptance.md`；分支 `sprint/E4-S2` 未推远程。下一步 S3（一等公民子 Issue）。
