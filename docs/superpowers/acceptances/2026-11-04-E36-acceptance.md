@@ -27,7 +27,7 @@
 - FE vitest：**266 passed**；`pnpm/vite build` 成功
 
 ## tip
-- SHA：`58df60a`
+- SHA：以 `git rev-parse HEAD` 为准（本文件 tip）
 - 未 push / 未开 PR
 - **不自开 E37**
 
