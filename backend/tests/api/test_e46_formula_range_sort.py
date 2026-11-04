@@ -252,3 +252,107 @@ async def test_formula_range_and_no_emit(test_client: AsyncClient):
     )
     assert resp.status_code == 200
     assert {row["id"] for row in resp.json()["data"]["rows"]} == {a["id"]}
+
+
+@pytest.mark.asyncio
+async def test_sort_by_cf_formula_desc_nulls_last(test_client: AsyncClient):
+    user = await _register(test_client, "e46s")
+    weight, score, h = await _setup_weight_score(test_client, user)
+    low = await _create_issue(test_client, user, "low")
+    high = await _create_issue(test_client, user, "high")
+    bare = await _create_issue(test_client, user, "bare")  # no weight → score 0? COALESCE 0*2=0
+    await test_client.patch(
+        f"/api/issues/{low['id']}/custom-fields",
+        headers=h,
+        json={"values": [{"fieldId": weight["id"], "value": 2}]},  # 4
+    )
+    await test_client.patch(
+        f"/api/issues/{high['id']}/custom-fields",
+        headers=h,
+        json={"values": [{"fieldId": weight["id"], "value": 9}]},  # 18
+    )
+    # bare keeps default 0 via COALESCE
+
+    resp = await test_client.get(
+        "/api/issues",
+        headers=h,
+        params={"sort_by": "cf:score", "sort_order": "desc", "page_size": 50},
+    )
+    assert resp.status_code == 200, resp.text
+    rows = resp.json()["data"]["rows"]
+    ids = [r["id"] for r in rows]
+    assert ids.index(high["id"]) < ids.index(low["id"]) < ids.index(bare["id"])
+
+
+@pytest.mark.asyncio
+async def test_sort_by_cf_multi_select_unsupported(test_client: AsyncClient):
+    user = await _register(test_client, "e46ms")
+    h = _auth(user["token"], user["workspaceId"])
+    await test_client.post(
+        "/api/custom-fields",
+        headers=h,
+        json={
+            "name": "Tags",
+            "key": "tags",
+            "type": "multi_select",
+            "options": [{"value": "a", "label": "A"}],
+        },
+    )
+    await _create_issue(test_client, user, "x")
+    resp = await test_client.get(
+        "/api/issues", headers=h, params={"sort_by": "cf:tags", "page_size": 10}
+    )
+    assert resp.status_code == 400
+    assert "cf_sort_unsupported" in str(resp.json())
+
+
+@pytest.mark.asyncio
+async def test_sort_by_cf_cap_too_broad(test_client: AsyncClient, monkeypatch):
+    user = await _register(test_client, "e46cap")
+    weight, score, h = await _setup_weight_score(test_client, user)
+    for i in range(3):
+        iss = await _create_issue(test_client, user, f"c{i}")
+        await test_client.patch(
+            f"/api/issues/{iss['id']}/custom-fields",
+            headers=h,
+            json={"values": [{"fieldId": weight["id"], "value": i + 1}]},
+        )
+    import opentask.services.custom_field.service as svc
+    import opentask.services.issue_service as issue_svc
+
+    monkeypatch.setattr(svc, "FORMULA_SORT_CANDIDATE_CAP", 2)
+    monkeypatch.setattr(issue_svc, "FORMULA_SORT_CANDIDATE_CAP", 2)
+    resp = await test_client.get(
+        "/api/issues",
+        headers=h,
+        params={"sort_by": "cf:score", "sort_order": "asc", "page_size": 50},
+    )
+    assert resp.status_code == 400
+    assert "formula_sort_too_broad" in str(resp.json())
+
+
+@pytest.mark.asyncio
+async def test_saved_view_sort_json_cf(test_client: AsyncClient):
+    user = await _register(test_client, "e46sv")
+    weight, score, h = await _setup_weight_score(test_client, user)
+    resp = await test_client.post(
+        "/api/saved-views",
+        headers=h,
+        json={
+            "name": "by-score",
+            "filters": {},
+            "sort": {"sort_by": "cf:score", "sort_order": "desc"},
+            "display": {
+                "view_mode": "list",
+                "group_by": "none",
+                "swimlane_by": "none",
+                "hide_empty_lanes": False,
+                "fields": {},
+                "custom_field_keys": [],
+            },
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()["data"]
+    assert body["sort"]["sort_by"] == "cf:score"
+    assert body["sort"]["sort_order"] == "desc"

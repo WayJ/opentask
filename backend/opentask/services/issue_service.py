@@ -1,9 +1,16 @@
 """Issue 服务层"""
 from typing import Optional, List, Tuple, Dict, Any
 from datetime import datetime, date, timedelta
+import re
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update, delete, or_, and_
 from sqlalchemy.orm import selectinload, joinedload
+
+from opentask.services.custom_field.service import FORMULA_SORT_CANDIDATE_CAP
+
+_CF_SORT_RE = re.compile(r"^cf:([a-z][a-z0-9_-]{0,63})$")
+_CF_SORT_OK_TYPES = frozenset({"number", "text", "date", "boolean"})
 
 from opentask.models.issue.model import (
     Issue,
@@ -233,7 +240,20 @@ class IssueService:
         # 获取总数
         count_query = select(func.count()).select_from(query.subquery())
         result = await self.db.execute(count_query)
-        total = result.scalar()
+        total = result.scalar() or 0
+
+        # E46：sort_by=cf:<key> — 内存排序（cap + nulls last）
+        cf_sort_m = _CF_SORT_RE.match((params.sort_by or "").strip())
+        if cf_sort_m:
+            return await self._list_sorted_by_cf(
+                query=query,
+                total=total,
+                workspace_id=workspace_id,
+                field_key=cf_sort_m.group(1),
+                sort_order=(params.sort_order or "desc").lower(),
+                page=params.page,
+                page_size=params.page_size,
+            )
 
         # 排序（白名单；position 支持看板同源排序，NULL 靠后）
         allowed_sort = {
@@ -266,6 +286,136 @@ class IssueService:
         issues = result.scalars().all()
 
         return list(issues), total
+
+    async def _list_sorted_by_cf(
+        self,
+        *,
+        query,
+        total: int,
+        workspace_id: str | None,
+        field_key: str,
+        sort_order: str,
+        page: int,
+        page_size: int,
+    ) -> Tuple[List[Issue], int]:
+        from opentask.services.custom_field.service import CustomFieldService
+
+        if workspace_id is None:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "cf_sort_unsupported",
+                    "message": "cf 排序需要工作区上下文",
+                },
+            )
+        cf_svc = CustomFieldService(self.db)
+        field = await cf_svc.get_by_key_optional(
+            workspace_id=workspace_id, key=field_key
+        )
+        if field is None or field.archived_at is not None:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "cf_sort_unsupported",
+                    "message": f"字段 {field_key} 不存在或已归档",
+                },
+            )
+        result_type = field.type
+        if field.type == "formula":
+            result_type = (
+                getattr(field, "formula_result_type", None) or "number"
+            ).strip() or "number"
+        if field.type == "multi_select" or result_type not in _CF_SORT_OK_TYPES:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "cf_sort_unsupported",
+                    "message": f"字段 {field_key} 类型不支持排序",
+                },
+            )
+        if total > FORMULA_SORT_CANDIDATE_CAP:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "formula_sort_too_broad",
+                    "message": (
+                        f"公式/CF 排序候选超过 {FORMULA_SORT_CANDIDATE_CAP}，"
+                        "请先用过滤条件收窄"
+                    ),
+                },
+            )
+
+        id_rows = await self.db.execute(
+            query.order_by(None).with_only_columns(Issue.id).distinct()
+        )
+        candidate_ids = [row[0] for row in id_rows.all()]
+        if not candidate_ids:
+            return [], total
+
+        # load issues with same options as list
+        iss_q = (
+            select(Issue)
+            .options(
+                joinedload(Issue.assignee),
+                joinedload(Issue.reporter),
+            )
+            .where(Issue.id.in_(candidate_ids))
+        )
+        iss_res = await self.db.execute(iss_q)
+        issues = list(iss_res.scalars().unique().all())
+        by_id = {i.id: i for i in issues}
+
+        bundled = await cf_svc.values_for_issues(
+            workspace_id=workspace_id, issue_ids=candidate_ids
+        )
+
+        def _entry_val(iid: str):
+            items = bundled.get(iid) or []
+            entry = next((x for x in items if x.get("key") == field_key), None)
+            if not entry or entry.get("error"):
+                return None
+            return entry.get("value")
+
+        def _primary(iid: str):
+            """Return (null_rank, primary) — null_rank 1 sorts last."""
+            val = _entry_val(iid)
+            if val is None:
+                return 1, None
+            if result_type == "number":
+                try:
+                    return 0, float(val)
+                except (TypeError, ValueError):
+                    return 1, None
+            if result_type == "boolean":
+                return 0, 1 if val else 0
+            return 0, str(val)
+
+        reverse = sort_order == "desc"
+
+        def _sort_key(iid: str):
+            null_rank, primary = _primary(iid)
+            issue = by_id[iid]
+            created = issue.created_at or datetime.min
+            if null_rank == 1:
+                # nulls last: high null_rank; within nulls use created/id
+                return (1, created if not reverse else datetime.max - (created - datetime.min) if False else created, iid)
+            # non-null: decorate primary for reverse via sign flip for numbers, else leave and reverse list
+            return (0, primary, created, iid)
+
+        non_null = [i for i in candidate_ids if _primary(i)[0] == 0]
+        nulls = [i for i in candidate_ids if _primary(i)[0] == 1]
+        non_null.sort(
+            key=lambda i: (_primary(i)[1], by_id[i].created_at or datetime.min, i),
+            reverse=reverse,
+        )
+        nulls.sort(
+            key=lambda i: (by_id[i].created_at or datetime.min, i),
+            reverse=reverse,
+        )
+        ordered_ids = non_null + nulls
+        offset = (page - 1) * page_size
+        page_ids = ordered_ids[offset : offset + page_size]
+        return [by_id[i] for i in page_ids if i in by_id], total
 
     async def get_issue(
         self,
