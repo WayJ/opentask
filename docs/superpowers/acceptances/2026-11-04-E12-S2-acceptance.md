@@ -4,8 +4,8 @@
 
 **pass** — S2 范围交付：`workspace_invites`（token_hash sha256、email 可选、role、expiry、status、invited_by、workspace_id）+ Alembic `c9d0e1f2a3b5`（revises `b8c9d0e1f2a4`）；owner create/list/revoke；匿名 `GET /api/invites/{token}` 预览；登录 `POST …/accept` 幂等；register 可选 `inviteToken`（无 SMTP，copy-link 为主）；`PATCH …/members/{userId}` + `POST …/leave` + 最后 owner 守卫；保留 `add_member` **409**；FE `/workspace/members` + 常量路由 `/invite/:token`。**未**做 SMTP / SSO / S3 de-PGE。未推远程。
 
-**Fingerprint (impl tip):** `e1b4d47ea027dd4a520816edac459fffdd22ebc4`
-**Branch tip:** `e1b4d47ea027dd4a520816edac459fffdd22ebc4`
+**mad9b5e844503bae7a24d1d4a3483dcb0a13335`
+**mad9b5e844503bae7a24d1d4a3483dcb0a13335`
 **Branch:** `sprint/E12-S2`
 **Worktree:** `/workspace/opentask-worktrees/E12-S2`
 **Plan:** `docs/superpowers/plans/2026-11-04-e12-s2-invites-members.md` @ `5e6ce353fb04b5d064a99781ad6718434e375fda`
@@ -13,7 +13,7 @@
 **Time (Asia/Shanghai):** 2026-11-04 ~12:20 CST
 
 ```supervibe-acceptance-results
-{"schema": 1, "scope": "sprint", "candidate": "e1b4d47ea027dd4a520816edac459fffdd22ebc4", "environment": "共享 box Linux；worktree /workspace/opentask-worktrees/E12-S2；分支 sprint/E12-S2（基 E12-S1 tip 3f3c7ad）；PostgreSQL portable；backend .venv→E8-S1；frontend node_modules→E8-S1；Asia/Shanghai 2026-11-04 ~12:20 CST", "results": [{"id": "S1", "status": "passed", "modality": "api", "environment": "real", "steps": ["pytest tests/api/test_invites.py tests/api/test_workspace_members_s2.py"], "expected": "invites CRUD/accept/register + role/leave/409", "observed": "13 PASSED", "artifacts": [], "blockers": []}, {"id": "S2", "status": "passed", "modality": "code", "environment": "real", "steps": ["model+alembic+InviteService+routers+FE members/invite"], "expected": "copy-link + members UI", "observed": "入库", "artifacts": [], "blockers": []}, {"id": "S3", "status": "passed", "modality": "cli", "environment": "real", "steps": ["pytest tests/ -q", "eslint touched FE"], "expected": "≥708+new / 0 eslint", "observed": "721 passed, 27 skipped, 0 failed；eslint 0", "artifacts": [], "blockers": ["未跑 vitest（无新增可抽单元）；pnpm build 跨 worktree unocss 环境限制同 S1"]}, {"id": "R-browser", "status": "blocked", "modality": "browser", "environment": "real", "steps": ["未跑浏览器 E2E"], "expected": "手感", "observed": "API+静态门禁覆盖；不阻塞 S2 pass", "artifacts": [], "blockers": ["本轮无浏览器 E2E 会话"]}]}
+{"schema": 1, "scope": "sprint", mad9b5e844503bae7a24d1d4a3483dcb0a13335", "environment": "共享 box Linux；worktree /workspace/opentask-worktrees/E12-S2；分支 sprint/E12-S2（基 E12-S1 tip 3f3c7ad）；PostgreSQL portable；backend .venv→E8-S1；frontend node_modules→E8-S1；Asia/Shanghai 2026-11-04 ~12:20 CST", "results": [{"id": "S1", "status": "passed", "modality": "api", "environment": "real", "steps": ["pytest tests/api/test_invites.py tests/api/test_workspace_members_s2.py"], "expected": "invites CRUD/accept/register + role/leave/409", "observed": "13 PASSED", "artifacts": [], "blockers": []}, {"id": "S2", "status": "passed", "modality": "code", "environment": "real", "steps": ["model+alembic+InviteService+routers+FE members/invite"], "expected": "copy-link + members UI", "observed": "入库", "artifacts": [], "blockers": []}, {"id": "S3", "status": "passed", "modality": "cli", "environment": "real", "steps": ["pytest tests/ -q", "eslint touched FE"], "expected": "≥708+new / 0 eslint", "observed": "721 passed, 27 skipped, 0 failed；eslint 0", "artifacts": [], "blockers": ["未跑 vitest（无新增可抽单元）；pnpm build 跨 worktree unocss 环境限制同 S1"]}, {"id": "R-browser", "status": "blocked", "modality": "browser", "environment": "real", "steps": ["未跑浏览器 E2E"], "expected": "手感", "observed": "API+静态门禁覆盖；不阻塞 S2 pass", "artifacts": [], "blockers": ["本轮无浏览器 E2E 会话"]}]}
 ```
 
 ## Gates
