@@ -206,21 +206,19 @@ async def test_duplicate_creates_relation_and_declines(test_client: AsyncClient)
     )
     assert rels.status_code == 200, rels.text
     payload = rels.json()["data"]
-    # shape may be {source:[], target:[]} or list — accept either
-    flat = []
-    if isinstance(payload, list):
-        flat = payload
-    elif isinstance(payload, dict):
-        flat = list(payload.get("source") or []) + list(payload.get("target") or [])
-        if not flat and "rows" in payload:
-            flat = payload["rows"]
-    types = {
-        (r.get("relation_type") or r.get("relationType") or r.get("type"))
-        for r in flat
-    }
-    assert "duplicates" in types or any(
-        (r.get("target_id") or r.get("targetId")) == canonical["id"] for r in flat
-    )
+    as_source = payload.get("as_source") or []
+    # pydantic may dump as model or dict
+    def _rt(r):
+        if hasattr(r, "relation_type"):
+            return getattr(r, "relation_type")
+        return r.get("relation_type") or r.get("relationType")
+
+    def _tid(r):
+        if hasattr(r, "target_id"):
+            return getattr(r, "target_id")
+        return r.get("target_id") or r.get("targetId")
+
+    assert any(_rt(r) == "duplicates" and _tid(r) == canonical["id"] for r in as_source), payload
 
 
 @pytest.mark.asyncio
