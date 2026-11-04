@@ -5,7 +5,7 @@
 **pass** — S1 范围交付：`milestones` 表 + nested `/api/projects/{id}/milestones` CRUD + `issues.milestone_id`（同项目校验、ON DELETE SET NULL）+ `projects.starts_at`/`target_date` + project-detail 日期编辑与里程碑面板 + Issue 详情 Milestone 选择器。**无** health / Timeline / Favorites（→ S2/S3）。门禁：全量 pytest **684 passed, 27 skipped, 0 failed**（含 12 条 milestones）；`eslint --quiet` **0 errors**；`pnpm run build` 成功。Epic E8 仍 **active**。未推远程。`merged-commit: null`。
 
 **Fingerprint (impl tip):** `56c886e6d7c037eef5857d4af1acf617aa52dddf`
-**Branch tip:** _(filled after docs commit)_
+**Branch tip:** `14a27bf84bc8f63861cbd846a9eda489a16970d6`
 **Branch:** `sprint/E8-S1`
 **Worktree:** `/workspace/opentask-worktrees/E8-S1`
 **Migration:** `e5f6a7b8c9d1` (revises `d4e5f6a7b8c0`)
