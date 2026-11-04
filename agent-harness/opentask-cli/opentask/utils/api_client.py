@@ -792,6 +792,42 @@ class OpenTaskClient:
     async def delete_initiative(self, initiative_id: str) -> dict:
         return await self.delete(f"/api/initiatives/{initiative_id}")
 
+    # ========================================================================
+    # Customers / Customer Requests (E22)
+    # ========================================================================
+
+    async def list_customers(self) -> dict:
+        return await self.get("/api/customers")
+
+    async def create_customer(self, name: str, **kwargs) -> dict:
+        data = {"name": name, **kwargs}
+        return await self.post("/api/customers", data=data)
+
+    async def list_customer_requests(
+        self,
+        customer_id: str | None = None,
+        status: str | None = None,
+        issue_id: str | None = None,
+    ) -> dict:
+        params = {}
+        if customer_id:
+            params["customerId"] = customer_id
+        if status:
+            params["status"] = status
+        if issue_id:
+            params["issueId"] = issue_id
+        return await self.get("/api/customer-requests", params=params or None)
+
+    async def create_customer_request(self, customer_id: str, title: str, **kwargs) -> dict:
+        data = {"customerId": customer_id, "title": title, **kwargs}
+        return await self.post("/api/customer-requests", data=data)
+
+    async def link_customer_request_issue(self, request_id: str, issue_id: str) -> dict:
+        return await self.post(
+            f"/api/customer-requests/{request_id}/issues",
+            data={"issueId": issue_id},
+        )
+
     # ============================================================================
     # Entity Documents API
     # ============================================================================

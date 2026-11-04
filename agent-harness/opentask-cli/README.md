@@ -2,7 +2,7 @@
 
 面向人类与 AI Agent 的 OpenTask 命令行客户端。
 
-**Version**: **v1.6.0** · Python 3.8+ · 默认 API `http://localhost:7377`
+**Version**: **v1.7.0** · Python 3.8+ · 默认 API `http://localhost:7377`
 
 ## 主轴（E14）
 
@@ -61,6 +61,8 @@ opentask triage list --json
 | `member` | list / add / remove / role |
 | `invite` | list / create / revoke / preview / accept |
 | `initiative` | list / show / create / update / delete |
+| `customer` | list / create |
+| `request` | list / create / link-issue |
 | `doc` | list / show / create / update / delete |
 | `requirement` / `task` / `collection` | 遗留 PGE 面（仍可用） |
 
@@ -98,3 +100,14 @@ opentask issue unwatch KEY-1 --json
 ```
 
 关注后，他人对该 Issue 的评论 / 状态 / 指派会进入你的 Inbox。
+
+## Customers / Requests (E22)
+
+```bash
+opentask customer list
+opentask customer create -n "Acme" -d acme.com
+opentask request list --status open
+opentask request create --customer <id> -t "需要 SSO" --link-issue
+opentask request link-issue <request_id> WAY-42
+```
+
