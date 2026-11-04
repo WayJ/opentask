@@ -21,6 +21,22 @@ describe('flattenSearchResults', () => {
     expect(flat[4].href).toEqual({ path: '/initiatives/detail', query: { id: 'n1', doc: 'd3' } });
   });
 
+  it('tolerates missing rank and clips snippet to 120', () => {
+    const long = 'x'.repeat(200);
+    const flat = flattenSearchResults({
+      issues: [{ id: 'i1', issueCode: 'OT-1', title: 'T', snippet: long }],
+      projects: [{ id: 'p1', name: 'P', snippet: long, rank: 0.5 }],
+      docs: [{ id: 'd1', title: 'D', parentType: 'project', parentId: 'p1', snippet: long, rank: 1 }],
+      members: []
+    });
+    expect(flat[0].rank).toBeUndefined();
+    expect(flat[0].subtitle?.includes('x'.repeat(120))).toBe(true);
+    expect(flat[0].subtitle?.includes('x'.repeat(121))).toBe(false);
+    expect(flat[1].rank).toBe(0.5);
+    expect((flat[1].subtitle || '').length).toBeLessThanOrEqual(120);
+    expect(flat[2].rank).toBe(1);
+  });
+
   it('buildDocHref covers parent types', () => {
     expect(buildDocHref('project', 'p', 'd')).toEqual({
       path: '/workflow/project-detail',

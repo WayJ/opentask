@@ -1,4 +1,4 @@
-/** E17: workspace-scoped global search */
+/** E17/E60: workspace-scoped global search */
 import { request } from '@/service/request';
 
 export interface SearchIssueHit {
@@ -7,6 +7,8 @@ export interface SearchIssueHit {
   title: string;
   status?: string;
   priority?: string;
+  rank?: number;
+  snippet?: string;
 }
 
 export interface SearchProjectHit {
@@ -14,6 +16,8 @@ export interface SearchProjectHit {
   name: string;
   description?: string;
   isActive?: boolean;
+  rank?: number;
+  snippet?: string;
 }
 
 export interface SearchDocHit {
@@ -22,6 +26,7 @@ export interface SearchDocHit {
   parentType: string;
   parentId: string;
   snippet?: string;
+  rank?: number;
 }
 
 export interface SearchMemberHit {

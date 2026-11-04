@@ -1,4 +1,4 @@
-/** Pure helpers for Linear-style global Search page (E17). */
+/** Pure helpers for Linear-style global Search page (E17/E60). */
 
 export type SearchGroupId = 'issues' | 'projects' | 'docs' | 'members';
 
@@ -8,13 +8,42 @@ export interface SearchFlatItem {
   title: string;
   subtitle?: string;
   href: string | { path: string; query?: Record<string, string> };
+  rank?: number;
 }
 
 export interface SearchGroupsInput {
-  issues: Array<{ id: string; issueCode: string; title: string; status?: string }>;
-  projects: Array<{ id: string; name: string; description?: string }>;
-  docs: Array<{ id: string; title: string; parentType: string; parentId: string; snippet?: string }>;
+  issues: Array<{
+    id: string;
+    issueCode: string;
+    title: string;
+    status?: string;
+    rank?: number;
+    snippet?: string;
+  }>;
+  projects: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    rank?: number;
+    snippet?: string;
+  }>;
+  docs: Array<{
+    id: string;
+    title: string;
+    parentType: string;
+    parentId: string;
+    snippet?: string;
+    rank?: number;
+  }>;
   members: Array<{ userId: string; name?: string | null; username?: string | null; role: string }>;
+}
+
+const SNIPPET_MAX = 120;
+
+function clipSnippet(s?: string): string | undefined {
+  if (!s) return undefined;
+  const clipped = s.trim().replace(/\n/g, ' ').slice(0, SNIPPET_MAX);
+  return clipped || undefined;
 }
 
 /** Deep-link a short EntityDocument to its parent page + open doc query. */
@@ -35,33 +64,43 @@ export function buildDocHref(
   }
 }
 
+/**
+ * Flatten API groups. Missing rank is fine (E17 clients).
+ * Within each group, prefer API order (already rank DESC); do not require rank.
+ */
 export function flattenSearchResults(data: SearchGroupsInput): SearchFlatItem[] {
   const out: SearchFlatItem[] = [];
   for (const i of data.issues || []) {
+    const snip = clipSnippet(i.snippet);
     out.push({
       id: `issue:${i.id}`,
       group: 'issues',
       title: i.title,
-      subtitle: [i.issueCode, i.status].filter(Boolean).join(' · '),
-      href: { path: '/issue/detail', query: { id: i.id } }
+      subtitle: [i.issueCode, i.status, snip].filter(Boolean).join(' · '),
+      href: { path: '/issue/detail', query: { id: i.id } },
+      rank: i.rank
     });
   }
   for (const p of data.projects || []) {
+    const snip = clipSnippet(p.snippet) || p.description || undefined;
     out.push({
       id: `project:${p.id}`,
       group: 'projects',
       title: p.name,
-      subtitle: p.description || undefined,
-      href: { path: '/workflow/project-detail', query: { id: p.id } }
+      subtitle: snip,
+      href: { path: '/workflow/project-detail', query: { id: p.id } },
+      rank: p.rank
     });
   }
   for (const d of data.docs || []) {
+    const snip = clipSnippet(d.snippet);
     out.push({
       id: `doc:${d.id}`,
       group: 'docs',
       title: d.title,
-      subtitle: `${d.parentType}/${d.parentId}${d.snippet ? ` · ${d.snippet}` : ''}`,
-      href: buildDocHref(d.parentType, d.parentId, d.id)
+      subtitle: `${d.parentType}/${d.parentId}${snip ? ` · ${snip}` : ''}`,
+      href: buildDocHref(d.parentType, d.parentId, d.id),
+      rank: d.rank
     });
   }
   for (const m of data.members || []) {
