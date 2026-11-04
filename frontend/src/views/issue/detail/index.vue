@@ -28,6 +28,7 @@ import { type CycleItem, fetchCycles } from '@/service/api/cycles';
 import { type TagItem, tagApi } from '@/service/api/tag';
 import { issueApi } from '@/service/api/issue';
 import { fetchAddFavorite, fetchFavorites, fetchRemoveFavorite } from '@/service/api/favorites';
+import { fetchIssueBranchName } from '@/service/api/issue-vcs';
 import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
 import { useIssueFocus } from '@/composables/use-issue-focus';
@@ -57,6 +58,7 @@ const issue = ref<Api.Issue.Issue | null>(null);
 const loading = ref(false);
 const pinnedFavoriteId = ref<string | null>(null);
 const pinLoading = ref(false);
+const copyBranchLoading = ref(false);
 
 // Comments
 const comments = ref<Api.Issue.IssueComment[]>([]);
@@ -1033,6 +1035,25 @@ async function loadPinState() {
   }
 }
 
+
+async function copyGitBranchName() {
+  if (!issue.value?.id) return;
+  copyBranchLoading.value = true;
+  try {
+    const { data, error } = await fetchIssueBranchName(issue.value.id);
+    if (error || !data?.branchName) {
+      window.$message?.error(error?.message || '无法获取分支名');
+      return;
+    }
+    await navigator.clipboard.writeText(data.branchName);
+    window.$message?.success(`已复制分支名：${data.branchName}`);
+  } catch (e: any) {
+    window.$message?.error(e?.message || '复制分支名失败');
+  } finally {
+    copyBranchLoading.value = false;
+  }
+}
+
 async function toggleSidebarPin() {
   const id = issueId.value;
   if (!id) return;
@@ -1123,6 +1144,12 @@ onMounted(() => {
                 </NButton>
                 <NButton size="small" :loading="pinLoading" @click="toggleSidebarPin">
                   {{ pinnedFavoriteId ? '取消侧栏收藏' : '收藏到侧栏' }}
+                </NButton>
+                <NButton size="small" :loading="copyBranchLoading" @click="copyGitBranchName">
+                  <template #icon>
+                    <icon-mdi-source-branch />
+                  </template>
+                  复制分支名
                 </NButton>
               </NButtonGroup>
             </div>
