@@ -21,6 +21,9 @@ export interface SavedViewSort {
 export interface SavedViewDisplay {
   view_mode?: string;
   group_by?: string;
+  swimlane_by?: string;
+  hide_empty_lanes?: boolean;
+  fields?: Record<string, boolean>;
   [key: string]: unknown;
 }
 
