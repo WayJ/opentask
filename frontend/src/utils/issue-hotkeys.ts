@@ -11,6 +11,7 @@ export function toggleListBoardMode(mode: ListBoardMode): ListBoardMode {
 
 export type IssueHotkeyAction =
   | { type: 'create' }
+  | { type: 'create_from_template' }
   | { type: 'status' }
   | { type: 'assignee' }
   | { type: 'priority' }
@@ -43,8 +44,17 @@ export function resolveIssueHotkeyAction(input: ResolveIssueHotkeyInput): IssueH
     return input.onIssueListRoute ? { type: 'toggle_view' } : null;
   }
 
+  // Alt+C → create with template picker (E21); other alt/meta/ctrl chords ignored below
+  if (input.altKey && !input.metaKey && !input.ctrlKey) {
+    const k = input.key.toLowerCase();
+    if (k === 'c' && !input.paletteOpen && !input.editable) {
+      return { type: 'create_from_template' };
+    }
+    return null;
+  }
+
   // Modifier chords other than handled ones: ignore single-letter path
-  if (input.metaKey || input.ctrlKey || input.altKey) {
+  if (input.metaKey || input.ctrlKey) {
     return null;
   }
 

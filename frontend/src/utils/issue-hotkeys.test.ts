@@ -103,3 +103,11 @@ describe('resolveIssueHotkeyAction', () => {
     ).toBeNull();
   });
 });
+
+  it('returns create_from_template for Alt+C', () => {
+    expect(resolveIssueHotkeyAction({ ...base, key: 'c', altKey: true })).toEqual({
+      type: 'create_from_template'
+    });
+    expect(resolveIssueHotkeyAction({ ...base, key: 'c', altKey: true, editable: true })).toBeNull();
+  });
+

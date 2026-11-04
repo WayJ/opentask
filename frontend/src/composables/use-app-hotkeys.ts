@@ -51,8 +51,7 @@ export function useAppHotkeys() {
       return;
     }
 
-    const orderedIds =
-      (window as unknown as { __opentaskIssueOrder?: string[] }).__opentaskIssueOrder || [];
+    const orderedIds = selection.getIssueOrder();
 
     const action = resolveIssueHotkeyAction({
       key: event.key,
@@ -74,6 +73,9 @@ export function useAppHotkeys() {
     switch (action.type) {
       case 'create':
         router.push('/issue/create');
+        break;
+      case 'create_from_template':
+        router.push({ path: '/issue/create', query: { pickTemplate: '1' } });
         break;
       case 'status':
         pickers.openStatus();

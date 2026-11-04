@@ -925,6 +925,7 @@ class OpenTaskClient:
         watching: bool = False,
         due_soon: bool = False,
         due_before: str | None = None,
+        cycle_id: str | None = None,
     ) -> dict:
         """List issues with filtering.
 
@@ -978,6 +979,8 @@ class OpenTaskClient:
             params["due_soon"] = "true"
         if due_before:
             params["due_before"] = due_before
+        if cycle_id:
+            params["cycle_id"] = cycle_id
 
         return await self.get("/api/issues", params=params)
 

@@ -2,7 +2,7 @@
 
 面向人类与 AI Agent 的 OpenTask 命令行客户端。
 
-**Version**: **v1.5.0** · Python 3.8+ · 默认 API `http://localhost:7377`
+**Version**: **v1.6.0** · Python 3.8+ · 默认 API `http://localhost:7377`
 
 ## 主轴（E14）
 

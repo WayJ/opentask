@@ -60,7 +60,7 @@ import {
   normalizeIssueDisplay
 } from '@/utils/display-prefs';
 import { nestIssuesDepth1 } from '@/utils/nestIssuesDepth1';
-import type { ParsedQuery } from '@/utils/issueSearchParser';
+import { parseSearchString, parsedQueryToFilters, type ParsedQuery } from '@/utils/issueSearchParser';
 import IssueSmartSearch from '@/components/IssueSmartSearch.vue';
 import type { Api } from '@/typings/api';
 import IssueBoard from './modules/IssueBoard.vue';
@@ -206,7 +206,8 @@ const filters = reactive({
   assignee_id: undefined as string | undefined,
   reporter_id: undefined as string | undefined,
   watching: undefined as boolean | undefined,
-  due_soon: undefined as boolean | undefined
+  due_soon: undefined as boolean | undefined,
+  labels: undefined as string[] | undefined
 });
 
 const scopeTitle = computed(() => {
@@ -523,6 +524,7 @@ async function loadIssues() {
       const response = await issueApi.getIssues({
         page,
         page_size: 100,
+        status: filters.status,
         priority: filters.priority,
         type: filters.type,
         project_id: filters.project_id,
@@ -598,6 +600,14 @@ function applyTabAndFilters() {
       issue => issue.title.toLowerCase().includes(searchLower) || issue.issue_code.toLowerCase().includes(searchLower)
     );
   }
+  if (filters.labels?.length) {
+    const want = filters.labels.map(l => l.toLowerCase());
+    filtered = filtered.filter(issue => {
+      const tags = (issue as Api.Issue.Issue & { tags?: Array<{ name?: string }> }).tags || [];
+      const names = tags.map(t => (t.name || '').toLowerCase());
+      return want.every(w => names.some(n => n === w || n.includes(w)));
+    });
+  }
 
   // 更新分页总数与看板全量（未分页）
   filteredIssues.value = filtered;
@@ -609,14 +619,15 @@ function applyTabAndFilters() {
   issues.value = filtered.slice(start, end);
 }
 
-// 处理智能搜索
-async function handleSmartSearch(query: ParsedQuery) {
-  // 根据 status 切换 tab
-  if (query.status) {
-    const status = query.status as Api.Issue.IssueStatus;
+// 处理智能搜索（E21：落到 API filters，不再把 assignee 塞进 search）
+async function handleSmartSearch(query: ParsedQuery, raw?: string) {
+  const mapped = parsedQueryToFilters(query);
+
+  if (mapped.status) {
+    const status = mapped.status as Api.Issue.IssueStatus;
+    filters.status = status;
     const openStatuses: Api.Issue.IssueStatus[] = ['open', 'in_progress', 'feedback'];
     const closedStatuses: Api.Issue.IssueStatus[] = ['closed', 'rejected', 'resolved'];
-
     if (openStatuses.includes(status)) {
       activeTab.value = 'open';
     } else if (closedStatuses.includes(status)) {
@@ -624,50 +635,41 @@ async function handleSmartSearch(query: ParsedQuery) {
     } else {
       activeTab.value = 'all';
     }
-  }
-
-  // 更新其他 filters
-  if (query.type) {
-    filters.type = query.type as Api.Issue.IssueType;
   } else {
-    filters.type = undefined;
+    filters.status = undefined;
   }
 
-  if (query.priority) {
-    filters.priority = query.priority as Api.Issue.IssuePriority;
+  filters.type = (mapped.type as Api.Issue.IssueType) || undefined;
+  filters.priority = (mapped.priority as Api.Issue.IssuePriority) || undefined;
+  filters.project_id = mapped.project_id || undefined;
+  filters.cycle_id = mapped.cycle_id || undefined;
+  filters.assignee_id = mapped.assignee_id || undefined;
+  filters.reporter_id = mapped.reporter_id || undefined;
+  filters.labels = mapped.labels;
+  filters.search = mapped.search || '';
+
+  if (mapped.assignee_id === 'me') {
+    activeTab.value = 'my_issues';
+  }
+
+  const qRaw = raw !== undefined ? raw : smartSearchValue.value;
+  const nextQuery: Record<string, string | string[] | undefined | null> = { ...route.query };
+  if (qRaw && qRaw.trim()) {
+    nextQuery.q = qRaw.trim();
   } else {
-    filters.priority = undefined;
+    delete nextQuery.q;
   }
+  // Keep cycle_id query in sync when set via smart search
+  if (filters.cycle_id) nextQuery.cycle_id = filters.cycle_id;
+  router.replace({ query: nextQuery as typeof route.query });
 
-  if (query.project_id) {
-    filters.project_id = query.project_id;
-  } else {
-    filters.project_id = undefined;
-  }
-
-  // 处理搜索词（包括普通搜索和特殊过滤器）
-  const searchParts: string[] = [];
-  if (query.search) {
-    searchParts.push(query.search);
-  }
-
-  // 将 assignee 和 creator 添加到搜索中（因为 API 可能不支持这些字段）
-  if (query.assignee_id) {
-    searchParts.push(`assignee:${query.assignee_id}`);
-    // 如果搜索的是分配给当前用户的问题，切换到"我的待办"tab
-    if (query.assignee_id === currentUserId.value) {
-      activeTab.value = 'my_issues';
-    }
-  }
-  if (query.reporter_id) {
-    searchParts.push(`author:${query.reporter_id}`);
-  }
-
-  filters.search = searchParts.join(' ') || '';
-
-  // 搜索条件改变后，重新获取所有数据
-  pagination.page = 1; // 重置到第一页
+  pagination.page = 1;
   await loadIssues();
+}
+
+function applySmartSearchFromString(raw: string) {
+  smartSearchValue.value = raw;
+  return handleSmartSearch(parseSearchString(raw), raw);
 }
 
 // Use imported constants and utility functions
@@ -780,7 +782,7 @@ function focusIssueRow(issue: Api.Issue.Issue) {
 }
 
 function publishIssueOrder(rows: Api.Issue.Issue[]) {
-  (window as unknown as { __opentaskIssueOrder?: string[] }).__opentaskIssueOrder = rows.map(r => r.id);
+  issueSelection.setIssueOrder((rows || []).map(r => r.id));
 }
 
 watch(
@@ -941,8 +943,16 @@ function clearFilters() {
   filters.status = undefined;
   filters.priority = undefined;
   filters.search = '';
+  filters.assignee_id = undefined;
+  filters.reporter_id = undefined;
+  filters.labels = undefined;
+  // keep watching/due_soon/scope-driven unless user clears scope separately
   smartSearchValue.value = '';
-  applyTabAndFilters();
+  const nextQuery = { ...route.query };
+  delete nextQuery.q;
+  router.replace({ query: nextQuery });
+  pagination.page = 1;
+  loadIssues();
 }
 
 // Computed: Check if any filters are active
@@ -1155,6 +1165,23 @@ onMounted(async () => {
     filters.cycle_id = cycleQ;
   }
   applyScopeFromQuery(route.query.scope);
+  const qInit = typeof route.query.q === 'string' ? route.query.q : '';
+  if (qInit.trim()) {
+    smartSearchValue.value = qInit;
+    const parsed = parseSearchString(qInit);
+    // apply without router thrash: set filters inline then loadIssues later
+    const mapped = parsedQueryToFilters(parsed);
+    if (mapped.status) filters.status = mapped.status as Api.Issue.IssueStatus;
+    if (mapped.type) filters.type = mapped.type as Api.Issue.IssueType;
+    if (mapped.priority) filters.priority = mapped.priority as Api.Issue.IssuePriority;
+    if (mapped.project_id) filters.project_id = mapped.project_id;
+    if (mapped.cycle_id) filters.cycle_id = mapped.cycle_id;
+    if (mapped.assignee_id) filters.assignee_id = mapped.assignee_id;
+    if (mapped.reporter_id) filters.reporter_id = mapped.reporter_id;
+    if (mapped.labels) filters.labels = mapped.labels;
+    if (mapped.search) filters.search = mapped.search;
+    if (mapped.assignee_id === 'me') activeTab.value = 'my_issues';
+  }
   if (typeof viewId === 'string' && viewId) {
     await applySavedViewById(viewId);
   } else {

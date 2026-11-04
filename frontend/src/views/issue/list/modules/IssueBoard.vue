@@ -72,6 +72,14 @@ watch(
   { immediate: true, deep: true }
 );
 
+watch(
+  () => props.issues,
+  rows => {
+    issueSelection.setIssueOrder((rows || []).map(r => r.id));
+  },
+  { immediate: true }
+);
+
 const lanes = computed<BoardSwimlane[]>(() => {
   return Object.keys(laneColumnMap.value).map(key => {
     const columnsMap = laneColumnMap.value[key] || {};

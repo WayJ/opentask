@@ -1,13 +1,10 @@
 /**
- * Issue 搜索语法解析器
- * 支持 GitHub 风格的搜索语法：
- * - is:open, is:closed - 状态过滤
- * - label:bug, label:feature - 标签过滤
- * - type:bug, type:feature - 类型过滤
- * - priority:high, priority:low - 优先级过滤
- * - assignee:username - 负责人过滤
- * - project:projectName - 项目过滤
- * - 普通文本 - 标题或描述搜索
+ * Issue 搜索语法解析器（E21：真正驱动 list API）
+ * - is:open / is:closed / is:in_progress …
+ * - label:bug（客户端按 tags 名过滤）
+ * - type: / priority: / assignee:@me|me|uuid / author: / creator: / project: / cycle:
+ * - KEY-N → search
+ * - 普通文本 → search
  */
 
 export interface ParsedQuery {
@@ -16,9 +13,24 @@ export interface ParsedQuery {
   labels?: string[];
   type?: string;
   priority?: string;
-  assignee?: string;
+  assignee_id?: string;
+  reporter_id?: string;
   project_id?: string;
-  [key: string]: any;
+  cycle_id?: string;
+  [key: string]: unknown;
+}
+
+/** List 页 filters 形状（与 views/issue/list 对齐） */
+export interface SmartSearchListFilters {
+  search?: string;
+  status?: string;
+  type?: string;
+  priority?: string;
+  assignee_id?: string;
+  reporter_id?: string;
+  project_id?: string;
+  cycle_id?: string;
+  labels?: string[];
 }
 
 export interface SearchToken {
@@ -27,6 +39,8 @@ export interface SearchToken {
   value: string;
   original: string;
 }
+
+const ISSUE_CODE_RE = /^[A-Za-z][A-Za-z0-9]*-\d+$/;
 
 /**
  * 解析搜索字符串为 tokens
@@ -42,7 +56,6 @@ export function parseSearchQuery(query: string): SearchToken[] {
   let lastIndex = 0;
 
   while ((match = regex.exec(query)) !== null) {
-    // 添加匹配前的文本作为普通搜索
     if (match.index > lastIndex) {
       const text = query.substring(lastIndex, match.index).trim();
       if (text) {
@@ -55,13 +68,12 @@ export function parseSearchQuery(query: string): SearchToken[] {
     }
 
     const matched = match[0];
-    const field = match[1]; // 过滤器字段
-    const value1 = match[2]; // 带冒号的值
-    const value2 = match[3]; // 引号中的值
-    const value3 = match[4]; // 普通单词
+    const field = match[1];
+    const value1 = match[2];
+    const value2 = match[3];
+    const value3 = match[4];
 
     if (field && value1) {
-      // 过滤器语法 field:value
       tokens.push({
         type: 'filter',
         field: field.toLowerCase(),
@@ -69,14 +81,12 @@ export function parseSearchQuery(query: string): SearchToken[] {
         original: matched
       });
     } else if (value2) {
-      // 引号包裹的文本
       tokens.push({
         type: 'text',
         value: value2,
         original: matched
       });
     } else if (value3) {
-      // 普通单词
       tokens.push({
         type: 'text',
         value: value3,
@@ -87,7 +97,6 @@ export function parseSearchQuery(query: string): SearchToken[] {
     lastIndex = regex.lastIndex;
   }
 
-  // 添加剩余的文本
   if (lastIndex < query.length) {
     const text = query.substring(lastIndex).trim();
     if (text) {
@@ -102,6 +111,15 @@ export function parseSearchQuery(query: string): SearchToken[] {
   return tokens;
 }
 
+function normalizeAssignee(raw: string): string {
+  const v = raw.trim();
+  if (!v) return v;
+  if (v === '@me' || v === 'me' || v.toLowerCase() === '@me') return 'me';
+  if (v.startsWith('@') && v.slice(1).toLowerCase() === 'me') return 'me';
+  if (v.startsWith('@')) return v.slice(1);
+  return v;
+}
+
 /**
  * 将 tokens 转换为 API 查询参数
  */
@@ -113,12 +131,11 @@ export function buildQueryFromTokens(tokens: SearchToken[]): ParsedQuery {
     if (token.type === 'filter') {
       switch (token.field) {
         case 'is': {
-          // 状态过滤
           const statusMap: Record<string, string> = {
             open: 'open',
             closed: 'closed',
-            todo: 'open', // 向后兼容
-            done: 'closed', // 向后兼容
+            todo: 'open',
+            done: 'closed',
             in_progress: 'in_progress',
             feedback: 'feedback',
             resolved: 'resolved',
@@ -131,16 +148,12 @@ export function buildQueryFromTokens(tokens: SearchToken[]): ParsedQuery {
         }
 
         case 'label': {
-          // 标签过滤（暂时用 search 字段，因为 API 可能不支持）
-          if (!query.labels) {
-            query.labels = [];
-          }
+          if (!query.labels) query.labels = [];
           query.labels.push(token.value);
           break;
         }
 
         case 'type': {
-          // 类型过滤
           const typeMap: Record<string, string> = {
             bug: 'bug',
             feature: 'feature',
@@ -154,12 +167,12 @@ export function buildQueryFromTokens(tokens: SearchToken[]): ParsedQuery {
         }
 
         case 'priority': {
-          // 优先级过滤
           const priorityMap: Record<string, string> = {
             urgent: 'urgent',
             high: 'high',
             medium: 'medium',
-            low: 'low'
+            low: 'low',
+            critical: 'urgent'
           };
           if (priorityMap[token.value]) {
             query.priority = priorityMap[token.value];
@@ -167,22 +180,24 @@ export function buildQueryFromTokens(tokens: SearchToken[]): ParsedQuery {
           break;
         }
 
-        case 'assignee':
-        case 'author': {
-          // 负责人或作者过滤
-          query.assignee_id = token.value;
+        case 'assignee': {
+          query.assignee_id = normalizeAssignee(token.value);
+          break;
+        }
+
+        case 'author':
+        case 'creator': {
+          query.reporter_id = normalizeAssignee(token.value);
           break;
         }
 
         case 'project': {
-          // 项目过滤（暂时用 project_id，后续可以支持名称搜索）
           query.project_id = token.value;
           break;
         }
 
-        case 'creator': {
-          // 创建者过滤
-          query.reporter_id = token.value;
+        case 'cycle': {
+          query.cycle_id = token.value;
           break;
         }
 
@@ -195,7 +210,6 @@ export function buildQueryFromTokens(tokens: SearchToken[]): ParsedQuery {
     }
   }
 
-  // 将所有搜索词合并为 search 参数
   if (searchTerms.length > 0) {
     query.search = searchTerms.join(' ');
   }
@@ -211,6 +225,25 @@ export function parseSearchString(searchString: string): ParsedQuery {
   return buildQueryFromTokens(tokens);
 }
 
+/** ParsedQuery → list filters（清空未出现的字段为 undefined） */
+export function parsedQueryToFilters(query: ParsedQuery): SmartSearchListFilters {
+  return {
+    search: query.search,
+    status: query.status,
+    type: query.type,
+    priority: query.priority,
+    assignee_id: query.assignee_id,
+    reporter_id: query.reporter_id,
+    project_id: query.project_id,
+    cycle_id: query.cycle_id,
+    labels: query.labels?.length ? [...query.labels] : undefined
+  };
+}
+
+export function isIssueCodeToken(value: string): boolean {
+  return ISSUE_CODE_RE.test(value.trim());
+}
+
 /**
  * 生成搜索建议文本
  */
@@ -219,11 +252,12 @@ export function generateSearchSuggestions(): string[] {
     'is:open - 只显示待办中的 Issue',
     'is:closed - 只显示已完成的 Issue',
     'is:in_progress - 只显示进行中的 Issue',
+    'assignee:@me - 指派给我',
     'label:bug - 只显示标签为 bug 的 Issue',
     'type:feature - 只显示类型为功能的 Issue',
     'priority:urgent - 只显示紧急优先级的 Issue',
-    'assignee:admin - 只显示负责人为 admin 的 Issue',
-    'project:1 - 只显示项目 ID 为 1 的 Issue'
+    'cycle:__none__ - 无 Cycle',
+    'project:<id> - 按项目过滤'
   ];
 }
 

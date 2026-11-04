@@ -39,3 +39,20 @@ describe('useIssueSelection', () => {
     expect(b.isSelected('shared')).toBe(true);
   });
 });
+
+  it('setIssueOrder / getIssueOrder for Shift+X', () => {
+    const sel = useIssueSelection();
+    sel.setIssueOrder(['a', 'b', 'c']);
+    expect(sel.getIssueOrder()).toEqual(['a', 'b', 'c']);
+    sel.toggle('a');
+    sel.selectRange('c'); // uses registered order
+    expect(sel.selectedIds.value).toEqual(['a', 'b', 'c']);
+  });
+
+  it('reset clears order', () => {
+    const sel = useIssueSelection();
+    sel.setIssueOrder(['x']);
+    resetIssueSelectionForTests();
+    expect(sel.getIssueOrder()).toEqual([]);
+  });
+
