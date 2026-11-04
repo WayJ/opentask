@@ -13,7 +13,10 @@ from ..utils.config import Config
 
 @click.group(name="sla")
 def sla_cli():
-    """SLA 策略 / Issue 时钟 / run-due tick。"""
+    """SLA 策略 / Issue 时钟 / run-due tick。
+
+示例: opentask sla policy create --name FR --start in_progress --metric first_response --minutes 60
+"""
     pass
 
 
@@ -46,12 +49,13 @@ def policy_list(obj, as_json):
                     (r.get("id") or "")[:8],
                     r.get("name") or "",
                     "on" if r.get("enabled") else "off",
+                    r.get("metric") or "",
                     str(r.get("targetMinutes") or ""),
                     ",".join(r.get("startStatuses") or []),
                     ",".join(r.get("pauseStatuses") or []) or "—",
                 ]
             )
-        obj.skin.table(["ID", "Name", "Enabled", "Minutes", "Start", "Pause"], table)
+        obj.skin.table(["ID", "Name", "Enabled", "Metric", "Minutes", "Start", "Pause"], table)
     except APIError as e:
         handle_api_error(e, json_mode)
 
@@ -87,12 +91,19 @@ def policy_show(obj, policy_id, as_json):
 @click.option("--start", "starts", multiple=True, required=True, help="start status (repeatable)")
 @click.option("--stop", "stops", multiple=True, help="stop status (repeatable; empty=closed-class)")
 @click.option("--pause", "pauses", multiple=True, help="pause status (repeatable; empty=no pause)")
+@click.option(
+    "--metric",
+    default="time_in_status",
+    show_default=True,
+    type=click.Choice(["time_in_status", "first_response"]),
+    help="SLA metric (first_response = 非创建者首评)",
+)
 @click.option("--minutes", default=1440, show_default=True, type=int)
 @click.option("--notify-assignee/--no-notify-assignee", default=True)
 @click.option("--notify-watchers/--no-notify-watchers", default=False)
 @click.option("--json", "as_json", is_flag=True)
 @click.pass_obj
-def policy_create(obj, name, starts, stops, pauses, minutes, notify_assignee, notify_watchers, as_json):
+def policy_create(obj, name, starts, stops, pauses, metric, minutes, notify_assignee, notify_watchers, as_json):
     config: Config = obj.config
     json_mode = as_json or obj.json_mode
     if not require_workspace_id(config, json_mode):
@@ -103,6 +114,7 @@ def policy_create(obj, name, starts, stops, pauses, minutes, notify_assignee, no
         "stopStatuses": list(stops),
         "pauseStatuses": list(pauses),
         "targetMinutes": minutes,
+        "metric": metric,
         "notifyAssignee": notify_assignee,
         "notifyWatchers": notify_watchers,
     }
@@ -122,11 +134,17 @@ def policy_create(obj, name, starts, stops, pauses, minutes, notify_assignee, no
 @click.option("--name", default=None)
 @click.option("--minutes", default=None, type=int)
 @click.option("--pause", "pauses", multiple=True, help="replace pause statuses (repeatable; omit=unchanged; empty flag not supported — use --json-body)")
+@click.option(
+    "--metric",
+    default=None,
+    type=click.Choice(["time_in_status", "first_response"]),
+    help="SLA metric",
+)
 @click.option("--enabled/--disabled", "enabled", default=None)
-@click.option("--json-body", default=None, help="raw JSON patch body (may include pauseStatuses)")
+@click.option("--json-body", default=None, help="raw JSON patch body (may include pauseStatuses/metric)")
 @click.option("--json", "as_json", is_flag=True)
 @click.pass_obj
-def policy_update(obj, policy_id, name, minutes, pauses, enabled, json_body, as_json):
+def policy_update(obj, policy_id, name, minutes, pauses, metric, enabled, json_body, as_json):
     config: Config = obj.config
     json_mode = as_json or obj.json_mode
     if not require_workspace_id(config, json_mode):
@@ -145,6 +163,8 @@ def policy_update(obj, policy_id, name, minutes, pauses, enabled, json_body, as_
         body["enabled"] = enabled
     if pauses:
         body["pauseStatuses"] = list(pauses)
+    if metric is not None:
+        body["metric"] = metric
     if not body:
         raise click.ClickException("无更新字段")
     client = make_client(config)
@@ -202,13 +222,14 @@ def sla_issue(obj, issue_ref, as_json):
                 [
                     (r.get("id") or "")[:8],
                     r.get("policyName") or (r.get("policyId") or "")[:8],
+                    r.get("metric") or "",
                     r.get("status"),
                     (r.get("deadlineAt") or "")[:19],
                     str(r.get("elapsedBeforePauseMinutes") if r.get("elapsedBeforePauseMinutes") is not None else ""),
                     (r.get("pausedAt") or "")[:19],
                 ]
             )
-        obj.skin.table(["Clock", "Policy", "Status", "Deadline", "Elapsed", "PausedAt"], table)
+        obj.skin.table(["Clock", "Policy", "Metric", "Status", "Deadline", "Elapsed", "PausedAt"], table)
     except APIError as e:
         handle_api_error(e, json_mode)
 
