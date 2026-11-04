@@ -1,0 +1,16 @@
+{
+  "region": "UK",
+  "year": 2027,
+  "name": "England & Wales bank holidays 2027",
+  "sourceNote": "GOV.UK bank holidays for England and Wales 2027 only (excludes Scotland/Northern Ireland); static snapshot from gov.uk/bank-holidays, no live API",
+  "holidays": [
+    {"date": "2027-01-01", "kind": "closed", "label": "New Year's Day"},
+    {"date": "2027-03-26", "kind": "closed", "label": "Good Friday"},
+    {"date": "2027-03-29", "kind": "closed", "label": "Easter Monday"},
+    {"date": "2027-05-03", "kind": "closed", "label": "Early May bank holiday"},
+    {"date": "2027-05-31", "kind": "closed", "label": "Spring bank holiday"},
+    {"date": "2027-08-30", "kind": "closed", "label": "Summer bank holiday"},
+    {"date": "2027-12-27", "kind": "closed", "label": "Christmas Day (substitute day)"},
+    {"date": "2027-12-28", "kind": "closed", "label": "Boxing Day (substitute day)"}
+  ]
+}

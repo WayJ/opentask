@@ -1,0 +1,21 @@
+{
+  "region": "CN",
+  "year": 2027,
+  "name": "中国法定节假日 2027",
+  "sourceNote": "依据《全国年节及纪念日放假办法》法定放假日（元旦/春节除夕–初三/清明/劳动/端午/中秋/国庆）；国务院办公厅 2027 年调休安排尚未公布——调休待补；无 forced_open；静态仓内快照，无外网拉取",
+  "holidays": [
+    {"date": "2027-01-01", "kind": "closed", "label": "元旦"},
+    {"date": "2027-02-05", "kind": "closed", "label": "春节（除夕）"},
+    {"date": "2027-02-06", "kind": "closed", "label": "春节（初一）"},
+    {"date": "2027-02-07", "kind": "closed", "label": "春节（初二）"},
+    {"date": "2027-02-08", "kind": "closed", "label": "春节（初三）"},
+    {"date": "2027-04-05", "kind": "closed", "label": "清明节"},
+    {"date": "2027-05-01", "kind": "closed", "label": "劳动节"},
+    {"date": "2027-05-02", "kind": "closed", "label": "劳动节"},
+    {"date": "2027-06-09", "kind": "closed", "label": "端午节"},
+    {"date": "2027-09-15", "kind": "closed", "label": "中秋节"},
+    {"date": "2027-10-01", "kind": "closed", "label": "国庆节"},
+    {"date": "2027-10-02", "kind": "closed", "label": "国庆节"},
+    {"date": "2027-10-03", "kind": "closed", "label": "国庆节"}
+  ]
+}

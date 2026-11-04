@@ -1,0 +1,17 @@
+{
+  "region": "EU",
+  "year": 2027,
+  "name": "EU common public holidays 2027",
+  "sourceNote": "Curated EU-institution common days from Commission Decision C(2025) 4897 (Brussels/Luxembourg shared days) plus Labour Day; not a full per-member-state labour calendar; static snapshot, no live API",
+  "holidays": [
+    {"date": "2027-01-01", "kind": "closed", "label": "New Year's Day"},
+    {"date": "2027-03-26", "kind": "closed", "label": "Good Friday"},
+    {"date": "2027-03-29", "kind": "closed", "label": "Easter Monday"},
+    {"date": "2027-05-01", "kind": "closed", "label": "Labour Day"},
+    {"date": "2027-05-06", "kind": "closed", "label": "Ascension Day"},
+    {"date": "2027-05-17", "kind": "closed", "label": "Whit Monday"},
+    {"date": "2027-11-01", "kind": "closed", "label": "All Saints' Day"},
+    {"date": "2027-12-25", "kind": "closed", "label": "Christmas Day"},
+    {"date": "2027-12-26", "kind": "closed", "label": "St Stephen's Day"}
+  ]
+}

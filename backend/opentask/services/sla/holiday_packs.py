@@ -86,22 +86,39 @@ def load_pack(region: str, year: int, *, root: Optional[Path] = None) -> dict[st
     return _validate_pack_dict(raw, expect_region=region_s, expect_year=int(year))
 
 
-def list_packs(*, root: Optional[Path] = None) -> list[dict[str, Any]]:
+def list_packs(
+    *,
+    region: Optional[str] = None,
+    year: Optional[int] = None,
+    root: Optional[Path] = None,
+) -> list[dict[str, Any]]:
+    """E58 list + E64 optional region/year filter (case-insensitive region)."""
     base = root or PACKS_ROOT
     rows: list[dict[str, Any]] = []
     if not base.is_dir():
         return rows
+    want_region = str(region).strip().upper() if region is not None and str(region).strip() else None
+    want_year: Optional[int] = None
+    if year is not None:
+        try:
+            want_year = int(year)
+        except (TypeError, ValueError):
+            want_year = None
     for region_dir in sorted(p for p in base.iterdir() if p.is_dir() and not p.name.startswith("_")):
-        region = region_dir.name.upper()
-        if not _REGION_RE.match(region):
+        region_name = region_dir.name.upper()
+        if not _REGION_RE.match(region_name):
+            continue
+        if want_region is not None and region_name != want_region:
             continue
         for path in sorted(region_dir.glob("*.json")):
             try:
-                year = int(path.stem)
+                year_i = int(path.stem)
             except ValueError:
                 continue
+            if want_year is not None and year_i != want_year:
+                continue
             try:
-                pack = load_pack(region, year, root=base)
+                pack = load_pack(region_name, year_i, root=base)
             except (ValueError, FileNotFoundError, OSError):
                 continue
             rows.append(
