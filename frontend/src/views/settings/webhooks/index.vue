@@ -11,6 +11,7 @@ import {
   NModal,
   NRadioButton,
   NRadioGroup,
+  NSelect,
   NSpace,
   NSwitch,
   NTag,
@@ -21,6 +22,8 @@ import {
   type WebhookRow,
   WEBHOOK_EVENTS,
   WEBHOOK_EVENT_LABELS,
+  applyIntegrationPreset,
+  clearIntegrationPreset,
   fetchCreateWebhook,
   fetchDeleteWebhook,
   fetchRetryWebhookDelivery,
@@ -28,6 +31,7 @@ import {
   fetchUpdateWebhook,
   fetchWebhook,
   fetchWebhooks,
+  filterDeliveriesByEvent,
   isDeliveryReplayable
 } from '@/service/api/webhooks';
 
@@ -42,6 +46,7 @@ const detailOpen = ref(false);
 const detailLoading = ref(false);
 const detail = ref<WebhookRow | null>(null);
 const statusFilter = ref<'all' | 'fail'>('all');
+const eventFilter = ref<string>('all');
 const form = reactive({
   name: '',
   url: '',
@@ -50,15 +55,28 @@ const form = reactive({
 
 const eventOptions = WEBHOOK_EVENTS.map(e => ({ label: WEBHOOK_EVENT_LABELS[e] || e, value: e }));
 
+const eventFilterOptions = [
+  { label: '全部事件', value: 'all' },
+  ...WEBHOOK_EVENTS.map(e => ({ label: WEBHOOK_EVENT_LABELS[e] || e, value: e }))
+];
+
+function useIntegrationPreset() {
+  form.events = applyIntegrationPreset(form.events);
+}
+
+function clearPreset() {
+  form.events = clearIntegrationPreset(form.events);
+}
+
 const filteredDeliveries = computed(() => {
-  const list = detail.value?.deliveries || [];
+  let list = detail.value?.deliveries || [];
   if (statusFilter.value === 'fail') {
-    return list.filter(d => {
+    list = list.filter(d => {
       const st = d.status || (d.success ? 'success' : 'pending_retry');
       return st === 'pending_retry' || st === 'dead' || !d.success;
     });
   }
-  return list;
+  return filterDeliveriesByEvent(list, eventFilter.value);
 });
 
 const columns: DataTableColumns<WebhookRow> = [
@@ -210,6 +228,7 @@ async function openDetail(id: string) {
   detailOpen.value = true;
   detailLoading.value = true;
   statusFilter.value = 'all';
+  eventFilter.value = 'all';
   try {
     const { data, error } = await fetchWebhook(id);
     if (error) {
@@ -318,6 +337,10 @@ onMounted(load);
         <NSpace vertical>
           <NInput v-model:value="form.name" placeholder="名称（可选）" />
           <NInput v-model:value="form.url" placeholder="https://example.com/hooks/opentask" />
+          <NSpace>
+            <NButton size="small" tertiary @click="useIntegrationPreset">集成常用</NButton>
+            <NButton size="small" tertiary @click="clearPreset">清除预设</NButton>
+          </NSpace>
           <NCheckboxGroup v-model:value="form.events">
             <NSpace>
               <NCheckbox v-for="opt in eventOptions" :key="opt.value" :value="opt.value" :label="opt.label" />
@@ -348,10 +371,19 @@ onMounted(load);
       style="width: 820px"
     >
       <NSpace vertical>
-        <NRadioGroup v-model:value="statusFilter" size="small">
-          <NRadioButton value="all">全部</NRadioButton>
-          <NRadioButton value="fail">失败/死信</NRadioButton>
-        </NRadioGroup>
+        <NSpace align="center">
+          <NRadioGroup v-model:value="statusFilter" size="small">
+            <NRadioButton value="all">全部</NRadioButton>
+            <NRadioButton value="fail">失败/死信</NRadioButton>
+          </NRadioGroup>
+          <NSelect
+            v-model:value="eventFilter"
+            :options="eventFilterOptions"
+            size="small"
+            style="width: 220px"
+            placeholder="按事件过滤"
+          />
+        </NSpace>
         <NDataTable
           :columns="deliveryColumns"
           :data="filteredDeliveries"

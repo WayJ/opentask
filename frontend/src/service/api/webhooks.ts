@@ -9,7 +9,12 @@ export const WEBHOOK_EVENTS = [
   'issue.sla_breached',
   'issue.assignee_changed',
   'issue.label_added',
-  'issue.label_removed'
+  'issue.label_removed',
+  'issue.cycle_changed',
+  'issue.estimate_changed',
+  'issue.project_changed',
+  'issue.sla_paused',
+  'issue.sla_resumed'
 ] as const;
 
 export const WEBHOOK_EVENT_LABELS: Record<(typeof WEBHOOK_EVENTS)[number], string> = {
@@ -21,10 +26,45 @@ export const WEBHOOK_EVENT_LABELS: Record<(typeof WEBHOOK_EVENTS)[number], strin
   'issue.sla_breached': 'SLA 违约',
   'issue.assignee_changed': '经办人变更',
   'issue.label_added': '添加标签',
-  'issue.label_removed': '移除标签'
+  'issue.label_removed': '移除标签',
+  'issue.cycle_changed': 'Cycle 变更',
+  'issue.estimate_changed': '估点变更',
+  'issue.project_changed': '项目变更',
+  'issue.sla_paused': 'SLA 暂停',
+  'issue.sla_resumed': 'SLA 恢复'
 };
 
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
+
+/** E51 Q3a：集成常用预设（cycle/estimate/project/sla_*） */
+export const INTEGRATION_PRESET_EVENTS: WebhookEvent[] = [
+  'issue.cycle_changed',
+  'issue.estimate_changed',
+  'issue.project_changed',
+  'issue.sla_paused',
+  'issue.sla_resumed'
+];
+
+export function applyIntegrationPreset(current: string[]): string[] {
+  const out = [...current];
+  for (const ev of INTEGRATION_PRESET_EVENTS) {
+    if (!out.includes(ev)) out.push(ev);
+  }
+  return out;
+}
+
+export function clearIntegrationPreset(current: string[]): string[] {
+  const drop = new Set<string>(INTEGRATION_PRESET_EVENTS);
+  return current.filter(e => !drop.has(e));
+}
+
+export function filterDeliveriesByEvent<T extends { eventType: string }>(
+  list: T[],
+  eventType: string | 'all'
+): T[] {
+  if (!eventType || eventType === 'all') return list;
+  return list.filter(d => d.eventType === eventType);
+}
 
 export interface WebhookDelivery {
   id: string;
