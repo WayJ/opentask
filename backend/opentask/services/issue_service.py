@@ -112,7 +112,7 @@ class IssueService:
         user_id: str | None = None,
         workspace_id: str | None = None,
         allowed_workspace_ids: list[str] | None = None,
-        custom_field_filters: list[tuple[str, str]] | None = None,
+        custom_field_filters: list[tuple[str, str, str]] | None = None,
     ) -> Tuple[List[Issue], int]:
         """获取 Issue 列表
 

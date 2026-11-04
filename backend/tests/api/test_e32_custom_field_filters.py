@@ -53,7 +53,7 @@ async def test_parse_helpers_unit():
             ("cf.", "x"),
         ]
     )
-    assert items == [("severity", "s1"), ("env", "prod")]
+    assert items == [("severity", "eq", "s1"), ("env", "eq", "prod")]
 
 
 @pytest.mark.asyncio

@@ -31,6 +31,13 @@ _SLUG_RE = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 FORMULA_FILTER_CANDIDATE_CAP = 2000
+FORMULA_SORT_CANDIDATE_CAP = FORMULA_FILTER_CANDIDATE_CAP
+
+CF_FILTER_OPS = frozenset({"eq", "gt", "gte", "lt", "lte"})
+CF_RANGE_OPS = frozenset({"gt", "gte", "lt", "lte"})
+_CF_KEY_OP_RE = re.compile(
+    r"^([a-z][a-z0-9_-]{0,63})(?:\[(eq|gt|gte|lt|lte)\])?$"
+)
 
 
 def require_writer(member: WorkspaceMember) -> None:
@@ -903,35 +910,52 @@ class CustomFieldService:
         )
         return result.scalar_one_or_none()
 
-    async def apply_list_filters(self, query, *, workspace_id: str, filters: list[tuple[str, str]]):
+    async def apply_list_filters(
+        self, query, *, workspace_id: str, filters: list[tuple[str, str, str]]
+    ):
         """AND-combine custom field filters onto an Issue select. Unknown key → empty.
 
-        E43: formula keys do NOT use IssueCustomFieldValue SQL — batch-eval (or cache)
+        E43/E46: formula keys do NOT use IssueCustomFieldValue SQL — batch-eval (or cache)
         after non-formula filters, with FORMULA_FILTER_CANDIDATE_CAP.
+        filters items are (key, op, raw) with op in {eq,gt,gte,lt,lte}.
         """
         from opentask.models.issue.model import Issue
 
         if not filters:
             return query
 
-        stored_filters: list[tuple[CustomField, Any]] = []
-        formula_filters: list[tuple[CustomField, Any]] = []
-        for key, raw in filters:
+        stored_filters: list[tuple[CustomField, str, Any]] = []
+        formula_filters: list[tuple[CustomField, str, Any]] = []
+        for key, op, raw in filters:
+            op = (op or "eq").lower()
+            if op not in CF_FILTER_OPS:
+                return query.where(Issue.id.in_([]))
             field = await self.get_by_key_optional(workspace_id=workspace_id, key=key)
             if field is None:
                 return query.where(Issue.id.in_([]))
             if field.type == "formula" and field.archived_at is not None:
                 return query.where(Issue.id.in_([]))
+            if op in CF_RANGE_OPS and not _cf_range_type_ok(field):
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "code": "cf_range_unsupported",
+                        "message": f"字段 {key} 不支持 range 过滤（仅 number/date）",
+                    },
+                )
             expected = coerce_cf_filter_value(field, raw)
             if expected is None:
                 return query.where(Issue.id.in_([]))
             if field.type == "formula":
-                formula_filters.append((field, expected))
+                formula_filters.append((field, op, expected))
             else:
-                stored_filters.append((field, expected))
+                stored_filters.append((field, op, expected))
 
-        for field, expected in stored_filters:
-            match = cf_value_match_clause(field, expected)
+        for field, op, expected in stored_filters:
+            if op == "eq":
+                match = cf_value_match_clause(field, expected)
+            else:
+                match = cf_value_range_clause(field, op, expected)
             subq = (
                 select(IssueCustomFieldValue.issue_id)
                 .where(
@@ -941,12 +965,13 @@ class CustomFieldService:
             )
             query = query.where(Issue.id.in_(subq))
 
-        for field, expected in formula_filters:
+        for field, op, expected in formula_filters:
             query = await self._apply_formula_list_filter(
                 query,
                 workspace_id=workspace_id,
                 field=field,
                 expected=expected,
+                op=op,
             )
         return query
 
@@ -957,6 +982,7 @@ class CustomFieldService:
         workspace_id: str,
         field: CustomField,
         expected: Any,
+        op: str = "eq",
     ):
         from opentask.models.issue.model import Issue
 
@@ -991,6 +1017,7 @@ class CustomFieldService:
             field=field,
             expected=expected,
             candidate_ids=candidate_ids,
+            op=op,
         )
         return query.where(Issue.id.in_(matched or []))
 
@@ -1001,8 +1028,9 @@ class CustomFieldService:
         field: CustomField,
         expected: Any,
         candidate_ids: list[str],
+        op: str = "eq",
     ) -> list[str]:
-        """Equality match via cache when ok; miss/error → batch eval + backfill."""
+        """Op match via cache when ok; miss/error → batch eval + backfill."""
         cache_map = await self._load_formula_cache_map(
             workspace_id=workspace_id,
             field_id=field.id,
@@ -1016,8 +1044,8 @@ class CustomFieldService:
                 val = row.value_json
                 if val is None:
                     continue
-                if _formula_values_equal(
-                    val, expected, field.formula_result_type or "number"
+                if _formula_values_compare(
+                    val, op, expected, field.formula_result_type or "number"
                 ):
                     matched.append(iid)
             else:
@@ -1049,8 +1077,8 @@ class CustomFieldService:
                 val = entry.get("value")
                 if val is None:
                     continue
-                if _formula_values_equal(
-                    val, expected, field.formula_result_type or "number"
+                if _formula_values_compare(
+                    val, op, expected, field.formula_result_type or "number"
                 ):
                     matched.append(iid)
         return matched
@@ -1234,12 +1262,86 @@ class CustomFieldService:
 
 
 def _formula_values_equal(actual: Any, expected: Any, result_type: str) -> bool:
+    return _formula_values_compare(actual, "eq", expected, result_type)
+
+
+def _formula_values_compare(
+    actual: Any, op: str, expected: Any, result_type: str
+) -> bool:
+    if actual is None:
+        return False
+    op = (op or "eq").lower()
     if result_type == "number":
         try:
-            return float(actual) == float(expected)
+            a = float(actual)
+            b = float(expected)
         except (TypeError, ValueError):
             return False
+        if op == "eq":
+            return a == b
+        if op == "gt":
+            return a > b
+        if op == "gte":
+            return a >= b
+        if op == "lt":
+            return a < b
+        if op == "lte":
+            return a <= b
+        return False
+    if result_type == "date":
+        try:
+            a = str(actual)
+            b = str(expected)
+        except Exception:
+            return False
+        if op == "eq":
+            return a == b
+        if op == "gt":
+            return a > b
+        if op == "gte":
+            return a >= b
+        if op == "lt":
+            return a < b
+        if op == "lte":
+            return a <= b
+        return False
+    # text/boolean: eq only
+    if op != "eq":
+        return False
     return actual == expected
+
+
+def _cf_range_type_ok(field: CustomField) -> bool:
+    if field.type in ("number", "date"):
+        return True
+    if field.type == "formula":
+        rt = (getattr(field, "formula_result_type", None) or "number").strip() or "number"
+        return rt in ("number", "date")
+    return False
+
+
+def cf_value_range_clause(field: CustomField, op: str, expected: Any):
+    """SQLAlchemy WHERE fragment for range compare on value_json (PG JSONB)."""
+    from sqlalchemy import Float, String, Text, cast
+    from sqlalchemy.dialects.postgresql import array as pg_array
+
+    # empty text[] path → scalar root as text (5 → '5', "2026-01-01" → '2026-01-01')
+    as_text = IssueCustomFieldValue.value_json.op("#>>")(pg_array([], type_=Text))
+    if field.type == "number":
+        lhs = cast(as_text, Float)
+        rhs = float(expected)
+    else:
+        lhs = cast(as_text, String)
+        rhs = str(expected)
+    if op == "gt":
+        return lhs > rhs
+    if op == "gte":
+        return lhs >= rhs
+    if op == "lt":
+        return lhs < rhs
+    if op == "lte":
+        return lhs <= rhs
+    raise ValueError(f"unsupported range op: {op}")
 
 
 
@@ -1251,28 +1353,40 @@ _CF_BOOL_TRUE = {"true", "1", "yes", "y", "on"}
 _CF_BOOL_FALSE = {"false", "0", "no", "n", "off"}
 
 
-def parse_cf_query_items(query_items: list[tuple[str, str]]) -> list[tuple[str, str]]:
-    """Parse request query into [(field_key, raw_value), ...].
+def _split_cf_key_op(raw_key: str) -> tuple[str, str] | None:
+    """Return (key, op) or None if malformed / unknown bracket op."""
+    key = (raw_key or "").strip().lower()
+    if not key:
+        return None
+    m = _CF_KEY_OP_RE.match(key)
+    if not m:
+        return None
+    return m.group(1), (m.group(2) or "eq")
 
-    Accepts:
-      - cf.<key>=value
-      - cf=key=value  (first '=' splits)
+
+def parse_cf_query_items(query_items: list[tuple[str, str]]) -> list[tuple[str, str, str]]:
+    """Parse request query into [(field_key, op, raw_value), ...].
+
+    Accepts (E32/E43/E46):
+      - cf.<key>=value                 → op eq
+      - cf.<key>[gt|gte|lt|lte]=value  → range op
+      - cf=key=value / cf=key[op]=value
     """
-    out: list[tuple[str, str]] = []
+    out: list[tuple[str, str, str]] = []
     for name, value in query_items:
         if name.startswith("cf.") and len(name) > 3:
-            key = name[3:].strip().lower()
-            if key:
-                out.append((key, value))
+            parsed = _split_cf_key_op(name[3:])
+            if parsed:
+                out.append((parsed[0], parsed[1], value))
             continue
         if name == "cf":
             raw = value or ""
             if "=" not in raw:
                 continue
             key, _, rest = raw.partition("=")
-            key = key.strip().lower()
-            if key:
-                out.append((key, rest))
+            parsed = _split_cf_key_op(key)
+            if parsed:
+                out.append((parsed[0], parsed[1], rest))
     return out
 
 
