@@ -4,9 +4,11 @@ import { NButton, NCheckbox, NSelect, NSpace, NSwitch, NText } from 'naive-ui';
 import {
   DISPLAY_FIELD_KEYS,
   DISPLAY_FIELD_LABELS,
+  type ColorScaleRule,
   type ConditionalFormatRule,
   type ConditionalTint,
   type DisplayFieldKey,
+  type IconSetRule,
   type IssueDisplayFields,
   SWIMLANE_OPTIONS,
   type SwimlaneBy,
@@ -25,6 +27,9 @@ const props = defineProps<{
   customFieldKeys?: string[];
   /** E46 */
   conditionalFormats?: ConditionalFormatRule[];
+  /** E49 */
+  colorScales?: ColorScaleRule[];
+  iconSets?: IconSetRule[];
 }>();
 
 const emit = defineEmits<{
@@ -33,6 +38,8 @@ const emit = defineEmits<{
   'update:hideEmptyLanes': [boolean];
   'update:customFieldKeys': [string[]];
   'update:conditionalFormats': [ConditionalFormatRule[]];
+  'update:colorScales': [ColorScaleRule[]];
+  'update:iconSets': [IconSetRule[]];
   'set-personal-default': [];
   reset: [];
 }>();
@@ -76,6 +83,42 @@ function removeFormat(idx: number) {
   const cur = [...(props.conditionalFormats || [])];
   cur.splice(idx, 1);
   emit('update:conditionalFormats', cur);
+}
+
+function addColorScale() {
+  const cur = [...(props.colorScales || [])];
+  if (cur.length >= 5) return;
+  cur.push({
+    id: `cscale_${Date.now()}`,
+    field: 'estimate_points',
+    domain: { min: 0, max: 10 },
+    palette: 'blue_red',
+    target: 'row'
+  });
+  emit('update:colorScales', cur);
+}
+
+function removeColorScale(idx: number) {
+  const cur = [...(props.colorScales || [])];
+  cur.splice(idx, 1);
+  emit('update:colorScales', cur);
+}
+
+function addIconSet() {
+  const cur = [...(props.iconSets || [])];
+  if (cur.length >= 5) return;
+  cur.push({
+    id: `iset_${Date.now()}`,
+    field: 'priority',
+    rules: [{ op: 'eq', value: 'high', icon: 'flag' }]
+  });
+  emit('update:iconSets', cur);
+}
+
+function removeIconSet(idx: number) {
+  const cur = [...(props.iconSets || [])];
+  cur.splice(idx, 1);
+  emit('update:iconSets', cur);
 }
 </script>
 
@@ -140,6 +183,30 @@ function removeFormat(idx: number) {
         @click="addFormat"
       >
         添加规则
+      </NButton>
+    </div>
+    <div class="section">
+      <NText depth="3" class="section-title">色阶（≤5）</NText>
+      <div v-for="(scale, idx) in colorScales || []" :key="scale.id" class="cfmt-row">
+        <NText depth="3" class="cfmt-summary">
+          {{ scale.field }} · {{ scale.palette }} · [{{ scale.domain.min }},{{ scale.domain.max }}]
+        </NText>
+        <NButton size="tiny" quaternary @click="removeColorScale(idx)">删</NButton>
+      </div>
+      <NButton size="tiny" :disabled="(colorScales || []).length >= 5" @click="addColorScale">
+        添加色阶
+      </NButton>
+    </div>
+    <div class="section">
+      <NText depth="3" class="section-title">图标集（≤5）</NText>
+      <div v-for="(iset, idx) in iconSets || []" :key="iset.id" class="cfmt-row">
+        <NText depth="3" class="cfmt-summary">
+          {{ iset.field }} · {{ iset.rules.length }} 条规则
+        </NText>
+        <NButton size="tiny" quaternary @click="removeIconSet(idx)">删</NButton>
+      </div>
+      <NButton size="tiny" :disabled="(iconSets || []).length >= 5" @click="addIconSet">
+        添加图标集
       </NButton>
     </div>
     <NSpace>

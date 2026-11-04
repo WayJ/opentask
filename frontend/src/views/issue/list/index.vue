@@ -60,7 +60,9 @@ import {
   type GroupByKey
 } from '@/utils/groupIssuesBy';
 import {
+  type ColorScaleRule,
   type ConditionalFormatRule,
+  type IconSetRule,
   type IssueDisplayFields,
   type SwimlaneBy,
   defaultIssueDisplay,
@@ -68,7 +70,8 @@ import {
   formatCustomFieldCellValue,
   isGroupingCfType,
   normalizeIssueDisplay,
-  resolveRowTint
+  resolveCellIcon,
+  resolveRowBackground
 } from '@/utils/display-prefs';
 import { nestIssuesDepth1 } from '@/utils/nestIssuesDepth1';
 import {
@@ -145,6 +148,8 @@ const displayFields = ref<IssueDisplayFields>(defaultIssueDisplay().fields);
 const customFieldKeys = ref<string[]>([]);
 const customFieldDefs = ref<CustomFieldRow[]>([]);
 const conditionalFormats = ref<ConditionalFormatRule[]>([]);
+const colorScales = ref<ColorScaleRule[]>([]);
+const iconSets = ref<IconSetRule[]>([]);
 const swimlaneBy = ref<SwimlaneBy>('none');
 const hideEmptyLanes = ref(false);
 const displayPrefsSaving = ref(false);
@@ -202,7 +207,9 @@ function currentDisplayJson() {
     hideEmptyLanes: hideEmptyLanes.value,
     fields: displayFields.value,
     customFieldKeys: customFieldKeys.value,
-    conditionalFormats: conditionalFormats.value
+    conditionalFormats: conditionalFormats.value,
+    colorScales: colorScales.value,
+    iconSets: iconSets.value
   });
 }
 
@@ -214,6 +221,8 @@ function applyDisplayState(partial: {
   fields?: IssueDisplayFields;
   customFieldKeys?: string[];
   conditionalFormats?: ConditionalFormatRule[];
+  colorScales?: ColorScaleRule[];
+  iconSets?: IconSetRule[];
 }) {
   if (partial.viewMode) viewMode.value = partial.viewMode;
   if (partial.groupBy) groupBy.value = sanitizeCfDim(partial.groupBy, 'group');
@@ -222,6 +231,8 @@ function applyDisplayState(partial: {
   if (partial.fields) displayFields.value = { ...partial.fields };
   if (partial.customFieldKeys) customFieldKeys.value = [...partial.customFieldKeys];
   if (partial.conditionalFormats) conditionalFormats.value = [...partial.conditionalFormats];
+  if (partial.colorScales) colorScales.value = [...partial.colorScales];
+  if (partial.iconSets) iconSets.value = [...partial.iconSets];
 }
 
 async function loadCustomFieldDefs() {
@@ -249,7 +260,9 @@ async function loadPersonalDisplayPrefs() {
       hideEmptyLanes: normalized.hideEmptyLanes,
       fields: normalized.fields,
       customFieldKeys: normalized.customFieldKeys,
-      conditionalFormats: normalized.conditionalFormats
+      conditionalFormats: normalized.conditionalFormats,
+      colorScales: normalized.colorScales,
+      iconSets: normalized.iconSets
     });
   } catch {
     /* ignore prefs load */
@@ -279,6 +292,8 @@ function resetDisplayOptions() {
   displayFields.value = { ...d.fields };
   customFieldKeys.value = [];
   conditionalFormats.value = [];
+  colorScales.value = [];
+  iconSets.value = [];
 }
 
 /** E4-S3：当前页 depth-1 嵌套（父不在本页则子作顶层） */
@@ -646,7 +661,7 @@ async function loadIssues() {
         due_soon: filters.due_soon,
         sort_by: listSortBy.value || 'created_at',
         sort_order: listSortOrder.value || 'desc',
-        include: needCf || needCfSort || conditionalFormats.value.length ? 'custom_fields' : undefined,
+        include: needCf || needCfSort || conditionalFormats.value.length || colorScales.value.length || iconSets.value.length ? 'custom_fields' : undefined,
         ...cfParams
       } as any);
 
@@ -916,10 +931,35 @@ const TINT_BG: Record<string, string> = {
   neutral: 'color-mix(in srgb, #888 10%, transparent)'
 };
 
+const ICON_GLYPH: Record<string, string> = {
+  arrow_up: '↑',
+  arrow_down: '↓',
+  arrow_flat: '→',
+  flag: '⚑',
+  dot_red: '●',
+  dot_yellow: '●',
+  dot_green: '●',
+  check: '✓',
+  warn: '!'
+};
+
+function iconPrefixFor(issue: Api.Issue.Issue, field?: string): string {
+  const icon = resolveCellIcon(
+    issue as unknown as Record<string, unknown>,
+    iconSets.value,
+    field
+  );
+  return icon ? `${ICON_GLYPH[icon] || ''} ` : '';
+}
+
 function issueRowProps(row: Api.Issue.Issue) {
   const focused = issueFocus.focusedIssueId.value === row.id;
   const selected = issueSelection.isSelected(row.id);
-  const tint = resolveRowTint(row as unknown as Record<string, unknown>, conditionalFormats.value);
+  const appearance = resolveRowBackground(row as unknown as Record<string, unknown>, {
+    conditionalFormats: conditionalFormats.value,
+    colorScales: colorScales.value
+  });
+  const tint = appearance?.kind === 'tint' ? appearance.value : null;
   const classes = [
     focused ? 'issue-row-focused' : '',
     selected ? 'issue-row-selected' : '',
@@ -930,7 +970,8 @@ function issueRowProps(row: Api.Issue.Issue) {
   let style: string | undefined;
   if (focused) style = 'outline: 2px solid var(--color-primary); outline-offset: -2px;';
   else if (selected) style = 'background: color-mix(in srgb, var(--color-primary) 8%, transparent);';
-  else if (tint) style = `background: ${TINT_BG[tint]};`;
+  else if (appearance?.kind === 'tint') style = `background: ${TINT_BG[appearance.value]};`;
+  else if (appearance?.kind === 'scale') style = `background: color-mix(in srgb, ${appearance.value} 22%, transparent);`;
   return {
     class: classes || undefined,
     style,
@@ -940,6 +981,14 @@ function issueRowProps(row: Api.Issue.Issue) {
 
 function onConditionalFormatsUpdate(next: ConditionalFormatRule[]) {
   conditionalFormats.value = [...(next || [])];
+}
+
+function onColorScalesUpdate(next: ColorScaleRule[]) {
+  colorScales.value = [...(next || [])];
+}
+
+function onIconSetsUpdate(next: IconSetRule[]) {
+  iconSets.value = [...(next || [])];
 }
 
 function onListSortByUpdate(v: string) {
@@ -1273,6 +1322,7 @@ const baseColumns: DataTableColumns<Api.Issue.Issue> = [
                 '↳'
               )
             : null,
+          iconPrefixFor(row) || null,
           row.title,
           ...relationBadgeNodes(row).map(n =>
             h('span', { style: 'margin-left: 6px; display: inline-flex; vertical-align: middle;' }, [n])
@@ -1312,7 +1362,11 @@ const baseColumns: DataTableColumns<Api.Issue.Issue> = [
     title: '估点',
     key: 'estimate_points',
     width: 72,
-    render: row => (row.estimate_points != null ? String(row.estimate_points) : '—')
+    render: row => {
+      const prefix = iconPrefixFor(row, 'estimate_points');
+      const body = row.estimate_points != null ? String(row.estimate_points) : '—';
+      return prefix ? `${prefix}${body}` : body;
+    }
   },
   {
     title: '负责人',
@@ -1378,7 +1432,9 @@ const columns = computed<DataTableColumns<Api.Issue.Issue>>(() => {
       render: (row: Api.Issue.Issue) => {
         const list = (row as any).customFields || (row as any).custom_fields || [];
         const hit = list.find((x: any) => x.key === key);
-        return formatCustomFieldCellValue(hit?.value);
+        const prefix = iconPrefixFor(row, `cf:${key}`);
+        const body = formatCustomFieldCellValue(hit?.value);
+        return prefix ? `${prefix}${body}` : body;
       }
     });
   }
@@ -1679,11 +1735,15 @@ onUnmounted(() => {
                 :custom-field-options="customFieldDefs.map(f => ({ key: f.key, name: f.name, type: f.type, formulaResultType: f.formulaResultType }))"
                 :custom-field-keys="customFieldKeys"
                 :conditional-formats="conditionalFormats"
+                :color-scales="colorScales"
+                :icon-sets="iconSets"
                 @update:fields="onDisplayFieldsUpdate"
                 @update:swimlane-by="onSwimlaneByUpdate"
                 @update:hide-empty-lanes="onHideEmptyLanesUpdate"
                 @update:custom-field-keys="onCustomFieldKeysUpdate"
                 @update:conditional-formats="onConditionalFormatsUpdate"
+                @update:color-scales="onColorScalesUpdate"
+                @update:icon-sets="onIconSetsUpdate"
                 @set-personal-default="setPersonalDisplayDefault"
                 @reset="resetDisplayOptions"
               />
@@ -1858,6 +1918,8 @@ onUnmounted(() => {
             :swimlane-by="swimlaneBy"
             :hide-empty-lanes="hideEmptyLanes"
             :conditional-formats="conditionalFormats"
+            :color-scales="colorScales"
+            :icon-sets="iconSets"
             :fields="displayFields"
             @changed="loadIssues"
           />

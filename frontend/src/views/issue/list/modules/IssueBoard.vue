@@ -14,8 +14,14 @@ import { useIssueFocus } from '@/composables/use-issue-focus';
 import { useIssueSelection } from '@/composables/use-issue-selection';
 import { buildIssueDetailLocation } from '@/utils/issue-board-nav';
 import { BOARD_STATUS_COLUMNS, type BoardSwimlane, buildBoardSwimlanes } from '@/utils/boardSwimlanes';
-import type { ConditionalFormatRule, IssueDisplayFields, SwimlaneBy } from '@/utils/display-prefs';
-import { resolveRowTint } from '@/utils/display-prefs';
+import type {
+  ColorScaleRule,
+  ConditionalFormatRule,
+  IconSetRule,
+  IssueDisplayFields,
+  SwimlaneBy
+} from '@/utils/display-prefs';
+import { resolveCellIcon, resolveRowBackground } from '@/utils/display-prefs';
 import type { Api } from '@/typings/api';
 
 defineOptions({ name: 'IssueBoard' });
@@ -27,11 +33,15 @@ const props = withDefaults(
     hideEmptyLanes?: boolean;
     fields?: IssueDisplayFields;
     conditionalFormats?: ConditionalFormatRule[];
+    colorScales?: ColorScaleRule[];
+    iconSets?: IconSetRule[];
   }>(),
   {
     swimlaneBy: 'none',
     hideEmptyLanes: false,
     conditionalFormats: () => [],
+    colorScales: () => [],
+    iconSets: () => [],
     fields: () => ({
       assignee: true,
       priority: true,
@@ -55,9 +65,33 @@ const TINT_BG: Record<string, string> = {
 };
 
 function cardTintStyle(issue: Api.Issue.Issue): Record<string, string> | undefined {
-  const tint = resolveRowTint(issue as unknown as Record<string, unknown>, props.conditionalFormats);
-  if (!tint) return undefined;
-  return { background: TINT_BG[tint] };
+  const appearance = resolveRowBackground(issue as unknown as Record<string, unknown>, {
+    conditionalFormats: props.conditionalFormats,
+    colorScales: props.colorScales
+  });
+  if (!appearance) return undefined;
+  if (appearance.kind === 'tint') return { background: TINT_BG[appearance.value] };
+  return { background: `color-mix(in srgb, ${appearance.value} 24%, transparent)` };
+}
+
+const ICON_GLYPH: Record<string, string> = {
+  arrow_up: '↑',
+  arrow_down: '↓',
+  arrow_flat: '→',
+  flag: '⚑',
+  dot_red: '●',
+  dot_yellow: '●',
+  dot_green: '●',
+  check: '✓',
+  warn: '!'
+};
+
+function cardIconPrefix(issue: Api.Issue.Issue): string {
+  const icon = resolveCellIcon(
+    issue as unknown as Record<string, unknown>,
+    props.iconSets
+  );
+  return icon ? ICON_GLYPH[icon] || '' : '';
 }
 
 const issueFocus = useIssueFocus();
@@ -248,7 +282,7 @@ function showField(key: keyof IssueDisplayFields): boolean {
                     {{ getIssuePriorityLabel(issue.priority) }}
                   </NTag>
                 </div>
-                <div class="board-card-title">{{ issue.title }}</div>
+                <div class="board-card-title">{{ cardIconPrefix(issue) }}{{ issue.title }}</div>
                 <div v-if="(issue.blocked_by_count || 0) > 0 || (issue.blocks_count || 0) > 0" class="board-card-meta">
                   <NTag
                     v-if="(issue.blocked_by_count || 0) > 0"
