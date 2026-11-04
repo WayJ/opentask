@@ -2,7 +2,7 @@
 
 日期：2026-11-04  
 Epic：E4  
-状态：active（S1 实现中）
+状态：active（S2 实现中；S1 closed）
 
 ## 1. 目标
 
@@ -100,12 +100,13 @@ Epic：E4
 - 缺 `X-Workspace-Id` → 400；非成员 → 403
 - favorite 切换
 
-## 3. S2 — 列表分组泳道（素描）
+## 3. S2 — 列表分组泳道
 
-- UI：列表/看板旁「分组依据」选择：无 / assignee / priority / type（可扩展 status）
-- 实现倾向：客户端对当前 `filteredIssues` 分组渲染泳道；或 query 参数 + 服务端排序键
-- 可将选择写入 Saved View 的 `display_json.group_by`
-- 不做共享视图、不做复杂自定义字段分组
+- UI：列表工具栏「分组」选择：`none` / `status` / `assignee` / `priority` / `type`
+- **客户端**对当前 `filteredIssues` 分桶（`groupIssuesBy`）；分组开启时列表展示全量筛选结果（不分页）
+- 选择写入 Saved View `display_json.group_by`；无活动视图则仅本地状态
+- 列表泳道 **展示-only**：跨泳道拖拽改字段不在范围；看板 status 拖拽保持 IssueBoard 既有行为
+- 不做共享视图、不做复杂自定义字段分组、不做 S3 `parent_issue_id`
 
 ## 4. S3 — 一等公民子 Issue（素描）
 

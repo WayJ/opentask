@@ -190,3 +190,31 @@ async def test_saved_views_require_workspace_header(test_client: AsyncClient):
         headers=_auth(user["token"], other["workspaceId"]),
     )
     assert forbidden.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_saved_view_display_group_by(test_client: AsyncClient):
+    """E4-S2：display.group_by 可创建并 PATCH 往返。"""
+    user = await _register(test_client, "sv_gb")
+    create = await test_client.post(
+        "/api/saved-views",
+        headers=_auth(user["token"], user["workspaceId"]),
+        json={
+            "name": "按优先级分组",
+            "filter": {"tab": "open"},
+            "display": {"view_mode": "list", "group_by": "priority"},
+        },
+    )
+    assert create.status_code == 200, create.text
+    body = create.json()["data"]
+    assert body["display"]["group_by"] == "priority"
+    view_id = body["id"]
+
+    patched = await test_client.patch(
+        f"/api/saved-views/{view_id}",
+        headers=_auth(user["token"], user["workspaceId"]),
+        json={"display": {"view_mode": "list", "group_by": "assignee"}},
+    )
+    assert patched.status_code == 200, patched.text
+    assert patched.json()["data"]["display"]["group_by"] == "assignee"
+

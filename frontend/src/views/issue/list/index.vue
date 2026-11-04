@@ -34,14 +34,17 @@ import {
   type SavedView,
   fetchCreateSavedView,
   fetchSavedViews,
-  fetchSetSavedViewFavorite
+  fetchSetSavedViewFavorite,
+  fetchUpdateSavedView
 } from '@/service/api/saved-views';
 import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
+import { GROUP_BY_OPTIONS, type GroupByKey, isGroupByKey } from '@/utils/groupIssuesBy';
 import type { ParsedQuery } from '@/utils/issueSearchParser';
 import IssueSmartSearch from '@/components/IssueSmartSearch.vue';
 import type { Api } from '@/typings/api';
 import IssueBoard from './modules/IssueBoard.vue';
+import IssueListGrouped from './modules/IssueListGrouped.vue';
 
 defineOptions({
   name: 'IssueList'
@@ -75,6 +78,13 @@ const activeTab = ref<'my_issues' | 'open' | 'closed' | 'all'>('open');
 // 双视图：list | board（同数据源）
 const viewMode = ref<'list' | 'board'>('list');
 const filteredIssues = ref<Api.Issue.Issue[]>([]);
+
+/** E4-S2：列表分组依据（本地状态；可写入 Saved View display.group_by） */
+const groupBy = ref<GroupByKey>('none');
+const groupByOptions = GROUP_BY_OPTIONS;
+
+const isGroupedList = computed(() => groupBy.value !== 'none');
+const activeGroupBy = computed(() => groupBy.value as Exclude<GroupByKey, 'none'>);
 
 // 筛选框展开状态（默认关闭）
 const filtersExpanded = ref(false);
@@ -139,7 +149,7 @@ async function confirmSaveView() {
       name,
       filter: buildCurrentFilterPayload(),
       sort: { sort_by: 'created_at', sort_order: 'desc' },
-      display: { view_mode: viewMode.value },
+      display: { view_mode: viewMode.value, group_by: groupBy.value },
       is_favorite: false
     });
     window.$message?.success('视图已保存');
@@ -174,6 +184,11 @@ async function applySavedView(view: SavedView) {
 
   if (view.display?.view_mode === 'board' || view.display?.view_mode === 'list') {
     viewMode.value = view.display.view_mode;
+  }
+  if (isGroupByKey(view.display?.group_by)) {
+    groupBy.value = view.display.group_by;
+  } else {
+    groupBy.value = 'none';
   }
 
   activeSavedViewId.value = view.id;
@@ -496,6 +511,20 @@ function handlePageSizeChange(pageSize: number) {
   applyTabAndFilters(); // 前端分页
 }
 
+async function handleGroupByChange(value: GroupByKey | null) {
+  groupBy.value = value || 'none';
+  const id = activeSavedViewId.value;
+  if (!id) return;
+  try {
+    await fetchUpdateSavedView(id, {
+      display: { view_mode: viewMode.value, group_by: groupBy.value }
+    });
+    await loadSavedViews();
+  } catch {
+    window.$message?.warning('分组已切换，但同步到已保存视图失败');
+  }
+}
+
 // Clear all filters
 function clearFilters() {
   filters.project_id = undefined;
@@ -793,6 +822,17 @@ onMounted(() => {
               </template>
               <div>查看搜索语法帮助</div>
             </NTooltip>
+
+            <div class="group-by-select">
+              <NText depth="3" class="group-by-label">分组</NText>
+              <NSelect
+                :value="groupBy"
+                :options="groupByOptions"
+                size="small"
+                style="width: 120px"
+                @update:value="handleGroupByChange"
+              />
+            </div>
           </div>
         </div>
 
@@ -922,6 +962,9 @@ onMounted(() => {
       <NSpin :show="loading">
         <template v-if="viewMode === 'board'">
           <IssueBoard :issues="filteredIssues" @changed="loadIssues" />
+        </template>
+        <template v-else-if="isGroupedList">
+          <IssueListGrouped :issues="filteredIssues" :group-by="activeGroupBy" :columns="columns" />
         </template>
         <template v-else>
           <NEmpty v-if="!loading && issues.length === 0" description="暂无 Issue" size="large" />
@@ -1387,5 +1430,17 @@ onMounted(() => {
 .issue-list-container :deep(.n-text strong) {
   font-size: 16px;
   font-weight: 600;
+}
+
+.group-by-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 4px;
+}
+
+.group-by-label {
+  font-size: 12px;
+  white-space: nowrap;
 }
 </style>
