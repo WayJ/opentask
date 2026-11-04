@@ -269,6 +269,32 @@ async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
                 "ALTER TABLE IF EXISTS notification_preferences ADD COLUMN IF NOT EXISTS insights_digest BOOLEAN NOT NULL DEFAULT FALSE",
             ):
                 await conn.execute(_sql_text(_stmt))
+            # E60 search FTS mid — PG tsvector + GIN
+            for _tbl, _expr, _idx in (
+                (
+                    "issues",
+                    "to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(issue_code,'') || ' ' || "
+                    "coalesce(legacy_issue_code,'') || ' ' || left(coalesce(description,''), 16000))",
+                    "ix_issues_search_tsv",
+                ),
+                (
+                    "projects",
+                    "to_tsvector('simple', coalesce(name,'') || ' ' || left(coalesce(description,''), 16000))",
+                    "ix_projects_search_tsv",
+                ),
+                (
+                    "entity_documents",
+                    "to_tsvector('simple', coalesce(title,'') || ' ' || left(coalesce(body_md,''), 16000))",
+                    "ix_entity_documents_search_tsv",
+                ),
+            ):
+                await conn.execute(_sql_text(
+                    f"ALTER TABLE IF EXISTS {_tbl} ADD COLUMN IF NOT EXISTS search_tsv tsvector "
+                    f"GENERATED ALWAYS AS ({_expr}) STORED"
+                ))
+                await conn.execute(_sql_text(
+                    f"CREATE INDEX IF NOT EXISTS {_idx} ON {_tbl} USING GIN (search_tsv)"
+                ))
             # E48 timeline_action enum values (no alembic per Q6a)
             for _val in ("sla_paused", "sla_resumed"):
                 await conn.execute(

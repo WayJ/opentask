@@ -1,26 +1,24 @@
-"""E17: workspace-scoped global search aggregation."""
+"""E17/E60: workspace-scoped global search aggregation."""
 from __future__ import annotations
 
-import re
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from opentask.models.entity_document.model import EntityDocument
 from opentask.models.issue.model import Issue
-from opentask.models.requirement.model import Project
 from opentask.models.user.model import UserModel
 from opentask.models.workspace.model import WorkspaceMember
-
-ISSUE_CODE_RE = re.compile(
-    r"^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$", re.IGNORECASE
+from opentask.services.search.backend import (
+    ISSUE_CODE_RE,
+    resolve_search_backend,
 )
 
 
 class SearchService:
     def __init__(self, session: AsyncSession):
         self.session = session
+        self.backend = resolve_search_backend(session)
 
     async def search(
         self, *, workspace_id: str, q: str, limit: int = 10
@@ -35,115 +33,61 @@ class SearchService:
 
         return {
             "issues": await self._search_issues(workspace_id, query, limit),
-            "projects": await self._search_projects(workspace_id, query, limit),
-            "docs": await self._search_docs(workspace_id, query, limit),
+            "projects": await self.backend.search_projects(workspace_id, query, limit),
+            "docs": await self.backend.search_docs(workspace_id, query, limit),
             "members": await self._search_members(workspace_id, query, limit),
         }
 
     async def _search_issues(
         self, workspace_id: str, query: str, limit: int
     ) -> list[dict[str, Any]]:
-        pattern = f"%{query}%"
-        rows: list[Issue] = []
+        rows: list[dict[str, Any]] = []
         seen: set[str] = set()
 
+        # Q5a / E17: exact issue_code first
         if ISSUE_CODE_RE.match(query):
             exact = await self.session.execute(
-                select(Issue).where(
+                select(Issue)
+                .where(
                     Issue.workspace_id == workspace_id,
                     or_(
                         Issue.issue_code.ilike(query),
                         Issue.legacy_issue_code.ilike(query),
                     ),
-                ).limit(limit)
+                )
+                .limit(limit)
             )
             for issue in exact.scalars().all():
                 if issue.id not in seen:
                     seen.add(issue.id)
-                    rows.append(issue)
+                    rows.append(
+                        {
+                            "id": issue.id,
+                            "issueCode": issue.issue_code,
+                            "title": issue.title,
+                            "status": issue.status.value
+                            if hasattr(issue.status, "value")
+                            else issue.status,
+                            "priority": issue.priority.value
+                            if hasattr(issue.priority, "value")
+                            else issue.priority,
+                            "rank": 1_000_000.0,
+                        }
+                    )
 
-        fuzzy = await self.session.execute(
-            select(Issue)
-            .where(
-                Issue.workspace_id == workspace_id,
-                or_(
-                    Issue.title.ilike(pattern),
-                    Issue.issue_code.ilike(pattern),
-                    Issue.legacy_issue_code.ilike(pattern),
-                ),
-            )
-            .order_by(Issue.updated_at.desc())
-            .limit(limit)
-        )
-        for issue in fuzzy.scalars().all():
-            if issue.id not in seen and len(rows) < limit:
-                seen.add(issue.id)
-                rows.append(issue)
+        fuzzy = await self.backend.search_issues(workspace_id, query, limit)
+        for hit in fuzzy:
+            hid = hit.get("id")
+            if hid and hid not in seen and len(rows) < limit:
+                seen.add(hid)
+                rows.append(hit)
 
-        return [
-            {
-                "id": i.id,
-                "issueCode": i.issue_code,
-                "title": i.title,
-                "status": i.status.value if hasattr(i.status, "value") else i.status,
-                "priority": i.priority.value if hasattr(i.priority, "value") else i.priority,
-            }
-            for i in rows[:limit]
-        ]
-
-    async def _search_projects(
-        self, workspace_id: str, query: str, limit: int
-    ) -> list[dict[str, Any]]:
-        pattern = f"%{query}%"
-        result = await self.session.execute(
-            select(Project)
-            .where(
-                Project.workspace_id == workspace_id,
-                Project.name.ilike(pattern),
-            )
-            .order_by(Project.name.asc())
-            .limit(limit)
-        )
-        return [
-            {
-                "id": p.id,
-                "name": p.name,
-                "description": (p.description or "")[:160],
-                "isActive": bool(p.is_active),
-            }
-            for p in result.scalars().all()
-        ]
-
-    async def _search_docs(
-        self, workspace_id: str, query: str, limit: int
-    ) -> list[dict[str, Any]]:
-        pattern = f"%{query}%"
-        result = await self.session.execute(
-            select(EntityDocument)
-            .where(
-                EntityDocument.workspace_id == workspace_id,
-                or_(
-                    EntityDocument.title.ilike(pattern),
-                    EntityDocument.body_md.ilike(pattern),
-                ),
-            )
-            .order_by(EntityDocument.updated_at.desc())
-            .limit(limit)
-        )
-        return [
-            {
-                "id": d.id,
-                "title": d.title,
-                "parentType": d.parent_type,
-                "parentId": d.parent_id,
-                "snippet": (d.body_md or "").strip().replace("\n", " ")[:120],
-            }
-            for d in result.scalars().all()
-        ]
+        return rows[:limit]
 
     async def _search_members(
         self, workspace_id: str, query: str, limit: int
     ) -> list[dict[str, Any]]:
+        # Q2a: Members stay ILIKE
         pattern = f"%{query}%"
         result = await self.session.execute(
             select(WorkspaceMember, UserModel)
