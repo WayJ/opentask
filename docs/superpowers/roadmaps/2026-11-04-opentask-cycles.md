@@ -211,4 +211,4 @@ date: 2026-11-04
 
 - 2026-11-04（UTC+8）：E6 Phase 1 启动（仅文档）。基线 `sprint/E5-S3` @ `da13c86`；分支 `sprint/E6-S1`；worktree `/workspace/opentask-worktrees/E6-S1`。按 PRD 加厚范围写 roadmap/design/S1 stub；**无产品实现、不推远程**。
 - 2026-11-04（UTC+8）：E6-S1 本地收口 tip `bd22f89`；migration `f0e1d2c3b4a5`；pytest 632；FE lint 0 / build ok；**无 push**。Epic 仍 active → S2。
-- 2026-11-04（UTC+8）：E6-S2 本地收口 tip `1ded2f4`；migration `a1b2c3d4e5f7`；pytest 638；FE lint 0 / build ok / vitest 24；**无 push**。Epic 仍 active → S3。
+- 2026-11-04（UTC+8）：E6-S2 本地收口 tip `b2e1f7d`；migration `a1b2c3d4e5f7`；pytest 638；FE lint 0 / build ok / vitest 24；**无 push**。Epic 仍 active → S3。
