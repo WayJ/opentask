@@ -33,6 +33,8 @@ DEFAULT_DISPLAY: dict[str, Any] = {
     "fields": dict(DEFAULT_FIELDS),
     "custom_field_keys": [],
     "conditional_formats": [],
+    "color_scales": [],
+    "icon_sets": [],
 }
 
 _CFMT_TINTS = frozenset({"danger", "warning", "success", "info", "neutral"})
@@ -41,6 +43,33 @@ _CFMT_OPS = frozenset({"eq", "neq", "gt", "gte", "lt", "lte"})
 _CFMT_SYSTEM_FIELDS = frozenset({"priority", "status", "due_date", "estimate_points"})
 _CFMT_MAX = 10
 _CFMT_FIELD_RE = re.compile(r"^(?:cf:([a-z][a-z0-9_-]{0,63})|priority|status|due_date|estimate_points)$")
+
+# E49 color scales / icon sets
+_SCALE_MAX = 5
+_SCALE_PALETTES = frozenset(
+    {"blue_red", "green_red", "mono", "yellow_blue", "purple_green"}
+)
+_SCALE_TARGETS = frozenset({"row", "cell"})
+_SCALE_FIELD_RE = re.compile(
+    r"^(?:cf:([a-z][a-z0-9_-]{0,63})|due_date|estimate_points)$"
+)
+_ICON_SET_MAX = 5
+_ICON_RULES_MAX = 8
+_ICON_VOCAB = frozenset(
+    {
+        "arrow_up",
+        "arrow_down",
+        "arrow_flat",
+        "flag",
+        "dot_red",
+        "dot_yellow",
+        "dot_green",
+        "check",
+        "warn",
+    }
+)
+_ICON_OPS = frozenset({"eq", "neq", "gt", "gte", "lt", "lte"})
+_ICON_FIELD_RE = _CFMT_FIELD_RE
 
 
 _SWIMLANE_OK = {"none", "assignee", "priority", "type", "label"}
@@ -117,6 +146,12 @@ def normalize_display_json(raw: Any) -> dict[str, Any]:
     out["conditional_formats"] = _normalize_conditional_formats(
         raw.get("conditional_formats") or raw.get("conditionalFormats")
     )
+    out["color_scales"] = _normalize_color_scales(
+        raw.get("color_scales") or raw.get("colorScales")
+    )
+    out["icon_sets"] = _normalize_icon_sets(
+        raw.get("icon_sets") or raw.get("iconSets")
+    )
     return out
 
 
@@ -153,6 +188,110 @@ def _normalize_conditional_formats(raw: Any) -> list[dict[str, Any]]:
             }
         )
         if len(out) >= _CFMT_MAX:
+            break
+    return out
+
+
+def _parse_domain_bound(raw: Any) -> Optional[float]:
+    """Parse domain min/max; accept number or ISO-ish date string as ordinal via float(hashless).
+
+    Numbers → float. Date-like YYYY-MM-DD → days since epoch-ish via string compare key
+    stored as float of packed yyyymmdd. Returns None if unparseable.
+    """
+    if raw is None or isinstance(raw, bool):
+        return None
+    if isinstance(raw, (int, float)):
+        try:
+            v = float(raw)
+        except (TypeError, ValueError):
+            return None
+        if v != v:  # NaN
+            return None
+        return v
+    s = str(raw).strip()
+    if not s:
+        return None
+    try:
+        return float(s)
+    except ValueError:
+        pass
+    # YYYY-MM-DD → yyyymmdd float for linear domain
+    if len(s) >= 10 and s[4] == "-" and s[7] == "-":
+        digits = s[:10].replace("-", "")
+        if digits.isdigit() and len(digits) == 8:
+            return float(digits)
+    return None
+
+
+def _normalize_color_scales(raw: Any) -> list[dict[str, Any]]:
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        field = str(item.get("field") or "").strip()
+        if not _SCALE_FIELD_RE.match(field):
+            continue
+        palette = str(item.get("palette") or "").strip().lower()
+        if palette not in _SCALE_PALETTES:
+            continue
+        target = str(item.get("target") or "row").strip().lower()
+        if target not in _SCALE_TARGETS:
+            continue
+        domain = item.get("domain")
+        if not isinstance(domain, dict):
+            continue
+        dmin = _parse_domain_bound(domain.get("min"))
+        dmax = _parse_domain_bound(domain.get("max"))
+        if dmin is None or dmax is None:
+            continue
+        cid = str(item.get("id") or "").strip() or f"cscale_{len(out)+1}"
+        out.append(
+            {
+                "id": cid,
+                "field": field,
+                "domain": {"min": dmin, "max": dmax},
+                "palette": palette,
+                "target": target,
+            }
+        )
+        if len(out) >= _SCALE_MAX:
+            break
+    return out
+
+
+def _normalize_icon_sets(raw: Any) -> list[dict[str, Any]]:
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        field = str(item.get("field") or "").strip()
+        if not _ICON_FIELD_RE.match(field):
+            continue
+        rules_in = item.get("rules")
+        if not isinstance(rules_in, list):
+            continue
+        rules: list[dict[str, Any]] = []
+        for rule in rules_in:
+            if not isinstance(rule, dict):
+                continue
+            op = str(rule.get("op") or "").strip().lower()
+            if op not in _ICON_OPS:
+                continue
+            icon = str(rule.get("icon") or "").strip().lower()
+            if icon not in _ICON_VOCAB:
+                continue
+            rules.append({"op": op, "value": rule.get("value"), "icon": icon})
+            if len(rules) >= _ICON_RULES_MAX:
+                break
+        if not rules:
+            continue
+        cid = str(item.get("id") or "").strip() or f"iset_{len(out)+1}"
+        out.append({"id": cid, "field": field, "rules": rules})
+        if len(out) >= _ICON_SET_MAX:
             break
     return out
 
@@ -239,6 +378,28 @@ async def validate_and_normalize_display(
                 detail={
                     "code": "conditional_formats_too_many",
                     "message": f"conditionalFormats 最多 {_CFMT_MAX} 条",
+                },
+            )
+        scales = raw.get("color_scales")
+        if scales is None:
+            scales = raw.get("colorScales")
+        if isinstance(scales, list) and len(scales) > _SCALE_MAX:
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "code": "color_scales_too_many",
+                    "message": f"colorScales 最多 {_SCALE_MAX} 条",
+                },
+            )
+        isets = raw.get("icon_sets")
+        if isets is None:
+            isets = raw.get("iconSets")
+        if isinstance(isets, list) and len(isets) > _ICON_SET_MAX:
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "code": "icon_sets_too_many",
+                    "message": f"iconSets 最多 {_ICON_SET_MAX} 条",
                 },
             )
     out = normalize_display_json(raw)
