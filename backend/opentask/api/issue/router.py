@@ -57,7 +57,20 @@ from opentask.services.tag.service import (
 )
 from opentask.services.custom_field.service import CustomFieldService, parse_cf_query_items, require_writer as require_cf_writer
 from opentask.services.issue_csv import IssueCsvService, require_writer as require_csv_writer, EXPORT_MAX_ROWS
-from opentask.services.issue_timeline_export import build_timeline_csv, EXPORT_DEFAULT_LIMIT, EXPORT_HARD_CAP
+from opentask.services.issue_timeline_export import (
+    build_timeline_csv,
+    EXPORT_DEFAULT_LIMIT,
+    EXPORT_HARD_CAP,
+    ACTIVITY_DEFAULT_LIMIT,
+    ACTIVITY_HARD_CAP,
+    clamp_activity_limit,
+    encode_activity_cursor,
+    decode_activity_cursor,
+    query_timeline_entries,
+    serialize_activity_item,
+)
+from opentask.models.issue.enums import TimelineAction
+from opentask.models.issue.model import Issue
 from opentask.api.workspace.deps import get_optional_workspace_context, require_workspace_context, ensure_entity_workspace_access
 from opentask.services.sla.service import SlaService, serialize_clock
 from opentask.utils.response import success_response
@@ -314,6 +327,106 @@ async def export_workspace_timeline_csv(
         media_type="text/csv; charset=utf-8",
         headers=headers,
     )
+
+
+@router.get("/activity")
+async def list_workspace_activity(
+    since: Optional[str] = Query(None, description="ISO datetime lower bound on created_at"),
+    until: Optional[str] = Query(None, description="ISO datetime upper bound on created_at"),
+    actionType: Optional[List[str]] = Query(None, description="Filter action_type (repeatable)"),
+    actorId: Optional[str] = Query(None, description="Filter by actor user id"),
+    issueId: Optional[str] = Query(None, description="Filter to one issue id"),
+    cursor: Optional[str] = Query(None, description="Opaque pagination cursor"),
+    limit: int = Query(ACTIVITY_DEFAULT_LIMIT, ge=1, description="Page size (clamped to 200)"),
+    service: IssueService = Depends(get_issue_service),
+    ctx: tuple = Depends(require_workspace_context),
+):
+    """E47：工作区级 Activity Feed JSON（viewer+；游标分页；硬顶 clamp 200）。"""
+    from datetime import datetime as _dt
+
+    workspace, _member, _user = ctx
+
+    def _parse_iso(raw: str, field: str):
+        try:
+            return _dt.fromisoformat(raw.replace("Z", "+00:00")).replace(tzinfo=None)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"invalid {field}: {e}") from e
+
+    since_dt = _parse_iso(since, "since") if since else None
+    until_dt = _parse_iso(until, "until") if until else None
+
+    # Validate action types against TimelineAction enum
+    if actionType:
+        valid = {a.value for a in TimelineAction}
+        bad = [t for t in actionType if t not in valid]
+        # also allow comma-separated bundled values
+        expanded: list[str] = []
+        for t in actionType:
+            for part in str(t).split(","):
+                part = part.strip()
+                if not part:
+                    continue
+                if part not in valid:
+                    raise HTTPException(status_code=400, detail=f"invalid actionType: {part}")
+                expanded.append(part)
+        actionType = expanded
+
+    cursor_tuple = None
+    if cursor:
+        try:
+            cursor_tuple = decode_activity_cursor(cursor)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"invalid cursor: {e}") from e
+
+    if issueId:
+        issue = await service.get_issue(issueId)
+        if not issue or issue.workspace_id != workspace.id:
+            raise HTTPException(status_code=404, detail="Issue 不存在")
+
+    page_limit = clamp_activity_limit(limit)
+    rows = await query_timeline_entries(
+        service.db,
+        workspace_id=workspace.id,
+        issue_id=issueId,
+        since=since_dt,
+        until=until_dt,
+        action_types=actionType,
+        actor_id=actorId,
+        cursor=cursor_tuple,
+        limit=page_limit + 1,
+    )
+    has_more = len(rows) > page_limit
+    rows = rows[:page_limit]
+
+    issue_ids = list({r.issue_id for r in rows})
+    issue_map: dict = {}
+    if issue_ids:
+        ires = await service.db.execute(select(Issue).where(Issue.id.in_(issue_ids)))
+        for iss in ires.scalars().all():
+            issue_map[iss.id] = iss
+
+    user_ids = list({r.user_id for r in rows if r.user_id})
+    user_map: dict = {}
+    if user_ids:
+        ures = await service.db.execute(select(UserModel).where(UserModel.id.in_(user_ids)))
+        for u in ures.scalars().all():
+            user_map[str(u.id)] = u
+
+    items = [
+        serialize_activity_item(
+            r,
+            issue=issue_map.get(r.issue_id),
+            actor_user=user_map.get(str(r.user_id)) if r.user_id else None,
+        )
+        for r in rows
+    ]
+    next_cursor = None
+    if has_more and rows:
+        last = rows[-1]
+        next_cursor = encode_activity_cursor(last.created_at, last.id)
+
+    return success_response(data={"items": items, "nextCursor": next_cursor})
+
 
 @router.get("/import/template.csv")
 async def download_import_template(
