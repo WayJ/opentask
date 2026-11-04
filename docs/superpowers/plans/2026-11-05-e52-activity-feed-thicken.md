@@ -26,7 +26,7 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e52-activity-
 - Create: `docs/superpowers/plans/2026-11-05-e52-activity-feed-thicken.md`（本文件）
 - Create: `docs/superpowers/acceptances/2026-11-05-E52-acceptance.md`（骨架；收口补 tip/测数）
 
-- [ ] **Step 1:** 入库 plan + acceptance 骨架并 commit
+- [x] **Step 1:** 入库 plan + acceptance 骨架并 commit
 
 ---
 
@@ -40,7 +40,7 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e52-activity-
 **Interfaces:**
 - Produces: `watching=true` 仅 watcher 集合；空 watcher → items=[]；可与 actionType/cursor 组合；跨租户不泄漏
 
-- [ ] **Step 1: 红测**
+- [x] **Step 1: 红测**
 ```python
 # watch issue A only → activity watching=true 仅含 A 的行
 # 无 watch → watching=true → items=[]
@@ -49,7 +49,7 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e52-activity-
 # 默认无 watching 仍全量（E47 兼容）
 # 读路径 spy：list 不 fire_webhooks / fire_automations
 ```
-- [ ] **Step 2: 最小实现 → 绿 → commit**
+- [x] **Step 2: 最小实现 → 绿 → commit**
 
 ---
 
@@ -62,7 +62,7 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e52-activity-
 - Modify: `backend/opentask/api/issue/router.py` — list activity 后批量查 `IssueReaction` / `CommentReaction`，挂 `reactions: {scope, commentId?, summary}`
 - Test: 同 `test_e52_activity_feed_thicken.py`
 
-- [ ] **Step 1: 红测 → 绿 → commit**
+- [x] **Step 1: 红测 → 绿 → commit**
 
 ---
 
@@ -78,7 +78,7 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e52-activity-
   - `POST /activity/mark-read` body optional `{watching?:bool}` → 把水位设为当前可见最新一行（或 now + 空 id）
 - 注意路由顺序：`/activity/unread-count` 与 `/activity/mark-read` 必须在 `/{issue_id}` 之前（已有 `/activity` 同级）
 
-- [ ] **Step 1: 红测 unread>0 → mark-read → 0；跨租户；cap 99+ → 绿 → commit**
+- [x] **Step 1: 红测 unread>0 → mark-read → 0；跨租户；cap 99+ → 绿 → commit**
 
 ---
 
@@ -91,7 +91,7 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e52-activity-
 - Modify: `frontend/src/views/activity/index.vue` — 「仅关注」NSwitch；读 `route.query.watching`；空态；行尾 reaction chips（toggle 既有 API）；onMounted mark-read
 - Modify: `frontend/src/layouts/modules/global-sider/ActivityNav.vue` — 角标；click → `{name:'activity', query:{watching:'1'}}`；轮询/挂载拉 unread
 
-- [ ] **Step 1: vitest 红→绿 → commit**
+- [x] **Step 1: vitest 红→绿 → commit**
 
 ---
 
@@ -103,16 +103,16 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e52-activity-
 - Modify: `agent-harness/opentask-cli/opentask/utils/api_client.py` — `activity_unread_count`
 - Create: `agent-harness/opentask-cli/tests/test_e52_activity_thicken.py`
 
-- [ ] **Step 1: 红测 → 绿 → commit**
+- [x] **Step 1: 红测 → 绿 → commit**
 
 ---
 
 ### Task 7 — F：门禁 + acceptance tip
 
-- [ ] BE 定向 `test_e52*` + `test_e47*` + `test_notif_prefs_reactions*` / watchers；全量记 passed（`test_user_search` flake 可记）
-- [ ] CLI 全绿；确认 pins **1.36.0**
-- [ ] FE vitest + build
-- [ ] 写 acceptance tip；STOP；不 push；不自开 E53
+- [x] BE 定向 `test_e52*` + `test_e47*` + `test_notif_prefs_reactions*` / watchers；全量记 passed（`test_user_search` flake 可记）
+- [x] CLI 全绿；确认 pins **1.36.0**
+- [x] FE vitest + build
+- [x] 写 acceptance tip；STOP；不 push；不自开 E53
 
 ---
 
