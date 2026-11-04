@@ -183,10 +183,14 @@ async def get_issues(
 
     # 使用 IssueResponse 的 field_validator 自动处理用户信息转换
     tag_map = await load_tags_for_issues(service.db, issues)
+    block_map = await service.relation_block_counts([i.id for i in issues])
     rows = []
     for issue in issues:
         payload = IssueResponse.model_validate(issue).model_dump(mode="json", exclude_none=False)
         payload["tags"] = [serialize_tag_brief(t) for t in tag_map.get(issue.id, [])]
+        counts = block_map.get(issue.id, {"blocks_count": 0, "blocked_by_count": 0})
+        payload["blocks_count"] = counts["blocks_count"]
+        payload["blocked_by_count"] = counts["blocked_by_count"]
         rows.append(payload)
 
     return {
@@ -718,11 +722,18 @@ async def delete_issue(
 async def bulk_update_issues(
     data: IssueBulkUpdate,
     service: IssueService = Depends(get_issue_service),
-    current_user: UserModel = Depends(authenticate),
+    ctx: tuple = Depends(require_workspace_context),
 ):
-    """批量更新 Issue"""
-
-    affected_rows = await service.bulk_update_issues(data, str(current_user.id))
+    """批量更新 Issue（E20：强制 X-Workspace-Id + 本 WS 过滤）"""
+    ws, _member, user = ctx
+    try:
+        affected_rows = await service.bulk_update_issues(
+            data, str(user.id), workspace_id=ws.id
+        )
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     return {
         "code": 200,
@@ -736,10 +747,25 @@ async def bulk_update_issues(
 async def bulk_delete_issues(
     data: IssueBulkDelete,
     service: IssueService = Depends(get_issue_service),
-    current_user: UserModel = Depends(authenticate),
+    ctx: tuple = Depends(require_workspace_context),
 ):
-    """批量删除 Issue（软删除）"""
-    affected_rows = await service.bulk_delete_issues(data.issue_ids, str(current_user.id))
+    """批量删除 Issue（软删除；E20：强制本 WS）"""
+    ws, _member, user = ctx
+    # 仅删除本工作区可见 ID
+    from sqlalchemy import select as sa_select
+    from opentask.models.issue.model import Issue as IssueModel
+
+    allowed_q = await service.db.execute(
+        sa_select(IssueModel.id).where(
+            IssueModel.id.in_(data.issue_ids),
+            IssueModel.workspace_id == ws.id,
+            IssueModel.is_deleted == False,  # noqa: E712
+        )
+    )
+    allowed_ids = [row[0] for row in allowed_q.all()]
+    if not allowed_ids:
+        raise HTTPException(status_code=403, detail="无权批量删除这些 Issue")
+    affected_rows = await service.bulk_delete_issues(allowed_ids, str(user.id))
 
     return {
         "code": 200,

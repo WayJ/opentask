@@ -318,12 +318,17 @@ class IssueBoardMove(BaseModel):
 
 
 class IssueBulkUpdate(BaseModel):
-
-    """批量更新 Schema"""
+    """批量更新 Schema（E20：+cycle_id / tag_ids；需 X-Workspace-Id）"""
     issue_ids: List[str] = Field(..., min_length=1, description="Issue ID 列表")
     status: Optional[IssueStatus] = None
     priority: Optional[IssuePriority] = None
     assignee_id: Optional[str] = None
+    cycle_id: Optional[str] = Field(
+        None, description="目标 Cycle ID；显式 null 可清空（需出现在 payload）"
+    )
+    tag_ids: Optional[List[int]] = Field(
+        None, description="替换为这些标签 ID；省略则不改标签；[] 清空"
+    )
 
 
 class IssueBulkDelete(BaseModel):

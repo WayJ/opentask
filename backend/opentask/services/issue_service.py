@@ -722,9 +722,28 @@ class IssueService:
         self,
         data: IssueBulkUpdate,
         user_id: str,
+        *,
+        workspace_id: str,
     ) -> int:
-        """批量更新 Issue"""
-        update_data = {
+        """批量更新 Issue（E20：强制 workspace 过滤；支持 cycle_id / tag_ids）"""
+        allowed_q = await self.db.execute(
+            select(Issue.id).where(
+                Issue.id.in_(data.issue_ids),
+                Issue.is_deleted == False,  # noqa: E712
+                Issue.workspace_id == workspace_id,
+            )
+        )
+        allowed_ids = [row[0] for row in allowed_q.all()]
+        if not allowed_ids:
+            raise PermissionError("无权批量更新这些 Issue")
+
+        if "cycle_id" in data.model_fields_set:
+            await self._validate_cycle_id(
+                cycle_id=data.cycle_id,
+                workspace_id=workspace_id,
+            )
+
+        update_data: Dict[str, Any] = {
             "updated_by": user_id,
             "updated_at": datetime.utcnow(),
         }
@@ -735,19 +754,76 @@ class IssueService:
             update_data["priority"] = data.priority
         if data.assignee_id is not None:
             update_data["assignee_id"] = data.assignee_id
+        if "cycle_id" in data.model_fields_set:
+            update_data["cycle_id"] = data.cycle_id
 
-        query = (
-            update(Issue)
-            .where(
-                Issue.id.in_(data.issue_ids),
-                Issue.is_deleted == False,
+        field_updates = {
+            k: v for k, v in update_data.items() if k not in ("updated_by", "updated_at")
+        }
+        affected = 0
+        if field_updates or True:
+            # 始终刷新 updated_*；若仅改标签也会 bump
+            query = (
+                update(Issue)
+                .where(
+                    Issue.id.in_(allowed_ids),
+                    Issue.is_deleted == False,  # noqa: E712
+                )
+                .values(**update_data)
             )
-            .values(**update_data)
-        )
-        result = await self.db.execute(query)
-        await self.db.commit()
+            result = await self.db.execute(query)
+            affected = result.rowcount or 0
 
-        return result.rowcount
+        if data.tag_ids is not None:
+            from opentask.services.tag.service import TagService
+
+            tag_svc = TagService(self.db)
+            for iid in allowed_ids:
+                await tag_svc.replace_issue_tags(
+                    issue_id=iid,
+                    tag_ids=data.tag_ids,
+                    workspace_id=workspace_id,
+                    user_id=user_id,
+                )
+            # replace_issue_tags commits internally; ensure count reflects tag work
+            if not field_updates:
+                affected = len(allowed_ids)
+        else:
+            await self.db.commit()
+
+        return int(affected)
+
+    async def relation_block_counts(
+        self,
+        issue_ids: List[str],
+    ) -> Dict[str, Dict[str, int]]:
+        """E20：批量统计 blocks / blocked_by 数量。"""
+        empty = {iid: {"blocks_count": 0, "blocked_by_count": 0} for iid in issue_ids}
+        if not issue_ids:
+            return empty
+
+        result = await self.db.execute(
+            select(IssueRelation).where(
+                or_(
+                    IssueRelation.source_id.in_(issue_ids),
+                    IssueRelation.target_id.in_(issue_ids),
+                )
+            )
+        )
+        rows = list(result.scalars().all())
+        for rel in rows:
+            rtype = rel.relation_type.value if hasattr(rel.relation_type, "value") else str(rel.relation_type)
+            if rel.source_id in empty:
+                if rtype == RelationType.BLOCKS.value:
+                    empty[rel.source_id]["blocks_count"] += 1
+                elif rtype == RelationType.IS_BLOCKED_BY.value:
+                    empty[rel.source_id]["blocked_by_count"] += 1
+            if rel.target_id in empty:
+                if rtype == RelationType.BLOCKS.value:
+                    empty[rel.target_id]["blocked_by_count"] += 1
+                elif rtype == RelationType.IS_BLOCKED_BY.value:
+                    empty[rel.target_id]["blocks_count"] += 1
+        return empty
 
     async def bulk_delete_issues(
         self,
