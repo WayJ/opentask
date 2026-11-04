@@ -1,4 +1,4 @@
-"""E60: top-level global search command."""
+"""E60/E62: top-level global search command."""
 from __future__ import annotations
 
 import asyncio
@@ -16,7 +16,7 @@ from ..utils.config import Config
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.pass_obj
 def search_cli(obj, q: str, limit: int, as_json: bool):
-    """Workspace global search (issues / projects / docs / members)."""
+    """Workspace global search (issues / projects / docs / members / comments)."""
     config: Config = obj.config
     json_mode = as_json or obj.json_mode
     if not require_workspace_id(config, json_mode):
@@ -31,7 +31,7 @@ def search_cli(obj, q: str, limit: int, as_json: bool):
         if not isinstance(data, dict):
             obj.skin.info(str(data))
             return
-        for group in ("issues", "projects", "docs", "members"):
+        for group in ("issues", "projects", "docs", "members", "comments"):
             rows = data.get(group) or []
             obj.skin.info(f"{group}: {len(rows)}")
             for row in rows:
@@ -41,6 +41,8 @@ def search_cli(obj, q: str, limit: int, as_json: bool):
                     line = f"  {row.get('name')}"
                 elif group == "docs":
                     line = f"  {row.get('title')}"
+                elif group == "comments":
+                    line = f"  {row.get('issueCode')} · {row.get('snippet') or ''}"
                 else:
                     line = f"  {row.get('name') or row.get('username') or row.get('userId')}"
                 if row.get("rank") is not None:
