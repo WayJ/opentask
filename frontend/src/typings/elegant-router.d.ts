@@ -20,6 +20,7 @@ declare module "@elegant-router/types" {
     "403": "/403";
     "404": "/404";
     "500": "/500";
+    "activity": "/activity";
     "agents": "/agents";
     "customers": "/customers";
     "customers_detail": "/customers/detail";
@@ -132,6 +133,7 @@ declare module "@elegant-router/types" {
     | "403"
     | "404"
     | "500"
+    | "activity"
     | "agents"
     | "customers"
     | "dashboard"
@@ -175,6 +177,7 @@ declare module "@elegant-router/types" {
     | "500"
     | "iframe-page"
     | "login"
+    | "activity"
     | "agents"
     | "customers_detail"
     | "customers"

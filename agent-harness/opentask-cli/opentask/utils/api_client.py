@@ -1207,6 +1207,10 @@ class OpenTaskClient:
                 raise APIError(response.status_code, response.text)
             return response.content
 
+    async def list_workspace_activity(self, params: dict | None = None) -> dict:
+        """E47: workspace activity feed (JSON cursor)."""
+        return await self.get("/api/issues/activity", params=params or {})
+
     async def export_workspace_timeline_csv(self, params: dict | None = None) -> bytes:
         """E41: download workspace timeline CSV."""
         import httpx

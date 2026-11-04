@@ -268,6 +268,7 @@ const local: App.I18n.Schema = {
     'workspace_issue-templates': 'Issue 模板',
     workspace_cycles: '冲刺 Cycles',
     inbox: '收件箱',
+    activity: '活动',
     insights: 'Insights',
     search: '搜索',
     initiatives: 'Initiatives',

@@ -10,7 +10,7 @@ Features:
 - Project, Issue, Requirement, and Conversation management
 """
 
-__version__ = "1.30.0"
+__version__ = "1.31.0"
 __author__ = "OpenTask Team"
 
 from .core.project import project_cli

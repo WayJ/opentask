@@ -270,6 +270,7 @@ const local: App.I18n.Schema = {
     'workspace_issue-templates': 'Issue Templates',
     workspace_cycles: 'Cycles',
     inbox: 'Inbox',
+    activity: 'Activity',
     insights: 'Insights',
     search: 'Search',
     initiatives: 'Initiatives',

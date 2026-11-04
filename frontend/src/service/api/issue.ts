@@ -319,6 +319,27 @@ export const issueApi = {
     });
   },
 
+  /** E47：工作区 Activity Feed */
+  fetchWorkspaceActivity: (params?: Record<string, unknown>) => {
+    return request<{
+      items: Array<{
+        id: string;
+        issueId: string;
+        issueCode?: string | null;
+        issueTitle?: string | null;
+        actionType: string;
+        actor?: { id: string; username?: string | null; displayName?: string | null } | null;
+        createdAt?: string | null;
+        payload?: Record<string, unknown> | null;
+      }>;
+      nextCursor: string | null;
+    }>({
+      url: '/api/issues/activity',
+      method: 'GET',
+      params: cleanParams(params || {})
+    });
+  },
+
   /** E41：单 Issue timeline CSV */
   exportTimelineCsv: (issueId: string, params?: Record<string, unknown>) => {
     return downloadRequest<Blob>({
