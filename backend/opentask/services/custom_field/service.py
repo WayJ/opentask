@@ -29,6 +29,8 @@ from opentask.services.custom_field.formula import (
 _SLUG_RE = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
+FORMULA_FILTER_CANDIDATE_CAP = 2000
+
 
 def require_writer(member: WorkspaceMember) -> None:
     if member.role not in ("owner", "member"):
@@ -880,18 +882,33 @@ class CustomFieldService:
         return result.scalar_one_or_none()
 
     async def apply_list_filters(self, query, *, workspace_id: str, filters: list[tuple[str, str]]):
-        """AND-combine custom field filters onto an Issue select. Unknown key → empty."""
+        """AND-combine custom field filters onto an Issue select. Unknown key → empty.
+
+        E43: formula keys do NOT use IssueCustomFieldValue SQL — batch-eval (or cache)
+        after non-formula filters, with FORMULA_FILTER_CANDIDATE_CAP.
+        """
         from opentask.models.issue.model import Issue
 
         if not filters:
             return query
+
+        stored_filters: list[tuple[CustomField, Any]] = []
+        formula_filters: list[tuple[CustomField, Any]] = []
         for key, raw in filters:
             field = await self.get_by_key_optional(workspace_id=workspace_id, key=key)
             if field is None:
                 return query.where(Issue.id.in_([]))
+            if field.type == "formula" and field.archived_at is not None:
+                return query.where(Issue.id.in_([]))
             expected = coerce_cf_filter_value(field, raw)
             if expected is None:
                 return query.where(Issue.id.in_([]))
+            if field.type == "formula":
+                formula_filters.append((field, expected))
+            else:
+                stored_filters.append((field, expected))
+
+        for field, expected in stored_filters:
             match = cf_value_match_clause(field, expected)
             subq = (
                 select(IssueCustomFieldValue.issue_id)
@@ -901,7 +918,96 @@ class CustomFieldService:
                 )
             )
             query = query.where(Issue.id.in_(subq))
+
+        for field, expected in formula_filters:
+            query = await self._apply_formula_list_filter(
+                query,
+                workspace_id=workspace_id,
+                field=field,
+                expected=expected,
+            )
         return query
+
+    async def _apply_formula_list_filter(
+        self,
+        query,
+        *,
+        workspace_id: str,
+        field: CustomField,
+        expected: Any,
+    ):
+        from opentask.models.issue.model import Issue
+
+        # Count candidates under current query (other filters already applied)
+        count_q = select(func.count()).select_from(
+            query.order_by(None).with_only_columns(Issue.id).distinct().subquery()
+        )
+        n = await self.db.scalar(count_q)
+        if n is None:
+            n = 0
+        if n > FORMULA_FILTER_CANDIDATE_CAP:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "formula_filter_too_broad",
+                    "message": (
+                        f"公式过滤候选超过 {FORMULA_FILTER_CANDIDATE_CAP}，"
+                        "请先用 status/assignee/project 等条件收窄"
+                    ),
+                },
+            )
+
+        id_rows = await self.db.execute(
+            query.order_by(None).with_only_columns(Issue.id).distinct()
+        )
+        candidate_ids = [row[0] for row in id_rows.all()]
+        if not candidate_ids:
+            return query.where(Issue.id.in_([]))
+
+        matched = await self._match_formula_candidates(
+            workspace_id=workspace_id,
+            field=field,
+            expected=expected,
+            candidate_ids=candidate_ids,
+        )
+        return query.where(Issue.id.in_(matched or []))
+
+    async def _match_formula_candidates(
+        self,
+        *,
+        workspace_id: str,
+        field: CustomField,
+        expected: Any,
+        candidate_ids: list[str],
+    ) -> list[str]:
+        """Equality match formula values for candidates (cache optional; Task 3)."""
+        bundled = await self.values_for_issues(
+            workspace_id=workspace_id, issue_ids=candidate_ids
+        )
+        matched: list[str] = []
+        for iid in candidate_ids:
+            items = bundled.get(iid) or []
+            entry = next((x for x in items if x.get("key") == field.key), None)
+            if not entry:
+                continue
+            if entry.get("error"):
+                continue
+            val = entry.get("value")
+            if val is None:
+                continue
+            if _formula_values_equal(val, expected, field.formula_result_type or "number"):
+                matched.append(iid)
+        return matched
+
+
+def _formula_values_equal(actual: Any, expected: Any, result_type: str) -> bool:
+    if result_type == "number":
+        try:
+            return float(actual) == float(expected)
+        except (TypeError, ValueError):
+            return False
+    return actual == expected
+
 
 
 # ---------------------------------------------------------------------------
@@ -964,7 +1070,13 @@ def coerce_cf_filter_value(field: CustomField, raw: str) -> Any | None:
     if t in ("single_select", "multi_select"):
         return s
     if t == "formula":
-        return None
+        rt = (getattr(field, "formula_result_type", None) or "number").strip() or "number"
+        # Reuse storage-type coerce by temporarily viewing as result type
+        proxy_type = rt if rt in ("number", "text", "boolean", "date") else "number"
+        # Build a lightweight stand-in so we can recurse without mutating field
+        class _Proxy:
+            type = proxy_type
+        return coerce_cf_filter_value(_Proxy(), raw)  # type: ignore[arg-type]
     return None
 
 
