@@ -46,6 +46,7 @@ export interface SlaPolicyRow {
   notifyWatchers: boolean;
   calendar?: SlaPolicyCalendar | null;
   effectiveCalendar?: SlaPolicyCalendar | null;
+  appliedHolidayPacks?: Array<{ region: string; year: number; appliedAt: string }>;
   createdAt?: string | null;
   updatedAt?: string | null;
 }
@@ -163,4 +164,77 @@ export function fetchSlaRunDue() {
     skipped: number;
     errors: Array<{ clockId: string; message: string }>;
   }>({ url: '/api/sla/run-due', method: 'post' });
+}
+
+export interface HolidayPackSummary {
+  region: string;
+  year: number;
+  name: string;
+  sourceNote: string;
+  count: number;
+}
+
+export interface HolidayPackDetail extends HolidayPackSummary {
+  holidays: Array<{
+    date: string;
+    kind: string;
+    windows?: { start: string; end: string }[];
+    label?: string;
+  }>;
+}
+
+export interface HolidayPackMergeResult {
+  region: string;
+  year: number;
+  name: string;
+  sourceNote: string;
+  target: string;
+  policyId?: string | null;
+  added: unknown[];
+  replaced: unknown[];
+  unchanged: unknown[];
+  skipped: unknown[];
+  exceptions?: unknown[];
+  countBefore: number;
+  countAfter: number;
+  appliedHolidayPacks?: Array<{ region: string; year: number; appliedAt: string }>;
+  recompute?: { recomputed: number; scanned: number; capped: boolean };
+}
+
+export function fetchHolidayPacks() {
+  return request<{ rows: HolidayPackSummary[]; total: number }>({
+    url: '/api/sla/holiday-packs',
+    method: 'get'
+  });
+}
+
+export function fetchHolidayPack(region: string, year: number) {
+  return request<HolidayPackDetail>({
+    url: `/api/sla/holiday-packs/${region}/${year}`,
+    method: 'get'
+  });
+}
+
+export function fetchHolidayPackPreview(
+  region: string,
+  year: number,
+  body: { target?: string; policyId?: string } = {}
+) {
+  return request<HolidayPackMergeResult>({
+    url: `/api/sla/holiday-packs/${region}/${year}/preview`,
+    method: 'post',
+    data: body
+  });
+}
+
+export function fetchHolidayPackApply(
+  region: string,
+  year: number,
+  body: { target?: string; policyId?: string } = {}
+) {
+  return request<HolidayPackMergeResult>({
+    url: `/api/sla/holiday-packs/${region}/${year}/apply`,
+    method: 'post',
+    data: body
+  });
 }

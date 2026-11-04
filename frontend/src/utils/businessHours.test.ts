@@ -7,6 +7,7 @@ import {
   normalizeBusinessHours,
   normalizeExceptions,
   normalizePolicyCalendar,
+  mergeExceptionsPackWins,
   normalizeWindows,
   validateTimezoneClient,
   weekdayPreset0918
@@ -129,5 +130,27 @@ describe('E56 policy calendar overlay', () => {
         { timezone: 'UTC', windows: weekdayPreset0918() }
       )
     ).toBeNull();
+  });
+});
+
+describe('E58 holiday pack merge', () => {
+  it('pack wins same date; keeps non-pack; filters via normalize', () => {
+    const out = mergeExceptionsPackWins(
+      [
+        { date: '2026-10-01', kind: 'closed' },
+        { date: '2026-06-01', kind: 'closed' }
+      ],
+      [
+        { date: '2026-10-01', kind: 'forced_open' },
+        { date: '2026-10-02', kind: 'closed' }
+      ]
+    );
+    const by = Object.fromEntries(out.exceptions.map(e => [e.date, e]));
+    expect(by['2026-10-01'].kind).toBe('forced_open');
+    expect(by['2026-06-01']).toBeTruthy();
+    expect(by['2026-10-02']).toBeTruthy();
+    expect(out.replaced.some(r => r.date === '2026-10-01')).toBe(true);
+    expect(out.added.some(a => a.date === '2026-10-02')).toBe(true);
+    expect(out.unchanged.some(u => u.date === '2026-06-01')).toBe(true);
   });
 });

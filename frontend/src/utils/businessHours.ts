@@ -210,3 +210,51 @@ export function mergeEffectiveCalendar(
   const exceptions = cal.exceptions != null ? normalizeExceptions(cal.exceptions) : bh.exceptions;
   return { timezone, windows, exceptions };
 }
+
+export interface PackMergeResult {
+  exceptions: BusinessException[];
+  added: BusinessException[];
+  replaced: Array<{ date: string; before: BusinessException; after: BusinessException }>;
+  unchanged: BusinessException[];
+  skipped: BusinessException[];
+}
+
+/** E58 Q3a: same date → pack wins; keep non-pack dates. */
+export function mergeExceptionsPackWins(
+  existing: unknown,
+  packExceptions: unknown
+): PackMergeResult {
+  const base = normalizeExceptions(existing);
+  const pack = normalizeExceptions(packExceptions);
+  const byDate = new Map<string, BusinessException>();
+  for (const e of base) byDate.set(e.date, { ...e, windows: e.windows ? [...e.windows] : undefined });
+  const added: BusinessException[] = [];
+  const replaced: Array<{ date: string; before: BusinessException; after: BusinessException }> = [];
+  const unchanged: BusinessException[] = [];
+  const skipped: BusinessException[] = [];
+  const packDates = new Set(pack.map(e => e.date));
+  for (const pe of pack) {
+    const prev = byDate.get(pe.date);
+    if (!prev) {
+      byDate.set(pe.date, { ...pe, windows: pe.windows ? [...pe.windows] : undefined });
+      added.push({ ...pe });
+      continue;
+    }
+    const sameKind = prev.kind === pe.kind;
+    const sameWin = JSON.stringify(prev.windows || null) === JSON.stringify(pe.windows || null);
+    if (sameKind && sameWin) {
+      unchanged.push({ ...prev });
+    } else {
+      byDate.set(pe.date, { ...pe, windows: pe.windows ? [...pe.windows] : undefined });
+      replaced.push({ date: pe.date, before: { ...prev }, after: { ...pe } });
+    }
+  }
+  for (const e of base) {
+    if (!packDates.has(e.date)) unchanged.push({ ...e });
+  }
+  const exceptions = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+  if (exceptions.length > MAX_EXCEPTIONS) {
+    throw new Error(`exceptions 最多 ${MAX_EXCEPTIONS} 条`);
+  }
+  return { exceptions, added, replaced, unchanged, skipped };
+}

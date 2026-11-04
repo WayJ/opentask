@@ -20,6 +20,11 @@ import {
   fetchSlaPolicies,
   fetchSlaRunDue,
   fetchUpdateSlaPolicy,
+  fetchHolidayPacks,
+  fetchHolidayPackPreview,
+  fetchHolidayPackApply,
+  type HolidayPackSummary,
+  type HolidayPackMergeResult,
   slaMetricLabel
 } from '@/service/api/sla';
 import {
@@ -93,6 +98,113 @@ const timezoneOptions = [
   { label: 'Europe/London', value: 'Europe/London' }
 ];
 const isOwner = computed(() => workspace.value?.role === 'owner');
+
+const packOpen = ref(false);
+const packLoading = ref(false);
+const packApplying = ref(false);
+const packRows = ref<HolidayPackSummary[]>([]);
+const packRegion = ref('CN');
+const packYear = ref(2026);
+const packTarget = ref<'workspace' | 'policy'>('workspace');
+const packPolicyId = ref<string | null>(null);
+const packPreview = ref<HolidayPackMergeResult | null>(null);
+const packSourceNote = ref('');
+const packOptions = computed(() =>
+  packRows.value.map(r => ({
+    label: `${r.region} ${r.year} · ${r.name} (${r.count})`,
+    value: `${r.region}:${r.year}`
+  }))
+);
+const packKey = ref('CN:2026');
+function onPackKeyUpdate(v: string) {
+  packKey.value = v;
+  const [r, y] = String(v).split(':');
+  packRegion.value = r || 'CN';
+  packYear.value = Number(y) || 2026;
+  const meta = packRows.value.find(x => x.region === packRegion.value && x.year === packYear.value);
+  packSourceNote.value = meta?.sourceNote || '';
+  packPreview.value = null;
+}
+const policyOptions = computed(() =>
+  rows.value.map(r => ({ label: r.name, value: r.id }))
+);
+
+async function loadHolidayPacks() {
+  packLoading.value = true;
+  try {
+    const { data, error } = await fetchHolidayPacks();
+    if (error || !data) return;
+    packRows.value = data.rows || [];
+    const meta = packRows.value.find(x => x.region === packRegion.value && x.year === packYear.value);
+    packSourceNote.value = meta?.sourceNote || packRows.value[0]?.sourceNote || '';
+    if (!meta && packRows.value[0]) {
+      packRegion.value = packRows.value[0].region;
+      packYear.value = packRows.value[0].year;
+      packSourceNote.value = packRows.value[0].sourceNote;
+    }
+    packKey.value = `${packRegion.value}:${packYear.value}`;
+  } finally {
+    packLoading.value = false;
+  }
+}
+
+async function previewHolidayPack() {
+  packLoading.value = true;
+  packPreview.value = null;
+  try {
+    const body: { target: string; policyId?: string } = { target: packTarget.value };
+    if (packTarget.value === 'policy') {
+      if (!packPolicyId.value) {
+        window.$message?.error?.('请选择 policy');
+        return;
+      }
+      body.policyId = packPolicyId.value;
+    }
+    const { data, error } = await fetchHolidayPackPreview(packRegion.value, packYear.value, body);
+    if (error || !data) {
+      window.$message?.error?.(error?.message || '预览失败');
+      return;
+    }
+    packPreview.value = data;
+    packSourceNote.value = data.sourceNote || packSourceNote.value;
+  } finally {
+    packLoading.value = false;
+  }
+}
+
+async function applyHolidayPack() {
+  if (!isOwner.value) return;
+  packApplying.value = true;
+  try {
+    const body: { target: string; policyId?: string } = { target: packTarget.value };
+    if (packTarget.value === 'policy') {
+      if (!packPolicyId.value) {
+        window.$message?.error?.('请选择 policy');
+        return;
+      }
+      body.policyId = packPolicyId.value;
+    }
+    const { data, error } = await fetchHolidayPackApply(packRegion.value, packYear.value, body);
+    if (error || !data) {
+      window.$message?.error?.(error?.message || '应用失败');
+      return;
+    }
+    packPreview.value = data;
+    window.$message?.success?.(
+      `已应用：+${(data.added || []).length} 覆盖${(data.replaced || []).length}`
+    );
+    await loadBusinessHours();
+    await load();
+  } finally {
+    packApplying.value = false;
+  }
+}
+
+function fillPolicyFromHolidayPack(policyId: string) {
+  packTarget.value = 'policy';
+  packPolicyId.value = policyId;
+  packOpen.value = true;
+}
 
 async function resolveWorkspaceId(): Promise<string | null> {
   const cached = localStg.get('workspaceId');
@@ -244,9 +356,14 @@ const columns: DataTableColumns<SlaPolicyRow> = [
   {
     title: '操作',
     key: 'actions',
-    width: 180,
+    width: 260,
     render: row =>
       h(NSpace, { size: 4 }, () => [
+        h(
+          NButton,
+          { size: 'tiny', tertiary: true, onClick: () => fillPolicyFromHolidayPack(row.id) },
+          { default: () => '假日包' }
+        ),
         row.calendar
           ? h(
               NButton,
@@ -385,7 +502,11 @@ async function runDue() {
   }
 }
 
-onMounted(load);
+onMounted(async () => {
+  await load();
+  await loadBusinessHours();
+  await loadHolidayPacks();
+});
 </script>
 
 <template>
@@ -521,6 +642,70 @@ onMounted(load);
         </div>
         <NButton type="primary" :loading="bhSaving" :disabled="!isOwner" @click="saveBusinessHours">保存营业时段</NButton>
       </NSpace>
+    </NCard>
+
+    <NCard title="假日包" :bordered="false" style="margin-top:16px">
+      <div style="margin-bottom:8px">
+        <span style="font-weight:500;cursor:pointer" @click="packOpen = !packOpen">
+          {{ packOpen ? '▼' : '▶' }} 国家/地区假日包（一键合并例外日）
+        </span>
+      </div>
+      <template v-if="packOpen">
+        <NText depth="3" style="display:block;margin-bottom:12px;font-size:12px">
+          精选静态包（CN/US）；预览后应用到本工作区营业例外或某 policy 日历覆盖。同日以包为准覆盖；包外例外保留。无外网同步。
+        </NText>
+        <NSpace vertical>
+          <NSpace align="center">
+            <NSelect :value="packKey" @update:value="onPackKeyUpdate" :options="packOptions" style="width:360px" :loading="packLoading" />
+            <NSelect
+              v-model:value="packTarget"
+              :options="[
+                { label: '本工作区 business_hours', value: 'workspace' },
+                { label: '指定 policy 日历', value: 'policy' }
+              ]"
+              style="width:220px"
+            />
+            <NSelect
+              v-if="packTarget === 'policy'"
+              v-model:value="packPolicyId"
+              :options="policyOptions"
+              placeholder="选择 policy"
+              style="width:200px"
+              clearable
+            />
+          </NSpace>
+          <NText depth="3" style="font-size:12px">{{ packSourceNote || '—' }}</NText>
+          <NSpace>
+            <NButton size="small" :loading="packLoading" @click="previewHolidayPack">预览</NButton>
+            <NButton
+              type="primary"
+              size="small"
+              :loading="packApplying"
+              :disabled="!isOwner"
+              @click="applyHolidayPack"
+            >
+              确认应用
+            </NButton>
+          </NSpace>
+          <div v-if="packPreview" style="font-size:12px">
+            <div style="margin-bottom:6px">
+              变更：+{{ (packPreview.added || []).length }} /
+              覆盖 {{ (packPreview.replaced || []).length }} /
+              保留 {{ (packPreview.unchanged || []).length }}
+              （{{ packPreview.countBefore }} → {{ packPreview.countAfter }}）
+            </div>
+            <div
+              v-for="row in [...(packPreview.added || []).map((x: any) => ({ ...x, _tag: 'added' })), ...(packPreview.replaced || []).map((x: any) => ({ date: x.date, kind: x.after?.kind || x.kind, _tag: 'replaced' }))]"
+              :key="row._tag + row.date"
+              style="display:flex;gap:8px;margin-bottom:2px"
+            >
+              <span style="width:70px;color:#888">{{ row._tag }}</span>
+              <span style="width:110px">{{ row.date }}</span>
+              <span>{{ row.kind }}</span>
+            </div>
+          </div>
+        </NSpace>
+      </template>
     </NCard>
   </div>
 </template>
