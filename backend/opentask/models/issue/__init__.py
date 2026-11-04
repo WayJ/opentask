@@ -15,6 +15,7 @@ from .model import (
     IssueTimeline,
     IssueTag,
     IssueReaction,
+    CommentReaction,
 )
 
 from .schema import (
@@ -54,6 +55,8 @@ __all__ = [
     "IssueRelation",
     "IssueTimeline",
     "IssueTag",
+    "IssueReaction",
+    "CommentReaction",
     # Schemas
     "IssueBase",
     "IssueCreate",

@@ -257,6 +257,8 @@ const local: App.I18n.Schema = {
     workspace_members: '成员 Members',
     invite: '邀请',
     workspace_labels: '标签 Labels',
+    'settings': '设置',
+    'settings_notifications': '通知偏好',
     'workspace_automations': '自动化',
     'workspace_custom-fields': '自定义字段',
     'workspace_issue-templates': 'Issue 模板',

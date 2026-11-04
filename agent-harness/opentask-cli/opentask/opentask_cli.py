@@ -44,12 +44,13 @@ from .core.customer import customer_cli
 from .core.insights import insights_cli
 from .core.custom_field import custom_field_cli
 from .core.automation import automation_cli
+from .core.notif import notif_cli
 from .core.request import request_cli
 from .core.doc import doc_cli
 
 
 # Global version
-VERSION = "1.10.0"
+VERSION = "1.11.0"
 
 # Context object passed to commands
 class Context:
@@ -400,6 +401,7 @@ cli.add_command(customer_cli)
 cli.add_command(insights_cli)
 cli.add_command(custom_field_cli)
 cli.add_command(automation_cli)
+cli.add_command(notif_cli)
 cli.add_command(request_cli)
 cli.add_command(doc_cli)
 cli.add_command(requirement_cli)

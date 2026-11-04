@@ -41,7 +41,9 @@ from opentask.models.issue import (
     IssueTimeline,
     IssueTag,
     IssueReaction,
+    CommentReaction,
 )
+from opentask.models.notification_preference import NotificationPreference
 from opentask.models.issue_collection import IssueCollection
 from opentask.models.workspace import Workspace, WorkspaceMember, WorkspaceInvite
 from opentask.models.notification import Notification
@@ -134,6 +136,8 @@ __all__ = [
     "CustomField",
     "IssueCustomFieldValue",
     "AutomationRule",
+    "CommentReaction",
+    "NotificationPreference",
     "AccessToken",
     "OAuthClient",
     "OAuthAuthorizationCode",

@@ -412,6 +412,12 @@ class IssueComment(DBModel):
         back_populates="parent",
         cascade="all, delete-orphan"
     )
+    reactions: Mapped[List["CommentReaction"]] = relationship(
+        "CommentReaction",
+        back_populates="comment",
+        cascade="all, delete-orphan",
+        order_by="CommentReaction.created_at.desc()",
+    )
 
     # 索引
     __table_args__ = (
@@ -638,4 +644,56 @@ class IssueReaction(DBModel):
         Index("idx_issue_reactions_user", "user_id"),
         Index("idx_issue_reactions_issue_emoji", "issue_id", "emoji"),
         Index("uq_issue_reaction", "issue_id", "emoji", "user_id", unique=True),
+    )
+
+
+class CommentReaction(DBModel):
+    """Issue 评论反应表（E27）"""
+    __tablename__ = "comment_reactions"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True
+    )
+
+    comment_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("issue_comments.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="评论 ID"
+    )
+
+    emoji: Mapped[str] = mapped_column(
+        String(10),
+        nullable=False,
+        index=True,
+        comment="表情符号"
+    )
+
+    user_id: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+        index=True,
+        comment="用户 ID"
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        insert_default=datetime.utcnow,
+        comment="创建时间"
+    )
+
+    comment: Mapped["IssueComment"] = relationship(
+        "IssueComment", back_populates="reactions"
+    )
+
+    __table_args__ = (
+        Index("idx_comment_reactions_comment", "comment_id"),
+        Index("idx_comment_reactions_emoji", "emoji"),
+        Index("idx_comment_reactions_user", "user_id"),
+        Index("idx_comment_reactions_comment_emoji", "comment_id", "emoji"),
+        Index("uq_comment_reaction", "comment_id", "emoji", "user_id", unique=True),
     )

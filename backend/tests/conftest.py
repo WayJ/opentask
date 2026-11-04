@@ -95,6 +95,9 @@ from opentask.models.issue_vcs_link import IssueVcsLink  # noqa: F401 — metada
 from opentask.models.cycle import Cycle  # noqa: F401 — metadata 注册
 from opentask.models.customer import Customer, CustomerRequest, CustomerRequestIssue  # noqa: F401 — E22
 from opentask.models.custom_field import CustomField, IssueCustomFieldValue  # noqa: F401 — E25
+from opentask.models.automation import AutomationRule  # noqa: F401 — E26
+from opentask.models.notification_preference import NotificationPreference  # noqa: F401 — E27
+from opentask.models.issue.model import CommentReaction  # noqa: F401 — E27
 from opentask.jwt_utils import create_access_token
 
 

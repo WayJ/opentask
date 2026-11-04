@@ -63,6 +63,8 @@ declare module "@elegant-router/types" {
     "requests": "/requests";
     "requests_detail": "/requests/detail";
     "search": "/search";
+    "settings": "/settings";
+    "settings_notifications": "/settings/notifications";
     "triage": "/triage";
     "work-management": "/work-management";
     "work-management_cost-projects": "/work-management/cost-projects";
@@ -143,6 +145,7 @@ declare module "@elegant-router/types" {
     | "profile"
     | "requests"
     | "search"
+    | "settings"
     | "triage"
     | "work-management"
     | "workflow"
@@ -203,6 +206,7 @@ declare module "@elegant-router/types" {
     | "requests_detail"
     | "requests"
     | "search"
+    | "settings_notifications"
     | "triage"
     | "work-management_cost-projects_create"
     | "work-management_cost-projects_detail"

@@ -209,6 +209,8 @@ const routeMap: RouteMap = {
   "requests": "/requests",
   "requests_detail": "/requests/detail",
   "search": "/search",
+  "settings": "/settings",
+  "settings_notifications": "/settings/notifications",
   "triage": "/triage",
   "work-management": "/work-management",
   "work-management_cost-projects": "/work-management/cost-projects",

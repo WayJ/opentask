@@ -351,6 +351,29 @@ export const issueApi = {
     });
   },
 
+  getCommentReactions: (issueId: string, commentId: string) => {
+    return request<{ reactions: Record<string, string[]> }>({
+      url: `/api/issues/${issueId}/comments/${commentId}/reactions`,
+      method: 'GET'
+    });
+  },
+
+  addCommentReaction: (issueId: string, commentId: string, emoji: string) => {
+    return request<{ reaction_id: number; reactions: Record<string, string[]> }>({
+      url: `/api/issues/${issueId}/comments/${commentId}/reactions`,
+      method: 'POST',
+      data: { emoji }
+    });
+  },
+
+  removeCommentReaction: (issueId: string, commentId: string, emoji: string) => {
+    return request<{ reactions: Record<string, string[]> }>({
+      url: `/api/issues/${issueId}/comments/${commentId}/reactions`,
+      method: 'DELETE',
+      params: { emoji }
+    });
+  },
+
   /**
    * 批量获取 Issues（优化性能，避免 N+1 查询）
    */

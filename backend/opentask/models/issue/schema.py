@@ -203,6 +203,9 @@ class IssueCommentResponse(IssueCommentBase):
     created_at: datetime
     updated_at: datetime
     user_info: Optional[UserInfo] = Field(None, description="用户信息")
+    reactions: Optional[dict] = Field(
+        None, description="E27：emoji → userId[] 映射"
+    )
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -11,7 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from opentask.auth import authenticate
 from opentask.models.user.model import UserModel
 from opentask.repositories.base import get_session
+from opentask.models.notification_preference.model import PREF_KEYS
 from opentask.services.notification.service import NotificationService, serialize_notification
+from opentask.api.workspace.deps import require_workspace_context
+from opentask.models.workspace.model import Workspace, WorkspaceMember
 from opentask.services.workspace.service import WorkspaceService
 from opentask.utils.response import success_response
 
@@ -22,6 +25,16 @@ _MAX_SNOOZE = timedelta(days=90)
 
 class SnoozeBody(BaseModel):
     until: datetime = Field(..., description="ISO datetime; must be > now and <= now+90d")
+
+
+class PrefsBody(BaseModel):
+    issue_assigned: Optional[bool] = None
+    issue_comment: Optional[bool] = None
+    issue_mention: Optional[bool] = None
+    issue_status: Optional[bool] = None
+    due_date_changed: Optional[bool] = None
+    issue_watch_event: Optional[bool] = None
+    automation_comment: Optional[bool] = None
 
 
 async def _optional_workspace_id(
@@ -40,6 +53,38 @@ def _normalize_until(until: datetime) -> datetime:
     if until.tzinfo is not None:
         until = until.replace(tzinfo=None)
     return until
+
+
+
+@router.get("/preferences")
+async def get_inbox_preferences(
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    """E27：当前用户在本 WS 的通知偏好（无行=全开默认）。"""
+    ws, _member, user = ctx
+    data = await NotificationService(session).get_prefs_payload(
+        user_id=str(user.id), workspace_id=ws.id
+    )
+    return success_response(data=data)
+
+
+@router.put("/preferences")
+async def put_inbox_preferences(
+    body: PrefsBody,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    """E27：upsert 本人偏好；仅改传入字段。"""
+    ws, _member, user = ctx
+    updates = {k: getattr(body, k) for k in PREF_KEYS if getattr(body, k) is not None}
+    row = await NotificationService(session).upsert_prefs(
+        user_id=str(user.id), workspace_id=ws.id, updates=updates
+    )
+    data = NotificationService(session).serialize_prefs(
+        row, user_id=str(user.id), workspace_id=ws.id
+    )
+    return success_response(data=data, message="已保存")
 
 
 @router.get("")

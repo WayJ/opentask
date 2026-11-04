@@ -758,6 +758,34 @@ async function handleUnreact(emoji: string) {
   }
 }
 
+async function handleCommentReact(commentId: string, emoji: string) {
+  if (!issueId.value) return;
+  const { data, error } = await issueApi.addCommentReaction(issueId.value, commentId, emoji);
+  if (error) {
+    window.$message?.error?.(error.message || '反应失败');
+    return;
+  }
+  const c = comments.value.find(x => x.id === commentId);
+  if (c && data?.reactions) {
+    (c as any).reactions = data.reactions;
+  }
+}
+
+async function handleCommentUnreact(commentId: string, emoji: string) {
+  if (!issueId.value) return;
+  const { data, error } = await issueApi.removeCommentReaction(issueId.value, commentId, emoji);
+  if (error) {
+    window.$message?.error?.(error.message || '取消反应失败');
+    return;
+  }
+  const c = comments.value.find(x => x.id === commentId);
+  if (c && data?.reactions) {
+    (c as any).reactions = data.reactions;
+  }
+}
+
+
+
 // Inline editing functions
 async function saveStatus() {
   if (!issueId.value || tempStatus.value === null) return;
@@ -1398,6 +1426,14 @@ onUnmounted(() => {
                     </div>
                     <div class="comment-text">
                       <MarkdownRenderer :content="comment.content" />
+                    </div>
+                    <div class="comment-reactions mt-8px">
+                      <IssueReactions
+                        :model-value="(comment as any).reactions || {}"
+                        :current-user-id="currentUserId"
+                        @react="(emoji: string) => handleCommentReact(comment.id, emoji)"
+                        @unreact="(emoji: string) => handleCommentUnreact(comment.id, emoji)"
+                      />
                     </div>
                   </div>
                 </div>

@@ -826,12 +826,29 @@ async def get_comments(
             for user in users
         }
 
-    # 构建响应，添加用户信息
+    # E27：批量加载评论反应
+    reaction_maps = await service.get_comments_reaction_maps([c.id for c in comments])
+
+    # 构建响应，添加用户信息 + reactions
+    # 注意：ORM 上也有 reactions 关系，勿 model_validate(ORM) 以免懒加载
     rows = []
     for comment in comments:
-        comment_dict = IssueCommentResponse.model_validate(comment).model_dump()
+        raw = {
+            "id": comment.id,
+            "issue_id": comment.issue_id,
+            "user_id": comment.user_id,
+            "content": comment.content,
+            "parent_id": comment.parent_id,
+            "comment_type": comment.comment_type,
+            "meta_data": comment.meta_data,
+            "is_deleted": comment.is_deleted,
+            "created_at": comment.created_at,
+            "updated_at": comment.updated_at,
+        }
+        comment_dict = IssueCommentResponse.model_validate(raw).model_dump()
         if comment.user_id and str(comment.user_id) in user_info_map:
             comment_dict["user_info"] = user_info_map[str(comment.user_id)]
+        comment_dict["reactions"] = reaction_maps.get(comment.id, {})
         rows.append(IssueCommentResponse(**comment_dict))
 
     return {
@@ -1206,6 +1223,85 @@ async def patch_issue_custom_fields(
         "code": 200,
         "message": "自定义字段已更新",
         "data": {"customFields": rows},
+        "timestamp": 0,
+    }
+
+
+# ========================================================================
+# 评论反应（E27）
+# ========================================================================
+
+@router.get("/{issue_id}/comments/{comment_id}/reactions")
+async def get_comment_reactions(
+    issue_id: str,
+    comment_id: str,
+    service: IssueService = Depends(get_issue_service),
+    current_user: UserModel = Depends(authenticate),
+):
+    """获取评论反应映射 emoji → userId[]"""
+    comment = await _require_comment_issue_access(
+        comment_id, service=service, user=current_user
+    )
+    if comment.issue_id != issue_id:
+        raise HTTPException(status_code=404, detail="评论不存在")
+    mapping = await service.get_comment_reaction_map(comment_id)
+    return {
+        "code": 200,
+        "message": "success",
+        "data": {"reactions": mapping},
+        "timestamp": 0,
+    }
+
+
+@router.post("/{issue_id}/comments/{comment_id}/reactions")
+async def add_comment_reaction(
+    issue_id: str,
+    comment_id: str,
+    data: IssueReactionCreate,
+    service: IssueService = Depends(get_issue_service),
+    current_user: UserModel = Depends(authenticate),
+):
+    comment = await _require_comment_issue_access(
+        comment_id, service=service, user=current_user
+    )
+    if comment.issue_id != issue_id:
+        raise HTTPException(status_code=404, detail="评论不存在")
+    reaction = await service.add_comment_reaction(
+        comment_id, data.emoji, str(current_user.id)
+    )
+    return {
+        "code": 200,
+        "message": "反应添加成功",
+        "data": {
+            "reaction_id": reaction.id,
+            "reactions": await service.get_comment_reaction_map(comment_id),
+        },
+        "timestamp": 0,
+    }
+
+
+@router.delete("/{issue_id}/comments/{comment_id}/reactions")
+async def remove_comment_reaction(
+    issue_id: str,
+    comment_id: str,
+    emoji: str = Query(..., description="表情符号"),
+    service: IssueService = Depends(get_issue_service),
+    current_user: UserModel = Depends(authenticate),
+):
+    comment = await _require_comment_issue_access(
+        comment_id, service=service, user=current_user
+    )
+    if comment.issue_id != issue_id:
+        raise HTTPException(status_code=404, detail="评论不存在")
+    success = await service.remove_comment_reaction(
+        comment_id, emoji, str(current_user.id)
+    )
+    if not success:
+        raise HTTPException(status_code=404, detail="反应不存在")
+    return {
+        "code": 200,
+        "message": "反应移除成功",
+        "data": {"reactions": await service.get_comment_reaction_map(comment_id)},
         "timestamp": 0,
     }
 

@@ -513,6 +513,26 @@ export const generatedRoutes: GeneratedRoute[] = [
     }
   },
   {
+    name: 'settings',
+    path: '/settings',
+    component: 'layout.base',
+    meta: {
+      title: 'settings',
+      i18nKey: 'route.settings'
+    },
+    children: [
+      {
+        name: 'settings_notifications',
+        path: '/settings/notifications',
+        component: 'view.settings_notifications',
+        meta: {
+          title: 'settings_notifications',
+          i18nKey: 'route.settings_notifications'
+        }
+      }
+    ]
+  },
+  {
     name: 'triage',
     path: '/triage',
     component: 'layout.base$view.triage',

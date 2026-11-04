@@ -10,6 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from opentask.models.issue.model import Issue
 from opentask.models.notification.model import Notification
+from opentask.models.notification_preference.model import (
+    PREF_KEYS,
+    TYPE_TO_PREF_KEY,
+    NotificationPreference,
+)
 from opentask.models.user.model import UserModel
 from opentask.models.workspace.model import WorkspaceMember
 from opentask.services.workspace_realtime import publish_inbox_created
@@ -34,10 +39,16 @@ class NotificationService:
         title: str,
         body: Optional[str] = None,
     ) -> Optional[Notification]:
-        """创建通知；若 recipient==actor 则跳过。"""
+        """创建通知；若 recipient==actor 则跳过；尊重通知偏好（E27）。"""
         if not recipient_user_id:
             return None
         if actor_user_id and str(recipient_user_id) == str(actor_user_id):
+            return None
+        if not await self.is_type_enabled(
+            workspace_id=workspace_id,
+            user_id=str(recipient_user_id),
+            notif_type=type,
+        ):
             return None
         row = Notification(
             workspace_id=workspace_id,
@@ -57,6 +68,69 @@ class NotificationService:
             return row
         await publish_inbox_created(row, actor_user_id=actor_user_id)
         return row
+
+    def default_prefs_dict(self) -> dict:
+        return {k: True for k in PREF_KEYS}
+
+    def serialize_prefs(
+        self, row: Optional[NotificationPreference], *, user_id: str, workspace_id: str
+    ) -> dict:
+        base = self.default_prefs_dict()
+        out = {
+            "userId": user_id,
+            "workspaceId": workspace_id,
+            **base,
+        }
+        if row is None:
+            return out
+        for k in PREF_KEYS:
+            out[k] = bool(getattr(row, k))
+        return out
+
+    async def get_prefs(
+        self, *, user_id: str, workspace_id: str
+    ) -> Optional[NotificationPreference]:
+        q = await self.db.execute(
+            select(NotificationPreference).where(
+                NotificationPreference.user_id == str(user_id),
+                NotificationPreference.workspace_id == workspace_id,
+            )
+        )
+        return q.scalar_one_or_none()
+
+    async def get_prefs_payload(self, *, user_id: str, workspace_id: str) -> dict:
+        row = await self.get_prefs(user_id=user_id, workspace_id=workspace_id)
+        return self.serialize_prefs(row, user_id=str(user_id), workspace_id=workspace_id)
+
+    async def upsert_prefs(
+        self, *, user_id: str, workspace_id: str, updates: dict
+    ) -> NotificationPreference:
+        row = await self.get_prefs(user_id=user_id, workspace_id=workspace_id)
+        if row is None:
+            row = NotificationPreference(
+                user_id=str(user_id),
+                workspace_id=workspace_id,
+            )
+            self.db.add(row)
+        for k in PREF_KEYS:
+            if k in updates and updates[k] is not None:
+                setattr(row, k, bool(updates[k]))
+        row.updated_at = datetime.utcnow()
+        await self.db.commit()
+        await self.db.refresh(row)
+        return row
+
+    async def is_type_enabled(
+        self, *, workspace_id: str, user_id: str, notif_type: str
+    ) -> bool:
+        """Unknown types fail-open (still create)."""
+        pref_key = TYPE_TO_PREF_KEY.get(notif_type)
+        if not pref_key:
+            return True
+        row = await self.get_prefs(user_id=user_id, workspace_id=workspace_id)
+        if row is None:
+            return True
+        return bool(getattr(row, pref_key, True))
 
     async def notify_assigned(
         self,
@@ -104,8 +178,13 @@ class NotificationService:
         actor_user_id: str,
         comment_content: str,
         comment_id: Optional[str] = None,
+        base_type: str = "commented",
     ) -> list[Notification]:
-        """评论：通知 assignee/reporter（非作者）+ @mention 工作区成员。"""
+        """评论：通知 assignee/reporter（非作者）+ @mention 工作区成员。
+
+        base_type: normally "commented"; automation/system → "automation_comment".
+        Mentions always use type "mentioned".
+        """
         if not issue.workspace_id:
             return []
 
@@ -113,16 +192,18 @@ class NotificationService:
         if len(snippet) > 200:
             snippet = snippet[:200] + "…"
 
+        comment_type = base_type if base_type in ("commented", "automation_comment") else "commented"
+
         recipients: dict[str, str] = {}  # user_id -> type
 
         for uid in (issue.assignee_id, issue.reporter_id):
             if uid and str(uid) != str(actor_user_id):
-                recipients[str(uid)] = "commented"
+                recipients[str(uid)] = comment_type
 
         # E18：关注者也收评论（mention 优先）
         for uid in await self._watcher_ids(issue.id):
             if uid != str(actor_user_id):
-                recipients.setdefault(uid, "commented")
+                recipients.setdefault(uid, comment_type)
 
         mentioned = await self._resolve_mentions(
             issue.workspace_id, comment_content or "", actor_user_id=actor_user_id
@@ -135,6 +216,8 @@ class NotificationService:
         for uid, ntype in recipients.items():
             if ntype == "mentioned":
                 title = f"有人在「{issue.title}」中提到了你"
+            elif ntype == "automation_comment":
+                title = f"「{issue.title}」有自动化评论"
             else:
                 title = f"「{issue.title}」有新评论"
             n = await self.create(
@@ -442,3 +525,6 @@ def serialize_notification(n: Notification) -> dict:
         "snoozedUntil": n.snoozed_until,
         "createdAt": n.created_at,
     }
+
+
+__all_pref_keys__ = PREF_KEYS

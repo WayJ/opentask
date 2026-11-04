@@ -12,6 +12,7 @@ from opentask.models.issue.model import (
     IssueTimeline,
     IssueTag,
     IssueReaction,
+    CommentReaction,
 )
 from opentask.models.document.model import Document
 from opentask.services.storage.service import get_storage_service
@@ -938,14 +939,20 @@ class IssueService:
         # 注释掉 refresh 以避免枚举值问题
         # await self.db.refresh(comment)
 
-        # Inbox：评论 / @mention 通知（非作者）
+        # Inbox：评论 / @mention 通知（非作者）；自动化 → automation_comment
         issue = await self.get_issue(issue_id)
         if issue:
+            meta = meta_data or {}
+            is_automation = (
+                str(comment_type).lower() in ("system", "commenttype.system")
+                or meta.get("source") == "automation"
+            )
             await NotificationService(self.db).notify_comment(
                 issue,
                 actor_user_id=user_id,
                 comment_content=content,
                 comment_id=comment.id,
+                base_type="automation_comment" if is_automation else "commented",
             )
             await publish_comment_created(
                 workspace_id=issue.workspace_id,
@@ -1242,6 +1249,87 @@ class IssueService:
             stats[reaction.emoji]["users"].append(reaction.user_id)
 
         return stats
+
+    # ========================================================================
+    # 评论反应（E27）
+    # ========================================================================
+
+    async def get_comment_reactions(self, comment_id: str) -> List["CommentReaction"]:
+        from opentask.models.issue.model import CommentReaction
+
+        result = await self.db.execute(
+            select(CommentReaction)
+            .where(CommentReaction.comment_id == comment_id)
+            .order_by(CommentReaction.created_at.desc())
+        )
+        return list(result.scalars().all())
+
+    async def get_comment_reaction_map(self, comment_id: str) -> Dict[str, List[str]]:
+        reactions = await self.get_comment_reactions(comment_id)
+        out: Dict[str, List[str]] = {}
+        for r in reactions:
+            out.setdefault(r.emoji, []).append(r.user_id)
+        return out
+
+    async def get_comments_reaction_maps(
+        self, comment_ids: List[str]
+    ) -> Dict[str, Dict[str, List[str]]]:
+        from opentask.models.issue.model import CommentReaction
+
+        if not comment_ids:
+            return {}
+        result = await self.db.execute(
+            select(CommentReaction).where(CommentReaction.comment_id.in_(comment_ids))
+        )
+        out: Dict[str, Dict[str, List[str]]] = {cid: {} for cid in comment_ids}
+        for r in result.scalars().all():
+            out.setdefault(r.comment_id, {}).setdefault(r.emoji, []).append(r.user_id)
+        return out
+
+    async def add_comment_reaction(
+        self, comment_id: str, emoji: str, user_id: str
+    ) -> "CommentReaction":
+        from opentask.models.issue.model import CommentReaction
+
+        result = await self.db.execute(
+            select(CommentReaction).where(
+                and_(
+                    CommentReaction.comment_id == comment_id,
+                    CommentReaction.emoji == emoji,
+                    CommentReaction.user_id == user_id,
+                )
+            )
+        )
+        existing = result.scalar_one_or_none()
+        if existing:
+            return existing
+        reaction = CommentReaction(
+            comment_id=comment_id,
+            emoji=emoji,
+            user_id=user_id,
+        )
+        self.db.add(reaction)
+        await self.db.commit()
+        await self.db.refresh(reaction)
+        return reaction
+
+    async def remove_comment_reaction(
+        self, comment_id: str, emoji: str, user_id: str
+    ) -> bool:
+        from opentask.models.issue.model import CommentReaction
+
+        result = await self.db.execute(
+            delete(CommentReaction).where(
+                and_(
+                    CommentReaction.comment_id == comment_id,
+                    CommentReaction.emoji == emoji,
+                    CommentReaction.user_id == user_id,
+                )
+            )
+        )
+        await self.db.commit()
+        return bool(result.rowcount)
+
 
     # ========================================================================
     # 时间线操作

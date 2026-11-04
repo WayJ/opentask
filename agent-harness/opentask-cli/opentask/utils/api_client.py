@@ -886,6 +886,17 @@ class OpenTaskClient:
     async def disable_automation(self, rule_id: str) -> dict:
         return await self.post(f"/api/automations/{rule_id}/disable")
 
+
+    # ========================================================================
+    # Notification preferences (E27)
+    # ========================================================================
+
+    async def get_notif_prefs(self) -> dict:
+        return await self.get("/api/inbox/preferences")
+
+    async def put_notif_prefs(self, updates: dict) -> dict:
+        return await self.put("/api/inbox/preferences", data=updates)
+
     async def insights_summary(self, cycle_id: str | None = None, assignee_limit: int | None = None) -> dict:
         params = {}
         if cycle_id:
