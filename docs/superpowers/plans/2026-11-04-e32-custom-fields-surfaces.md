@@ -18,20 +18,20 @@
 
 ### Task 1 — Docs
 - [x] design + plan 入库
-- [ ] acceptance 骨架；收口补 tip/测试数
+- [x] acceptance 骨架；收口补 tip/测试数
 
 ### Task 2 — BE
-- [ ] `parse_cf_query_filters` + service 匹配
-- [ ] list router 接入；pytest（类型、未知 key 空、跨租户）
+- [x] `parse_cf_query_filters` + service 匹配
+- [x] list router 接入；pytest（类型、未知 key 空、跨租户）
 
 ### Task 3 — FE
-- [ ] issueSearchParser `field:`/`cf:`
-- [ ] display-prefs `custom_field_keys`
-- [ ] DisplayOptionsPanel + list 列 / include / cf params
-- [ ] vitest
+- [x] issueSearchParser `field:`/`cf:`
+- [x] display-prefs `custom_field_keys`
+- [x] DisplayOptionsPanel + list 列 / include / cf params
+- [x] vitest
 
 ### Task 4 — CLI 1.16.0
-- [ ] `--cf`；version；测
+- [x] `--cf`；version；测
 
 ### Task 5 — 门禁
-- [ ] BE/CLI/FE；acceptance tip；STOP
+- [x] BE/CLI/FE；acceptance tip；STOP
