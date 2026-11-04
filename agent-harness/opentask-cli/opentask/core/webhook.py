@@ -20,6 +20,11 @@ EVENTS = [
     "issue.assignee_changed",
     "issue.label_added",
     "issue.label_removed",
+    "issue.cycle_changed",
+    "issue.estimate_changed",
+    "issue.project_changed",
+    "issue.sla_paused",
+    "issue.sla_resumed",
 ]
 
 
@@ -70,7 +75,7 @@ def webhook_list(obj, as_json):
     "--events",
     "-e",
     required=True,
-    help="逗号分隔事件，如 issue.created,issue.updated",
+    help="逗号分隔事件（见 webhook events），如 issue.created,issue.cycle_changed",
 )
 @click.option("--name", "-n", default=None)
 @click.option("--disabled", is_flag=True)
@@ -281,3 +286,19 @@ def webhook_run_due(obj, as_json):
         )
     except APIError as e:
         handle_api_error(e, json_mode)
+
+
+@webhook_cli.command(name="events")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def webhook_events(obj, as_json):
+    """列出允许订阅的 webhook 事件名。"""
+    json_mode = as_json or obj.json_mode
+    if json_mode:
+        echo_json(True, data={"events": list(EVENTS)})
+        return
+    obj.skin.table(
+        ["Event"],
+        [[ev] for ev in EVENTS],
+    )
+
