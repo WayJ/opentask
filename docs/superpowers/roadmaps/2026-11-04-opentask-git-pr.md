@@ -32,9 +32,9 @@ date: 2026-11-04
 ## PRD / Yuri ACs
 
 - [x] 分支名约定；含 KEY-N / issue_code（Linear-like）
-- [ ] PR 关联到 Issue
+- [x] PR 关联到 Issue
 - [ ] 可选状态钩子（PR open/merge → issue status，可开关）
-- [x] CLI/Agent 同契约（同一 API/约定）（S1 branch-name/link；S3 收口文档）
+- [x] CLI/Agent 同契约（同一 API/约定）（S1 branch-name/link；S2 link-pr；S3 收口文档）
 
 ## Definition of Done
 
@@ -50,7 +50,7 @@ date: 2026-11-04
 | sprint | state | note |
 |---|---|---|
 | S1 ✅ | **done** | 分支名约定：suggest/parse API + `issue_vcs_links`（至少 branch 类型）+ Issue FE「复制分支名」+ CLI 同端点 |
-| S2 | **planned** | PR 关联 CRUD + GitHub-compatible webhook ingest（可 mock）更新 link 状态 + Issue 详情 PR 面板 |
+| S2 ✅ | **done** | PR 关联 CRUD + GitHub-compatible webhook ingest（可 mock）更新 link 状态 + Issue 详情 PR 面板 |
 | S3 | **planned** | 可选状态钩子（WS 开关）+ 打磨 + CLI/Agent 契约验收 + Epic local-complete |
 
 推荐顺序理由：分支约定是 Linear 日常最高频且不依赖 webhook（S1）；PR 关联与状态字段建立在同一 link 模型上，webhook 可本地 fixture（S2）；状态钩子是可选副作用，需开关与负例，放 S3 与整包验收同频。
@@ -97,14 +97,15 @@ date: 2026-11-04
 |---|---|
 | 2026-11-04 | Phase 1：roadmap + design + S1 stub；基线 E10-S3 `55ed5b7`；Yuri 四 AC 写入；无产品 impl / 无 push |
 | 2026-11-04 | **S1 local-complete**：branch-name + issue_vcs_links + FE/CLI；783 pytest；无 S2/S3/push |
+| 2026-11-04 | **S2 local-complete**：PR PATCH + mockable webhook + IssuePrPanel + CLI link-pr；794 pytest；无 S3/push |
 
 ## Sprint status
 
 - [x] E11-S1 分支名约定 + link 骨架
-- [ ] E11-S2 PR 关联 + webhook ingest
+- [x] E11-S2 PR 关联 + webhook ingest
 - [ ] E11-S3 可选状态钩子 + Epic DoD
 
 ## Epic status
 
-- [ ] E11 Phase 1 docs（本提交）
+- [x] E11 Phase 1 docs
 - [ ] E11 **local-complete**（待 S1–S3）
