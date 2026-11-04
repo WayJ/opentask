@@ -34,7 +34,7 @@ date: 2026-11-04
 | sprint | state | note |
 |---|---|---|
 | S1 | closed | **Palette 壳 + ⌘K/Ctrl+K + 页面/动作跳转**；acceptance: `docs/superpowers/acceptances/2026-11-04-E5-S1-acceptance.md`；tip `0063b58` |
-| S2 | closed | **实体搜索分组**：Issues（title + by_code）、Projects、Saved Views→应用筛选；防抖查询 + 分组结果。acceptance: `docs/superpowers/acceptances/2026-11-04-E5-S2-acceptance.md`；tip `3e89230` |
+| S2 | closed | **实体搜索分组**：Issues（title + by_code）、Projects、Saved Views→应用筛选；防抖查询 + 分组结果。acceptance: `docs/superpowers/acceptances/2026-11-04-E5-S2-acceptance.md`；tip `9dc0e9e` |
 | S3 | planned | **焦点选择 + C/A/S/P/I + pickers**；**⌘B/Ctrl+B** Board↔List（`/issue/list`，对齐现有 UI toggle）；详情上下文；`ignoreWhenEditable`；看板 URL `?id=`；Epic 门禁与 acceptance。evidence: TBD |
 
 推荐顺序理由：先固化全局挂载与打开契约（S1），再叠实体检索（S2），最后绑定焦点与变更热键（S3）——变更热键依赖焦点与既有 updateStatus/Assignee/Priority API，避免 S1 过重。
@@ -217,4 +217,4 @@ date: 2026-11-04
 
 - 2026-11-04（UTC+8）：E5-S1 closed（本地 tip `0063b58`）；整 Epic 仍 active。北星补充：⌘B Board↔List 记入 S3，不回灌 S1。
 
-- 2026-11-04（UTC+8）：E5-S2 closed（本地 tip `3e89230`）；实体搜索 Issues/Projects/Views + `?view=` apply；Epic 仍 active → 待 E5-S3。
+- 2026-11-04（UTC+8）：E5-S2 closed（本地 tip `9dc0e9e`）；实体搜索 Issues/Projects/Views + `?view=` apply；Epic 仍 active → 待 E5-S3。
