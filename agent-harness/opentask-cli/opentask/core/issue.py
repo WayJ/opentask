@@ -28,6 +28,12 @@ def document_cli():
     pass
 
 
+@issue_cli.group(name="attachment")
+def attachment_cli():
+    """Issue attachment commands (E66 ACL / signed URL)."""
+    pass
+
+
 # ============================================================================
 # Helper Functions
 # ============================================================================
@@ -2443,6 +2449,95 @@ def download_all_documents(obj: "Context", issue_id: str, save_dir: str, as_json
         skin.error(f"Failed to get documents: {e.message}")
     except Exception as e:
         skin.error(f"Batch download failed: {str(e)}")
+
+
+# ============================================================================
+# E66: issue attachment (ACL download + signed-url)
+# ============================================================================
+
+@attachment_cli.command(name="download")
+@click.argument("issue_id")
+@click.argument("attachment_id")
+@click.option("--out", "out_path", default=".", help="Output file or directory")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def download_attachment(obj: "Context", issue_id: str, attachment_id: str, out_path: str, as_json: bool):
+    """Download an issue attachment (authenticated session; E66).
+
+    Examples:
+        issue attachment download ISSUE-ID ATTACHMENT-ID ./downloads/
+        issue attachment download OT-1 abc123 ./file.bin --json
+    """
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+
+    try:
+        real_issue_id = issue_id
+        import re
+        issue_code_pattern = re.compile(
+            r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE
+        )
+        if issue_code_pattern.match(issue_id):
+            info = asyncio.run(client.get_issue(issue_id, by_code=True))
+            real_issue_id = info.get("id", issue_id)
+
+        saved_path = asyncio.run(
+            client.download_issue_document(real_issue_id, attachment_id, out_path)
+        )
+        if json_mode:
+            echo_json(
+                data={"path": saved_path, "attachment_id": attachment_id, "issue_id": real_issue_id},
+                message=f"Attachment downloaded to: {saved_path}",
+            )
+            return
+        import os
+        skin.success(f"Attachment downloaded: {os.path.basename(saved_path)}")
+        skin.hint(f"Saved to: {saved_path}")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to download attachment", json_mode)
+        sys.exit(1)
+
+
+@attachment_cli.command(name="signed-url")
+@click.argument("issue_id")
+@click.argument("attachment_id")
+@click.option("--purpose", type=click.Choice(["preview", "download"]), default="preview")
+@click.option("--ttl", "ttl_seconds", type=int, default=None, help="TTL seconds (default 900, max 3600)")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def attachment_signed_url(
+    obj: "Context",
+    issue_id: str,
+    attachment_id: str,
+    purpose: str,
+    ttl_seconds: int | None,
+    as_json: bool,
+):
+    """Mint a short-TTL signed URL for an attachment (debug / FE preview; E66)."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+
+    try:
+        # issue_id accepted for CLI symmetry; signed-url is attachment-scoped
+        _ = issue_id
+        result = asyncio.run(
+            client.create_attachment_signed_url(
+                attachment_id, purpose=purpose, ttl_seconds=ttl_seconds
+            )
+        )
+        if json_mode:
+            echo_json(data=result, message="Signed URL created")
+            return
+        skin.success("Signed URL created")
+        skin.hint(f"url: {result.get('url')}")
+        skin.hint(f"expiresAt: {result.get('expiresAt')}")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to create signed URL", json_mode)
+        sys.exit(1)
 
 
 @issue_cli.command(name="bulk-update")

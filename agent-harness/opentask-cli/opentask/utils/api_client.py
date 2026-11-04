@@ -1789,6 +1789,21 @@ class OpenTaskClient:
     # Auth API
     # ============================================================================
 
+    async def create_attachment_signed_url(
+        self,
+        attachment_id: str,
+        *,
+        purpose: str = "preview",
+        ttl_seconds: int | None = None,
+    ) -> dict:
+        """E66: mint short-TTL signed URL for an attachment."""
+        body: dict = {"purpose": purpose}
+        if ttl_seconds is not None:
+            body["ttlSeconds"] = ttl_seconds
+        data = await self.post(f"/api/attachments/{attachment_id}/signed-url", json=body)
+        return data if isinstance(data, dict) else {"raw": data}
+
+
     async def login(self, username: str, password: str, _save_to_config: bool = True) -> dict:
         """Login and get JWT token using local authentication.
 

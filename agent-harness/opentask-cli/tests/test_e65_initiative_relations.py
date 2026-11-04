@@ -1,17 +1,17 @@
-"""E65 CLI: initiative relations + version 1.49.0."""
+"""E65 CLI: initiative relations + version 1.50.0."""
 from click.testing import CliRunner
 
 from opentask import __version__
 from opentask.opentask_cli import VERSION, cli
 
 
-def test_version_1_49_0():
+def test_version_1_50_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.49.0" in result.output
-    assert VERSION == "1.49.0"
-    assert __version__ == "1.49.0"
+    assert "1.50.0" in result.output
+    assert VERSION == "1.50.0"
+    assert __version__ == "1.50.0"
 
 
 def test_initiative_relations_help():

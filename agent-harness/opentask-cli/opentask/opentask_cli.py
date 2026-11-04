@@ -56,7 +56,7 @@ from .core.search import search_cli
 
 
 # Global version
-VERSION = "1.49.0"
+VERSION = "1.50.0"
 
 # Context object passed to commands
 class Context:
