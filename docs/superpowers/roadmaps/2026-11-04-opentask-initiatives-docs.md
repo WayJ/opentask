@@ -87,3 +87,10 @@ date: 2026-11-04
 | date | note |
 |---|---|
 | 2026-11-04 | Phase 1：roadmap + design + S1 stub；基线 E9-S3 `f06dc9f`；Yuri 禁 PGE 双轴写入 |
+| 2026-11-04 | **S1 local-complete**：CRUD+M2M+FE；Alembic `b2c3d4e5f6a7`；758 pytest；无 PGE/push |
+
+## Sprint status
+
+- [x] E10-S1 Initiative CRUD local-complete
+- [ ] E10-S2 health rollup + nav
+- [ ] E10-S3 Docs + Epic DoD
