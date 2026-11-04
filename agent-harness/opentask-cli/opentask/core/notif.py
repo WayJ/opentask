@@ -1,4 +1,4 @@
-"""Notification preference + email commands (E27/E30)."""
+"""Notification preference + email + due-reminders commands (E27/E30/E39)."""
 from __future__ import annotations
 
 import asyncio
@@ -18,13 +18,15 @@ PREF_KEYS = [
     "due_date_changed",
     "issue_watch_event",
     "automation_comment",
+    "due_reminder",
+    "due_reminder_digest",
     "email_enabled",
 ]
 
 
 @click.group(name="notif")
 def notif_cli():
-    """通知相关（偏好 / 邮件测试）。"""
+    """通知相关（偏好 / 邮件测试 / 到期提醒 tick）。"""
     pass
 
 
@@ -122,5 +124,66 @@ def email_test(obj, as_json):
             return
         to = (data or {}).get("to") or ""
         obj.skin.success(f"测试邮件已发送 → {to}" if to else "测试邮件已发送")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@notif_cli.command(name="run-due-reminders")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def run_due_reminders(obj, as_json):
+    """执行到期提醒 tick（UTC；外部调度，无内置 cron）。"""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.run_due_reminders())
+        if json_mode:
+            echo_json(True, data=data)
+            return
+        obj.skin.success("已执行 due reminders")
+        if isinstance(data, dict):
+            obj.skin.info(
+                f"processed={data.get('processedIssues')} "
+                f"reminders={data.get('remindersCreated')} "
+                f"digests={data.get('digestsCreated')} "
+                f"skipped={data.get('skipped')}"
+            )
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@notif_cli.command(name="due-deliveries")
+@click.option("--bucket-date", "bucket_date", default=None, help="UTC YYYY-MM-DD")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def due_deliveries(obj, bucket_date, as_json):
+    """列出到期提醒投递账本（只读）。"""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.list_due_reminder_deliveries(bucket_date=bucket_date))
+        if json_mode:
+            echo_json(True, data=data)
+            return
+        rows = (data or {}).get("rows") or []
+        obj.skin.section(f"Due reminder deliveries ({len(rows)})")
+        table = []
+        for r in rows:
+            table.append(
+                [
+                    r.get("kind"),
+                    r.get("userId"),
+                    r.get("issueId") or "-",
+                    r.get("bucketDate"),
+                    r.get("dueDateBucket") or "-",
+                ]
+            )
+        obj.skin.table(["Kind", "User", "Issue", "Bucket", "DueBucket"], table)
     except APIError as e:
         handle_api_error(e, json_mode)
