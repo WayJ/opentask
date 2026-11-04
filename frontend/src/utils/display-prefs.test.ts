@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  defaultIssueDisplay,
-  displayStateToJson,
-  normalizeIssueDisplay
-} from './display-prefs';
+import { defaultIssueDisplay, displayStateToJson, normalizeIssueDisplay } from './display-prefs';
 
 describe('normalizeIssueDisplay', () => {
   it('returns defaults for null/invalid', () => {

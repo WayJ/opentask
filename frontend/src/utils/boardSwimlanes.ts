@@ -3,7 +3,7 @@
  */
 import { issueStatusOptions } from '@/constants/issue';
 import type { Api } from '@/typings/api';
-import { groupIssuesBy, type GroupByKey } from './groupIssuesBy';
+import { type GroupByKey, groupIssuesBy } from './groupIssuesBy';
 import type { SwimlaneBy } from './display-prefs';
 
 export type BoardStatus = Api.Issue.IssueStatus;

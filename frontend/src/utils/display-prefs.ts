@@ -6,15 +6,7 @@ import { type GroupByKey, isGroupByKey } from './groupIssuesBy';
 export type SwimlaneBy = 'none' | 'assignee' | 'priority' | 'type' | 'label';
 
 export type DisplayFieldKey =
-  | 'assignee'
-  | 'priority'
-  | 'labels'
-  | 'estimate_points'
-  | 'due_date'
-  | 'project'
-  | 'cycle'
-  | 'issue_code'
-  | 'type';
+  'assignee' | 'priority' | 'labels' | 'estimate_points' | 'due_date' | 'project' | 'cycle' | 'issue_code' | 'type';
 
 export type IssueDisplayFields = Record<DisplayFieldKey, boolean>;
 
@@ -71,13 +63,7 @@ const DEFAULT_FIELDS: IssueDisplayFields = {
 };
 
 function isSwimlaneBy(value: unknown): value is SwimlaneBy {
-  return (
-    value === 'none' ||
-    value === 'assignee' ||
-    value === 'priority' ||
-    value === 'type' ||
-    value === 'label'
-  );
+  return value === 'none' || value === 'assignee' || value === 'priority' || value === 'type' || value === 'label';
 }
 
 export function defaultIssueDisplay(): IssueDisplayState {

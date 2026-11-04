@@ -26,9 +26,10 @@ export interface DerivedListStateFromSavedView {
   activeSavedViewId: string;
 }
 
-export function deriveListStateFromSavedView(view: SavedView): DerivedListStateFromSavedView {
-  const f = view.filter || {};
-  const filters = {
+type ListTab = DerivedListStateFromSavedView['tab'];
+
+function pickFilters(f: Record<string, unknown>): DerivedListStateFromSavedView['filters'] {
+  return {
     type: (f.type as Api.Issue.IssueType | undefined) || undefined,
     priority: (f.priority as Api.Issue.IssuePriority | undefined) || undefined,
     project_id: (f.project_id as string | undefined) || undefined,
@@ -36,48 +37,63 @@ export function deriveListStateFromSavedView(view: SavedView): DerivedListStateF
     status: (f.status as Api.Issue.IssueStatus | undefined) || undefined,
     search: (f.search as string | undefined) || ''
   };
+}
 
-  let tab = (f.tab as DerivedListStateFromSavedView['tab'] | undefined) || undefined;
-  if (!tab && filters.status) {
-    const openStatuses: Api.Issue.IssueStatus[] = ['open', 'in_progress', 'feedback'];
-    const closedStatuses: Api.Issue.IssueStatus[] = ['closed', 'rejected', 'resolved'];
-    if (openStatuses.includes(filters.status)) tab = 'open';
-    else if (closedStatuses.includes(filters.status)) tab = 'closed';
+function inferTab(explicit: unknown, status?: Api.Issue.IssueStatus): ListTab {
+  if (explicit === 'my_issues' || explicit === 'open' || explicit === 'closed' || explicit === 'all') {
+    return explicit;
   }
+  if (!status) return undefined;
+  const openStatuses: Api.Issue.IssueStatus[] = ['open', 'in_progress', 'feedback'];
+  const closedStatuses: Api.Issue.IssueStatus[] = ['closed', 'rejected', 'resolved'];
+  if (openStatuses.includes(status)) return 'open';
+  if (closedStatuses.includes(status)) return 'closed';
+  return undefined;
+}
 
+function pickViewMode(display: SavedView['display']): 'list' | 'board' | undefined {
+  if (display?.view_mode === 'board' || display?.view_mode === 'list') {
+    return display.view_mode;
+  }
+  return undefined;
+}
+
+function pickGroupBy(display: SavedView['display']): GroupByKey {
+  return isGroupByKey(display?.group_by) ? (display!.group_by as GroupByKey) : 'none';
+}
+
+function pickSwimlane(display: SavedView['display'], fallback: SwimlaneBy): SwimlaneBy {
+  return isSwimlaneByKey(display?.swimlane_by) ? (display!.swimlane_by as SwimlaneBy) : fallback;
+}
+
+function pickHideEmpty(display: SavedView['display'], fallback: boolean): boolean {
+  if (display && 'hide_empty_lanes' in display) {
+    return Boolean(display.hide_empty_lanes);
+  }
+  return fallback;
+}
+
+function pickFields(display: SavedView['display'], normalized: IssueDisplayFields): IssueDisplayFields {
+  if (display?.fields && typeof display.fields === 'object') {
+    return normalized;
+  }
+  return defaultIssueDisplay().fields;
+}
+
+export function deriveListStateFromSavedView(view: SavedView): DerivedListStateFromSavedView {
+  const f = view.filter || {};
+  const filters = pickFilters(f as Record<string, unknown>);
+  const tab = inferTab(f.tab, filters.status);
   const normalized = normalizeIssueDisplay(view.display || null);
-
-  let viewMode: 'list' | 'board' | undefined;
-  if (view.display?.view_mode === 'board' || view.display?.view_mode === 'list') {
-    viewMode = view.display.view_mode;
-  }
-
-  const groupBy: GroupByKey = isGroupByKey(view.display?.group_by)
-    ? (view.display!.group_by as GroupByKey)
-    : 'none';
-
-  const swimlaneBy: SwimlaneBy = isSwimlaneByKey(view.display?.swimlane_by)
-    ? (view.display!.swimlane_by as SwimlaneBy)
-    : normalized.swimlaneBy;
-
-  const hideEmptyLanes =
-    view.display && 'hide_empty_lanes' in view.display
-      ? Boolean(view.display.hide_empty_lanes)
-      : normalized.hideEmptyLanes;
-
-  const fields =
-    view.display && view.display.fields && typeof view.display.fields === 'object'
-      ? normalized.fields
-      : defaultIssueDisplay().fields;
 
   return {
     filters,
     tab,
-    viewMode,
-    groupBy,
-    swimlaneBy,
-    hideEmptyLanes,
-    fields,
+    viewMode: pickViewMode(view.display),
+    groupBy: pickGroupBy(view.display),
+    swimlaneBy: pickSwimlane(view.display, normalized.swimlaneBy),
+    hideEmptyLanes: pickHideEmpty(view.display, normalized.hideEmptyLanes),
+    fields: pickFields(view.display, normalized.fields),
     activeSavedViewId: view.id
   };
 }

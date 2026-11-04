@@ -11,6 +11,7 @@ import {
   NInput,
   NModal,
   NPagination,
+  NPopover,
   NSelect,
   NSpace,
   NSpin,
@@ -40,6 +41,7 @@ import {
   fetchSetSavedViewFavorite,
   fetchUpdateSavedView
 } from '@/service/api/saved-views';
+import { fetchIssueDisplayPrefs, fetchPutIssueDisplayPrefs } from '@/service/api/display-prefs';
 import { fetchWorkspaceList } from '@/service/api/workspace';
 import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
@@ -49,12 +51,20 @@ import { localStg } from '@/utils/storage';
 import { buildSavedViewDropdownOptions, canWriteSavedView } from '@/utils/saved-view-sections';
 import { deriveListStateFromSavedView } from '@/utils/apply-saved-view';
 import { GROUP_BY_OPTIONS, type GroupByKey } from '@/utils/groupIssuesBy';
+import {
+  type IssueDisplayFields,
+  type SwimlaneBy,
+  defaultIssueDisplay,
+  displayStateToJson,
+  normalizeIssueDisplay
+} from '@/utils/display-prefs';
 import { nestIssuesDepth1 } from '@/utils/nestIssuesDepth1';
 import type { ParsedQuery } from '@/utils/issueSearchParser';
 import IssueSmartSearch from '@/components/IssueSmartSearch.vue';
 import type { Api } from '@/typings/api';
 import IssueBoard from './modules/IssueBoard.vue';
 import IssueListGrouped from './modules/IssueListGrouped.vue';
+import DisplayOptionsPanel from './modules/DisplayOptionsPanel.vue';
 
 defineOptions({
   name: 'IssueList'
@@ -100,6 +110,77 @@ const groupByOptions = GROUP_BY_OPTIONS;
 
 const isGroupedList = computed(() => groupBy.value !== 'none');
 const activeGroupBy = computed(() => groupBy.value as Exclude<GroupByKey, 'none'>);
+
+/** E7-S3：会话 Display（View 覆盖会话；prefs 为个人默认） */
+const displayFields = ref<IssueDisplayFields>(defaultIssueDisplay().fields);
+const swimlaneBy = ref<SwimlaneBy>('none');
+const hideEmptyLanes = ref(false);
+const displayPrefsSaving = ref(false);
+const displayPopoverShow = ref(false);
+
+function currentDisplayJson() {
+  return displayStateToJson({
+    viewMode: viewMode.value,
+    groupBy: groupBy.value,
+    swimlaneBy: swimlaneBy.value,
+    hideEmptyLanes: hideEmptyLanes.value,
+    fields: displayFields.value
+  });
+}
+
+function applyDisplayState(partial: {
+  viewMode?: 'list' | 'board';
+  groupBy?: GroupByKey;
+  swimlaneBy?: SwimlaneBy;
+  hideEmptyLanes?: boolean;
+  fields?: IssueDisplayFields;
+}) {
+  if (partial.viewMode) viewMode.value = partial.viewMode;
+  if (partial.groupBy) groupBy.value = partial.groupBy;
+  if (partial.swimlaneBy) swimlaneBy.value = partial.swimlaneBy;
+  if (typeof partial.hideEmptyLanes === 'boolean') hideEmptyLanes.value = partial.hideEmptyLanes;
+  if (partial.fields) displayFields.value = { ...partial.fields };
+}
+
+async function loadPersonalDisplayPrefs() {
+  try {
+    const { data, error } = await fetchIssueDisplayPrefs();
+    if (error || !data?.display) return;
+    const normalized = normalizeIssueDisplay(data.display);
+    applyDisplayState({
+      viewMode: normalized.viewMode,
+      groupBy: normalized.groupBy,
+      swimlaneBy: normalized.swimlaneBy,
+      hideEmptyLanes: normalized.hideEmptyLanes,
+      fields: normalized.fields
+    });
+  } catch {
+    /* ignore prefs load */
+  }
+}
+
+async function setPersonalDisplayDefault() {
+  displayPrefsSaving.value = true;
+  try {
+    const { error } = await fetchPutIssueDisplayPrefs(currentDisplayJson() as any);
+    if (error) {
+      window.$message?.error(error.message || '保存个人默认失败');
+      return;
+    }
+    window.$message?.success('已设为个人默认显示');
+  } catch {
+    window.$message?.error('保存个人默认失败');
+  } finally {
+    displayPrefsSaving.value = false;
+  }
+}
+
+function resetDisplayOptions() {
+  const d = defaultIssueDisplay();
+  swimlaneBy.value = d.swimlaneBy;
+  hideEmptyLanes.value = d.hideEmptyLanes;
+  displayFields.value = { ...d.fields };
+}
 
 /** E4-S3：当前页 depth-1 嵌套（父不在本页则子作顶层） */
 type IssueRow = Api.Issue.Issue & { nestDepth?: number };
@@ -202,7 +283,7 @@ async function confirmSaveView() {
       name,
       filter: buildCurrentFilterPayload(),
       sort: { sort_by: 'created_at', sort_order: 'desc' },
-      display: { view_mode: viewMode.value, group_by: groupBy.value },
+      display: currentDisplayJson(),
       is_favorite: false,
       is_shared: saveViewShared.value
     });
@@ -235,6 +316,9 @@ async function applySavedView(view: SavedView) {
     viewMode.value = state.viewMode;
   }
   groupBy.value = state.groupBy;
+  swimlaneBy.value = state.swimlaneBy;
+  hideEmptyLanes.value = state.hideEmptyLanes;
+  displayFields.value = { ...state.fields };
 
   activeSavedViewId.value = state.activeSavedViewId;
   pagination.page = 1;
@@ -657,12 +741,38 @@ async function handleGroupByChange(value: GroupByKey | null) {
   if (!id || !canWriteActiveSavedView.value) return;
   try {
     await fetchUpdateSavedView(id, {
-      display: { view_mode: viewMode.value, group_by: groupBy.value }
+      display: currentDisplayJson()
     });
     await loadSavedViews();
   } catch {
     window.$message?.warning('分组已切换，但同步到已保存视图失败');
   }
+}
+
+async function syncActiveViewDisplay() {
+  const id = activeSavedViewId.value;
+  if (!id || !canWriteActiveSavedView.value) return;
+  try {
+    await fetchUpdateSavedView(id, { display: currentDisplayJson() });
+    await loadSavedViews();
+  } catch {
+    /* non-blocking */
+  }
+}
+
+function onDisplayFieldsUpdate(next: IssueDisplayFields) {
+  displayFields.value = next;
+  syncActiveViewDisplay();
+}
+
+function onSwimlaneByUpdate(next: SwimlaneBy) {
+  swimlaneBy.value = next;
+  syncActiveViewDisplay();
+}
+
+function onHideEmptyLanesUpdate(next: boolean) {
+  hideEmptyLanes.value = next;
+  syncActiveViewDisplay();
 }
 
 // Clear all filters
@@ -871,6 +981,7 @@ onMounted(async () => {
   if (typeof viewId === 'string' && viewId) {
     await applySavedViewById(viewId);
   } else {
+    await loadPersonalDisplayPrefs();
     await loadIssues();
   }
 });
@@ -1037,6 +1148,26 @@ onMounted(async () => {
               <div>查看搜索语法帮助</div>
             </NTooltip>
 
+            <NPopover v-model:show="displayPopoverShow" trigger="click" placement="bottom-end">
+              <template #trigger>
+                <NButton text size="small" class="action-btn">
+                  <icon-mdi-eye-outline />
+                  <span class="action-btn-text">显示</span>
+                </NButton>
+              </template>
+              <DisplayOptionsPanel
+                :fields="displayFields"
+                :swimlane-by="swimlaneBy"
+                :hide-empty-lanes="hideEmptyLanes"
+                :saving="displayPrefsSaving"
+                @update:fields="onDisplayFieldsUpdate"
+                @update:swimlane-by="onSwimlaneByUpdate"
+                @update:hide-empty-lanes="onHideEmptyLanesUpdate"
+                @set-personal-default="setPersonalDisplayDefault"
+                @reset="resetDisplayOptions"
+              />
+            </NPopover>
+
             <div class="group-by-select">
               <NText depth="3" class="group-by-label">分组</NText>
               <NSelect
@@ -1184,7 +1315,13 @@ onMounted(async () => {
 
       <NSpin :show="loading">
         <template v-if="viewMode === 'board'">
-          <IssueBoard :issues="filteredIssues" @changed="loadIssues" />
+          <IssueBoard
+            :issues="filteredIssues"
+            :swimlane-by="swimlaneBy"
+            :hide-empty-lanes="hideEmptyLanes"
+            :fields="displayFields"
+            @changed="loadIssues"
+          />
         </template>
         <template v-else-if="isGroupedList">
           <IssueListGrouped

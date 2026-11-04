@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildBoardSwimlanes } from './boardSwimlanes';
 import type { Api } from '@/typings/api';
+import { buildBoardSwimlanes } from './boardSwimlanes';
 
 function issue(partial: Partial<Api.Issue.Issue> & { id: string; title: string }): Api.Issue.Issue {
   return {
@@ -17,7 +17,14 @@ describe('buildBoardSwimlanes', () => {
     issue({ id: '1', title: 'A', status: 'open', assignee_id: 'u1', assignee: { name: 'Ann' } as any }),
     issue({ id: '2', title: 'B', status: 'in_progress', assignee_id: 'u1', assignee: { name: 'Ann' } as any }),
     issue({ id: '3', title: 'C', status: 'open', assignee_id: null as any }),
-    issue({ id: '4', title: 'D', status: 'open', priority: 'high', assignee_id: 'u2', assignee: { name: 'Bob' } as any })
+    issue({
+      id: '4',
+      title: 'D',
+      status: 'open',
+      priority: 'high',
+      assignee_id: 'u2',
+      assignee: { name: 'Bob' } as any
+    })
   ];
 
   it('none yields single lane with status columns', () => {
