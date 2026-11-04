@@ -27,7 +27,7 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e48-sla-first
 - Create: `docs/superpowers/plans/2026-11-05-e48-sla-first-response-pause-timeline.md`（本文件）
 - Create: `docs/superpowers/acceptances/2026-11-05-E48-acceptance.md`（骨架；收口补 tip/测数）
 
-- [ ] **Step 1:** 入库 plan + acceptance 骨架并 commit
+- [x] **Step 1:** 入库 plan + acceptance 骨架并 commit
 
 ---
 
