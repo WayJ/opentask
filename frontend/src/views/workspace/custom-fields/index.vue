@@ -1,14 +1,26 @@
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref } from 'vue';
-import { type DataTableColumns, NButton, NCard, NDataTable, NInput, NSelect, NSpace, NTag } from 'naive-ui';
+import {
+  type DataTableColumns,
+  NButton,
+  NCard,
+  NDataTable,
+  NInput,
+  NSelect,
+  NSpace,
+  NTag,
+  NText
+} from 'naive-ui';
 import {
   type CustomFieldRow,
   type CustomFieldType,
+  type FormulaResultType,
   fetchCreateCustomField,
   fetchCustomFields,
   fetchDeleteCustomField,
   fetchReorderCustomFields,
-  fetchUpdateCustomField
+  fetchUpdateCustomField,
+  fetchValidateFormula
 } from '@/service/api/custom-fields';
 
 defineOptions({ name: 'WorkspaceCustomFieldsPage' });
@@ -16,11 +28,14 @@ defineOptions({ name: 'WorkspaceCustomFieldsPage' });
 const loading = ref(false);
 const rows = ref<CustomFieldRow[]>([]);
 const creating = ref(false);
+const validating = ref(false);
 const form = reactive({
   name: '',
   key: '',
   type: 'text' as CustomFieldType,
-  optionsText: ''
+  optionsText: '',
+  formulaExpr: '',
+  formulaResultType: 'number' as FormulaResultType
 });
 
 const typeOptions = [
@@ -29,10 +44,19 @@ const typeOptions = [
   { label: 'boolean', value: 'boolean' },
   { label: 'date', value: 'date' },
   { label: 'single_select', value: 'single_select' },
-  { label: 'multi_select', value: 'multi_select' }
+  { label: 'multi_select', value: 'multi_select' },
+  { label: '公式 formula', value: 'formula' }
+];
+
+const resultTypeOptions = [
+  { label: 'number', value: 'number' },
+  { label: 'boolean', value: 'boolean' },
+  { label: 'text', value: 'text' },
+  { label: 'date', value: 'date' }
 ];
 
 const isSelect = computed(() => form.type === 'single_select' || form.type === 'multi_select');
+const isFormula = computed(() => form.type === 'formula');
 
 const columns: DataTableColumns<CustomFieldRow> = [
   { title: '名称', key: 'name' },
@@ -43,9 +67,14 @@ const columns: DataTableColumns<CustomFieldRow> = [
   },
   { title: '类型', key: 'type', width: 120 },
   {
-    title: '选项',
+    title: '选项/公式',
     key: 'options',
-    render: row => (row.options || []).map(o => o.label || o.value).join(', ') || '—'
+    render: row => {
+      if (row.type === 'formula') {
+        return row.formulaExpr || '—';
+      }
+      return (row.options || []).map(o => o.label || o.value).join(', ') || '—';
+    }
   },
   { title: '排序', key: 'position', width: 70 },
   {
@@ -114,6 +143,31 @@ function parseOptions(text: string) {
     });
 }
 
+async function validateExpr() {
+  if (!form.formulaExpr.trim()) {
+    window.$message?.warning?.('请输入公式表达式');
+    return;
+  }
+  validating.value = true;
+  try {
+    const { data, error } = await fetchValidateFormula({
+      formulaExpr: form.formulaExpr.trim(),
+      formulaResultType: form.formulaResultType
+    });
+    if (error) {
+      window.$message?.error?.(error.message || '校验失败');
+      return;
+    }
+    if (data?.ok) {
+      window.$message?.success?.(`校验通过 · deps: ${(data.dependencies || []).join(', ') || '—'}`);
+    } else {
+      window.$message?.error?.(data?.error || '公式无效');
+    }
+  } finally {
+    validating.value = false;
+  }
+}
+
 async function createField() {
   if (!form.name.trim()) {
     window.$message?.warning?.('请输入名称');
@@ -123,13 +177,19 @@ async function createField() {
     window.$message?.warning?.('select 类型需要 options');
     return;
   }
+  if (isFormula.value && !form.formulaExpr.trim()) {
+    window.$message?.warning?.('公式需要表达式');
+    return;
+  }
   creating.value = true;
   try {
     const { error } = await fetchCreateCustomField({
       name: form.name.trim(),
       type: form.type,
       key: form.key.trim() || undefined,
-      options: isSelect.value ? parseOptions(form.optionsText) : undefined
+      options: isSelect.value ? parseOptions(form.optionsText) : undefined,
+      formulaExpr: isFormula.value ? form.formulaExpr.trim() : undefined,
+      formulaResultType: isFormula.value ? form.formulaResultType : undefined
     });
     if (error) {
       window.$message?.error?.(error.message || '创建失败');
@@ -138,6 +198,8 @@ async function createField() {
     form.name = '';
     form.key = '';
     form.optionsText = '';
+    form.formulaExpr = '';
+    form.formulaResultType = 'number';
     window.$message?.success?.('已创建');
     await load();
   } finally {
@@ -199,8 +261,29 @@ onMounted(load);
             placeholder="选项：a,b 或 a=A（逗号/换行）"
             style="width: 260px"
           />
+          <NSelect
+            v-if="isFormula"
+            v-model:value="form.formulaResultType"
+            :options="resultTypeOptions"
+            style="width: 120px"
+          />
           <NButton type="primary" :loading="creating" @click="createField">创建字段</NButton>
         </NSpace>
+        <template v-if="isFormula">
+          <NInput
+            v-model:value="form.formulaExpr"
+            type="textarea"
+            :rows="3"
+            placeholder='表达式，如 IF(issue.priority == "urgent", 10, COALESCE(cf.weight, 0) * COALESCE(cf.impact, 0))'
+          />
+          <NSpace align="center">
+            <NButton size="small" :loading="validating" @click="validateExpr">校验公式</NButton>
+            <NText depth="3" style="font-size: 12px">
+              可用：cf.&lt;key&gt;、issue.estimate_points|priority|status、days_until_due；函数
+              IF/COALESCE/ABS/MIN/MAX/ROUND/LEN/LOWER/UPPER/DATE_DIFF。只读计算，不触发自动化。
+            </NText>
+          </NSpace>
+        </template>
         <NDataTable :columns="columns" :data="rows" :loading="loading" :bordered="false" size="small" />
       </NSpace>
     </NCard>

@@ -6,7 +6,8 @@ import {
   type CustomFieldType,
   type IssueCustomFieldValue,
   fetchPatchIssueCustomFields,
-  formatCustomFieldValue
+  formatCustomFieldValue,
+  formatFormulaDisplay
 } from '@/service/api/custom-fields';
 
 defineOptions({ name: 'IssueCustomFieldsEditor' });
@@ -109,9 +110,14 @@ function display(type: CustomFieldType, value: unknown) {
       <div class="cf-label">
         <NText depth="3" style="font-size: 12px">{{ f.name }}</NText>
         <NText depth="3" style="font-size: 10px; margin-left: 4px">{{ f.key }}</NText>
+        <NText v-if="f.type === 'formula'" depth="3" style="font-size: 10px; margin-left: 6px">ƒ 公式</NText>
       </div>
-      <div v-if="readonly" class="cf-value">
-        <NText>{{ display(f.type, draft[f.key]) }}</NText>
+      <div v-if="readonly || f.type === 'formula'" class="cf-value">
+        <NText
+          v-if="f.type === 'formula'"
+          :title="f.error || undefined"
+        >{{ formatFormulaDisplay(f) }}</NText>
+        <NText v-else>{{ display(f.type, draft[f.key]) }}</NText>
       </div>
       <NSpace v-else align="center" :wrap="false" style="width: 100%">
         <NInput

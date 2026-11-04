@@ -843,6 +843,17 @@ class OpenTaskClient:
         data = {"name": name, "type": field_type, **kwargs}
         return await self.post("/api/custom-fields", data=data)
 
+    async def update_custom_field(self, field_id: str, **kwargs) -> dict:
+        return await self.patch(f"/api/custom-fields/{field_id}", data=kwargs)
+
+    async def validate_formula(
+        self, formula_expr: str, result_type: str | None = None
+    ) -> dict:
+        data = {"formulaExpr": formula_expr}
+        if result_type:
+            data["formulaResultType"] = result_type
+        return await self.post("/api/custom-fields/validate-formula", data=data)
+
     async def set_issue_custom_fields(self, issue_id: str, values: list[dict]) -> dict:
         return await self.patch(
             f"/api/issues/{issue_id}/custom-fields",
