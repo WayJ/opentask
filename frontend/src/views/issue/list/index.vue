@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import {
   NButton,
   NCard,
+  NCheckbox,
   NDataTable,
   NDropdown,
   NEmpty,
@@ -34,14 +35,18 @@ import { issueApi } from '@/service/api/issue';
 import {
   type SavedView,
   fetchCreateSavedView,
+  fetchSaveAsSavedView,
   fetchSavedViews,
   fetchSetSavedViewFavorite,
   fetchUpdateSavedView
 } from '@/service/api/saved-views';
+import { fetchWorkspaceList } from '@/service/api/workspace';
 import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
 import { useIssueFocus } from '@/composables/use-issue-focus';
 import { useIssueListViewMode } from '@/composables/use-issue-list-view-mode';
+import { localStg } from '@/utils/storage';
+import { buildSavedViewDropdownOptions, canWriteSavedView } from '@/utils/saved-view-sections';
 import { deriveListStateFromSavedView } from '@/utils/apply-saved-view';
 import { GROUP_BY_OPTIONS, type GroupByKey } from '@/utils/groupIssuesBy';
 import { nestIssuesDepth1 } from '@/utils/nestIssuesDepth1';
@@ -118,25 +123,54 @@ const filters = reactive({
 // 智能搜索
 const smartSearchValue = ref('');
 
-// Saved Views（E4-S1 个人视图）
+// Saved Views（E4 个人；E7-S2 共享分区）
 const savedViews = ref<SavedView[]>([]);
+const personalSavedViews = ref<SavedView[]>([]);
+const sharedSavedViews = ref<SavedView[]>([]);
 const savedViewsLoading = ref(false);
 const saveViewModalVisible = ref(false);
 const saveViewName = ref('');
+const saveViewShared = ref(false);
 const saveViewSubmitting = ref(false);
 const activeSavedViewId = ref<string | null>(null);
+const workspaceRole = ref<string | null>(null);
+
+async function loadWorkspaceRole() {
+  try {
+    const res = await fetchWorkspaceList();
+    const list = res.data || [];
+    const wid = localStg.get('workspaceId');
+    const current = list.find(w => w.id === wid) || list[0];
+    workspaceRole.value = current?.role ?? null;
+  } catch {
+    workspaceRole.value = null;
+  }
+}
 
 async function loadSavedViews() {
   savedViewsLoading.value = true;
   try {
     const response = await fetchSavedViews();
-    savedViews.value = response.data?.rows || [];
+    const data = response.data;
+    personalSavedViews.value = data?.personal || [];
+    sharedSavedViews.value = data?.shared || [];
+    savedViews.value = data?.rows || [...personalSavedViews.value, ...sharedSavedViews.value];
   } catch {
+    personalSavedViews.value = [];
+    sharedSavedViews.value = [];
     savedViews.value = [];
   } finally {
     savedViewsLoading.value = false;
   }
 }
+
+const activeSavedView = computed(() => savedViews.value.find(v => v.id === activeSavedViewId.value) || null);
+
+const canWriteActiveSavedView = computed(() => {
+  const view = activeSavedView.value;
+  if (!view) return false;
+  return canWriteSavedView(view, currentUserId.value, workspaceRole.value);
+});
 
 function buildCurrentFilterPayload() {
   const filter: Record<string, unknown> = {};
@@ -152,6 +186,7 @@ function buildCurrentFilterPayload() {
 
 function openSaveViewModal() {
   saveViewName.value = '';
+  saveViewShared.value = false;
   saveViewModalVisible.value = true;
 }
 
@@ -168,9 +203,10 @@ async function confirmSaveView() {
       filter: buildCurrentFilterPayload(),
       sort: { sort_by: 'created_at', sort_order: 'desc' },
       display: { view_mode: viewMode.value, group_by: groupBy.value },
-      is_favorite: false
+      is_favorite: false,
+      is_shared: saveViewShared.value
     });
-    window.$message?.success('视图已保存');
+    window.$message?.success(saveViewShared.value ? '共享视图已保存' : '视图已保存');
     await loadSavedViews();
     return true;
   } catch {
@@ -233,6 +269,10 @@ async function toggleActiveViewFavorite() {
   }
   const view = savedViews.value.find(v => v.id === id);
   if (!view) return;
+  if (view.isShared) {
+    window.$message?.warning('共享视图不支持收藏，可另存为个人视图后再收藏');
+    return;
+  }
   try {
     await fetchSetSavedViewFavorite(view.id, !view.isFavorite);
     await loadSavedViews();
@@ -242,15 +282,30 @@ async function toggleActiveViewFavorite() {
   }
 }
 
-const savedViewDropdownOptions = computed<DropdownOption[]>(() => {
-  if (!savedViews.value.length) {
-    return [{ label: '暂无已保存视图', key: '__empty', disabled: true }];
+async function saveActiveViewAsPersonal() {
+  const view = activeSavedView.value;
+  if (!view) {
+    window.$message?.info('请先应用一个已保存视图');
+    return;
   }
-  return savedViews.value.map(v => ({
-    label: v.isFavorite ? `★ ${v.name}` : v.name,
-    key: v.id
-  }));
+  try {
+    const res = await fetchSaveAsSavedView(view.id, `${view.name}（副本）`);
+    window.$message?.success('已另存为个人视图');
+    await loadSavedViews();
+    const copy = res.data;
+    if (copy?.id) {
+      await applySavedView(copy);
+    }
+  } catch {
+    window.$message?.error('另存为失败');
+  }
+}
+
+const savedViewDropdownOptions = computed<DropdownOption[]>(() => {
+  return buildSavedViewDropdownOptions(personalSavedViews.value, sharedSavedViews.value) as DropdownOption[];
 });
+
+const favoriteSavedViews = computed(() => personalSavedViews.value.filter(v => v.isFavorite));
 
 function handleSavedViewSelect(key: string | number) {
   const id = String(key);
@@ -599,7 +654,7 @@ function handlePageSizeChange(pageSize: number) {
 async function handleGroupByChange(value: GroupByKey | null) {
   groupBy.value = value || 'none';
   const id = activeSavedViewId.value;
-  if (!id) return;
+  if (!id || !canWriteActiveSavedView.value) return;
   try {
     await fetchUpdateSavedView(id, {
       display: { view_mode: viewMode.value, group_by: groupBy.value }
@@ -806,6 +861,7 @@ watch(
 onMounted(async () => {
   loadProjects();
   loadCycles();
+  await loadWorkspaceRole();
   await loadSavedViews();
   const viewId = route.query.view;
   const cycleQ = route.query.cycle_id;
@@ -925,7 +981,7 @@ onMounted(async () => {
             <NDropdown trigger="click" :options="savedViewDropdownOptions" @select="handleSavedViewSelect">
               <NButton text size="small" class="action-btn">
                 <icon-mdi-bookmark-outline />
-                <span class="action-btn-text">我的视图</span>
+                <span class="action-btn-text">视图</span>
                 <icon-mdi-chevron-down class="chevron-icon" />
               </NButton>
             </NDropdown>
@@ -937,10 +993,10 @@ onMounted(async () => {
                   <span class="action-btn-text">保存视图</span>
                 </NButton>
               </template>
-              <div>将当前筛选保存为个人视图</div>
+              <div>将当前筛选保存为个人或共享视图</div>
             </NTooltip>
 
-            <NTooltip v-if="activeSavedViewId">
+            <NTooltip v-if="activeSavedViewId && activeSavedView && !activeSavedView.isShared">
               <template #trigger>
                 <NButton text size="small" class="action-btn" @click="toggleActiveViewFavorite">
                   <icon-mdi-star />
@@ -948,6 +1004,16 @@ onMounted(async () => {
                 </NButton>
               </template>
               <div>切换当前视图收藏状态</div>
+            </NTooltip>
+
+            <NTooltip v-if="activeSavedViewId">
+              <template #trigger>
+                <NButton text size="small" class="action-btn" @click="saveActiveViewAsPersonal">
+                  <icon-mdi-content-copy />
+                  <span class="action-btn-text">另存为</span>
+                </NButton>
+              </template>
+              <div>复制为个人视图（共享只读成员可用）</div>
             </NTooltip>
 
             <NTooltip>
@@ -1060,11 +1126,11 @@ onMounted(async () => {
       </div>
 
       <!-- Saved View favorites -->
-      <div v-if="savedViews.some(v => v.isFavorite)" class="saved-view-favorites">
+      <div v-if="favoriteSavedViews.length" class="saved-view-favorites">
         <NSpace :size="6" align="center">
           <NText depth="3" style="font-size: 12px">收藏视图</NText>
           <NTag
-            v-for="v in savedViews.filter(x => x.isFavorite)"
+            v-for="v in favoriteSavedViews"
             :key="v.id"
             size="small"
             round
@@ -1160,13 +1226,16 @@ onMounted(async () => {
     <NModal
       v-model:show="saveViewModalVisible"
       preset="dialog"
-      title="保存为个人视图"
+      :title="saveViewShared ? '保存为共享视图' : '保存为个人视图'"
       positive-text="保存"
       negative-text="取消"
       :loading="saveViewSubmitting"
       @positive-click="confirmSaveView"
     >
-      <NInput v-model:value="saveViewName" placeholder="视图名称，例如：我的高优缺陷" maxlength="128" />
+      <NSpace vertical :size="12">
+        <NInput v-model:value="saveViewName" placeholder="视图名称，例如：我的高优缺陷" maxlength="128" />
+        <NCheckbox v-model:checked="saveViewShared">共享给工作区</NCheckbox>
+      </NSpace>
     </NModal>
   </div>
 </template>

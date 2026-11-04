@@ -30,6 +30,7 @@ export interface SavedView {
   ownerUserId: string;
   name: string;
   isFavorite: boolean;
+  isShared: boolean;
   filter: SavedViewFilter;
   sort?: SavedViewSort | null;
   display?: SavedViewDisplay | null;
@@ -38,6 +39,8 @@ export interface SavedView {
 }
 
 export interface SavedViewListResult {
+  personal: SavedView[];
+  shared: SavedView[];
   rows: SavedView[];
   total: number;
 }
@@ -55,6 +58,7 @@ export function fetchCreateSavedView(body: {
   sort?: SavedViewSort | null;
   display?: SavedViewDisplay | null;
   is_favorite?: boolean;
+  is_shared?: boolean;
 }) {
   return request<SavedView>({
     url: '/api/saved-views',
@@ -71,6 +75,7 @@ export function fetchUpdateSavedView(
     sort?: SavedViewSort | null;
     display?: SavedViewDisplay | null;
     is_favorite?: boolean;
+    is_shared?: boolean;
   }
 ) {
   return request<SavedView>({
@@ -92,5 +97,13 @@ export function fetchSetSavedViewFavorite(id: string, isFavorite: boolean) {
     url: `/api/saved-views/${id}/favorite`,
     method: 'post',
     data: { is_favorite: isFavorite }
+  });
+}
+
+export function fetchSaveAsSavedView(id: string, name?: string) {
+  return request<SavedView>({
+    url: `/api/saved-views/${id}/save-as`,
+    method: 'post',
+    data: name ? { name } : {}
   });
 }
