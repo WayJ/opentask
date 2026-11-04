@@ -4,8 +4,8 @@
 
 **pass** — S1 范围交付：`workspaces.issue_key`/`issue_counter`（平台 UNIQUE）+ Alembic `b8c9d0e1f2a4`（revises `a7b8c9d0e1f3`）存量回填 + `issues.legacy_issue_code`；新建 Issue 分配 `KEY-N`；改 `issueKey` 仅影响新单；`get_issue(by_code)` 双解析（code∨legacy）并在带 `X-Workspace-Id` 时按 workspace 过滤；列表 search 含 code/legacy；Workspace API/FE 设置读写 `issueKey`；CLI/`looksLikeIssueCode` 认 KEY-N；Jira key 编解码在 **不改写** legacy 年号公式前提下增加 KEY-N 独立号段双读（避免全量门禁被污染 KEY-N 行打爆）。**未**做 invites / 成员 UI / SMTP / 去 PGE。未推远程。
 
-**Fingerprint (impl tip):** `PLACEHOLDER_HEAD`
-**Branch tip:** `PLACEHOLDER_HEAD`
+**Fingerprint (impl tip):** `41761d24a9d138edf3f917175c576f3e15db0446`
+**Branch tip:** `41761d24a9d138edf3f917175c576f3e15db0446`
 **Branch:** `sprint/E12-S1`
 **Worktree:** `/workspace/opentask-worktrees/E12-S1`
 **Plan:** `docs/superpowers/plans/2026-11-04-e12-s1-issue-key.md` @ `c46e9ba86972b9a6a10ac7d4e30ce1902c699ea4`
@@ -13,7 +13,7 @@
 **Time (Asia/Shanghai):** 2026-11-04 ~12:08 CST
 
 ```supervibe-acceptance-results
-{"schema": 1, "scope": "sprint", "candidate": "PLACEHOLDER_HEAD", "environment": "共享 box Linux；worktree /workspace/opentask-worktrees/E12-S1；分支 sprint/E12-S1（基 E8-S3 tip 9fef926）；PostgreSQL portable；backend .venv→E8-S1；frontend node_modules→E8-S1；Asia/Shanghai 2026-11-04 ~12:08 CST", "results": [{"id": "S1", "status": "passed", "modality": "api", "environment": "real", "steps": ["pytest tests/api/test_issue_key.py"], "expected": "issueKey/KEY-N/dual-parse/cross-WS 404", "observed": "8 PASSED", "artifacts": [], "blockers": []}, {"id": "S2", "status": "passed", "modality": "code", "environment": "real", "steps": ["models+alembic+services+FE issueKey+CLI"], "expected": "分配/回填/设置/CLI", "observed": "入库", "artifacts": [], "blockers": []}, {"id": "S3", "status": "passed", "modality": "cli", "environment": "real", "steps": ["pytest tests/ -q", "vitest command-palette-entities", "eslint touched FE"], "expected": "≥700+new / ⌘K KEY-N / 0 eslint", "observed": "708 passed, 27 skipped, 0 failed；vitest 8 passed；eslint 0", "artifacts": [], "blockers": ["pnpm run build 因跨 worktree node_modules/unocss 配置读取失败（环境）；非本 Sprint 逻辑回归"]}, {"id": "R-browser", "status": "blocked", "modality": "browser", "environment": "real", "steps": ["未跑浏览器 E2E"], "expected": "手感", "observed": "API+静态门禁覆盖；不阻塞 S1 pass", "artifacts": [], "blockers": ["本轮无浏览器 E2E 会话"]}]}
+{"schema": 1, "scope": "sprint", "candidate": "41761d24a9d138edf3f917175c576f3e15db0446", "environment": "共享 box Linux；worktree /workspace/opentask-worktrees/E12-S1；分支 sprint/E12-S1（基 E8-S3 tip 9fef926）；PostgreSQL portable；backend .venv→E8-S1；frontend node_modules→E8-S1；Asia/Shanghai 2026-11-04 ~12:08 CST", "results": [{"id": "S1", "status": "passed", "modality": "api", "environment": "real", "steps": ["pytest tests/api/test_issue_key.py"], "expected": "issueKey/KEY-N/dual-parse/cross-WS 404", "observed": "8 PASSED", "artifacts": [], "blockers": []}, {"id": "S2", "status": "passed", "modality": "code", "environment": "real", "steps": ["models+alembic+services+FE issueKey+CLI"], "expected": "分配/回填/设置/CLI", "observed": "入库", "artifacts": [], "blockers": []}, {"id": "S3", "status": "passed", "modality": "cli", "environment": "real", "steps": ["pytest tests/ -q", "vitest command-palette-entities", "eslint touched FE"], "expected": "≥700+new / ⌘K KEY-N / 0 eslint", "observed": "708 passed, 27 skipped, 0 failed；vitest 8 passed；eslint 0", "artifacts": [], "blockers": ["pnpm run build 因跨 worktree node_modules/unocss 配置读取失败（环境）；非本 Sprint 逻辑回归"]}, {"id": "R-browser", "status": "blocked", "modality": "browser", "environment": "real", "steps": ["未跑浏览器 E2E"], "expected": "手感", "observed": "API+静态门禁覆盖；不阻塞 S1 pass", "artifacts": [], "blockers": ["本轮无浏览器 E2E 会话"]}]}
 ```
 
 ## Gates
