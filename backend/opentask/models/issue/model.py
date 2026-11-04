@@ -521,6 +521,8 @@ class IssueTimeline(DBModel):
              "relation_removed", "attachment_added", "attachment_removed",
              "label_added", "label_removed", "reaction_added", "reaction_removed",
              "resolved", "closed", "reopened",
+             "custom_field_changed", "cycle_changed", "estimate_changed",
+             "project_changed",
              name="timeline_action"),
         nullable=False,
         index=True,

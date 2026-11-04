@@ -57,6 +57,7 @@ from opentask.services.tag.service import (
 )
 from opentask.services.custom_field.service import CustomFieldService, parse_cf_query_items, require_writer as require_cf_writer
 from opentask.services.issue_csv import IssueCsvService, require_writer as require_csv_writer, EXPORT_MAX_ROWS
+from opentask.services.issue_timeline_export import build_timeline_csv, EXPORT_DEFAULT_LIMIT, EXPORT_HARD_CAP
 from opentask.api.workspace.deps import get_optional_workspace_context, require_workspace_context, ensure_entity_workspace_access
 from opentask.models.workspace.model import Workspace, WorkspaceMember
 from pydantic import BaseModel, Field
@@ -267,6 +268,50 @@ async def export_issues_csv(
         headers=headers,
     )
 
+
+
+
+@router.get("/timeline/export.csv")
+async def export_workspace_timeline_csv(
+    since: Optional[str] = Query(None, description="ISO datetime lower bound on created_at"),
+    issueId: Optional[str] = Query(None, description="Filter to one issue id"),
+    actionType: Optional[List[str]] = Query(None, description="Filter action_type (repeatable)"),
+    limit: int = Query(EXPORT_DEFAULT_LIMIT, ge=1, le=EXPORT_HARD_CAP),
+    service: IssueService = Depends(get_issue_service),
+    ctx: tuple = Depends(require_workspace_context),
+):
+    """E41：工作区级 timeline CSV export（viewer+）。"""
+    from datetime import datetime as _dt
+
+    workspace, _member, _user = ctx
+    since_dt = None
+    if since:
+        try:
+            since_dt = _dt.fromisoformat(since.replace("Z", "+00:00")).replace(tzinfo=None)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"invalid since: {e}") from e
+    if issueId:
+        issue = await service.get_issue(issueId)
+        if not issue or issue.workspace_id != workspace.id:
+            raise HTTPException(status_code=404, detail="Issue 不存在")
+    body, truncated = await build_timeline_csv(
+        service.db,
+        workspace_id=workspace.id,
+        issue_id=issueId,
+        since=since_dt,
+        action_types=actionType,
+        limit=limit,
+    )
+    headers = {
+        "Content-Disposition": 'attachment; filename="workspace-timeline.csv"',
+    }
+    if truncated:
+        headers["X-OpenTask-Truncated"] = "true"
+    return StreamingResponse(
+        iter([body]),
+        media_type="text/csv; charset=utf-8",
+        headers=headers,
+    )
 
 @router.get("/import/template.csv")
 async def download_import_template(
@@ -1480,6 +1525,43 @@ async def remove_reaction(
 # ========================================================================
 # 时间线操作
 # ========================================================================
+
+
+
+@router.get("/{issue_id}/timeline/export.csv")
+async def export_issue_timeline_csv(
+    issue_id: str,
+    limit: int = Query(EXPORT_DEFAULT_LIMIT, ge=1, le=EXPORT_HARD_CAP),
+    actionType: Optional[List[str]] = Query(None, description="Filter action_type (repeatable)"),
+    service: IssueService = Depends(get_issue_service),
+    ctx: tuple = Depends(require_workspace_context),
+    current_user: UserModel = Depends(authenticate),
+):
+    """E41：单 Issue timeline CSV export（viewer+；跨租户 404）。"""
+    workspace, _member, user = ctx
+    issue = await service.get_issue(issue_id)
+    if not issue or issue.workspace_id != workspace.id:
+        raise HTTPException(status_code=404, detail="Issue 不存在")
+    await ensure_entity_workspace_access(service.db, str(user.id), issue.workspace_id)
+    body, truncated = await build_timeline_csv(
+        service.db,
+        workspace_id=workspace.id,
+        issue_id=issue.id,
+        action_types=actionType,
+        limit=limit,
+    )
+    code = issue.issue_code or issue.id
+    headers = {
+        "Content-Disposition": f'attachment; filename="issue-{code}-timeline.csv"',
+    }
+    if truncated:
+        headers["X-OpenTask-Truncated"] = "true"
+    return StreamingResponse(
+        iter([body]),
+        media_type="text/csv; charset=utf-8",
+        headers=headers,
+    )
+
 
 @router.get("/{issue_id}/timeline")
 async def get_timeline(

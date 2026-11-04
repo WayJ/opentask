@@ -646,6 +646,59 @@ class IssueService:
                         action_data=action_data,
                     )
 
+        # E41：cycle / estimate / project 变更 → timeline（同事务）
+        if "cycle_id" in update_data:
+            old_cycle_q = await self.db.execute(
+                select(Issue.cycle_id).where(Issue.id == issue_id)
+            )
+            old_cycle = old_cycle_q.scalar_one_or_none()
+            new_cycle = update_data.get("cycle_id")
+            if old_cycle != new_cycle:
+                await self._add_timeline(
+                    issue_id=issue_id,
+                    action_type=TimelineAction.CYCLE_CHANGED,
+                    user_id=user_id,
+                    action_data={"from": old_cycle, "to": new_cycle},
+                )
+
+        if "estimate_points" in update_data:
+            old_est_q = await self.db.execute(
+                select(Issue.estimate_points).where(Issue.id == issue_id)
+            )
+            old_est = old_est_q.scalar_one_or_none()
+            new_est = update_data.get("estimate_points")
+
+            def _est_num(v):
+                if v is None:
+                    return None
+                try:
+                    return float(v)
+                except (TypeError, ValueError):
+                    return v
+
+            old_n, new_n = _est_num(old_est), _est_num(new_est)
+            if old_n != new_n:
+                await self._add_timeline(
+                    issue_id=issue_id,
+                    action_type=TimelineAction.ESTIMATE_CHANGED,
+                    user_id=user_id,
+                    action_data={"from": old_n, "to": new_n},
+                )
+
+        if "project_id" in update_data:
+            old_proj_q = await self.db.execute(
+                select(Issue.project_id).where(Issue.id == issue_id)
+            )
+            old_proj = old_proj_q.scalar_one_or_none()
+            new_proj = update_data.get("project_id")
+            if old_proj != new_proj:
+                await self._add_timeline(
+                    issue_id=issue_id,
+                    action_type=TimelineAction.PROJECT_CHANGED,
+                    user_id=user_id,
+                    action_data={"from": old_proj, "to": new_proj},
+                )
+
         query = (
             update(Issue)
             .where(Issue.id == issue_id, Issue.is_deleted == False)

@@ -70,3 +70,7 @@ class TimelineAction(str, Enum):
     RESOLVED = "resolved"                    # 已解决
     CLOSED = "closed"                        # 已关闭
     REOPENED = "reopened"                    # 重新打开
+    CUSTOM_FIELD_CHANGED = "custom_field_changed"  # E41：自定义字段变更
+    CYCLE_CHANGED = "cycle_changed"              # E41：Cycle 变更
+    ESTIMATE_CHANGED = "estimate_changed"        # E41：估分变更
+    PROJECT_CHANGED = "project_changed"          # E41：项目变更

@@ -171,6 +171,28 @@ def serialize_issue_field(
     return data
 
 
+
+def _truncate_timeline_value(value, max_bytes: int = 2048):
+    """JSON-able value truncated to ~max_bytes UTF-8 for timeline action_data."""
+    import json as _json
+
+    if value is None or isinstance(value, (bool, int, float)):
+        return value
+    if isinstance(value, str):
+        raw = value.encode("utf-8")
+        if len(raw) <= max_bytes:
+            return value
+        return raw[:max_bytes].decode("utf-8", errors="ignore") + "…"
+    try:
+        s = _json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    except TypeError:
+        s = str(value)
+    raw = s.encode("utf-8")
+    if len(raw) <= max_bytes:
+        return value
+    return raw[:max_bytes].decode("utf-8", errors="ignore") + "…"
+
+
 class CustomFieldService:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -748,6 +770,26 @@ class CustomFieldService:
                     }
                 )
 
+        # E41：同事务写入 custom_field_changed timeline（每字段一条）
+        if changes:
+            from opentask.models.issue.enums import TimelineAction
+            from opentask.models.issue.model import IssueTimeline
+
+            for ch in changes:
+                self.db.add(
+                    IssueTimeline(
+                        issue_id=issue_id,
+                        user_id=actor_user_id,
+                        action_type=TimelineAction.CUSTOM_FIELD_CHANGED,
+                        action_data={
+                            "fieldId": ch["field_id"],
+                            "fieldKey": ch["field_key"],
+                            "from": _truncate_timeline_value(ch["from"]),
+                            "to": _truncate_timeline_value(ch["to"]),
+                        },
+                    )
+                )
+
         await self.db.commit()
 
         if changes:
@@ -780,6 +822,8 @@ class CustomFieldService:
                 return
             if issue.workspace_id != workspace_id:
                 return
+            from opentask.services.workspace_webhook.service import fire_webhooks
+
             for ch in changes:
                 await fire_automations(
                     self.db,
@@ -796,6 +840,21 @@ class CustomFieldService:
                         "old_value": ch["from"],
                         "new_value": ch["to"],
                         "workspace_id": workspace_id,
+                    },
+                )
+                await fire_webhooks(
+                    self.db,
+                    workspace_id=workspace_id,
+                    event_type="issue.custom_field_changed",
+                    data={
+                        "id": issue_id,
+                        "issueCode": getattr(issue, "issue_code", None),
+                        "title": issue.title,
+                        "fieldId": ch["field_id"],
+                        "fieldKey": ch["field_key"],
+                        "from": ch["from"],
+                        "to": ch["to"],
+                        "actorUserId": actor_user_id,
                     },
                 )
                 # refresh in case prior rule mutated
