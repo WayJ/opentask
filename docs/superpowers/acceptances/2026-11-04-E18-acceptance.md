@@ -3,6 +3,7 @@
 日期：2026-11-04（Asia/Shanghai）  
 分支：`sprint/E18-S1`  
 基线：`sprint/E17-S1` @ `62bf578`  
+tip：`3141add39187952108f279d3df8ba57e892c4a52`
 worktree：`/workspace/opentask-worktrees/E11-S4`  
 约束：**未 push / 未开 PR**；齐套后待命，**不自开 E19**。
 
@@ -33,4 +34,4 @@ worktree：`/workspace/opentask-worktrees/E11-S4`
 - **未 push / 未开 PR / 未开 E19**
 
 ## tip
-（commit 后回填）
+`3141add39187952108f279d3df8ba57e892c4a52`
