@@ -15,6 +15,7 @@ TRIGGERS = [
     "issue.status_changed",
     "issue.assignee_changed",
     "label_added",
+    "custom_field_changed",
 ]
 ACTIONS = [
     "set_status",
@@ -71,12 +72,12 @@ def automation_list(obj, as_json):
 @click.option("--name", "-n", required=True)
 @click.option("--trigger", "trigger_type", required=True, type=click.Choice(TRIGGERS, case_sensitive=False))
 @click.option("--action", "action_type", required=True, type=click.Choice(ACTIONS, case_sensitive=False))
-@click.option("--trigger-config", default="{}", help="JSON object")
+@click.option("--trigger-config", default="{}", help='JSON object；cf-changed 例 {"field_key":"tier","from":"free","to":"pro"}')
 @click.option("--action-config", default="{}", help="JSON object；set_custom_field 例 {\"key\":\"tier\",\"value\":\"pro\"}")
 @click.option(
     "--condition",
     default=None,
-    help='JSON object；CF 例 {"customField":{"key":"tier","op":"eq","value":"pro"}}',
+    help='JSON object；CF 例 {"customField":{...}} 或 {"customFields":[...]}（≤5）',
 )
 @click.option("--disabled", is_flag=True, help="创建为禁用")
 @click.option("--json", "as_json", is_flag=True)
