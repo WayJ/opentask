@@ -1838,6 +1838,11 @@ class OpenTaskClient:
 
         return None
 
+    async def global_search(self, q: str, limit: int = 10) -> dict:
+        """E60: GET /api/search workspace-scoped global search."""
+        params = {"q": q, "limit": int(limit)}
+        return await self.get("/api/search", params=params)
+
     async def search_users(self, query: str) -> dict:
         """Search users by name or account.
 
