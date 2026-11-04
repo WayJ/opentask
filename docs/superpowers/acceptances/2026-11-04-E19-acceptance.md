@@ -29,4 +29,9 @@ Due soon = **Home/list 查询**（`due_soon=true`：今日起 3 日内且未关�
 - Issue list 仍先拉多页再前端 tab 滤；scope 滤参已下推 API
 
 ## Tip
-（commit 后填）
+`sprint/E19-S1` @ `45279ab`
+
+- BE pytest: **837 passed**, 24 skipped
+- CLI pytest: **416 passed**, 89 skipped
+- FE vitest (router): **8 passed**
+- **未 push**；STOP，不自开 E20
