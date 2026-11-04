@@ -31,7 +31,7 @@ D1–D7 / Q1a–Q6a 按 design 落地。
 ## Tip
 
 - 分支：`sprint/E63-S1`
-- tip：PLACEHOLDER
+- tip：`3b4a239`（全文 `3b4a2396d710612b999781362d435061ba6e4dcd`）
 - code tip：`6ca0e2f`（全文 `6ca0e2f044725e81d08824c95326c48dc35c73d5`）
 - **未 push / 未开 PR / 未开 E64**
 
