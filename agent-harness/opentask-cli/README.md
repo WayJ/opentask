@@ -10,6 +10,8 @@
 
 遗留：`requirement` / `task` / `collection` 仍可用（后端保留），但不再作为默认主路径（E12 去 PGE）。
 
+> **E23**：Workspace 业务实时通道（`/ws/workspace`）仅前端订阅；CLI **不接 WS**，版本保持 **1.7.0**。
+
 ## 安装
 
 ```bash

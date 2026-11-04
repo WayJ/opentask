@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { subscribeWorkspaceRealtime } from '@/composables/use-workspace-realtime';
 import {
   NAlert,
   NButton,
@@ -1222,13 +1223,27 @@ async function loadLinkedCustomerRequests() {
   }
 }
 
+let unsubRealtime: (() => void) | null = null;
 onMounted(() => {
+  unsubRealtime = subscribeWorkspaceRealtime(ev => {
+    if (!ev.type || !String(ev.type).startsWith('issue.')) return;
+    const id = String(ev.payload?.id || '');
+    if (id && id === String(issueId.value)) {
+      void loadIssue();
+      void loadComments();
+    }
+  });
   loadIssue();
   loadPinState();
   loadWatchState();
   loadLinkedCustomerRequests();
   loadProjects();
   loadCycles();
+});
+
+onUnmounted(() => {
+  unsubRealtime?.();
+  unsubRealtime = null;
 });
 </script>
 

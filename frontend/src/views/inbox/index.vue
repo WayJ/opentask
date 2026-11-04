@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import type { DropdownOption } from 'naive-ui';
 import {
@@ -10,10 +10,14 @@ import {
   fetchSnoozeInbox,
   fetchUnsnoozeInbox
 } from '@/service/api';
+import { subscribeWorkspaceRealtime } from '@/composables/use-workspace-realtime';
+import { useAuthStore } from '@/store/modules/auth';
 
 defineOptions({ name: 'InboxPage' });
 
 const router = useRouter();
+const authStore = useAuthStore();
+let unsubRt: (() => void) | null = null;
 const loading = ref(false);
 const unreadOnly = ref(false);
 const includeSnoozed = ref(false);
@@ -132,7 +136,20 @@ async function onSnoozeSelect(key: string | number, row: InboxNotification) {
   await load();
 }
 
-onMounted(load);
+onMounted(() => {
+  load();
+  unsubRt = subscribeWorkspaceRealtime(ev => {
+    if (ev.type !== 'inbox.created') return;
+    const me = String(authStore.userInfo.userId || '');
+    const recipient = String(ev.payload?.recipient_user_id || '');
+    if (me && recipient && recipient !== me) return;
+    load();
+  });
+});
+onUnmounted(() => {
+  unsubRt?.();
+  unsubRt = null;
+});
 </script>
 
 <template>

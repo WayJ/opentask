@@ -10,6 +10,7 @@ import ThemeButton from './components/theme-button.vue';
 import UserAvatar from './components/user-avatar.vue';
 import WorkspaceSwitcher from './components/workspace-switcher.vue';
 import InboxBell from './components/inbox-bell.vue';
+import { useWorkspaceRealtime } from '@/composables/use-workspace-realtime';
 
 defineOptions({
   name: 'GlobalHeader'
@@ -29,6 +30,7 @@ defineProps<Props>();
 const appStore = useAppStore();
 const themeStore = useThemeStore();
 const { isFullscreen, toggle } = useFullscreen();
+const { connected: realtimeConnected } = useWorkspaceRealtime();
 </script>
 
 <template>
@@ -41,6 +43,11 @@ const { isFullscreen, toggle } = useFullscreen();
     </div>
     <div class="h-full flex-y-center justify-end">
       <WorkspaceSwitcher />
+      <span
+        class="mx-4px text-12px"
+        :title="realtimeConnected ? '实时已连接' : '实时未连接（重连中）'"
+        :style="{ color: realtimeConnected ? '#27a644' : '#8a8f98' }"
+      >●</span>
       <InboxBell />
       <GlobalSearch v-if="themeStore.header.globalSearch.visible" />
       <FullScreen v-if="!appStore.isMobile" :full="isFullscreen" @click="toggle" />

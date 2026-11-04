@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, h, onMounted, reactive, ref, watch } from 'vue';
+import { computed, h, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   NButton,
@@ -49,6 +49,10 @@ import { useAuthStore } from '@/store/modules/auth';
 import { useIssueFocus } from '@/composables/use-issue-focus';
 import { useIssueListViewMode } from '@/composables/use-issue-list-view-mode';
 import { useIssueSelection } from '@/composables/use-issue-selection';
+import {
+  debounceFn,
+  subscribeWorkspaceRealtime
+} from '@/composables/use-workspace-realtime';
 import { localStg } from '@/utils/storage';
 import { buildSavedViewDropdownOptions, canWriteSavedView } from '@/utils/saved-view-sections';
 import { deriveListStateFromSavedView } from '@/utils/apply-saved-view';
@@ -510,6 +514,11 @@ const syntaxExamples = [
 ];
 
 // Load issues
+let unsubRealtime: (() => void) | null = null;
+const debouncedRealtimeReload = debounceFn(() => {
+  void loadIssues();
+}, 400);
+
 async function loadIssues() {
   loading.value = true;
   try {
@@ -1153,6 +1162,12 @@ watch(
 );
 
 onMounted(async () => {
+  unsubRealtime = subscribeWorkspaceRealtime(ev => {
+    if (typeof ev.type === 'string' && ev.type.startsWith('issue.')) {
+      debouncedRealtimeReload();
+    }
+  });
+
   loadProjects();
   loadCycles();
   await loadWorkspaceRole();
@@ -1186,6 +1201,11 @@ onMounted(async () => {
     await loadPersonalDisplayPrefs();
     await loadIssues();
   }
+});
+
+onUnmounted(() => {
+  unsubRealtime?.();
+  unsubRealtime = null;
 });
 </script>
 
