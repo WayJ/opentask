@@ -1,4 +1,4 @@
-"""Activity commands (E47)."""
+"""Activity commands (E47/E52)."""
 from __future__ import annotations
 
 import asyncio
@@ -19,15 +19,16 @@ def activity_cli():
 @click.option("--since", default=None, help="ISO lower bound on created_at")
 @click.option("--action-type", "action_types", multiple=True, help="Filter action_type (repeatable)")
 @click.option("--issue", "issue_id", default=None, help="Filter to one issue id")
+@click.option("--watching", is_flag=True, help="E52: only issues you watch")
 @click.option("--limit", default=50, show_default=True, type=int, help="Page size (server clamps to 200)")
 @click.option("--json", "as_json", is_flag=True)
 @click.pass_obj
-def activity_list(obj, since, action_types, issue_id, limit, as_json):
+def activity_list(obj, since, action_types, issue_id, watching, limit, as_json):
     """List workspace activity feed.
 
     Examples:
       opentask activity list --since 2026-11-01T00:00:00 --action-type status_changed
-      opentask activity list --issue <id> --limit 20 --json
+      opentask activity list --watching --limit 20 --json
     """
     config: Config = obj.config
     json_mode = as_json or obj.json_mode
@@ -41,6 +42,8 @@ def activity_list(obj, since, action_types, issue_id, limit, as_json):
         params["issueId"] = issue_id
     if action_types:
         params["actionType"] = list(action_types)
+    if watching:
+        params["watching"] = True
     try:
         data = asyncio.run(client.list_workspace_activity(params))
         if json_mode:
@@ -62,5 +65,32 @@ def activity_list(obj, since, action_types, issue_id, limit, as_json):
         nxt = data.get("nextCursor")
         if nxt:
             obj.skin.info(f"(nextCursor available: {nxt[:24]}…)")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@activity_cli.command(name="unread")
+@click.option("--watching/--all", default=True, help="Count watched issues only (default)")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def activity_unread(obj, watching, as_json):
+    """Print Activity Feed unread count (E52 thin bell)."""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.activity_unread_count({"watching": watching}))
+        if json_mode:
+            echo_json(True, data=data)
+            return
+        if isinstance(data, dict):
+            count = data.get("count", 0)
+            capped = data.get("capped")
+            suffix = "+" if capped else ""
+            obj.skin.info(f"unread: {count}{suffix}")
+        else:
+            obj.skin.info(str(data))
     except APIError as e:
         handle_api_error(e, json_mode)
