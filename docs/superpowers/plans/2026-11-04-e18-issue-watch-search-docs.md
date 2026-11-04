@@ -4,8 +4,8 @@
 基线 tip：`62bf578` · 分支 `sprint/E18-S1`
 
 ## Task 1 — Docs
-- [ ] design + plan（本文件）
-- [ ] acceptance 收口时补 tip/测试数
+- [x] design + plan（本文件）
+- [x] acceptance 收口时补 tip/测试数
 
 ## Task 2 — BE Issue Watchers（TDD）
 1. migration `issue_watchers`（revises `a1b2c3d4e5f9`）
