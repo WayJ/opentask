@@ -37,7 +37,7 @@
 - multi_select 泳道 / 拖拽改 CF / 公式字段 / 服务端预聚合矩阵 / E38
 
 ## tip
-- SHA：`840a3dc`
+- SHA：以 `git rev-parse HEAD` 为准（本 tip 提交）
 - 未 push / 未开 PR
 - **不自开 E38** · **STOP 待命**
 
