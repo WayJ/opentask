@@ -213,9 +213,10 @@ class OpenTaskClient:
         self._max_relogin_attempts = 1  # Allow only one relogin attempt per request
 
     def _get_headers(self) -> dict[str, str]:
-        """Get request headers with authentication.
+        """Get request headers with authentication and workspace context.
 
         Access Token takes priority over JWT token.
+        When config has active_workspace_id, send X-Workspace-Id (FE-aligned).
         """
         headers = {
             "Content-Type": "application/json",
@@ -229,6 +230,10 @@ class OpenTaskClient:
 
         if effective_token:
             headers["Authorization"] = f"Bearer {effective_token}"
+
+        # Workspace context (required by cycles/tags/triage/…)
+        if self.config and getattr(self.config, "active_workspace_id", None):
+            headers["X-Workspace-Id"] = self.config.active_workspace_id
         return headers
 
     def _handle_response(self, response: httpx.Response) -> dict[str, Any]:

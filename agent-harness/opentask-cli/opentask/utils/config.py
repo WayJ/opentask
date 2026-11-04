@@ -212,6 +212,31 @@ class Config:
         """Set active project name."""
         self.set("active_project_name", value)
 
+    @property
+    def active_workspace_id(self) -> str | None:
+        """Get active workspace ID (FE-aligned X-Workspace-Id)."""
+        return self.get("active_workspace_id")
+
+    @active_workspace_id.setter
+    def active_workspace_id(self, value: str):
+        """Set active workspace ID."""
+        self.set("active_workspace_id", value)
+
+    @property
+    def active_workspace_name(self) -> str | None:
+        """Get active workspace name."""
+        return self.get("active_workspace_name")
+
+    @active_workspace_name.setter
+    def active_workspace_name(self, value: str):
+        """Set active workspace name."""
+        self.set("active_workspace_name", value)
+
+    def clear_workspace_context(self):
+        """Clear active workspace context."""
+        self.delete("active_workspace_id")
+        self.delete("active_workspace_name")
+
     def clear_auth(self):
         """Clear authentication token."""
         self.delete("token")
