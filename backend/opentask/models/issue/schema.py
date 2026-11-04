@@ -131,6 +131,7 @@ class IssueResponse(IssueBase):
     children: Optional[List[IssueChildSummary]] = Field(
         None, description="子 Issue 摘要（详情接口填充）"
     )
+    triage_status: Optional[str] = Field(None, description="pending|null triage 队列状态")
 
     model_config = ConfigDict(from_attributes=True)
 

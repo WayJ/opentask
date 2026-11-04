@@ -41,6 +41,14 @@ class Issue(DBModel):
         comment="迁移前旧码（双解析）",
     )
 
+    # E9-S1：Triage 队列（pending = 在队；NULL = 不在队）
+    triage_status: Mapped[Optional[str]] = mapped_column(
+        String(16),
+        nullable=True,
+        index=True,
+        comment="pending|null",
+    )
+
     # 基本信息
     title: Mapped[str] = mapped_column(String(255), nullable=False, comment="标题")
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True, comment="描述")
@@ -317,6 +325,7 @@ class Issue(DBModel):
         Index("idx_issues_parent", "parent_issue_id"),
         Index("idx_issues_cycle", "cycle_id"),
         Index("idx_issues_milestone", "milestone_id"),
+        Index("idx_issues_ws_triage", "workspace_id", "triage_status"),
     )
 
 
