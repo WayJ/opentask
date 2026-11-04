@@ -23,7 +23,9 @@ export const ACTIVITY_ACTION_OPTIONS: { value: string; label: string }[] = [
   { value: 'cycle_changed', label: 'Cycle' },
   { value: 'estimate_changed', label: '估分' },
   { value: 'project_changed', label: '项目' },
-  { value: 'created', label: '创建' }
+  { value: 'created', label: '创建' },
+  { value: 'sla_paused', label: 'SLA 暂停' },
+  { value: 'sla_resumed', label: 'SLA 恢复' }
 ];
 
 export type ActivityQueryInput = {

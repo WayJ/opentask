@@ -41,4 +41,19 @@ describe('formatTimelineAction', () => {
   it('keeps created', () => {
     expect(formatTimelineAction({ action_type: 'created' })).toBe('创建了此 Issue');
   });
+
+  it('formats sla_paused / sla_resumed', () => {
+    expect(
+      formatTimelineAction({
+        action_type: 'sla_paused',
+        action_data: { policyName: 'FR', metric: 'first_response' }
+      })
+    ).toBe('暂停了首响 SLA（FR）');
+    expect(
+      formatTimelineAction({
+        action_type: 'sla_resumed',
+        action_data: { policyName: 'TIS', metric: 'time_in_status' }
+      })
+    ).toBe('恢复了状态 SLA（TIS）');
+  });
 });

@@ -36,7 +36,8 @@ import {
   fetchIssueSla,
   formatSlaPaused,
   formatSlaRemaining,
-  slaBadgeType
+  slaBadgeType,
+  slaMetricBadgePrefix
 } from '@/service/api/sla';
 import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
@@ -1693,7 +1694,8 @@ onUnmounted(() => {
               <div class="sidebar-section-title">SLA</div>
               <div v-for="c in slaClocks" :key="c.id" style="margin-bottom: 6px">
                 <NTag size="small" :type="slaBadgeType(c.status)" :bordered="false">
-                  {{ c.policyName || c.policyId.slice(0, 8) }} · {{ c.status === 'paused' ? '已暂停' : c.status }}
+                  {{ slaMetricBadgePrefix(c.metric) }} · {{ c.policyName || c.policyId.slice(0, 8) }} ·
+                  {{ c.status === 'paused' ? '已暂停' : c.status }}
                 </NTag>
                 <NText v-if="c.status === 'running'" depth="3" style="font-size: 12px; margin-left: 6px">
                   {{ formatSlaRemaining(c.deadlineAt) }}

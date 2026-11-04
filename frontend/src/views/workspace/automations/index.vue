@@ -69,7 +69,7 @@ const triggerOptions = [
   { label: 'issue.assignee_changed', value: 'issue.assignee_changed' },
   { label: 'label_added', value: 'label_added' },
   { label: 'custom_field_changed', value: 'custom_field_changed' },
-  { label: 'SLA 违约 (issue.sla_breached)', value: 'issue.sla_breached' }
+  { label: 'SLA 违约 (issue.sla_breached，含首次响应)', value: 'issue.sla_breached' }
 ];
 
 const actionOptions = [

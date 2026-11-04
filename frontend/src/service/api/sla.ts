@@ -11,6 +11,21 @@ export const ISSUE_STATUSES = [
 
 export type SlaClockStatus = 'running' | 'paused' | 'met' | 'breached' | 'cancelled';
 
+export const SLA_METRICS = ['time_in_status', 'first_response'] as const;
+export type SlaMetric = (typeof SLA_METRICS)[number];
+
+export function slaMetricLabel(metric?: string | null): string {
+  if (metric === 'first_response') return '首次响应';
+  if (metric === 'time_in_status') return '状态停留';
+  return metric || '—';
+}
+
+/** Badge prefix distinguishing first_response vs time_in_status. */
+export function slaMetricBadgePrefix(metric?: string | null): string {
+  if (metric === 'first_response') return '首响 SLA';
+  return '状态 SLA';
+}
+
 export interface SlaPolicyRow {
   id: string;
   workspaceId: string;
@@ -33,6 +48,7 @@ export interface SlaClockRow {
   issueId: string;
   policyId: string;
   policyName?: string | null;
+  metric?: string | null;
   status: SlaClockStatus | string;
   startedAt?: string | null;
   deadlineAt?: string | null;
@@ -93,6 +109,7 @@ export function fetchCreateSlaPolicy(body: {
   stopStatuses?: string[];
   pauseStatuses?: string[];
   targetMinutes?: number;
+  metric?: string;
   notifyAssignee?: boolean;
   notifyWatchers?: boolean;
   enabled?: boolean;
@@ -108,6 +125,7 @@ export function fetchUpdateSlaPolicy(
     stopStatuses: string[];
     pauseStatuses: string[];
     targetMinutes: number;
+    metric: string;
     notifyAssignee: boolean;
     notifyWatchers: boolean;
     enabled: boolean;

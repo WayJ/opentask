@@ -19,7 +19,8 @@ import {
   fetchDeleteSlaPolicy,
   fetchSlaPolicies,
   fetchSlaRunDue,
-  fetchUpdateSlaPolicy
+  fetchUpdateSlaPolicy,
+  slaMetricLabel
 } from '@/service/api/sla';
 
 defineOptions({ name: 'SettingsSlaPage' });
@@ -34,11 +35,16 @@ const form = reactive({
   stopStatuses: ['resolved', 'closed'] as string[],
   pauseStatuses: [] as string[],
   targetMinutes: 1440,
+  metric: 'time_in_status',
   notifyAssignee: true,
   notifyWatchers: false
 });
 
 const statusOptions = ISSUE_STATUSES.map(v => ({ label: v, value: v }));
+const metricOptions = [
+  { label: '状态停留 (time_in_status)', value: 'time_in_status' },
+  { label: '首次响应 (first_response)', value: 'first_response' }
+];
 
 const columns: DataTableColumns<SlaPolicyRow> = [
   {
@@ -47,7 +53,7 @@ const columns: DataTableColumns<SlaPolicyRow> = [
     render: row =>
       h('div', [
         h('div', { style: 'font-weight:500' }, row.name),
-        h(NText, { depth: 3, style: 'font-size:12px' }, { default: () => `${row.targetMinutes} 分钟 · ${row.metric}` })
+        h(NText, { depth: 3, style: 'font-size:12px' }, { default: () => `${row.targetMinutes} 分钟 · ${slaMetricLabel(row.metric)}` })
       ])
   },
   {
@@ -114,6 +120,7 @@ async function create() {
       stopStatuses: form.stopStatuses,
       pauseStatuses: form.pauseStatuses,
       targetMinutes: form.targetMinutes,
+      metric: form.metric,
       notifyAssignee: form.notifyAssignee,
       notifyWatchers: form.notifyWatchers
     });
@@ -176,7 +183,7 @@ onMounted(load);
         </NSpace>
       </template>
       <NText depth="3" style="display:block;margin-bottom:12px;font-size:12px">
-        time-in-status 日历分钟（UTC）。stop 为空时进入 resolved/closed/rejected 即满足。进入暂停状态时不计时，离开后按剩余时间续跑。无内置 cron，请外部调度 POST /api/sla/run-due。
+        支持「状态停留」与「首次响应」两种 metric（UTC 日历分钟）。首次响应：非创建者首条评论即满足；指派不算。stop 为空时进入 resolved/closed/rejected 即满足。进入暂停状态时不计时，离开后按剩余时间续跑。无内置 cron，请外部调度 POST /api/sla/run-due。
       </NText>
       <NDataTable :columns="columns" :data="rows" :loading="loading" size="small" />
     </NCard>
@@ -184,6 +191,8 @@ onMounted(load);
     <NCard title="新建策略" :bordered="false" style="margin-top:16px">
       <NSpace vertical>
         <NInput v-model:value="form.name" placeholder="名称" maxlength="80" />
+        <NSelect v-model:value="form.metric" :options="metricOptions" placeholder="metric" />
+        <NText depth="3" style="font-size:12px">首次响应：非创建者首条评论算首响；指派负责人不算。</NText>
         <NSelect v-model:value="form.startStatuses" multiple :options="statusOptions" placeholder="startStatuses" />
         <NSelect v-model:value="form.stopStatuses" multiple :options="statusOptions" placeholder="stopStatuses（可空=关闭类）" />
         <NSelect

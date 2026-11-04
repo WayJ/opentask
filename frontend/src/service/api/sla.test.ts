@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { formatSlaPaused, formatSlaRemaining, slaBadgeType } from './sla';
+import {
+  formatSlaPaused,
+  formatSlaRemaining,
+  slaBadgeType,
+  slaMetricBadgePrefix,
+  slaMetricLabel,
+  SLA_METRICS
+} from './sla';
 import { WEBHOOK_EVENTS, WEBHOOK_EVENT_LABELS } from './webhooks';
 import { NOTIF_PREF_KEYS, NOTIF_PREF_LABELS, mergeNotifPrefs } from './notif-prefs';
 
@@ -60,5 +67,20 @@ describe('E45 pause fields', () => {
     expect(row.pauseStatuses).toEqual([]);
     row.pauseStatuses = ['feedback'];
     expect(row.pauseStatuses).toContain('feedback');
+  });
+});
+
+describe('E48 metrics', () => {
+  it('includes first_response', () => {
+    expect(SLA_METRICS).toContain('first_response');
+    expect(SLA_METRICS).toContain('time_in_status');
+  });
+  it('labels metrics', () => {
+    expect(slaMetricLabel('first_response')).toBe('首次响应');
+    expect(slaMetricLabel('time_in_status')).toBe('状态停留');
+  });
+  it('badge prefix', () => {
+    expect(slaMetricBadgePrefix('first_response')).toBe('首响 SLA');
+    expect(slaMetricBadgePrefix('time_in_status')).toBe('状态 SLA');
   });
 });

@@ -94,6 +94,16 @@ export function formatTimelineAction(item: TimelineActionItem): string {
       return `将估分从 ${displayVal(ad.from)} 改为 ${displayVal(ad.to)}`;
     case 'project_changed':
       return `将项目从 ${displayVal(ad.from)} 改为 ${displayVal(ad.to)}`;
+    case 'sla_paused': {
+      const name = ad.policyName || ad.policyId || 'SLA';
+      const metric = ad.metric === 'first_response' ? '首响' : '状态';
+      return `暂停了${metric} SLA（${name}）`;
+    }
+    case 'sla_resumed': {
+      const name = ad.policyName || ad.policyId || 'SLA';
+      const metric = ad.metric === 'first_response' ? '首响' : '状态';
+      return `恢复了${metric} SLA（${name}）`;
+    }
     default:
       return action_type;
   }
