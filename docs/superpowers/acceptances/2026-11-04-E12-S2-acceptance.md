@@ -5,7 +5,7 @@
 **pass** — S2 范围交付：`workspace_invites`（token_hash sha256、email 可选、role、expiry、status、invited_by、workspace_id）+ Alembic `c9d0e1f2a3b5`（revises `b8c9d0e1f2a4`）；owner create/list/revoke；匿名 `GET /api/invites/{token}` 预览；登录 `POST …/accept` 幂等；register 可选 `inviteToken`（无 SMTP，copy-link 为主）；`PATCH …/members/{userId}` + `POST …/leave` + 最后 owner 守卫；保留 `add_member` **409**；FE `/workspace/members` + 常量路由 `/invite/:token`。**未**做 SMTP / SSO / S3 de-PGE。未推远程。
 
 **Fingerprint (impl tip):** `e1b4d47ea027dd4a520816edac459fffdd22ebc4`
-**Branch tip:** `71634b822cd44d9ba9bb73e73a5ea81eaf2b8649`
+**Branch tip:** `4b46a226ce5aceb61cb959563137180ff71befd9`
 **Branch:** `sprint/E12-S2`
 **Worktree:** `/workspace/opentask-worktrees/E12-S2`
 **Plan:** `docs/superpowers/plans/2026-11-04-e12-s2-invites-members.md` @ `5e6ce353fb04b5d064a99781ad6718434e375fda`
