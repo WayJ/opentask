@@ -4,7 +4,8 @@ export type AutomationTrigger =
   | 'issue.created'
   | 'issue.status_changed'
   | 'issue.assignee_changed'
-  | 'label_added';
+  | 'label_added'
+  | 'custom_field_changed';
 
 export type AutomationAction =
   | 'set_status'
@@ -139,10 +140,96 @@ export function withCustomFieldCondition(
   return base;
 }
 
-export function summarizeAutomationRule(row: Pick<AutomationRuleRow, 'condition' | 'actionType' | 'actionConfig'>): string {
+
+export const MAX_CUSTOM_FIELD_CONDITIONS = 5;
+
+export type CustomFieldCondition = {
+  key?: string;
+  fieldId?: string;
+  op: CustomFieldConditionOp;
+  value?: unknown;
+};
+
+/** 读取多条 CF 条件（customFields[] 优先；否则单 customField 包成数组） */
+export function getCustomFieldConditions(
+  condition: Record<string, unknown> | null | undefined
+): CustomFieldCondition[] {
+  if (!condition) return [];
+  const list = (condition.customFields ?? condition.custom_fields) as unknown;
+  if (Array.isArray(list)) {
+    return list
+      .filter(x => x && typeof x === 'object')
+      .map(raw => {
+        const r = raw as Record<string, unknown>;
+        return {
+          key: r.key != null ? String(r.key) : undefined,
+          fieldId:
+            r.fieldId != null
+              ? String(r.fieldId)
+              : r.field_id != null
+                ? String(r.field_id)
+                : undefined,
+          op: String(r.op || 'eq') as CustomFieldConditionOp,
+          value: r.value
+        };
+      });
+  }
+  const single = getCustomFieldCondition(condition);
+  return single ? [single] : [];
+}
+
+/** 写入多条 CF 条件；>5 抛错；空数组清除 CF 条件键 */
+export function withCustomFieldConditions(
+  condition: Record<string, unknown> | null | undefined,
+  cfs: CustomFieldCondition[] | null
+): Record<string, unknown> | null {
+  const base: Record<string, unknown> = { ...(condition || {}) };
+  delete base.custom_field;
+  delete base.customField;
+  delete base.custom_fields;
+  delete base.customFields;
+  if (!cfs || cfs.length === 0) {
+    return Object.keys(base).length ? base : null;
+  }
+  if (cfs.length > MAX_CUSTOM_FIELD_CONDITIONS) {
+    throw new Error(`customFields 最多 ${MAX_CUSTOM_FIELD_CONDITIONS} 条`);
+  }
+  base.customFields = cfs.map(cf => {
+    const block: Record<string, unknown> = { key: cf.key, op: cf.op };
+    if (cf.fieldId) block.fieldId = cf.fieldId;
+    if (cf.op !== 'is_set' && cf.op !== 'is_empty') {
+      block.value = cf.value;
+    }
+    return block;
+  });
+  return base;
+}
+
+/** triggerConfig 摘要：custom_field_changed 字段过滤 */
+export function summarizeCfChangedTrigger(cfg: Record<string, unknown> | null | undefined): string {
+  if (!cfg) return '';
+  const key = cfg.field_key ?? cfg.key ?? cfg.fieldId ?? cfg.field_id;
   const parts: string[] = [];
-  const cf = getCustomFieldCondition(row.condition);
-  if (cf) {
+  if (key != null) parts.push(`field:${key}`);
+  if (cfg.from !== undefined) parts.push(`from=${JSON.stringify(cfg.from)}`);
+  if (cfg.to !== undefined) parts.push(`to=${JSON.stringify(cfg.to)}`);
+  return parts.join(' ');
+}
+
+export function summarizeAutomationRule(
+  row: Pick<AutomationRuleRow, 'condition' | 'actionType' | 'actionConfig'> & {
+    triggerType?: string;
+    triggerConfig?: Record<string, unknown>;
+  }
+): string {
+  const parts: string[] = [];
+  if (row.triggerType === 'custom_field_changed') {
+    const t = summarizeCfChangedTrigger(row.triggerConfig);
+    if (t) parts.push(`on ${t}`);
+    else parts.push('on cf-changed');
+  }
+  const cfs = getCustomFieldConditions(row.condition);
+  for (const cf of cfs) {
     const ref = cf.key || cf.fieldId || '?';
     if (cf.op === 'is_set' || cf.op === 'is_empty') {
       parts.push(`cf:${ref} ${cf.op}`);

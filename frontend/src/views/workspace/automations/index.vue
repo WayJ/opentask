@@ -22,7 +22,9 @@ import {
   fetchEnableAutomation,
   parseAutomationJson,
   summarizeAutomationRule,
-  withCustomFieldCondition
+  withCustomFieldCondition,
+  withCustomFieldConditions,
+  MAX_CUSTOM_FIELD_CONDITIONS
 } from '@/service/api/automations';
 import { type CustomFieldRow, fetchCustomFields } from '@/service/api/custom-fields';
 
@@ -45,14 +47,22 @@ const form = reactive({
   cfOp: 'eq' as CustomFieldConditionOp,
   cfValue: '',
   actionCfKey: null as string | null,
-  actionCfValue: ''
+  actionCfValue: '',
+  // E36 CF-changed trigger + multi conditions
+  triggerCfKey: null as string | null,
+  triggerFrom: '',
+  triggerTo: '',
+  extraCfKey: null as string | null,
+  extraCfOp: 'eq' as CustomFieldConditionOp,
+  extraCfValue: ''
 });
 
 const triggerOptions = [
   { label: 'issue.created', value: 'issue.created' },
   { label: 'issue.status_changed', value: 'issue.status_changed' },
   { label: 'issue.assignee_changed', value: 'issue.assignee_changed' },
-  { label: 'label_added', value: 'label_added' }
+  { label: 'label_added', value: 'label_added' },
+  { label: 'custom_field_changed', value: 'custom_field_changed' }
 ];
 
 const actionOptions = [
@@ -73,6 +83,17 @@ const cfOptions = computed(() =>
 
 const cfValueNeeded = computed(() => form.cfOp !== 'is_set' && form.cfOp !== 'is_empty');
 
+function syncTriggerConfigFromHelpers() {
+  if (form.triggerType !== 'custom_field_changed') return;
+  const cfg: Record<string, unknown> = {};
+  if (form.triggerCfKey) cfg.field_key = form.triggerCfKey;
+  const fr = (form.triggerFrom || '').trim();
+  const to = (form.triggerTo || '').trim();
+  if (fr) cfg.from = coerceHelperValue(fr);
+  if (to) cfg.to = coerceHelperValue(to);
+  form.triggerConfigText = Object.keys(cfg).length ? JSON.stringify(cfg) : '';
+}
+
 function syncConditionFromHelpers() {
   let base: Record<string, unknown> = {};
   try {
@@ -80,16 +101,33 @@ function syncConditionFromHelpers() {
   } catch {
     base = {};
   }
-  const next = withCustomFieldCondition(
-    base,
-    form.cfKey
-      ? {
-          key: form.cfKey,
-          op: form.cfOp,
-          value: coerceHelperValue(form.cfValue)
-        }
-      : null
-  );
+  const list: Array<{ key: string; op: CustomFieldConditionOp; value?: unknown }> = [];
+  if (form.cfKey) {
+    list.push({
+      key: form.cfKey,
+      op: form.cfOp,
+      value: coerceHelperValue(form.cfValue)
+    });
+  }
+  if (form.extraCfKey) {
+    list.push({
+      key: form.extraCfKey,
+      op: form.extraCfOp,
+      value: coerceHelperValue(form.extraCfValue)
+    });
+  }
+  if (list.length > MAX_CUSTOM_FIELD_CONDITIONS) {
+    window.$message?.error?.(`customFields 最多 ${MAX_CUSTOM_FIELD_CONDITIONS} 条`);
+    return;
+  }
+  let next: Record<string, unknown> | null;
+  if (list.length <= 1) {
+    next = withCustomFieldCondition(base, list[0] || null);
+  } else {
+    // strip single keys then write array
+    const cleaned = withCustomFieldCondition(base, null) || {};
+    next = withCustomFieldConditions(cleaned, list);
+  }
   form.conditionText = next ? JSON.stringify(next) : '';
 }
 
@@ -122,7 +160,11 @@ function coerceHelperValue(raw: string): unknown {
 }
 
 watch(
-  () => [form.cfKey, form.cfOp, form.cfValue],
+  () => [form.triggerType, form.triggerCfKey, form.triggerFrom, form.triggerTo],
+  () => syncTriggerConfigFromHelpers()
+);
+watch(
+  () => [form.cfKey, form.cfOp, form.cfValue, form.extraCfKey, form.extraCfOp, form.extraCfValue],
   () => syncConditionFromHelpers()
 );
 watch(
@@ -194,6 +236,7 @@ async function createRule() {
     window.$message?.warning?.('请输入名称');
     return;
   }
+  syncTriggerConfigFromHelpers();
   syncConditionFromHelpers();
   syncActionFromHelpers();
   let triggerConfig: Record<string, unknown> = {};
@@ -228,6 +271,11 @@ async function createRule() {
     form.conditionText = '';
     form.cfKey = null;
     form.cfValue = '';
+    form.extraCfKey = null;
+    form.extraCfValue = '';
+    form.triggerCfKey = null;
+    form.triggerFrom = '';
+    form.triggerTo = '';
     form.actionCfKey = null;
     form.actionCfValue = '';
     window.$message?.success?.('已创建');
@@ -267,6 +315,17 @@ onMounted(load);
         <NSpace align="center" :wrap="true">
           <NInput v-model:value="form.name" placeholder="规则名称" style="width: 180px" />
           <NSelect v-model:value="form.triggerType" :options="triggerOptions" style="width: 200px" />
+          <template v-if="form.triggerType === 'custom_field_changed'">
+            <NSelect
+              v-model:value="form.triggerCfKey"
+              :options="cfOptions"
+              clearable
+              placeholder="字段(可选)"
+              style="width: 180px"
+            />
+            <NInput v-model:value="form.triggerFrom" placeholder="from(可选)" style="width: 120px" />
+            <NInput v-model:value="form.triggerTo" placeholder="to(可选)" style="width: 120px" />
+          </template>
           <NSelect v-model:value="form.actionType" :options="actionOptions" style="width: 170px" />
           <NInput
             v-model:value="form.triggerConfigText"
@@ -301,6 +360,21 @@ onMounted(load);
             v-model:value="form.cfValue"
             placeholder="值（JSON 可）"
             style="width: 160px"
+          />
+          <span class="text-12px text-gray-500">+ AND CF</span>
+          <NSelect
+            v-model:value="form.extraCfKey"
+            clearable
+            placeholder="第二字段"
+            :options="cfOptions"
+            style="width: 180px"
+          />
+          <NSelect v-model:value="form.extraCfOp" :options="CF_CONDITION_OPS" style="width: 120px" />
+          <NInput
+            v-if="form.extraCfOp !== 'is_set' && form.extraCfOp !== 'is_empty'"
+            v-model:value="form.extraCfValue"
+            placeholder="值"
+            style="width: 140px"
           />
           <span class="text-12px text-gray-500">动作 · set_custom_field</span>
           <NSelect
