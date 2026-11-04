@@ -17,6 +17,7 @@ def sla_cli():
 
 示例: opentask sla policy create --name FR --start in_progress --metric first_response --minutes 60
 营业时: opentask sla business-hours show | set | exceptions list|add|remove（E53）
+日历覆盖: --calendar-json / --clear-calendar（E56）
 """
     pass
 
@@ -102,9 +103,10 @@ def policy_show(obj, policy_id, as_json):
 @click.option("--minutes", default=1440, show_default=True, type=int)
 @click.option("--notify-assignee/--no-notify-assignee", default=True)
 @click.option("--notify-watchers/--no-notify-watchers", default=False)
+@click.option("--calendar-json", default=None, help="E56 policy calendar overlay JSON")
 @click.option("--json", "as_json", is_flag=True)
 @click.pass_obj
-def policy_create(obj, name, starts, stops, pauses, metric, minutes, notify_assignee, notify_watchers, as_json):
+def policy_create(obj, name, starts, stops, pauses, metric, minutes, notify_assignee, notify_watchers, calendar_json, as_json):
     config: Config = obj.config
     json_mode = as_json or obj.json_mode
     if not require_workspace_id(config, json_mode):
@@ -119,6 +121,11 @@ def policy_create(obj, name, starts, stops, pauses, metric, minutes, notify_assi
         "notifyAssignee": notify_assignee,
         "notifyWatchers": notify_watchers,
     }
+    if calendar_json is not None:
+        try:
+            body["calendar"] = json.loads(calendar_json)
+        except json.JSONDecodeError as e:
+            raise click.ClickException(f"无效 calendar JSON: {e}") from e
     client = make_client(config)
     try:
         data = asyncio.run(client.create_sla_policy(body))
@@ -142,10 +149,12 @@ def policy_create(obj, name, starts, stops, pauses, metric, minutes, notify_assi
     help="SLA metric",
 )
 @click.option("--enabled/--disabled", "enabled", default=None)
+@click.option("--calendar-json", default=None, help="E56 policy calendar overlay JSON")
+@click.option("--clear-calendar", is_flag=True, default=False, help="E56 clear calendar overlay (inherit WS)")
 @click.option("--json-body", default=None, help="raw JSON patch body (may include pauseStatuses/metric)")
 @click.option("--json", "as_json", is_flag=True)
 @click.pass_obj
-def policy_update(obj, policy_id, name, minutes, pauses, metric, enabled, json_body, as_json):
+def policy_update(obj, policy_id, name, minutes, pauses, metric, enabled, calendar_json, clear_calendar, json_body, as_json):
     config: Config = obj.config
     json_mode = as_json or obj.json_mode
     if not require_workspace_id(config, json_mode):
@@ -166,6 +175,13 @@ def policy_update(obj, policy_id, name, minutes, pauses, metric, enabled, json_b
         body["pauseStatuses"] = list(pauses)
     if metric is not None:
         body["metric"] = metric
+    if clear_calendar:
+        body["calendar"] = None
+    elif calendar_json is not None:
+        try:
+            body["calendar"] = json.loads(calendar_json)
+        except json.JSONDecodeError as e:
+            raise click.ClickException(f"无效 calendar JSON: {e}") from e
     if not body:
         raise click.ClickException("无更新字段")
     client = make_client(config)
