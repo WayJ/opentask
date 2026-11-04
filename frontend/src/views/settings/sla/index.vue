@@ -40,7 +40,9 @@ import {
   normalizeExceptions,
   normalizeWindows,
   validateTimezoneClient,
-  weekdayPreset0918
+  weekdayPreset0918,
+  normalizePolicyCalendar,
+  type PolicyCalendar
 } from '@/utils/businessHours';
 
 defineOptions({ name: 'SettingsSlaPage' });
@@ -57,8 +59,12 @@ const form = reactive({
   targetMinutes: 1440,
   metric: 'time_in_status',
   notifyAssignee: true,
-  notifyWatchers: false
+  notifyWatchers: false,
+  calendarEnabled: false,
+  calendarTimezone: '' as string,
+  calendarExceptions: [] as { date: string; kind: string; windows?: { start: string; end: string }[] }[]
 });
+const calExDraft = reactive({ date: '', kind: 'closed' as ExceptionKind, windowsText: '' });
 
 const statusOptions = ISSUE_STATUSES.map(v => ({ label: v, value: v }));
 
@@ -238,13 +244,22 @@ const columns: DataTableColumns<SlaPolicyRow> = [
   {
     title: '操作',
     key: 'actions',
-    width: 100,
+    width: 180,
     render: row =>
-      h(
-        NButton,
-        { size: 'tiny', tertiary: true, type: 'error', onClick: () => removeRow(row.id) },
-        { default: () => '删除' }
-      )
+      h(NSpace, { size: 4 }, () => [
+        row.calendar
+          ? h(
+              NButton,
+              { size: 'tiny', tertiary: true, onClick: () => clearCalendar(row) },
+              { default: () => '清除覆盖' }
+            )
+          : null,
+        h(
+          NButton,
+          { size: 'tiny', tertiary: true, type: 'error', onClick: () => removeRow(row.id) },
+          { default: () => '删除' }
+        )
+      ])
   }
 ];
 
@@ -269,6 +284,19 @@ async function create() {
   }
   creating.value = true;
   try {
+    let calendar: PolicyCalendar | null = null;
+    if (form.calendarEnabled) {
+      try {
+        const raw: Record<string, unknown> = {};
+        if (form.calendarTimezone.trim()) raw.timezone = form.calendarTimezone.trim();
+        if (form.calendarExceptions.length) raw.exceptions = form.calendarExceptions;
+        calendar = normalizePolicyCalendar(raw);
+      } catch (e: any) {
+        window.$message?.error?.(e?.message || '日历覆盖无效');
+        creating.value = false;
+        return;
+      }
+    }
     const { error } = await fetchCreateSlaPolicy({
       name: form.name.trim(),
       startStatuses: form.startStatuses,
@@ -277,7 +305,8 @@ async function create() {
       targetMinutes: form.targetMinutes,
       metric: form.metric,
       notifyAssignee: form.notifyAssignee,
-      notifyWatchers: form.notifyWatchers
+      notifyWatchers: form.notifyWatchers,
+      ...(calendar ? { calendar } : {})
     });
     if (error) {
       window.$message?.error?.(error.message || '创建失败');
@@ -307,6 +336,37 @@ async function removeRow(id: string) {
   }
   window.$message?.success?.('已删除');
   await load();
+}
+
+
+async function clearCalendar(row: SlaPolicyRow) {
+  const { error } = await fetchUpdateSlaPolicy(row.id, { calendar: null });
+  if (error) {
+    window.$message?.error?.(error.message || '清除失败');
+    return;
+  }
+  window.$message?.success?.('已清除日历覆盖');
+  await load();
+}
+
+function addCalExceptionDraft() {
+  try {
+    const entry: Record<string, unknown> = { date: calExDraft.date, kind: calExDraft.kind };
+    if (calExDraft.kind === 'forced_open' && calExDraft.windowsText.trim()) {
+      entry.windows = calExDraft.windowsText.split(',').map(s => {
+        const [start, end] = s.trim().split('-');
+        return { start: start.trim(), end: end.trim() };
+      });
+    }
+    const normalized = normalizePolicyCalendar({
+      exceptions: [...form.calendarExceptions, entry]
+    });
+    form.calendarExceptions = (normalized?.exceptions as any[]) || [];
+    calExDraft.date = '';
+    calExDraft.windowsText = '';
+  } catch (e: any) {
+    window.$message?.error?.(e?.message || '例外无效');
+  }
 }
 
 async function runDue() {
@@ -364,6 +424,37 @@ onMounted(load);
           <span>通知关注者</span>
           <NSwitch v-model:value="form.notifyWatchers" />
         </NSpace>
+        <div style="border:1px solid #eee;border-radius:6px;padding:12px">
+          <NSpace align="center" style="margin-bottom:8px">
+            <span style="font-weight:500">日历覆盖</span>
+            <NSwitch v-model:value="form.calendarEnabled" />
+            <NText depth="3" style="font-size:12px">关闭=继承工作区；开启后仅填写字段覆盖，其余仍继承</NText>
+          </NSpace>
+          <template v-if="form.calendarEnabled">
+            <NSpace align="center" style="margin-bottom:8px">
+              <span>时区覆盖</span>
+              <NSelect
+                v-model:value="form.calendarTimezone"
+                :options="[{ label: '（继承工作区）', value: '' }, ...timezoneOptions]"
+                style="width:220px"
+                filterable
+                tag
+                clearable
+              />
+            </NSpace>
+            <NText depth="3" style="display:block;margin-bottom:6px;font-size:12px">例外覆盖（填写则整表替换 WS 例外；留空=继承）</NText>
+            <div v-for="ex in form.calendarExceptions" :key="ex.date" style="display:flex;gap:8px;margin-bottom:4px">
+              <span style="width:110px">{{ ex.date }}</span>
+              <span style="width:120px">{{ ex.kind }}</span>
+              <NButton size="tiny" @click="form.calendarExceptions = form.calendarExceptions.filter(e => e.date !== ex.date)">删</NButton>
+            </div>
+            <NSpace align="center">
+              <NInput v-model:value="calExDraft.date" placeholder="YYYY-MM-DD" style="width:140px" />
+              <NSelect v-model:value="calExDraft.kind" :options="kindOptions" style="width:180px" />
+              <NButton size="small" @click="addCalExceptionDraft">添加例外</NButton>
+            </NSpace>
+          </template>
+        </div>
         <NButton type="primary" :loading="creating" @click="create">创建</NButton>
       </NSpace>
     </NCard>

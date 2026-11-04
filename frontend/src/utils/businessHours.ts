@@ -163,3 +163,50 @@ export function validateTimezoneClient(name: string | null | undefined): string 
   }
   return s;
 }
+
+/** E56: policy-level calendar overlay (partial inherit from WS). */
+export interface PolicyCalendar {
+  timezone?: string | null;
+  windows?: Partial<Record<WeekdayKey, BhSegment[]>> | null;
+  exceptions?: BusinessException[] | null;
+}
+
+export function normalizePolicyCalendar(
+  raw: PolicyCalendar | Record<string, unknown> | null | undefined
+): PolicyCalendar | null {
+  if (raw == null) return null;
+  if (typeof raw !== 'object') throw new Error('calendar 必须是对象或 null');
+  const rec = raw as Record<string, unknown>;
+  const keys = Object.keys(rec);
+  if (!keys.length) return null;
+  const out: PolicyCalendar = {};
+  if ('timezone' in rec && rec.timezone != null) {
+    out.timezone = validateTimezoneClient(String(rec.timezone));
+  }
+  if ('windows' in rec && rec.windows != null) {
+    out.windows = normalizeWindows(rec.windows as Partial<Record<WeekdayKey, BhSegment[]>>);
+  }
+  if ('exceptions' in rec && rec.exceptions != null) {
+    out.exceptions = normalizeExceptions(rec.exceptions);
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/** Merge policy overlay onto WS calendar for client preview / vitest (Q1a). */
+export function mergeEffectiveCalendar(
+  ws: { timezone?: string | null; businessHours?: BusinessHours | null },
+  overlay: PolicyCalendar | null | undefined
+): { timezone: string | null; windows: Record<WeekdayKey, BhSegment[]>; exceptions: BusinessException[] } | null {
+  const bh = normalizeBusinessHours(ws.businessHours || null);
+  if (!bh.enabled) return null;
+  const cal = normalizePolicyCalendar(overlay ?? null) || {};
+  const timezone =
+    cal.timezone != null && cal.timezone !== ''
+      ? String(cal.timezone)
+      : ws.timezone
+        ? String(ws.timezone)
+        : null;
+  const windows = cal.windows != null ? normalizeWindows(cal.windows) : bh.windows;
+  const exceptions = cal.exceptions != null ? normalizeExceptions(cal.exceptions) : bh.exceptions;
+  return { timezone, windows, exceptions };
+}

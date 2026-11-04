@@ -3,8 +3,10 @@ import {
   MAX_EXCEPTIONS,
   WEEKDAY_KEYS,
   isClosedExceptionDay,
+  mergeEffectiveCalendar,
   normalizeBusinessHours,
   normalizeExceptions,
+  normalizePolicyCalendar,
   normalizeWindows,
   validateTimezoneClient,
   weekdayPreset0918
@@ -87,5 +89,45 @@ describe('businessHours helpers', () => {
       return { date: `2028-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`, kind: 'closed' as const };
     });
     expect(() => normalizeExceptions(many)).toThrow(/366/);
+  });
+});
+
+describe('E56 policy calendar overlay', () => {
+  it('normalizePolicyCalendar empty ≡ null; partial fields; rejects bad tz/kind', () => {
+    expect(normalizePolicyCalendar(null)).toBeNull();
+    expect(normalizePolicyCalendar({})).toBeNull();
+    expect(normalizePolicyCalendar({ timezone: 'UTC' })).toEqual({ timezone: 'UTC' });
+    expect(() => normalizePolicyCalendar({ timezone: 'NotAZone' })).toThrow(/timezone/);
+    expect(() =>
+      normalizePolicyCalendar({ exceptions: [{ date: '2026-11-05', kind: 'holiday' as never }] })
+    ).toThrow(/kind/);
+  });
+
+  it('mergeEffectiveCalendar empty overlay ≡ WS; partial override; enabled=false → null', () => {
+    const ws = {
+      timezone: 'Asia/Shanghai',
+      businessHours: {
+        enabled: true,
+        windows: weekdayPreset0918(),
+        exceptions: [{ date: '2026-10-01', kind: 'closed' as const }]
+      }
+    };
+    const full = mergeEffectiveCalendar(ws, null);
+    expect(full?.timezone).toBe('Asia/Shanghai');
+    expect(full?.exceptions[0].date).toBe('2026-10-01');
+    const tzOnly = mergeEffectiveCalendar(ws, { timezone: 'UTC' });
+    expect(tzOnly?.timezone).toBe('UTC');
+    expect(tzOnly?.exceptions[0].date).toBe('2026-10-01');
+    const exOnly = mergeEffectiveCalendar(ws, {
+      exceptions: [{ date: '2026-11-07', kind: 'forced_open' }]
+    });
+    expect(exOnly?.timezone).toBe('Asia/Shanghai');
+    expect(exOnly?.exceptions).toEqual([{ date: '2026-11-07', kind: 'forced_open' }]);
+    expect(
+      mergeEffectiveCalendar(
+        { timezone: 'Asia/Shanghai', businessHours: { enabled: false, windows: weekdayPreset0918(), exceptions: [] } },
+        { timezone: 'UTC', windows: weekdayPreset0918() }
+      )
+    ).toBeNull();
   });
 });

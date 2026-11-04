@@ -26,6 +26,12 @@ export function slaMetricBadgePrefix(metric?: string | null): string {
   return '状态 SLA';
 }
 
+export interface SlaPolicyCalendar {
+  timezone?: string | null;
+  windows?: Record<string, { start: string; end: string }[]> | null;
+  exceptions?: { date: string; kind: string; windows?: { start: string; end: string }[] }[] | null;
+}
+
 export interface SlaPolicyRow {
   id: string;
   workspaceId: string;
@@ -38,6 +44,8 @@ export interface SlaPolicyRow {
   targetMinutes: number;
   notifyAssignee: boolean;
   notifyWatchers: boolean;
+  calendar?: SlaPolicyCalendar | null;
+  effectiveCalendar?: SlaPolicyCalendar | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 }
@@ -113,6 +121,7 @@ export function fetchCreateSlaPolicy(body: {
   notifyAssignee?: boolean;
   notifyWatchers?: boolean;
   enabled?: boolean;
+  calendar?: SlaPolicyCalendar | null;
 }) {
   return request<SlaPolicyRow>({ url: '/api/sla/policies', method: 'post', data: body });
 }
@@ -129,6 +138,7 @@ export function fetchUpdateSlaPolicy(
     notifyAssignee: boolean;
     notifyWatchers: boolean;
     enabled: boolean;
+    calendar: SlaPolicyCalendar | null;
   }>
 ) {
   return request<SlaPolicyRow>({ url: `/api/sla/policies/${id}`, method: 'patch', data: body });
