@@ -3,7 +3,7 @@
 日期：2026-11-04（Asia/Shanghai）  
 分支：`sprint/E39-S1`  
 基线 design：`019e552`  
-tip：收口后见文末（本文件入库 commit 后 `git rev-parse --short HEAD`）  
+tip：`2762692`
 状态：**PASS（本地齐套；未 push）**
 
 ## 交付 A–D
@@ -44,3 +44,6 @@ tip：收口后见文末（本文件入库 commit 后 `git rev-parse --short HEA
 
 ## Superpowers
 `superpowers: design/plan/TDD/verify/acceptance = ok`
+
+## 最终 tip
+`2762692`（本 acceptance stamp commit 的父 tip 可能差 1；以 `git rev-parse` 为准）
