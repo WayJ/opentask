@@ -26,7 +26,7 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-04-e39-due-remin
 - Create: `docs/superpowers/plans/2026-11-04-e39-due-reminders-digest.md`（本文件）
 - Create: `docs/superpowers/acceptances/2026-11-04-E39-acceptance.md`（骨架；收口补 tip/测数）
 
-- [ ] **Step 1:** 入库 plan + acceptance 骨架并 commit
+- [x] **Step 1:** 入库 plan + acceptance 骨架并 commit
 
 ---
 
@@ -56,8 +56,8 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-04-e39-due-remin
   - `DueReminderDelivery` 字段：id, workspace_id, issue_id(nullable), user_id, kind∈{soon,overdue,digest}, bucket_date, due_date_bucket(nullable), notification_id(nullable), created_at
   - prefs JSON 含 `due_reminder`（默认 true）、`due_reminder_digest`（默认 false）
 
-- [ ] **Step 1: 红测** prefs GET 默认含两键；PUT 可改；TYPE 映射存在（`is_type_enabled` 对 due_reminder 尊开关）
-- [ ] **Step 2: 跑测确认红** → 最小实现绿 → commit
+- [x] **Step 1: 红测** prefs GET 默认含两键；PUT 可改；TYPE 映射存在（`is_type_enabled` 对 due_reminder 尊开关）
+- [x] **Step 2: 跑测确认红** → 最小实现绿 → commit
 
 ---
 
@@ -83,7 +83,7 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-04-e39-due-remin
 - Digest：同日已有 digest 账本 → 本 tick 不改写
 - 失败隔离；viewer 403；跨 WS 不扫
 
-- [ ] **Step 1: 红测**
+- [x] **Step 1: 红测**
   - soon 窗内 assignee+watcher 各 1 条 due_reminder
   - closed/resolved/rejected 不投；无收件人 skip
   - 二次 tick 不双投；改 due（due_date_bucket 变）可再 soon
@@ -91,7 +91,7 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-04-e39-due-remin
   - digest=true → 多 Issue 仅 1 条 due_reminder_digest；due_reminder=false 全跳过
   - viewer 403；跨租户不泄漏；单条失败隔离
   - email_enabled + mock transport 时 create 触发邮件
-- [ ] **Step 2: 红确认 → 实现绿 → commit**
+- [x] **Step 2: 红确认 → 实现绿 → commit**
 
 ---
 
@@ -110,8 +110,8 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-04-e39-due-remin
   - 主列表循环可排除 `due_reminder`（避免重复），或保留在类型列表 — **采纳：单独卡片，循环排除 due_reminder**
 - Modify: `frontend/src/views/inbox/index.vue` — typeLabel 补 `due_reminder`/`due_reminder_digest`
 
-- [ ] **Step 1: 红测** merge/defaults/isDigestToggleDisabled
-- [ ] **Step 2: 实现绿**；vitest 绿 → commit
+- [x] **Step 1: 红测** merge/defaults/isDigestToggleDisabled
+- [x] **Step 2: 实现绿**；vitest 绿 → commit
 
 ---
 
@@ -125,18 +125,18 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-04-e39-due-remin
 - Bump **1.23.0**：`opentask/__init__.py`、`opentask_cli.py`、`setup.py`、`pyproject.toml`；**全仓**历史 `1.22.0` 断言 → `1.23.0`
 - Create: `agent-harness/opentask-cli/tests/test_e39_due_reminders.py`
 
-- [ ] **Step 1: 红测** version / `notif run-due-reminders --help` / prefs keys
-- [ ] **Step 2: 实现 + bump → 绿 → commit**
+- [x] **Step 1: 红测** version / `notif run-due-reminders --help` / prefs keys
+- [x] **Step 2: 实现 + bump → 绿 → commit**
 
 ---
 
 ### Task 6 — 门禁 + acceptance
 
-- [ ] BE：`pytest backend/tests/api/test_e39_due_reminders.py -q` 绿；全量 `pytest backend/tests -q`（记录 passed；`test_user_search` flake 可记 gaps）
-- [ ] CLI：`pytest agent-harness/opentask-cli/tests -q` 绿
-- [ ] FE：`cd frontend && npx vitest run && npm run build` 绿
-- [ ] 写满 `docs/superpowers/acceptances/2026-11-04-E39-acceptance.md`（tip SHA、测数、ADR、非目标）
-- [ ] 最终 tip commit；**不 push**；**不自开 E40**；回执含 `superpowers: design/plan/TDD/verify/acceptance = ok`
+- [x] BE：`pytest backend/tests/api/test_e39_due_reminders.py -q` 绿；全量 `pytest backend/tests -q`（记录 passed；`test_user_search` flake 可记 gaps）
+- [x] CLI：`pytest agent-harness/opentask-cli/tests -q` 绿
+- [x] FE：`cd frontend && npx vitest run && npm run build` 绿
+- [x] 写满 `docs/superpowers/acceptances/2026-11-04-E39-acceptance.md`（tip SHA、测数、ADR、非目标）
+- [x] 最终 tip commit；**不 push**；**不自开 E40**；回执含 `superpowers: design/plan/TDD/verify/acceptance = ok`
 
 ---
 
