@@ -1,14 +1,14 @@
-"""E24 CLI: insights summary + version 1.38.0."""
+"""E24 CLI: insights summary + version 1.39.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli
 
 
-def test_version_1_8_0():
+def test_version_1_39_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.38.0" in result.output
+    assert "1.39.0" in result.output
 
 
 def test_insights_help():
@@ -16,6 +16,7 @@ def test_insights_help():
     result = runner.invoke(cli, ["insights", "--help"])
     assert result.exit_code == 0
     assert "summary" in result.output
+    assert "export" in result.output
 
 
 def test_insights_summary_help():
@@ -23,3 +24,5 @@ def test_insights_summary_help():
     result = runner.invoke(cli, ["insights", "summary", "--help"])
     assert result.exit_code == 0
     assert "--cycle" in result.output
+    assert "--project-id" in result.output
+    assert "--label-id" in result.output

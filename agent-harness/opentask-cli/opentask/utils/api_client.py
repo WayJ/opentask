@@ -1053,14 +1053,46 @@ class OpenTaskClient:
         return await self.get("/api/inbox/due-reminder-deliveries", params=params or None)
 
 
-    async def insights_summary(self, cycle_id: str | None = None, assignee_limit: int | None = None) -> dict:
+    async def insights_summary(
+        self,
+        cycle_id: str | None = None,
+        assignee_limit: int | None = None,
+        project_id: str | None = None,
+        label_id: int | None = None,
+    ) -> dict:
         params = {}
         if cycle_id:
             params["cycleId"] = cycle_id
         if assignee_limit is not None:
             params["assigneeLimit"] = assignee_limit
+        if project_id:
+            params["projectId"] = project_id
+        if label_id is not None:
+            params["labelId"] = label_id
         return await self.get("/api/insights/summary", params=params or None)
 
+    async def insights_export(
+        self,
+        cycle_id: str | None = None,
+        project_id: str | None = None,
+        label_id: int | None = None,
+    ) -> bytes:
+        """E55: download insights CSV for current workspace."""
+        import httpx
+        url = f"{self.base_url}/api/insights/export.csv"
+        headers = self._get_headers()
+        params = {}
+        if cycle_id:
+            params["cycleId"] = cycle_id
+        if project_id:
+            params["projectId"] = project_id
+        if label_id is not None:
+            params["labelId"] = label_id
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(url, params=params or None, headers=headers)
+            if response.status_code >= 400:
+                raise APIError(response.status_code, response.text)
+            return response.content
 
 
 

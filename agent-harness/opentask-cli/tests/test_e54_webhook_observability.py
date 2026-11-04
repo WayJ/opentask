@@ -1,17 +1,17 @@
-"""E54 CLI: webhook stats|dead-letter + version 1.38.0."""
+"""E54 CLI: webhook stats|dead-letter + version 1.39.0."""
 from click.testing import CliRunner
 
 from opentask import __version__
 from opentask.opentask_cli import VERSION, cli
 
 
-def test_version_1_38_0():
+def test_version_1_39_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.38.0" in result.output
-    assert VERSION == "1.38.0"
-    assert __version__ == "1.38.0"
+    assert "1.39.0" in result.output
+    assert VERSION == "1.39.0"
+    assert __version__ == "1.39.0"
 
 
 def test_webhook_stats_help():
