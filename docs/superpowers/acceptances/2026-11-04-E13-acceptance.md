@@ -5,7 +5,7 @@
 **Date:** 2026-11-04（Asia/Shanghai）  
 **Branch:** `sprint/E13-S1`（worktree 仍为 `/workspace/opentask-worktrees/E11-S4`）  
 **Baseline:** `sprint/E11-S4` @ `3fb9aca`（logo D）  
-**Tip:** `01b0615465feac432d213e99b673acdd2628f398`（以 `git rev-parse HEAD` 为准；验收提交后更新）  
+**Tip:** `aac81beaa7c57cf4ea18dd2cfd387ef86b46c114`  
 **Spec:** `docs/superpowers/specs/2026-11-04-e13-linear-visual-restyle-design.md`  
 **Plan:** `docs/superpowers/plans/2026-11-04-e13-linear-visual-restyle.md`  
 **Push:** **未推远程**
