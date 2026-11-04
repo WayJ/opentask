@@ -3,7 +3,7 @@
 日期：2026-11-04（Asia/Shanghai）  
 分支：`sprint/E39-S1`  
 基线 design：`019e552`  
-tip：`b3430f0`
+tip：`05c5c61`
 状态：**PASS（本地齐套；未 push）**
 
 ## 交付 A–D
