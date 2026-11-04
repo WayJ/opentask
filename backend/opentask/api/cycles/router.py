@@ -1,4 +1,4 @@
-"""Cycles API（E6-S1）"""
+"""Cycles API（E6-S1/S3）"""
 from __future__ import annotations
 
 from datetime import datetime
@@ -56,6 +56,29 @@ async def create_cycle(
         ends_at=body.ends_at,
     )
     return success_response(data=serialize_cycle(row), message="Cycle 已创建")
+
+
+# Static paths MUST be registered before /{cycle_id}
+@router.get("/capacity-hint")
+async def capacity_hint(
+    cycle_id: Optional[str] = Query(None),
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    ws, _member, _user = ctx
+    payload = await CycleService(session).capacity_hint(workspace=ws, cycle_id=cycle_id)
+    return success_response(data=payload)
+
+
+@router.post("/generate-upcoming")
+async def generate_upcoming(
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    ws, member, _user = ctx
+    require_writer(member)
+    row = await CycleService(session).generate_upcoming(workspace=ws)
+    return success_response(data=serialize_cycle(row), message="已生成下一 Cycle")
 
 
 @router.get("/{cycle_id}")
@@ -118,3 +141,27 @@ async def activate_cycle(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cycle 不存在")
     row = await svc.activate(row)
     return success_response(data=serialize_cycle(row), message="Cycle 已激活")
+
+
+@router.post("/{cycle_id}/complete")
+async def complete_cycle(
+    cycle_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    ws, member, _user = ctx
+    require_writer(member)
+    svc = CycleService(session)
+    row = await svc.get(cycle_id, workspace_id=ws.id)
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cycle 不存在")
+    result = await svc.complete(row, workspace=ws)
+    return success_response(
+        data={
+            "cycle": serialize_cycle(result["cycle"]),
+            "rolledCount": result["rolledCount"],
+            "nextCycleId": result["nextCycleId"],
+            "policy": result["policy"],
+        },
+        message="Cycle 已结束",
+    )
