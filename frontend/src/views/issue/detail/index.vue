@@ -38,6 +38,7 @@ import IssueReactions from '@/components/IssueReactions.vue';
 import UserSelect from '@/components/UserSelect.vue';
 import AttachmentList from '@/components/common/AttachmentList.vue';
 import EntityDocsPanel from '@/components/entity-docs/EntityDocsPanel.vue';
+import IssuePrPanel from '@/components/issue-vcs/IssuePrPanel.vue';
 import EditableField from '@/components/EditableField.vue';
 import type { Api } from '@/typings/api';
 
@@ -1183,6 +1184,10 @@ onMounted(() => {
 
           <div v-if="issueId" class="mt-12px">
             <EntityDocsPanel parent-type="issue" :parent-id="issueId" />
+          </div>
+
+          <div v-if="issueId" class="mt-12px">
+            <IssuePrPanel :issue-id="issueId" />
           </div>
 
           <!-- Comments & Timeline -->

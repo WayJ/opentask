@@ -59,3 +59,22 @@ export function deleteIssueVcsLink(issueId: string, linkId: string) {
     method: 'delete'
   });
 }
+
+export function patchIssueVcsLink(
+  issueId: string,
+  linkId: string,
+  data: {
+    branchName?: string;
+    prUrl?: string;
+    provider?: string;
+    externalId?: string;
+    status?: string;
+    title?: string;
+  }
+) {
+  return request<IssueVcsLink>({
+    url: `/api/issues/${issueId}/vcs/links/${linkId}`,
+    method: 'patch',
+    data
+  });
+}
