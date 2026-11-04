@@ -48,7 +48,7 @@ from opentask.models.issue_collection import IssueCollection
 from opentask.models.workspace import Workspace, WorkspaceMember, WorkspaceInvite
 from opentask.models.notification import Notification
 from opentask.models.issue_template import IssueTemplate
-from opentask.models.initiative import Initiative, InitiativeProject
+from opentask.models.initiative import Initiative, InitiativeProject, InitiativeRelation
 from opentask.models.entity_document import EntityDocument
 from opentask.models.issue_vcs_link import IssueVcsLink
 from opentask.models.issue_saved_view import IssueSavedView

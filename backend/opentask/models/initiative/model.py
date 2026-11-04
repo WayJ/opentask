@@ -68,3 +68,45 @@ class InitiativeProject(DBModel):
     __table_args__ = (
         Index("idx_initiative_projects_project", "project_id"),
     )
+
+
+INITIATIVE_RELATION_TYPES = ("blocks", "is_blocked_by", "relates_to")
+
+
+class InitiativeRelation(DBModel):
+    """Initiative↔Initiative dependency edge (E65). Separate from issue_relations."""
+
+    __tablename__ = "initiative_relations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, insert_default=_uuid)
+    workspace_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    source_initiative_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("initiatives.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    target_initiative_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("initiatives.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    relation_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    created_by: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, insert_default=datetime.utcnow
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "source_initiative_id",
+            "target_initiative_id",
+            "relation_type",
+            name="uq_initiative_relations_src_tgt_type",
+        ),
+        Index("idx_initiative_relations_ws_source", "workspace_id", "source_initiative_id"),
+        Index("idx_initiative_relations_ws_target", "workspace_id", "target_initiative_id"),
+    )
