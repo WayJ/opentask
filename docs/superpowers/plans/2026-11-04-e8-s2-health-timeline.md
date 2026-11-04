@@ -37,8 +37,8 @@
 
 ### Task 1: Docs
 
-- [ ] Write this plan; mark sprint Wave 1 TDD plan checkbox
-- [ ] Commit `docs(E8-S2): TDD plan for health, watchers, timeline`
+- [x] Write this plan; mark sprint Wave 1 TDD plan checkbox
+- [x] Commit `docs(E8-S2): TDD plan for health, watchers, timeline`
 
 ### Task 2: Pytest RED — health / watchers / timeline / inbox
 
@@ -52,41 +52,41 @@
 - Create project with WS → creator is watcher
 - Cross-WS 404; viewer read ok / write 403; invalid status 400
 
-- [ ] Write failing tests (mirror `test_milestones` helpers)
-- [ ] Run `pytest tests/api/test_project_health.py -v` → FAIL (404/missing routes)
-- [ ] Commit RED tests
+- [x] Write failing tests (mirror `test_milestones` helpers)
+- [x] Run `pytest tests/api/test_project_health.py -v` → FAIL (404/missing routes)
+- [x] Commit RED tests
 
 ### Task 3: Models + Alembic GREEN foundation
 
-- [ ] Add `ProjectHealthUpdate`, `ProjectWatcher` models; Project `health_*` columns; export in `models/__init__.py`
-- [ ] Migration `f6a7b8c9d0e2` revises `e5f6a7b8c9d1`
-- [ ] Commit models + migration
+- [x] Add `ProjectHealthUpdate`, `ProjectWatcher` models; Project `health_*` columns; export in `models/__init__.py`
+- [x] Migration `f6a7b8c9d0e2` revises `e5f6a7b8c9d1`
+- [x] Commit models + migration
 
 ### Task 4: Services + API GREEN
 
-- [ ] `ProjectWatcherService`: list / watch (idempotent) / unwatch; serialize
-- [ ] `ProjectHealthService`: post update + cache + fanout; get latest/history; timeline DTO
-- [ ] `NotificationService.notify_project_health` (or inline create loop)
-- [ ] Nested routers: health, watchers, timeline; wire create_project auto-watch
-- [ ] Extend `ProjectResponse` + `to_response` with health_* 
-- [ ] Run pytest file → PASS; commit
+- [x] `ProjectWatcherService`: list / watch (idempotent) / unwatch; serialize
+- [x] `ProjectHealthService`: post update + cache + fanout; get latest/history; timeline DTO
+- [x] `NotificationService.notify_project_health` (or inline create loop)
+- [x] Nested routers: health, watchers, timeline; wire create_project auto-watch
+- [x] Extend `ProjectResponse` + `to_response` with health_* 
+- [x] Run pytest file → PASS; commit
 
 ### Task 5: FE + vitest
 
-- [ ] API helpers + typings for health/watchers/timeline
-- [ ] `project-timeline.ts`: `isTimelineEmpty`, `HEALTH_LABELS`, zoom day-width helpers + tests
-- [ ] project-detail: health badge, Update dialog + history, Watch toggle, Timeline tab (week/month, empty-state)
-- [ ] Inbox: `project_health` label + navigate to project-detail
-- [ ] lint 0 errors; build; vitest for timeline utils
-- [ ] Commit FE
+- [x] API helpers + typings for health/watchers/timeline
+- [x] `project-timeline.ts`: `isTimelineEmpty`, `HEALTH_LABELS`, zoom day-width helpers + tests
+- [x] project-detail: health badge, Update dialog + history, Watch toggle, Timeline tab (week/month, empty-state)
+- [x] Inbox: `project_health` label + navigate to project-detail
+- [x] lint 0 errors; build; vitest for timeline utils
+- [x] Commit FE
 
 ### Task 6: Gates + close S2
 
-- [ ] Full pytest; eslint --quiet; build
-- [ ] Acceptance `docs/superpowers/acceptances/2026-11-04-E8-S2-acceptance.md`
-- [ ] Sprint `state: closed`; roadmap S2 closed / S3 planned; Epic stays active
-- [ ] Create `sprint/E8-S3` worktree stub from tip (Favorites leftover)
-- [ ] **No push**
+- [x] Full pytest; eslint --quiet; build
+- [x] Acceptance `docs/superpowers/acceptances/2026-11-04-E8-S2-acceptance.md`
+- [x] Sprint `state: closed`; roadmap S2 closed / S3 planned; Epic stays active
+- [x] Create `sprint/E8-S3` worktree stub from tip (Favorites leftover)
+- [x] **No push**
 
 ## Acceptance criteria (S2)
 

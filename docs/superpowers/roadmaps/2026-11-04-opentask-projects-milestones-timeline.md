@@ -39,8 +39,8 @@ date: 2026-11-04
 | sprint | state | note |
 |---|---|---|
 | S1 | **closed** | Milestones + `issue.milestone_id` + 项目日期 + 项目 UI。acceptance: `docs/superpowers/acceptances/2026-11-04-E8-S1-acceptance.md`；impl `56c886e` |
-| S2 | **active** | **Health updates + Inbox fanout + Timeline MVP**（week/month + empty-state）。plan: `docs/superpowers/sprints/2026-11-04-E8-S2-plan.md` |
-| S3 | planned | **Sidebar Favorites** + 打磨（⌘K 可选跳转、空状态、header）+ Epic local-complete |
+| S2 | **closed** | Health + watchers + Inbox + Timeline MVP。acceptance: `docs/superpowers/acceptances/2026-11-04-E8-S2-acceptance.md` |
+| S3 | **planned** | **Sidebar Favorites** + 打磨 + Epic local-complete；worktree `sprint/E8-S3` |
 
 推荐顺序理由：先固化里程碑与项目时间盒真相源（S1，解锁 Issue 归属与 Timeline 数据），再做健康广播与 Timeline 呈现（S2，依赖日期/里程碑），最后侧栏 Favorites 与整包打磨（S3，Favorites 可兼作 health watcher 补源）。
 
@@ -114,6 +114,6 @@ date: 2026-11-04
 
 ## Next
 
-1. ~~Phase 1 文档 / S1 实现~~ → S1 closed
-2. 实现 E8-S2（Health + Timeline）；再 S3 Favorites → Epic local-complete
+1. ~~Phase 1 / S1 / S2~~ → closed
+2. 实现 E8-S3 Favorites → Epic local-complete
 3. 整 Epic E8 本地收口后一次回执；controller 接 **E12**（invites + KEY-N + de-PGE），**不**接 E9
