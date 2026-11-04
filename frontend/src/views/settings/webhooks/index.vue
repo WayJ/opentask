@@ -18,21 +18,32 @@ import {
   NText
 } from 'naive-ui';
 import {
+  type DeadLetterRow,
+  type StatWindow,
   type WebhookDelivery,
   type WebhookRow,
+  type WebhookStatsPayload,
+  DEFAULT_STAT_WINDOW,
+  STAT_WINDOWS,
   WEBHOOK_EVENTS,
   WEBHOOK_EVENT_LABELS,
   applyIntegrationPreset,
   clearIntegrationPreset,
+  fetchBulkRetryDeadLetter,
   fetchCreateWebhook,
+  fetchDeadLetter,
   fetchDeleteWebhook,
   fetchRetryWebhookDelivery,
   fetchTestWebhook,
   fetchUpdateWebhook,
   fetchWebhook,
+  fetchWebhookStats,
   fetchWebhooks,
+  filterDeadLetterRows,
   filterDeliveriesByEvent,
-  isDeliveryReplayable
+  formatSuccessRate,
+  isDeliveryReplayable,
+  normalizeStatsPayload
 } from '@/service/api/webhooks';
 
 defineOptions({ name: 'SettingsWebhooksPage' });
@@ -52,6 +63,36 @@ const form = reactive({
   url: '',
   events: [...WEBHOOK_EVENTS] as string[]
 });
+
+/** E54 observability */
+const statsWindow = ref<StatWindow>(DEFAULT_STAT_WINDOW);
+const statsLoading = ref(false);
+const stats = ref<WebhookStatsPayload | null>(null);
+const deadOpen = ref(false);
+const deadLoading = ref(false);
+const deadRows = ref<DeadLetterRow[]>([]);
+const deadHookFilter = ref<string>('all');
+const deadEventFilter = ref<string>('all');
+const deadSelected = ref<string[]>([]);
+const bulkRetrying = ref(false);
+
+const windowOptions = STAT_WINDOWS.map(w => ({ label: w, value: w }));
+
+const hookFilterOptions = computed(() => [
+  { label: '全部钩子', value: 'all' },
+  ...rows.value.map(r => ({
+    label: r.name || r.url,
+    value: r.id
+  }))
+]);
+
+const filteredDeadRows = computed(() =>
+  filterDeadLetterRows(deadRows.value, deadHookFilter.value, deadEventFilter.value)
+);
+
+const successRateLabel = computed(() => formatSuccessRate(stats.value?.totals.successRate));
+const deadCountLabel = computed(() => String(stats.value?.totals.dead ?? 0));
+
 
 const eventOptions = WEBHOOK_EVENTS.map(e => ({ label: WEBHOOK_EVENT_LABELS[e] || e, value: e }));
 
@@ -210,6 +251,21 @@ const deliveryColumns: DataTableColumns<WebhookDelivery> = [
   }
 ];
 
+async function loadStats() {
+  statsLoading.value = true;
+  try {
+    const { data, error } = await fetchWebhookStats(statsWindow.value);
+    if (error) {
+      window.$message?.error?.(error.message || '指标加载失败');
+      stats.value = null;
+      return;
+    }
+    stats.value = normalizeStatsPayload(data);
+  } finally {
+    statsLoading.value = false;
+  }
+}
+
 async function load() {
   loading.value = true;
   try {
@@ -221,6 +277,74 @@ async function load() {
     rows.value = data?.rows || [];
   } finally {
     loading.value = false;
+  }
+  await loadStats();
+}
+
+async function onWindowChange(w: StatWindow) {
+  statsWindow.value = w;
+  await loadStats();
+}
+
+async function openDeadLetter() {
+  deadOpen.value = true;
+  deadHookFilter.value = 'all';
+  deadEventFilter.value = 'all';
+  deadSelected.value = [];
+  await loadDeadLetter();
+}
+
+async function loadDeadLetter() {
+  deadLoading.value = true;
+  try {
+    const { data, error } = await fetchDeadLetter({ limit: 100 });
+    if (error) {
+      window.$message?.error?.(error.message || '死信箱加载失败');
+      deadRows.value = [];
+      return;
+    }
+    deadRows.value = (data?.rows || []) as DeadLetterRow[];
+  } finally {
+    deadLoading.value = false;
+  }
+}
+
+async function retryDeadOne(row: DeadLetterRow) {
+  const { data, error } = await fetchRetryWebhookDelivery(row.webhookId, row.id);
+  if (error) {
+    window.$message?.error?.(error.message || '重试失败');
+    return;
+  }
+  if (data?.success) {
+    window.$message?.success?.('重试成功');
+  } else {
+    window.$message?.warning?.(data?.error || '重试未成功');
+  }
+  await loadDeadLetter();
+  await loadStats();
+}
+
+async function bulkRetrySelected() {
+  const ids = [...deadSelected.value];
+  if (!ids.length) {
+    window.$message?.warning?.('请先勾选死信');
+    return;
+  }
+  bulkRetrying.value = true;
+  try {
+    const { data, error } = await fetchBulkRetryDeadLetter(ids);
+    if (error) {
+      window.$message?.error?.(error.message || '批量重试失败');
+      return;
+    }
+    window.$message?.success?.(
+      `批量重试：成功 ${data?.succeeded ?? 0} / 失败 ${data?.failed ?? 0}`
+    );
+    deadSelected.value = [];
+    await loadDeadLetter();
+    await loadStats();
+  } finally {
+    bulkRetrying.value = false;
   }
 }
 
@@ -323,15 +447,110 @@ async function removeHook(id: string) {
   await load();
 }
 
+
+const deadColumns: DataTableColumns<DeadLetterRow> = [
+  {
+    type: 'selection'
+  },
+  {
+    title: '钩子',
+    key: 'webhookName',
+    ellipsis: { tooltip: true },
+    render: row => row.webhookName || row.webhookUrl || row.webhookId.slice(0, 8)
+  },
+  {
+    title: '事件',
+    key: 'eventType',
+    ellipsis: { tooltip: true }
+  },
+  {
+    title: 'HTTP',
+    key: 'statusCode',
+    width: 70,
+    render: row => row.statusCode ?? '—'
+  },
+  {
+    title: '错误',
+    key: 'error',
+    ellipsis: { tooltip: true },
+    render: row => row.error || '—'
+  },
+  {
+    title: '时间',
+    key: 'createdAt',
+    width: 170,
+    render: row => (row.createdAt || '').replace('T', ' ').slice(0, 19) || '—'
+  },
+  {
+    title: '操作',
+    key: 'actions',
+    width: 90,
+    render: row =>
+      h(
+        NButton,
+        {
+          size: 'tiny',
+          type: 'primary',
+          tertiary: true,
+          onClick: () => retryDeadOne(row)
+        },
+        { default: () => '重试' }
+      )
+  }
+];
+
 onMounted(load);
+
 </script>
 
 <template>
   <div class="p-4">
     <NCard title="出站 Webhooks" :bordered="false">
       <template #header-extra>
-        <NText depth="3">订阅 Issue/评论事件，HMAC 签名投递到你的 URL</NText>
+        <NSpace align="center">
+          <NText depth="3">订阅 Issue/评论事件，HMAC 签名投递到你的 URL</NText>
+          <NButton size="small" tertiary type="error" @click="openDeadLetter">死信箱</NButton>
+        </NSpace>
       </template>
+
+      <NCard size="small" title="投递指标" class="mb-4" :loading="statsLoading">
+        <NSpace align="center" justify="space-between">
+          <NSpace align="center">
+            <NText depth="3">时间窗</NText>
+            <NRadioGroup
+              :value="statsWindow"
+              size="small"
+              @update:value="(v: StatWindow) => onWindowChange(v)"
+            >
+              <NRadioButton v-for="opt in windowOptions" :key="opt.value" :value="opt.value">
+                {{ opt.label }}
+              </NRadioButton>
+            </NRadioGroup>
+          </NSpace>
+          <NSpace :size="24">
+            <div>
+              <NText depth="3" style="font-size:12px">成功率</NText>
+              <div style="font-size:22px;font-weight:600">{{ successRateLabel }}</div>
+            </div>
+            <div style="cursor:pointer" @click="openDeadLetter">
+              <NText depth="3" style="font-size:12px">死信</NText>
+              <div style="font-size:22px;font-weight:600;color:#ef4444">{{ deadCountLabel }}</div>
+            </div>
+            <div>
+              <NText depth="3" style="font-size:12px">成功 / 尝试</NText>
+              <div style="font-size:16px;font-weight:500">
+                {{ stats?.totals.success ?? 0 }} / {{ stats?.totals.attempts ?? 0 }}
+              </div>
+            </div>
+            <div v-if="stats?.totals.latencyMs">
+              <NText depth="3" style="font-size:12px">延迟 p50 / p95</NText>
+              <div style="font-size:16px;font-weight:500">
+                {{ stats.totals.latencyMs.p50 }}ms / {{ stats.totals.latencyMs.p95 }}ms
+              </div>
+            </div>
+          </NSpace>
+        </NSpace>
+      </NCard>
 
       <NCard size="small" title="新建" class="mb-4">
         <NSpace vertical>
@@ -392,6 +611,55 @@ onMounted(load);
           size="small"
           :row-class-name="(row: WebhookDelivery) => ((row.status || '') === 'dead' ? 'e44-dead-row' : '')"
         />
+      </NSpace>
+    </NModal>
+
+    <NModal
+      v-model:show="deadOpen"
+      preset="card"
+      title="死信箱"
+      style="width: 920px"
+    >
+      <NSpace vertical>
+        <NSpace align="center">
+          <NSelect
+            v-model:value="deadHookFilter"
+            :options="hookFilterOptions"
+            size="small"
+            style="width: 220px"
+            placeholder="按钩子过滤"
+          />
+          <NSelect
+            v-model:value="deadEventFilter"
+            :options="eventFilterOptions"
+            size="small"
+            style="width: 220px"
+            placeholder="按事件过滤"
+          />
+          <NButton
+            size="small"
+            type="primary"
+            :loading="bulkRetrying"
+            :disabled="!deadSelected.length"
+            @click="bulkRetrySelected"
+          >
+            批量重试所选 ({{ deadSelected.length }})
+          </NButton>
+          <NButton size="small" tertiary :loading="deadLoading" @click="loadDeadLetter">刷新</NButton>
+        </NSpace>
+        <NDataTable
+          v-model:checked-row-keys="deadSelected"
+          :columns="deadColumns"
+          :data="filteredDeadRows"
+          :loading="deadLoading"
+          :bordered="false"
+          size="small"
+          :row-key="(row: DeadLetterRow) => row.id"
+          :row-class-name="() => 'e44-dead-row'"
+        />
+        <div v-if="!deadLoading && !filteredDeadRows.length" class="py-6 text-center opacity-60">
+          暂无死信。
+        </div>
       </NSpace>
     </NModal>
   </div>

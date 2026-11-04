@@ -181,3 +181,167 @@ export function parseWebhookEvents(input: string, allowed: readonly string[] = W
   }
   return out;
 }
+
+
+/** E54 stats windows */
+export const STAT_WINDOWS = ['24h', '7d', '30d'] as const;
+export const DEFAULT_STAT_WINDOW = '7d' as const;
+export type StatWindow = (typeof STAT_WINDOWS)[number];
+
+export interface DeliveryTotals {
+  success: number;
+  pending_retry: number;
+  dead: number;
+  attempts: number;
+  successRate: number | null;
+  latencyMs?: { p50: number; p95: number };
+}
+
+export interface WebhookStatsBreakdown {
+  webhookId: string;
+  name?: string | null;
+  url?: string | null;
+  totals: DeliveryTotals;
+}
+
+export interface WebhookStatsPayload {
+  window: StatWindow;
+  totals: DeliveryTotals;
+  byWebhook?: WebhookStatsBreakdown[];
+  webhookId?: string;
+  name?: string | null;
+  url?: string | null;
+}
+
+export interface DeadLetterRow extends WebhookDelivery {
+  webhookName?: string | null;
+  webhookUrl?: string | null;
+}
+
+export interface DeadLetterListResult {
+  rows: DeadLetterRow[];
+  nextCursor?: string | null;
+  total?: number;
+}
+
+export interface BulkRetryResult {
+  results: Array<{
+    deliveryLogId: string;
+    ok: boolean;
+    error?: string;
+    result?: Record<string, unknown>;
+  }>;
+  succeeded: number;
+  failed: number;
+}
+
+function _num(v: unknown, fallback = 0): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+export function normalizeStatsPayload(raw: unknown): WebhookStatsPayload {
+  const r = (raw || {}) as Record<string, unknown>;
+  const windowRaw = String(r.window || DEFAULT_STAT_WINDOW);
+  const window = (STAT_WINDOWS as readonly string[]).includes(windowRaw)
+    ? (windowRaw as StatWindow)
+    : DEFAULT_STAT_WINDOW;
+  const t = (r.totals || {}) as Record<string, unknown>;
+  const totals: DeliveryTotals = {
+    success: _num(t.success),
+    pending_retry: _num(t.pending_retry ?? t.pendingRetry),
+    dead: _num(t.dead),
+    attempts: _num(t.attempts),
+    successRate:
+      t.successRate === null || t.successRate === undefined
+        ? null
+        : _num(t.successRate, 0)
+  };
+  const lat = t.latencyMs as { p50?: unknown; p95?: unknown } | undefined;
+  if (lat && lat.p50 != null && lat.p95 != null) {
+    totals.latencyMs = { p50: _num(lat.p50), p95: _num(lat.p95) };
+  }
+  const out: WebhookStatsPayload = { window, totals };
+  if (Array.isArray(r.byWebhook)) {
+    out.byWebhook = (r.byWebhook as Record<string, unknown>[]).map(b => {
+      const bt = (b.totals || {}) as Record<string, unknown>;
+      const btTotals: DeliveryTotals = {
+        success: _num(bt.success),
+        pending_retry: _num(bt.pending_retry ?? bt.pendingRetry),
+        dead: _num(bt.dead),
+        attempts: _num(bt.attempts),
+        successRate:
+          bt.successRate === null || bt.successRate === undefined
+            ? null
+            : _num(bt.successRate, 0)
+      };
+      return {
+        webhookId: String(b.webhookId || ''),
+        name: (b.name as string | null | undefined) ?? null,
+        url: (b.url as string | null | undefined) ?? null,
+        totals: btTotals
+      };
+    });
+  }
+  if (r.webhookId) out.webhookId = String(r.webhookId);
+  if ('name' in r) out.name = (r.name as string | null | undefined) ?? null;
+  if ('url' in r) out.url = (r.url as string | null | undefined) ?? null;
+  return out;
+}
+
+export function filterDeadLetterRows<T extends { webhookId: string; eventType: string }>(
+  rows: T[],
+  webhookId: string | 'all',
+  eventType: string | 'all'
+): T[] {
+  let list = rows;
+  if (webhookId && webhookId !== 'all') {
+    list = list.filter(r => r.webhookId === webhookId);
+  }
+  if (eventType && eventType !== 'all') {
+    list = list.filter(r => r.eventType === eventType);
+  }
+  return list;
+}
+
+export function formatSuccessRate(rate: number | null | undefined): string {
+  if (rate === null || rate === undefined || Number.isNaN(rate)) return '—';
+  return `${(rate * 100).toFixed(1)}%`;
+}
+
+export function fetchWebhookStats(window: string = DEFAULT_STAT_WINDOW) {
+  return request<WebhookStatsPayload>({
+    url: '/api/webhooks/stats',
+    method: 'get',
+    params: { window }
+  });
+}
+
+export function fetchWebhookStatsById(id: string, window: string = DEFAULT_STAT_WINDOW) {
+  return request<WebhookStatsPayload>({
+    url: `/api/webhooks/${id}/stats`,
+    method: 'get',
+    params: { window }
+  });
+}
+
+export function fetchDeadLetter(params?: {
+  limit?: number;
+  cursor?: string;
+  webhook_id?: string;
+  event?: string;
+}) {
+  return request<DeadLetterListResult>({
+    url: '/api/webhooks/dead-letter',
+    method: 'get',
+    params: params || {}
+  });
+}
+
+export function fetchBulkRetryDeadLetter(deliveryLogIds: string[]) {
+  return request<BulkRetryResult>({
+    url: '/api/webhooks/dead-letter/retry',
+    method: 'post',
+    data: { deliveryLogIds }
+  });
+}
