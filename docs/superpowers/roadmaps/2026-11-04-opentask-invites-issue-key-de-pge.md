@@ -38,7 +38,7 @@ date: 2026-11-04
 
 | sprint | state | note |
 |---|---|---|
-| S1 | **active**（Phase 1 docs） | `Workspace.issue_key` + KEY-N 分配 + 双解析 + FE 展示/⌘K/URL + 存量回填迁移。stub: `docs/superpowers/sprints/2026-11-04-E12-S1-plan.md` |
+| S1 | **closed**（local） | KEY-N + dual-parse + FE/CLI + alembic `b8c9d0e1f2a4`；acceptance `2026-11-04-E12-S1-acceptance.md`；未推远程 |
 | S2 | planned | Invites API + accept/register 落地 + 成员管理 UI（改角色/移除/离开）+ 保留 `add_member(userId)` |
 | S3 | planned | 去 PGE 导航/默认/deprecated 标记 + CodingWorker/Agent 文案 + 打磨 + Epic local-complete |
 
@@ -102,3 +102,4 @@ date: 2026-11-04
 | date | note |
 |---|---|
 | 2026-11-04 | Phase 1：explore + roadmap + design + S1 stub；worktree `E12-S1` @ `9fef926`；**无**产品实现、**无**推远程 |
+| 2026-11-04 | E12-S1 local-complete：plan+TDD+impl+acceptance；pytest 708；未开 S2；未推远程 |
