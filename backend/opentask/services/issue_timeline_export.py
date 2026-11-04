@@ -47,6 +47,51 @@ def clamp_activity_limit(limit: Optional[int]) -> int:
     return lim
 
 
+
+def clamp_unread_count(raw: int, *, hard_cap: int = 99) -> tuple[int, bool]:
+    """Clamp unread badge; returns (display_count, capped)."""
+    try:
+        n = int(raw)
+    except (TypeError, ValueError):
+        return 0, False
+    if n < 0:
+        n = 0
+    if n > hard_cap:
+        return hard_cap, True
+    return n, False
+
+
+def build_reaction_summary(
+    emoji_users: dict[str, list[str]],
+    *,
+    viewer_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """Normalize emoji→user_ids into Activity reaction chips."""
+    out: list[dict[str, Any]] = []
+    for emoji, users in sorted(emoji_users.items(), key=lambda kv: (-len(kv[1]), kv[0])):
+        ids = [str(u) for u in (users or []) if u]
+        out.append(
+            {
+                "emoji": emoji,
+                "count": len(ids),
+                "myReacted": bool(viewer_id and str(viewer_id) in ids),
+            }
+        )
+    return out
+
+
+def extract_comment_id(payload: Any) -> str | None:
+    if not isinstance(payload, dict):
+        return None
+    cid = payload.get("comment_id") or payload.get("commentId")
+    if cid is None:
+        return None
+    s = str(cid).strip()
+    if not s or s.lower() in {"none", "null"}:
+        return None
+    return s
+
+
 def encode_activity_cursor(created_at: datetime, row_id: str) -> str:
     """Opaque cursor: base64url of ``iso|id``."""
     raw = f"{created_at.isoformat()}|{row_id}".encode("utf-8")
@@ -117,10 +162,13 @@ async def query_timeline_entries(
     actor_id: Optional[str] = None,
     cursor: Optional[tuple[datetime, str]] = None,
     limit: int = EXPORT_DEFAULT_LIMIT,
+    watcher_user_id: Optional[str] = None,
 ) -> list[IssueTimeline]:
     """Shared timeline query (E41 CSV + E47 JSON). Returns up to ``limit`` rows.
 
     Caller that needs next-page detection should pass ``limit+1``.
+    When ``watcher_user_id`` is set (E52), restrict to issues the user watches
+    in this workspace via ``issue_watchers``.
     """
     types = _normalize_action_types(action_types)
 
@@ -132,6 +180,17 @@ async def query_timeline_entries(
             Issue.is_deleted == False,  # noqa: E712
         )
     )
+    if watcher_user_id:
+        from opentask.models.issue_watcher.model import IssueWatcher
+
+        q = q.join(
+            IssueWatcher,
+            and_(
+                IssueWatcher.issue_id == IssueTimeline.issue_id,
+                IssueWatcher.user_id == str(watcher_user_id),
+                IssueWatcher.workspace_id == workspace_id,
+            ),
+        )
     if issue_id:
         q = q.where(IssueTimeline.issue_id == issue_id)
     if since is not None:
@@ -161,8 +220,9 @@ def serialize_activity_item(
     *,
     issue: Optional[Issue] = None,
     actor_user: Optional[UserModel] = None,
+    reactions: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
-    """CamelCase activity feed item (E47)."""
+    """CamelCase activity feed item (E47/E52)."""
     actor: dict[str, Any] | None = None
     if row.user_id:
         display = None
@@ -180,7 +240,7 @@ def serialize_activity_item(
             "username": username,
             "displayName": display,
         }
-    return {
+    out: dict[str, Any] = {
         "id": row.id,
         "issueId": row.issue_id,
         "issueCode": (issue.issue_code if issue is not None else None),
@@ -189,6 +249,31 @@ def serialize_activity_item(
         "actor": actor,
         "createdAt": row.created_at.isoformat() if row.created_at else None,
         "payload": row.action_data or {},
+    }
+    if reactions is not None:
+        out["reactions"] = reactions
+    return out
+
+
+def reactions_payload_for_row(
+    row: IssueTimeline,
+    *,
+    issue_maps: dict[str, dict[str, list[str]]],
+    comment_maps: dict[str, dict[str, list[str]]],
+    viewer_id: str | None,
+) -> dict[str, Any]:
+    """Q2a: comment reactions when payload has comment_id; else issue-level."""
+    payload = row.action_data or {}
+    cid = extract_comment_id(payload)
+    if cid:
+        return {
+            "scope": "comment",
+            "commentId": cid,
+            "summary": build_reaction_summary(comment_maps.get(cid, {}), viewer_id=viewer_id),
+        }
+    return {
+        "scope": "issue",
+        "summary": build_reaction_summary(issue_maps.get(row.issue_id, {}), viewer_id=viewer_id),
     }
 
 

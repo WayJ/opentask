@@ -64,10 +64,13 @@ from opentask.services.issue_timeline_export import (
     ACTIVITY_DEFAULT_LIMIT,
     ACTIVITY_HARD_CAP,
     clamp_activity_limit,
+    clamp_unread_count,
     encode_activity_cursor,
     decode_activity_cursor,
     query_timeline_entries,
     serialize_activity_item,
+    reactions_payload_for_row,
+    extract_comment_id,
 )
 from opentask.models.issue.enums import TimelineAction
 from opentask.models.issue.model import Issue
@@ -336,15 +339,16 @@ async def list_workspace_activity(
     actionType: Optional[List[str]] = Query(None, description="Filter action_type (repeatable)"),
     actorId: Optional[str] = Query(None, description="Filter by actor user id"),
     issueId: Optional[str] = Query(None, description="Filter to one issue id"),
+    watching: Optional[bool] = Query(None, description="E52：仅我关注的 Issue（对齐 E19）"),
     cursor: Optional[str] = Query(None, description="Opaque pagination cursor"),
     limit: int = Query(ACTIVITY_DEFAULT_LIMIT, ge=1, description="Page size (clamped to 200)"),
     service: IssueService = Depends(get_issue_service),
     ctx: tuple = Depends(require_workspace_context),
 ):
-    """E47：工作区级 Activity Feed JSON（viewer+；游标分页；硬顶 clamp 200）。"""
+    """E47/E52：工作区级 Activity Feed JSON（viewer+；游标分页；硬顶 clamp 200）。"""
     from datetime import datetime as _dt
 
-    workspace, _member, _user = ctx
+    workspace, _member, user = ctx
 
     def _parse_iso(raw: str, field: str):
         try:
@@ -384,6 +388,7 @@ async def list_workspace_activity(
             raise HTTPException(status_code=404, detail="Issue 不存在")
 
     page_limit = clamp_activity_limit(limit)
+    watcher_uid = str(user.id) if watching is True else None
     rows = await query_timeline_entries(
         service.db,
         workspace_id=workspace.id,
@@ -394,6 +399,7 @@ async def list_workspace_activity(
         actor_id=actorId,
         cursor=cursor_tuple,
         limit=page_limit + 1,
+        watcher_user_id=watcher_uid,
     )
     has_more = len(rows) > page_limit
     rows = rows[:page_limit]
@@ -412,11 +418,43 @@ async def list_workspace_activity(
         for u in ures.scalars().all():
             user_map[str(u.id)] = u
 
+    # E52：批量挂载 issue/comment 反应摘要（无 entry 反应表）
+    from opentask.models.issue.model import IssueReaction, CommentReaction
+
+    issue_rx_maps: dict = {iid: {} for iid in issue_ids}
+    if issue_ids:
+        rx_res = await service.db.execute(
+            select(IssueReaction).where(IssueReaction.issue_id.in_(issue_ids))
+        )
+        for rx in rx_res.scalars().all():
+            issue_rx_maps.setdefault(rx.issue_id, {}).setdefault(rx.emoji, []).append(rx.user_id)
+
+    comment_ids = []
+    for r in rows:
+        cid = extract_comment_id(r.action_data or {})
+        if cid:
+            comment_ids.append(cid)
+    comment_ids = list(dict.fromkeys(comment_ids))
+    comment_rx_maps: dict = {cid: {} for cid in comment_ids}
+    if comment_ids:
+        cr_res = await service.db.execute(
+            select(CommentReaction).where(CommentReaction.comment_id.in_(comment_ids))
+        )
+        for rx in cr_res.scalars().all():
+            comment_rx_maps.setdefault(rx.comment_id, {}).setdefault(rx.emoji, []).append(rx.user_id)
+
+    viewer_id = str(user.id) if user is not None else None
     items = [
         serialize_activity_item(
             r,
             issue=issue_map.get(r.issue_id),
             actor_user=user_map.get(str(r.user_id)) if r.user_id else None,
+            reactions=reactions_payload_for_row(
+                r,
+                issue_maps=issue_rx_maps,
+                comment_maps=comment_rx_maps,
+                viewer_id=viewer_id,
+            ),
         )
         for r in rows
     ]
@@ -426,6 +464,122 @@ async def list_workspace_activity(
         next_cursor = encode_activity_cursor(last.created_at, last.id)
 
     return success_response(data={"items": items, "nextCursor": next_cursor})
+
+
+
+@router.get("/activity/unread-count")
+async def activity_unread_count(
+    watching: bool = Query(True, description="E52：默认仅统计关注 Issue 的未读"),
+    service: IssueService = Depends(get_issue_service),
+    ctx: tuple = Depends(require_workspace_context),
+):
+    """E52：薄铃铛未读数（硬顶 99+；非 Push）。"""
+    from datetime import datetime as _dt
+    from sqlalchemy import func, and_, or_
+    from opentask.models.issue.model import IssueTimeline
+    from opentask.models.issue_watcher.model import IssueWatcher
+    from opentask.models.activity_read_cursor import ActivityReadCursor
+
+    workspace, _member, user = ctx
+    viewer_id = str(user.id)
+
+    cur_res = await service.db.execute(
+        select(ActivityReadCursor).where(
+            ActivityReadCursor.user_id == viewer_id,
+            ActivityReadCursor.workspace_id == workspace.id,
+        )
+    )
+    cursor_row = cur_res.scalar_one_or_none()
+
+    q = (
+        select(func.count())
+        .select_from(IssueTimeline)
+        .join(Issue, Issue.id == IssueTimeline.issue_id)
+        .where(
+            Issue.workspace_id == workspace.id,
+            Issue.is_deleted == False,  # noqa: E712
+        )
+    )
+    if watching:
+        q = q.join(
+            IssueWatcher,
+            and_(
+                IssueWatcher.issue_id == IssueTimeline.issue_id,
+                IssueWatcher.user_id == viewer_id,
+                IssueWatcher.workspace_id == workspace.id,
+            ),
+        )
+    if cursor_row is not None:
+        c_at = cursor_row.last_seen_at
+        c_id = cursor_row.last_seen_id or ""
+        q = q.where(
+            or_(
+                IssueTimeline.created_at > c_at,
+                and_(IssueTimeline.created_at == c_at, IssueTimeline.id > c_id),
+            )
+        )
+
+    raw = int((await service.db.execute(q)).scalar() or 0)
+    count, capped = clamp_unread_count(raw)
+    return success_response(data={"count": count, "capped": capped})
+
+
+class ActivityMarkReadBody(BaseModel):
+    watching: Optional[bool] = Field(True, description="对齐 unread-count 范围；默认关注流")
+
+
+@router.post("/activity/mark-read")
+async def activity_mark_read(
+    body: Optional[ActivityMarkReadBody] = Body(None),
+    service: IssueService = Depends(get_issue_service),
+    ctx: tuple = Depends(require_workspace_context),
+):
+    """E52：打开 Feed 后抬高已读水位到当前可见最新一行。"""
+    from datetime import datetime as _dt
+    from opentask.models.activity_read_cursor import ActivityReadCursor
+
+    workspace, _member, user = ctx
+    viewer_id = str(user.id)
+    watching = True if body is None or body.watching is None else bool(body.watching)
+
+    rows = await query_timeline_entries(
+        service.db,
+        workspace_id=workspace.id,
+        watcher_user_id=viewer_id if watching else None,
+        limit=1,
+    )
+    if rows:
+        last_seen_at = rows[0].created_at or _dt.utcnow()
+        last_seen_id = rows[0].id
+    else:
+        last_seen_at = _dt.utcnow()
+        last_seen_id = ""
+
+    existing = await service.db.execute(
+        select(ActivityReadCursor).where(
+            ActivityReadCursor.user_id == viewer_id,
+            ActivityReadCursor.workspace_id == workspace.id,
+        )
+    )
+    row = existing.scalar_one_or_none()
+    if row is None:
+        row = ActivityReadCursor(
+            user_id=viewer_id,
+            workspace_id=workspace.id,
+            last_seen_at=last_seen_at,
+            last_seen_id=last_seen_id,
+        )
+        service.db.add(row)
+    else:
+        row.last_seen_at = last_seen_at
+        row.last_seen_id = last_seen_id
+    await service.db.commit()
+    return success_response(
+        data={
+            "lastSeenAt": last_seen_at.isoformat() if last_seen_at else None,
+            "lastSeenId": last_seen_id,
+        }
+    )
 
 
 @router.get("/import/template.csv")

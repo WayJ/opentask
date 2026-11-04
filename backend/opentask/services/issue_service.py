@@ -1289,6 +1289,8 @@ class IssueService:
         )
 
         self.db.add(comment)
+        # E52：flush 以拿到 comment.id，供 timeline / Activity 反应摘要挂载
+        await self.db.flush()
 
         # 更新 Issue 评论计数
         await self._increment_comment_count(issue_id)
