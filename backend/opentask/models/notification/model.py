@@ -39,6 +39,9 @@ class Notification(DBModel):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     body: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     read_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    snoozed_until: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True, comment="E9-S3 Inbox snooze; NULL = not snoozed"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, insert_default=datetime.utcnow
     )
@@ -47,4 +50,5 @@ class Notification(DBModel):
         Index("idx_notifications_recipient_created", "recipient_user_id", "created_at"),
         Index("idx_notifications_ws_recipient", "workspace_id", "recipient_user_id"),
         Index("idx_notifications_recipient_unread", "recipient_user_id", "read_at"),
+        Index("idx_notifications_recipient_snoozed", "recipient_user_id", "snoozed_until"),
     )

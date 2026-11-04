@@ -5,7 +5,7 @@ import re
 from datetime import datetime
 from typing import Iterable, Optional
 
-from sqlalchemy import and_, func, select, update
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opentask.models.issue.model import Issue
@@ -160,23 +160,36 @@ class NotificationService:
         hit.discard(str(actor_user_id))
         return hit
 
+    def _visible_snooze_clause(self, *, include_snoozed: bool, now: datetime):
+        if include_snoozed:
+            return None
+        return or_(
+            Notification.snoozed_until.is_(None),
+            Notification.snoozed_until <= now,
+        )
+
     async def list_for_user(
         self,
         user_id: str,
         *,
         workspace_id: Optional[str] = None,
         unread_only: bool = False,
+        include_snoozed: bool = False,
         page: int = 1,
         page_size: int = 20,
     ) -> tuple[list[Notification], int, int]:
         page = max(1, page)
         page_size = min(max(1, page_size), 100)
+        now = datetime.utcnow()
 
         conds = [Notification.recipient_user_id == str(user_id)]
         if workspace_id:
             conds.append(Notification.workspace_id == workspace_id)
         if unread_only:
             conds.append(Notification.read_at.is_(None))
+        snooze_clause = self._visible_snooze_clause(include_snoozed=include_snoozed, now=now)
+        if snooze_clause is not None:
+            conds.append(snooze_clause)
 
         where = and_(*conds)
         total = (
@@ -189,6 +202,8 @@ class NotificationService:
         ]
         if workspace_id:
             unread_conds.append(Notification.workspace_id == workspace_id)
+        if snooze_clause is not None:
+            unread_conds.append(snooze_clause)
         unread_count = (
             await self.db.execute(
                 select(func.count()).select_from(Notification).where(and_(*unread_conds))
@@ -237,6 +252,38 @@ class NotificationService:
         return int(result.rowcount or 0)
 
 
+    async def get_for_recipient(
+        self, notification_id: str, user_id: str
+    ) -> Optional[Notification]:
+        q = await self.db.execute(
+            select(Notification).where(
+                Notification.id == notification_id,
+                Notification.recipient_user_id == str(user_id),
+            )
+        )
+        return q.scalar_one_or_none()
+
+    async def snooze(
+        self, notification_id: str, user_id: str, *, until: datetime
+    ) -> Optional[Notification]:
+        row = await self.get_for_recipient(notification_id, user_id)
+        if not row:
+            return None
+        row.snoozed_until = until
+        await self.db.commit()
+        await self.db.refresh(row)
+        return row
+
+    async def unsnooze(self, notification_id: str, user_id: str) -> Optional[Notification]:
+        row = await self.get_for_recipient(notification_id, user_id)
+        if not row:
+            return None
+        row.snoozed_until = None
+        await self.db.commit()
+        await self.db.refresh(row)
+        return row
+
+
 def serialize_notification(n: Notification) -> dict:
     return {
         "id": n.id,
@@ -249,5 +296,6 @@ def serialize_notification(n: Notification) -> dict:
         "title": n.title,
         "body": n.body,
         "readAt": n.read_at,
+        "snoozedUntil": n.snoozed_until,
         "createdAt": n.created_at,
     }
