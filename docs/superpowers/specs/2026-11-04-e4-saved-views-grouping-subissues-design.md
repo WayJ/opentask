@@ -2,7 +2,7 @@
 
 日期：2026-11-04  
 Epic：E4  
-状态：active（S3 实现中；S1/S2 closed）
+状态：local-complete（S1–S3 closed；未推远程）
 
 ## 1. 目标
 
