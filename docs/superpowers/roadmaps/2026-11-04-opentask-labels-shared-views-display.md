@@ -40,7 +40,7 @@ date: 2026-11-04
 |---|---|---|
 | S1 | closed | **Labels 打磨** done @ `a1b59bb`：workspace tags/groups + API + Issue 打标 + groupBy label + L / ⌘K。acceptance: `docs/superpowers/acceptances/2026-11-04-E7-S1-acceptance.md` |
 | S2 | closed | **Shared Saved Views** done @ `8ca308a`：`is_shared` + personal/shared isolation + ACL + Save As + FE sections。acceptance: `docs/superpowers/acceptances/2026-11-04-E7-S2-acceptance.md` |
-| S3 | closed | **Display options + Board swimlanes** done @ `aa2efac`：prefs + fields/swimlane/hide + Board 矩阵。acceptance: `docs/superpowers/acceptances/2026-11-04-E7-S3-acceptance.md` |
+| S3 | closed | **Display options + Board swimlanes** done @ `228301e`：prefs + fields/swimlane/hide + Board 矩阵。acceptance: `docs/superpowers/acceptances/2026-11-04-E7-S3-acceptance.md` |
 
 推荐顺序理由：先把标签真相源与 L/groupBy 打通（S1，依赖最薄且解锁筛选语义），再放开共享 View 与权限面（S2，复用已可存 `group_by: label` 的 display），最后打磨呈现层 Display + 看板行维泳道（S3，依赖 display_json 契约稳定）。
 
@@ -111,6 +111,6 @@ date: 2026-11-04
 
 ## Next
 
-1. ~~S1–S3 本地实现~~ **done** — tip `aa2efac` / Epic **local-complete**
+1. ~~S1–S3 本地实现~~ **done** — tip `228301e` (feature `aa2efac`) / Epic **local-complete**
 2. 整包回执 Yuri/Way（路径、分支、门禁、acceptance）
 3. 按 PRD 自动接 **E8**（里程碑 / 健康 / Timeline + Favorites）

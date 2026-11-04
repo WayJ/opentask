@@ -5,6 +5,7 @@
 **pass** — S3 范围交付：`issue_display_prefs`（unique ws+user）+ `display_json` 扩展 `fields` / `swimlane_by` / `hide_empty_lanes`（保留 `view_mode` / `group_by`）+ `GET/PUT /api/display-prefs/issue` + 个人 prefs 与 Saved View display 隔离 + Display 字段显隐面板（设为个人默认 / 重置）+ Board 行维泳道（assignee/priority/type/label）× status 列 + 隐藏空泳道。门禁：全量 pytest **672 passed, 27 skipped, 0 failed**（含 6 条 display_prefs）；vitest display/swimlanes/apply **13 passed**；`npm run lint` **0 errors** / 260 warnings；`npm run build` 成功。Epic E7 **local-complete**。未推远程。`merged-commit: null`。
 
 **Fingerprint (impl tip):** `aa2efacadc5221f203c36d0edf6d600129a5860c`
+**Branch tip:** `228301e1d5dcf8e1fcfe47493b15a74cbb9bd86b`
 **Branch:** `sprint/E7-S3`
 **Worktree:** `/workspace/opentask-worktrees/E7-S3`
 **Migration:** `d4e5f6a7b8c0` (revises `c3d4e5f6a7b9`)
