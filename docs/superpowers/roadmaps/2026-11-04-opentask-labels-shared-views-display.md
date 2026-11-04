@@ -38,7 +38,7 @@ date: 2026-11-04
 
 | sprint | state | note |
 |---|---|---|
-| S1 | closed | **Labels 打磨** done @ `a1b59bb`：workspace tags/groups + API + Issue 打标 + groupBy label + L / ⌘K。acceptance: `docs/superpowers/acceptances/2026-11-04-E7-S1-acceptance.md` |
+| S1 | closed | **Labels 打磨** done @ `c494c6e`：workspace tags/groups + API + Issue 打标 + groupBy label + L / ⌘K。acceptance: `docs/superpowers/acceptances/2026-11-04-E7-S1-acceptance.md` |
 | S2 | planned | **Shared Saved Views**：`is_shared`（或 visibility）+ list 个人/共享隔离 + 权限（member+ 建；creator+owner 写；Save As）+ FE 分区列表。plan: `docs/superpowers/sprints/2026-11-04-E7-S2-plan.md` |
 | S3 | planned | **Display options + Board swimlanes** + 个人 display 默认 + Epic 全量门禁 / local-complete。plan: `docs/superpowers/sprints/2026-11-04-E7-S3-plan.md` |
 
