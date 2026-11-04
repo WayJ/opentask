@@ -5,7 +5,7 @@
 **Date:** 2026-11-04（Asia/Shanghai）  
 **Worktree:** `/workspace/opentask-worktrees/E11-S4` · `sprint/E11-S4`  
 **Baseline:** `sprint/E11-S3` @ `4b27f4ff205361d38b40d3c147fe56d5f07a43aa`  
-**Tip (this acceptance):** `4b27f4ff205361d38b40d3c147fe56d5f07a43aa`  
+**Tip (this acceptance):** `0a6a082729e6928e9701bcb9e0cf4594ebdb9392`  
 **Plan:** `docs/superpowers/plans/2026-11-04-E11-S4-plan.md`  
 **Design:** `docs/superpowers/specs/2026-11-04-e11-s4-smoke-p0-hotfix-design.md`  
 **Push:** **未推远程**（Yuri 待 Way 授权）
