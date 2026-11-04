@@ -412,5 +412,41 @@ export const issueApi = {
   getAttachmentDownloadUrl: (_issueId: string, attachmentId: string) => {
     // 使用独立的附件路由，不需要 issueId
     return `/api/attachments/${attachmentId}/download`;
+  },
+
+  /** E18: list issue watchers */
+  listWatchers: (issueId: string) => {
+    return request<Array<{ id: string; workspace_id: string; issue_id: string; user_id: string }>>({
+      url: `/api/issues/${issueId}/watchers`,
+      method: 'GET'
+    });
+  },
+
+  /** E18: watch issue */
+  watch: (issueId: string) => {
+    return request<{ id: string; workspace_id: string; issue_id: string; user_id: string }>({
+      url: `/api/issues/${issueId}/watchers`,
+      method: 'POST'
+    });
+  },
+
+  /** E18: unwatch issue */
+  unwatch: (issueId: string) => {
+    return request({
+      url: `/api/issues/${issueId}/watchers`,
+      method: 'DELETE'
+    });
   }
 };
+
+export function fetchIssueWatchers(issueId: string) {
+  return issueApi.listWatchers(issueId);
+}
+
+export function watchIssue(issueId: string) {
+  return issueApi.watch(issueId);
+}
+
+export function unwatchIssue(issueId: string) {
+  return issueApi.unwatch(issueId);
+}

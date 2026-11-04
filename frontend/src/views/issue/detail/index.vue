@@ -28,6 +28,7 @@ import { type CycleItem, fetchCycles } from '@/service/api/cycles';
 import { type TagItem, tagApi } from '@/service/api/tag';
 import { issueApi } from '@/service/api/issue';
 import { fetchAddFavorite, fetchFavorites, fetchRemoveFavorite } from '@/service/api/favorites';
+import { fetchIssueWatchers, unwatchIssue, watchIssue } from '@/service/api/issue';
 import { fetchIssueBranchName } from '@/service/api/issue-vcs';
 import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
@@ -59,6 +60,8 @@ const issue = ref<Api.Issue.Issue | null>(null);
 const loading = ref(false);
 const pinnedFavoriteId = ref<string | null>(null);
 const pinLoading = ref(false);
+const watching = ref(false);
+const watchLoading = ref(false);
 const copyBranchLoading = ref(false);
 
 // Comments
@@ -1038,6 +1041,8 @@ watch(
   issueId,
   id => {
     issueFocus.ensureDetailFocus(id);
+    loadPinState();
+    loadWatchState();
   },
   { immediate: true }
 );
@@ -1085,7 +1090,45 @@ async function copyGitBranchName() {
   }
 }
 
+
+async function loadWatchState() {
+  const id = issueId.value;
+  if (!id) {
+    watching.value = false;
+    return;
+  }
+  try {
+    const response = await fetchIssueWatchers(id);
+    const rows = (response as any).data || [];
+    watching.value = (Array.isArray(rows) ? rows : []).some((r: any) => r.user_id === currentUserId.value);
+  } catch {
+    watching.value = false;
+  }
+}
+
+async function toggleWatch() {
+  const id = issueId.value;
+  if (!id) return;
+  watchLoading.value = true;
+  try {
+    if (watching.value) {
+      await unwatchIssue(id);
+      watching.value = false;
+      window.$message?.success('已取消关注');
+    } else {
+      await watchIssue(id);
+      watching.value = true;
+      window.$message?.success('已关注 Issue');
+    }
+  } catch {
+    window.$message?.error('关注操作失败');
+  } finally {
+    watchLoading.value = false;
+  }
+}
+
 async function toggleSidebarPin() {
+
   const id = issueId.value;
   if (!id) return;
   pinLoading.value = true;
@@ -1110,6 +1153,7 @@ async function toggleSidebarPin() {
 onMounted(() => {
   loadIssue();
   loadPinState();
+  loadWatchState();
   loadProjects();
   loadCycles();
 });
@@ -1172,6 +1216,9 @@ onMounted(() => {
                     <icon-mdi-delete />
                   </template>
                   删除
+                </NButton>
+                <NButton size="small" :loading="watchLoading" @click="toggleWatch">
+                  {{ watching ? '取消关注' : '关注' }}
                 </NButton>
                 <NButton size="small" :loading="pinLoading" @click="toggleSidebarPin">
                   {{ pinnedFavoriteId ? '取消侧栏收藏' : '收藏到侧栏' }}

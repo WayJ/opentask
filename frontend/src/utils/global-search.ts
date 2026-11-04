@@ -17,6 +17,25 @@ export interface SearchGroupsInput {
   members: Array<{ userId: string; name?: string | null; username?: string | null; role: string }>;
 }
 
+
+/** Deep-link a short EntityDocument to its parent page + open doc query. */
+export function buildDocHref(
+  parentType: string,
+  parentId: string,
+  docId: string
+): { path: string; query: Record<string, string> } {
+  const query = { id: parentId, doc: docId };
+  switch (parentType) {
+    case 'issue':
+      return { path: '/issue/detail', query };
+    case 'initiative':
+      return { path: '/initiatives/detail', query };
+    case 'project':
+    default:
+      return { path: '/workflow/project-detail', query };
+  }
+}
+
 export function flattenSearchResults(data: SearchGroupsInput): SearchFlatItem[] {
   const out: SearchFlatItem[] = [];
   for (const i of data.issues || []) {
@@ -43,7 +62,7 @@ export function flattenSearchResults(data: SearchGroupsInput): SearchFlatItem[] 
       group: 'docs',
       title: d.title,
       subtitle: `${d.parentType}/${d.parentId}${d.snippet ? ` · ${d.snippet}` : ''}`,
-      href: { path: '/workflow/project-detail', query: { id: d.parentId } }
+      href: buildDocHref(d.parentType, d.parentId, d.id)
     });
   }
   for (const m of data.members || []) {

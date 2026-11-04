@@ -25,7 +25,9 @@ const typeLabel: Record<string, string> = {
   assigned: '指派',
   commented: '评论',
   mentioned: '提及',
-  project_health: '项目健康'
+  project_health: '项目健康',
+  status_changed: '状态',
+  subscribed_update: '关注更新'
 };
 
 const empty = computed(() => !loading.value && rows.value.length === 0);
