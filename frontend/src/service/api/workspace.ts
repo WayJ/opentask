@@ -28,7 +28,7 @@ export function fetchWorkspace(id: string) {
   return request<WorkspaceItem>({ url: `/api/workspaces/${id}`, method: 'get' });
 }
 
-export function fetchCreateWorkspace(data: { name: string; slug?: string; description?: string }) {
+export function fetchCreateWorkspace(data: { name: string; slug?: string; description?: string; issueKey?: string }) {
   return request<WorkspaceItem>({ url: '/api/workspaces', method: 'post', data });
 }
 

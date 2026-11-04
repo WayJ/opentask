@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { NCard, NEmpty, NTag, NText, useMessage } from 'naive-ui';
 import { VueDraggable } from 'vue-draggable-plus';
-import { getIssuePriorityTagType, getIssueStatusTagType, getIssueTypeTagType } from '@/constants/issue';
+import { getIssuePriorityLabel, getIssuePriorityTagType, getIssueStatusTagType, getIssueTypeTagType } from '@/constants/issue';
 import { issueApi } from '@/service/api/issue';
 import { useIssueFocus } from '@/composables/use-issue-focus';
 import { buildIssueDetailLocation } from '@/utils/issue-board-nav';
@@ -209,7 +209,7 @@ function showField(key: keyof IssueDisplayFields): boolean {
                     :type="getIssuePriorityTagType(issue.priority)"
                     :bordered="false"
                   >
-                    {{ issue.priority }}
+                    {{ getIssuePriorityLabel(issue.priority) }}
                   </NTag>
                 </div>
                 <div class="board-card-title">{{ issue.title }}</div>

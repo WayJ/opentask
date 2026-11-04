@@ -27,6 +27,8 @@ declare namespace Api {
        * 旧版后端响应无该字段（undefined）→ 前端过滤逻辑回退全放行
        */
       menus?: string[];
+      /** 当前工作区角色 */
+      workspaceRole?: string | null;
     }
   }
 }

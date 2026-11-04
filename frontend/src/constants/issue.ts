@@ -127,6 +127,10 @@ export function getIssuePriorityTagType(
   return issuePriorityTagTypeMap[priority] || 'default';
 }
 
+export function getIssuePriorityLabel(priority: Api.Issue.IssuePriority | string): string {
+  return issuePriorityOptions.find(o => o.value === priority)?.label || String(priority || '');
+}
+
 /**
  * Issue 关系类型常量
  */

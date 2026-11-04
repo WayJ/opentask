@@ -1884,6 +1884,7 @@ onMounted(() => {
    SIDEBAR - 紧凑风格
    ============================================ */
 .sidebar {
+  min-width: 280px;
   position: sticky;
   top: var(--space-md);
   max-height: calc(100vh - var(--space-lg));
@@ -2118,3 +2119,10 @@ onMounted(() => {
   color: var(--color-border-subtle);
 }
 </style>
+
+/* E11-S4: 属性栏标签不换行（避免「负责/人」） */
+:deep(.editable-field__label),
+:deep(.field-label),
+:deep(.n-form-item-label) {
+  white-space: nowrap;
+}

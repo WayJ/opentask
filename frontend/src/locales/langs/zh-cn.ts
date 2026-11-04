@@ -252,6 +252,7 @@ const local: App.I18n.Schema = {
     500: '服务器错误',
     'iframe-page': '外链页面',
     home: '首页',
+    workspace: '工作区',
     workspace_members: '成员 Members',
     invite: '邀请',
     workspace_labels: '标签 Labels',
@@ -319,6 +320,14 @@ const local: App.I18n.Schema = {
     'work-management_my-work_feedback': '工作反馈'
   },
   page: {
+    profile: {
+      pwd: {
+        title: '修改密码',
+        submit: '确认修改',
+        hint: '新密码需至少 8 位且同时包含字母和数字；修改成功后当前登录会失效，需使用新密码重新登录。',
+        reLoginTip: '密码已修改，当前登录已失效，请使用新密码重新登录。'
+      }
+    },
     oauth2: {
       consent: {
         title: '授权确认',

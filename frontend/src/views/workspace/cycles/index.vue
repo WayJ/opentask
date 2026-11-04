@@ -388,7 +388,7 @@ onMounted(load);
               />
             </div>
             <NButton type="primary" secondary :disabled="!isOwner" @click="saveIssueKeyOnly">保存</NButton>
-            <p class="text-12px text-gray-400">2–6 位大写字母或数字；仅影响新建 Issue</p>
+            <p class="text-12px text-gray-400">2–6 位大写字母或数字；更改后下一单从 1 重新编号（旧单号保留）</p>
           </div>
         </NCard>
 

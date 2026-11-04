@@ -458,7 +458,8 @@ export const generatedRoutes: GeneratedRoute[] = [
     component: 'layout.base',
     meta: {
       title: 'work-management',
-      i18nKey: 'route.work-management'
+      i18nKey: 'route.work-management',
+      hideInMenu: true
     },
     children: [
       {

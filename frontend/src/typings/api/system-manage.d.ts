@@ -167,6 +167,8 @@ declare namespace Api {
       organizeName?: string;
       positionName?: string;
       role: UserRoleType;
+      /** 当前 X-Workspace-Id 下的工作区角色 owner|member|viewer */
+      workspaceRole?: string | null;
       status: number;
       permissions: string[];
     };

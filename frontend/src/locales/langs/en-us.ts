@@ -254,6 +254,7 @@ const local: App.I18n.Schema = {
     500: 'Server Error',
     'iframe-page': 'Iframe',
     home: 'Home',
+    workspace: 'Workspace',
     workspace_members: 'Members',
     invite: 'Invite',
     workspace_labels: 'Labels',
@@ -324,6 +325,14 @@ const local: App.I18n.Schema = {
     'issue_collection-create': 'Create Collection'
   },
   page: {
+    profile: {
+      pwd: {
+        title: 'Change password',
+        submit: 'Update password',
+        hint: 'New password must be at least 8 characters and include letters and numbers. You will need to sign in again.',
+        reLoginTip: 'Password changed. Please sign in again with the new password.'
+      }
+    },
     oauth2: {
       consent: {
         title: 'Authorization Request',

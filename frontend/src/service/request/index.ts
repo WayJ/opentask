@@ -112,6 +112,13 @@ export const request = createFlatRequest(
         return;
       }
 
+      // E11-S4：Issue 附件列表失败不刷屏（详情页自行兜底空列表）
+      const reqUrl = String(error.config?.url || '');
+      const reqMethod = String(error.config?.method || 'get').toLowerCase();
+      if (reqMethod === 'get' && /\/attachments\/?$/.test(reqUrl)) {
+        return;
+      }
+
       let message = error.message;
       let backendErrorCode = '';
 
