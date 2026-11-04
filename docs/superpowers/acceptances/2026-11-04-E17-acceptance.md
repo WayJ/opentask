@@ -3,7 +3,7 @@
 日期：2026-11-04（Asia/Shanghai）  
 分支：`sprint/E17-S1`  
 基线：`b4ec445`  
-tip：`d49c538a8375935d000dc046bbcee9752ee2e4e1`
+tip：`92e66741fa38dbe7198378f8176f147120168eb0`
 
 ## A. E16 收口
 - [x] `alembic upgrade head` → `a1b2c3d4e5f9`；孤儿 Default WS 行已删
