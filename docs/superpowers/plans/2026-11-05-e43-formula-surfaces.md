@@ -28,7 +28,7 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e43-formula-s
 - Create: `docs/superpowers/plans/2026-11-05-e43-formula-surfaces.md`（本文件）
 - Create: `docs/superpowers/acceptances/2026-11-05-E43-acceptance.md`（骨架）
 
-- [ ] **Step 1:** 入库 plan + acceptance 骨架并 commit
+- [x] **Step 1:** 入库 plan + acceptance 骨架并 commit
 
 ---
 
@@ -48,8 +48,8 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e43-formula-s
 **Interfaces:**
 - Produces: formula 过滤可用；cap 400
 
-- [ ] **Step 1: 红测** `cf.score=10` 命中；error/null 不命中；与 number CF AND；仅 formula 且候选>cap → 400；跨 WS 空；未知 key 空
-- [ ] **Step 2: 跑测确认红 → 最小实现绿 → commit**
+- [x] **Step 1: 红测** `cf.score=10` 命中；error/null 不命中；与 number CF AND；仅 formula 且候选>cap → 400；跨 WS 空；未知 key 空
+- [x] **Step 2: 跑测确认红 → 最小实现绿 → commit**
 
 ---
 
@@ -74,8 +74,8 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e43-formula-s
 **Interfaces:**
 - Produces: `IssueFormulaCache` ORM；refresh/invalidate；过滤 cache 路径
 
-- [ ] **Step 1: 红测** 上述行为
-- [ ] **Step 2: 绿 → commit**
+- [x] **Step 1: 红测** 上述行为
+- [x] **Step 2: 绿 → commit**
 
 ---
 
@@ -95,8 +95,8 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e43-formula-s
 - Modify: `frontend/src/utils/groupIssuesBy.test.ts` + `boardSwimlanes.test.ts` — formula 桶 / error 桶
 - Board：跨泳道已按 lane 隔离 group；补充注释/辅助 `isFormulaCfDimReadonly`；若有跨泳道写 CF 逻辑则对 formula no-op + toast（对齐 E37 展示-only）
 
-- [ ] **Step 1: 红测** isGroupingCfType('formula','number') true；error 桶；prefs 写 formula 泳道 200
-- [ ] **Step 2: 绿 → commit**
+- [x] **Step 1: 红测** isGroupingCfType('formula','number') true；error 桶；prefs 写 formula 泳道 200
+- [x] **Step 2: 绿 → commit**
 
 ---
 
@@ -107,7 +107,7 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e43-formula-s
 - 确认 SmartSearch `field:`/`cf:` 无需新语法；若存在按 type 禁选 formula 的芯片则按 `formulaResultType` 解禁
 - FE 文案：可选处标明「计算值（只读）」
 
-- [ ] **Step 1: 测/改 → commit**
+- [x] **Step 1: 测/改 → commit**
 
 ---
 
@@ -119,17 +119,17 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e43-formula-s
 - Create: `agent-harness/opentask-cli/tests/test_e43_formula_surfaces.py` — version + `issue list --cf` help/示例含 formula
 - Modify: issue list help 补一行 formula 过滤说明（若有）
 
-- [ ] **Step 1: 红测 version → bump → 绿 → commit**
+- [x] **Step 1: 红测 version → bump → 绿 → commit**
 
 ---
 
 ### Task 7 — 门禁 + acceptance tip
 
-- [ ] BE：`pytest backend/tests -q`（记 passed/skip；`test_user_search` flake 可记）
-- [ ] CLI：`pytest agent-harness/opentask-cli/tests -q`
-- [ ] FE：`pnpm vitest run` + `pnpm build`
-- [ ] 填 `docs/superpowers/acceptances/2026-11-05-E43-acceptance.md` tip/测数
-- [ ] 最终 tip commit；**不 push**；**不自开 E44**；STOP
+- [x] BE：`pytest backend/tests -q`（记 passed/skip；`test_user_search` flake 可记）
+- [x] CLI：`pytest agent-harness/opentask-cli/tests -q`
+- [x] FE：`pnpm vitest run` + `pnpm build`
+- [x] 填 `docs/superpowers/acceptances/2026-11-05-E43-acceptance.md` tip/测数
+- [x] 最终 tip commit；**不 push**；**不自开 E44**；STOP
 
 ## Self-review
 - A–G / ADR D1–D9 均有任务
