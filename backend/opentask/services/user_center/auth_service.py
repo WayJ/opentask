@@ -250,17 +250,35 @@ class AuthService:
             )
 
         display = (name or username).strip()
+        # E11-S4：开放注册用户是个人/自建 WS 的 owner，平台角色用 developer
+        #（含 issue:create 等），避免 Profile 显示「查看者」+ 仅 *:view。
         user = UserModel(
             name=display,
             username=username,
             password_hash=_pwd_context.hash(password),
             must_change_password=False,
-            role="viewer",
+            role="developer",
             status=1,
             token_version=0,
         )
         self.session.add(user)
         await self.session.flush()
+
+        # 若已播种系统角色，挂接 developer（与 user.role 桥接一致）
+        try:
+            from sqlalchemy import select as sa_select
+            from opentask.models.user_center import Role, UserRole
+
+            role_row = (
+                await self.session.execute(sa_select(Role).where(Role.code == "developer"))
+            ).scalar_one_or_none()
+            if role_row is not None:
+                self.session.add(
+                    UserRole(user_id=str(user.id), role_id=str(role_row.id))
+                )
+        except Exception:
+            # 未播种库：仅依赖 user.role 字符串桥接
+            pass
 
         default_workspace_id = None
         if create_default_workspace:

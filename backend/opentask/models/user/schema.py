@@ -109,6 +109,7 @@ class CurrentUserResponse(BaseModel):
     organize_name: Optional[str] = None
     position_name: Optional[str] = None
     role: str = "viewer"
+    workspace_role: Optional[str] = None
     status: int = 1
     permissions: list[str] = []
 

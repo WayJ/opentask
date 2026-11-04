@@ -5,7 +5,7 @@ from typing import Optional
 from typing_extensions import Annotated
 from pydantic import BaseModel, Field
 
-from fastapi import APIRouter, Body, Depends, Response, HTTPException, status, Request
+from fastapi import APIRouter, Body, Depends, Header, Response, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opentask.auth import authenticate
@@ -550,6 +550,7 @@ async def dingtalk_callback(
 async def get_user_info(
     current_user=Depends(authenticate),
     session: AsyncSession = Depends(get_session),
+    x_workspace_id: str | None = Header(None, alias="X-Workspace-Id"),
 ):
     """
     获取当前用户信息：真实角色 + 权限下发（Phase 3 Task 3）
@@ -589,12 +590,23 @@ async def get_user_info(
             else:
                 buttons.append(perm.code)
 
+    workspace_role = None
+    if x_workspace_id:
+        from opentask.services.workspace.service import WorkspaceService
+
+        member = await WorkspaceService(session).get_membership(
+            x_workspace_id, str(current_user.id)
+        )
+        if member is not None:
+            workspace_role = member.role
+
     return success_response({
         "userId": str(current_user.id),
         "userName": current_user.sso_name or current_user.name or current_user.username,
         "roles": roles,
         "buttons": buttons,
         "menus": menus,
+        "workspaceRole": workspace_role,
     })
 
 
