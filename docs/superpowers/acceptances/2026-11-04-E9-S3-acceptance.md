@@ -10,7 +10,7 @@ Worktree：`/workspace/opentask-worktrees/E9-S3` · 分支 `sprint/E9-S3`
 
 **pass** — S3 交付：`notifications.snoozed_until`；`POST /api/inbox/{id}/snooze|unsnooze`；默认列表隐藏未到期 snooze；`include_snoozed`；90d 上限；FE 预设延后 + 取消延后 + Inbox≠Triage 文案。Epic E9 **S1–S3 local-complete**。`merged-commit: null`。
 
-**Epic tip (handoff / Yuri receipt):** `262e9f404936d3d2135fba84c9577646fab1c0f6`
+**Epic tip (handoff / Yuri receipt):** `8764d094893fa8ebeb3b1bef6ff785b8f3d3f656`
 
 ## Gates
 
@@ -49,7 +49,7 @@ Worktree：`/workspace/opentask-worktrees/E9-S3` · 分支 `sprint/E9-S3`
 |---|---|---|
 | S1 | `e0aad93` | Triage |
 | S2 | `223b264` | Templates |
-| S3 / **Epic** | `262e9f404936d3d2135fba84c9577646fab1c0f6` | Snooze + DoD |
+| S3 / **Epic** | `8764d094893fa8ebeb3b1bef6ff785b8f3d3f656` | Snooze + DoD |
 
 ## Gaps / notes
 
