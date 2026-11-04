@@ -1,6 +1,6 @@
 ---
 epic: E5
-status: active
+status: local-complete
 date: 2026-11-04
 ---
 
@@ -16,18 +16,19 @@ date: 2026-11-04
 | 核心快捷键 C / A / S / P / I | **C** 创建 Issue（跳 `/issue/create`）；聚焦 Issue 时 **A** 指派、**S** 改状态、**P** 改优先级、**I** 指派给我 |
 | 全站搜索 / 跳转 | Issue（title `search` + `by_code`）、Project、Inbox、Saved Views（应用筛选）、导航动作（Issue 列表 / Create / Projects / Inbox）；保留菜单路由搜索 |
 | 列表 / 看板焦点选择 | 焦点模型供 A/S/P/I 在详情页外可用；输入框 / contenteditable 内忽略热键 |
+| ⌘B / Ctrl+B Board↔List | 在 `/issue/list` 与现有 list/board 按钮共享 `useIssueListViewMode` 单例 |
 | 看板详情 URL 修正 | 触及跳转路径时，将 `IssueBoard` 的 `/issue/detail/${id}` 改为 `?id=` query（与列表/详情一致） |
 
 ## Definition of Done
 
-- [ ] Epic 下全部 Sprint（S1–S3）已 acceptance 且 state=closed；合并证据本地台账（merged-commit 仍 null / 未推远程）
-- [ ] `cd backend && uv run pytest tests/ -v` 全绿（E5 若无新后端表则回归不破；若补 by_code 客户端则无后端强制变更）
-- [ ] `cd frontend && npm run lint && npm run build` 通过（0 errors）
-- [ ] ⌘K / Ctrl+K 在登录后的 app shell 任意页可开面板；主题「隐藏 GlobalSearch 按钮」**不**禁用快捷键
-- [ ] 面板可跳转 Issue / Project / Inbox / Saved Views（应用）/ 核心导航动作；键盘 ↑↓ Enter Esc 可用
-- [ ] 列表或看板有焦点 Issue 时，A/S/P/I 生效；详情页当前 Issue 作焦点；C 始终可跳创建页
-- [ ] 输入 / textarea / contenteditable / 可编辑组件内单键热键不触发
-- [ ] DESIGN.md / Naive UI / soybean 令牌被前端改动遵守；无 Cycles / 模态创建器 / 第三方快捷键库交付
+- [x] Epic 下全部 Sprint（S1–S3）已 acceptance 且 state=closed；合并证据本地台账（merged-commit 仍 null / 未推远程）
+- [x] `cd backend && uv run pytest tests/ -v` 全绿（E5 若无新后端表则回归不破；若补 by_code 客户端则无后端强制变更）
+- [x] `cd frontend && npm run lint && npm run build` 通过（0 errors）
+- [x] ⌘K / Ctrl+K 在登录后的 app shell 任意页可开面板；主题「隐藏 GlobalSearch 按钮」**不**禁用快捷键
+- [x] 面板可跳转 Issue / Project / Inbox / Saved Views（应用）/ 核心导航动作；键盘 ↑↓ Enter Esc 可用
+- [x] 列表或看板有焦点 Issue 时，A/S/P/I 生效；详情页当前 Issue 作焦点；C 始终可跳创建页
+- [x] 输入 / textarea / contenteditable / 可编辑组件内单键热键不触发
+- [x] DESIGN.md / Naive UI / soybean 令牌被前端改动遵守；无 Cycles / 模态创建器 / 第三方快捷键库交付
 
 ## Sprint Breakdown
 
@@ -35,7 +36,7 @@ date: 2026-11-04
 |---|---|---|
 | S1 | closed | **Palette 壳 + ⌘K/Ctrl+K + 页面/动作跳转**；acceptance: `docs/superpowers/acceptances/2026-11-04-E5-S1-acceptance.md`；tip `0063b58` |
 | S2 | closed | **实体搜索分组**：Issues（title + by_code）、Projects、Saved Views→应用筛选；防抖查询 + 分组结果。acceptance: `docs/superpowers/acceptances/2026-11-04-E5-S2-acceptance.md`；tip `9dc0e9e` |
-| S3 | planned | **焦点选择 + C/A/S/P/I + pickers**；**⌘B/Ctrl+B** Board↔List（`/issue/list`，对齐现有 UI toggle）；详情上下文；`ignoreWhenEditable`；看板 URL `?id=`；Epic 门禁与 acceptance。evidence: TBD |
+| S3 | closed | **焦点选择 + C/A/S/P/I + pickers**；**⌘B/Ctrl+B** Board↔List；详情 focus；`ignoreWhenEditable`；看板 URL `?id=`；Epic local-complete。acceptance: `docs/superpowers/acceptances/2026-11-04-E5-S3-acceptance.md`；tip  |
 
 推荐顺序理由：先固化全局挂载与打开契约（S1），再叠实体检索（S2），最后绑定焦点与变更热键（S3）——变更热键依赖焦点与既有 updateStatus/Assignee/Priority API，避免 S1 过重。
 
@@ -52,6 +53,7 @@ date: 2026-11-04
 | D7 | 列表/看板引入 **issue focus selection**（非多选）；供 A/S/P/I；详情页 = 当前打开 Issue | Linear 焦点手感；详情外可改字段 | 2026-11-04 | 设计 spec |
 | D8 | 看板详情跳转修正为 `router.push({ path: '/issue/detail', query: { id } })`（现状 `IssueBoard.vue` 用 path 段） | 与 list/detail 契约一致 | 2026-11-04 | IssueBoard.vue:59 |
 | D9 | 排除 Cycles、共享 Views 打磨、Labels **L**、G-then-X 导航和弦、模态创建、远程推送 | Way 拍板；Cycles = E6 | 2026-11-04 | 指派纪要 |
+| D10 | ⌘B/Ctrl+B 切换 list↔board，状态与列表页按钮共享单例 | PRD / Way 加厚 | 2026-11-04 | S3 |
 
 ### 方案比选（锁定 D1）
 
@@ -120,6 +122,7 @@ date: 2026-11-04
 | R7 | C 创建 | 任意处按 C（非输入态） | 进 `/issue/create` |
 | R8 | 输入态忽略 | 在 input 中按 C/A/S… | 不触发命令（⌘K 是否放行：允许打开面板，与 Linear 接近；单键忽略） |
 | R9 | 看板 URL | 看板点开 Issue | URL 为 `/issue/detail?id=…` 非 path 段 |
+| R10 | ⌘B 切视图 | 在 `/issue/list` 按 ⌘B/Ctrl+B | list↔board 与按钮同步 |
 
 ```supervibe-acceptance-plan
 {
@@ -206,6 +209,15 @@ date: 2026-11-04
       "required": true,
       "modality": "browser",
       "environment": "real"
+    },
+    {
+      "id": "R10",
+      "goal": "⌘B/Ctrl+B 切换 Board↔List",
+      "steps": ["打开 /issue/list", "按 Meta+B 或 Ctrl+B"],
+      "expected": "viewMode 与 UI 按钮同步翻转",
+      "required": true,
+      "modality": "browser",
+      "environment": "real"
     }
   ]
 }
@@ -218,3 +230,5 @@ date: 2026-11-04
 - 2026-11-04（UTC+8）：E5-S1 closed（本地 tip `0063b58`）；整 Epic 仍 active。北星补充：⌘B Board↔List 记入 S3，不回灌 S1。
 
 - 2026-11-04（UTC+8）：E5-S2 closed（本地 tip `9dc0e9e`）；实体搜索 Issues/Projects/Views + `?view=` apply；Epic 仍 active → 待 E5-S3。
+
+- 2026-11-04（UTC+8）：E5-S3 closed；焦点 + C/A/S/P/I + ⌘B + 看板 `?id=`；Epic **local-complete**（merged-commit null；未推远程）。tip 见 acceptance。
