@@ -1,6 +1,6 @@
 ---
 epic: E6
-status: active
+status: local-complete
 date: 2026-11-04
 ---
 
@@ -23,14 +23,14 @@ date: 2026-11-04
 
 ## Definition of Done
 
-- [ ] Epic 下全部 Sprint（S1–S3）已 acceptance 且 state=closed；合并证据本地台账（merged-commit 仍 null / 未推远程）
-- [ ] `cd backend && uv run pytest tests/ -v` 全绿（含 Cycle CRUD / 跨租户负例 / rollover / capacity）
-- [ ] `cd frontend && npm run lint && npm run build` 通过（0 errors）
-- [ ] 可创建/列出/编辑 Cycle；Issue 可挂 Cycle；列表与看板可按 Cycle 筛选
-- [ ] 结束 active Cycle：未完成按策略 rollover；容量提示可见
-- [ ] Cycles 关闭 / 无 upcoming 空状态有引导；一键生成 upcoming 可用
-- [ ] ⌘K 可搜/跳 Cycle 或应用 Cycle 筛选
-- [ ] DESIGN.md / Naive UI / soybean 令牌被前端改动遵守；无多 Team 日历 / Slack / 精修 velocity 图 / Initiatives
+- [x] Epic 下全部 Sprint（S1–S3）已 acceptance 且 state=closed；合并证据本地台账（merged-commit 仍 null / 未推远程）
+- [x] `cd backend && uv run pytest tests/ -v` 全绿（含 Cycle CRUD / 跨租户负例 / rollover / capacity）
+- [x] `cd frontend && npm run lint && npm run build` 通过（0 errors）
+- [x] 可创建/列出/编辑 Cycle；Issue 可挂 Cycle；列表与看板可按 Cycle 筛选
+- [x] 结束 active Cycle：未完成按策略 rollover；容量提示可见
+- [x] Cycles 关闭 / 无 upcoming 空状态有引导；一键生成 upcoming 可用
+- [x] ⌘K 可搜/跳 Cycle 或应用 Cycle 筛选
+- [x] DESIGN.md / Naive UI / soybean 令牌被前端改动遵守；无多 Team 日历 / Slack / 精修 velocity 图 / Initiatives
 
 ## Sprint Breakdown
 
@@ -38,7 +38,7 @@ date: 2026-11-04
 |---|---|---|
 | S1 | closed | **Cycle CRUD API + Alembic + Workspace Cycles 设置列表 UI**（启用开关、列表、创建 upcoming）。plan: `docs/superpowers/sprints/2026-11-04-E6-S1-plan.md` |
 | S2 | closed | **Issue.cycle_id** + 列表/看板筛选 + 指派 Cycle + ⌘K Cycles 分组跳转/筛选。可选 `estimate_points`。plan: `docs/superpowers/sprints/2026-11-04-E6-S2-plan.md` |
-| S3 | planned | **complete/rollover** + 容量提示 + 空状态打磨 + 全量门禁 + Epic local-complete |
+| S3 | closed | **complete/rollover** + 容量提示 + 空状态打磨 + 全量门禁 + Epic local-complete。plan: `docs/superpowers/sprints/2026-11-04-E6-S3-plan.md` |
 
 推荐顺序理由：先固化 Workspace 级 Cycle 真相源与设置壳（S1），再挂 Issue 归属与呈现/⌘K（S2），最后做结束态自动化与容量（S3）——rollover 依赖「下一 Cycle」存在与 `cycle_id` 可写。
 
@@ -212,3 +212,4 @@ date: 2026-11-04
 - 2026-11-04（UTC+8）：E6 Phase 1 启动（仅文档）。基线 `sprint/E5-S3` @ `da13c86`；分支 `sprint/E6-S1`；worktree `/workspace/opentask-worktrees/E6-S1`。按 PRD 加厚范围写 roadmap/design/S1 stub；**无产品实现、不推远程**。
 - 2026-11-04（UTC+8）：E6-S1 本地收口 tip `bd22f89`；migration `f0e1d2c3b4a5`；pytest 632；FE lint 0 / build ok；**无 push**。Epic 仍 active → S2。
 - 2026-11-04（UTC+8）：E6-S2 本地收口 tip `b2e1f7d`；migration `a1b2c3d4e5f7`；pytest 638；FE lint 0 / build ok / vitest 24；**无 push**。Epic 仍 active → S3。
+- 2026-11-04（UTC+8）：E6-S3 本地收口 tip `d143ef5`；pytest 646；FE lint 0 / build ok；Epic **local-complete**；merged-commit null；**无 push**。

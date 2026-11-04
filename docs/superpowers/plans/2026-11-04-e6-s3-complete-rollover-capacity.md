@@ -33,13 +33,13 @@
 
 ### Task 1: Docs
 
-- [ ] Sprint plan + this plan committed
+- [x] Sprint plan + this plan committed
 
 ### Task 2: Pytest RED
 
 **Files:** Create `backend/tests/api/test_cycle_complete.py`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 1. `test_complete_into_next_rolls_incomplete` — active+upcoming; open+resolved on active; complete → open on next, resolved stays, active→completed with completedAt
 2. `test_complete_into_next_auto_generates_upcoming` — only active; into_next; complete creates upcoming and rolls open issues
@@ -52,27 +52,27 @@
 
 Helpers: mirror test_cycles / test_issue_cycle.
 
-- [ ] **Step 2: Run RED** `.venv/bin/pytest tests/api/test_cycle_complete.py -v --tb=short`
-- [ ] **Step 3: Commit** `test(E6-S3): red — complete rollover + capacity + generate`
+- [x] **Step 2: Run RED** `.venv/bin/pytest tests/api/test_cycle_complete.py -v --tb=short`
+- [x] **Step 3: Commit** `test(E6-S3): red — complete rollover + capacity + generate`
 
 ### Task 3: Service + Router GREEN
 
-- [ ] `generate_upcoming(workspace)` — load ws duration; base = max(now, latest ends_at) or now; create upcoming
-- [ ] `_find_next_upcoming(cycle)` — upcoming with starts_at ≥ ends_at preferred; else earliest upcoming by starts_at
-- [ ] `complete(cycle, workspace)` — assert active; apply policy; set completed; return `{cycle, rolled_count, next_cycle_id}`
-- [ ] `capacity_hint(workspace, cycle_id?)` — lookback completed ordered by completed_at desc; count done issues still on each; mean or member_count
-- [ ] Router: GET `/capacity-hint`, POST `/generate-upcoming` **before** `/{cycle_id}`; POST `/{cycle_id}/complete`
-- [ ] GREEN pytest; commit `feat(E6-S3): complete rollover + capacity-hint + generate-upcoming`
+- [x] `generate_upcoming(workspace)` — load ws duration; base = max(now, latest ends_at) or now; create upcoming
+- [x] `_find_next_upcoming(cycle)` — upcoming with starts_at ≥ ends_at preferred; else earliest upcoming by starts_at
+- [x] `complete(cycle, workspace)` — assert active; apply policy; set completed; return `{cycle, rolled_count, next_cycle_id}`
+- [x] `capacity_hint(workspace, cycle_id?)` — lookback completed ordered by completed_at desc; count done issues still on each; mean or member_count
+- [x] Router: GET `/capacity-hint`, POST `/generate-upcoming` **before** `/{cycle_id}`; POST `/{cycle_id}/complete`
+- [x] GREEN pytest; commit `feat(E6-S3): complete rollover + capacity-hint + generate-upcoming`
 
 ### Task 4: FE
 
-- [ ] `fetchCompleteCycle` / `fetchCapacityHint` / `fetchGenerateUpcoming`
-- [ ] Active row: 结束 Cycle + confirm dialog (show incomplete preview if available)
-- [ ] Capacity card when enabled
-- [ ] Empty upcoming CTA → generate
-- [ ] Commit `feat(E6-S3): cycles FE complete + capacity + empty CTA`
+- [x] `fetchCompleteCycle` / `fetchCapacityHint` / `fetchGenerateUpcoming`
+- [x] Active row: 结束 Cycle + confirm dialog (show incomplete preview if available)
+- [x] Capacity card when enabled
+- [x] Empty upcoming CTA → generate
+- [x] Commit `feat(E6-S3): cycles FE complete + capacity + empty CTA`
 
 ### Task 5: Gates + Epic close
 
-- [ ] Full pytest; npm lint 0 errors; npm build; vitest only if FE unit added
-- [ ] Acceptance; close S3; roadmap status **local-complete**; S1–S3 closed; design note; **no push**
+- [x] Full pytest; npm lint 0 errors; npm build; vitest only if FE unit added
+- [x] Acceptance; close S3; roadmap status **local-complete**; S1–S3 closed; design note; **no push**
