@@ -8,7 +8,7 @@
 ✅ 本地齐套（未 push）
 
 ## tip
-`0471cfd`
+`b193e69`
 
 ## 测试数
 - BE pytest：869 passed / 1 flake（`test_tasks_jira_wire::test_user_search` 单测复跑绿；全量偶发）/ 24 skipped；本 Epic 新增 `tests/api/test_custom_fields.py` 7P
