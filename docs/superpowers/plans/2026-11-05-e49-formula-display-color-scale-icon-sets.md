@@ -85,7 +85,7 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e49-formula-d
 - Create: 本 plan
 - Create: `docs/superpowers/acceptances/2026-11-05-E49-acceptance.md`（骨架）
 
-- [ ] **Step 1:** 入库 plan + acceptance 骨架并 commit
+- [x] **Step 1:** 入库 plan + acceptance 骨架并 commit
 
 ---
 
@@ -98,7 +98,7 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e49-formula-d
 **Interfaces:**
 - Produces: `DEFAULT_DISPLAY["color_scales"]=[]` / `["icon_sets"]=[]`；`_normalize_color_scales` / `_normalize_icon_sets`；写路径超限 400
 
-- [ ] **Step 1: 红测**
+- [x] **Step 1: 红测**
 ```python
 def test_normalize_color_scales_and_icon_sets_unit():
     from opentask.services.display_prefs.service import normalize_display_json
@@ -128,7 +128,7 @@ def test_normalize_color_scales_and_icon_sets_unit():
 async def test_prefs_write_scales_icons_and_caps(test_client):
     # 合法 PUT 200 roundtrip；6 scales → 400 color_scales_too_many；6 icon sets → 400
 ```
-- [ ] **Step 2: 跑红 → 实现绿 → commit**
+- [x] **Step 2: 跑红 → 实现绿 → commit**
   - `_SCALE_FIELD_RE`：`^(?:cf:([a-z][a-z0-9_-]{0,63})|due_date|estimate_points)$`
   - `_SCALE_PALETTES` / `_ICON_VOCAB` / caps 5
   - `validate_and_normalize_display` on_write 检查原始 list 长度（接受 camel+snake）
@@ -140,8 +140,8 @@ async def test_prefs_write_scales_icons_and_caps(test_client):
 **Files:**
 - Extend: `test_e49_display_color_scale_icons.py`
 
-- [ ] **Step 1: 红测** PUT/GET display-prefs 含 colorScales+iconSets；spy `fire_webhooks` / `fire_automations` 未被调用
-- [ ] **Step 2: 绿 → commit**（预期现网路径本就无 emit；测锁住）
+- [x] **Step 1: 红测** PUT/GET display-prefs 含 colorScales+iconSets；spy `fire_webhooks` / `fire_automations` 未被调用
+- [x] **Step 2: 绿 → commit**（预期现网路径本就无 emit；测锁住）
 
 ---
 
@@ -161,13 +161,13 @@ async def test_prefs_write_scales_icons_and_caps(test_client):
   - `resolveRowBackground(issue, {conditionalFormats, colorScales}): {kind:'tint'|'scale', value:string} | null`
     - tint 先；未命中再 scale（row target）
 
-- [ ] **Step 1: 红测**
+- [x] **Step 1: 红测**
   - normalize 丢弃非法 palette/icon/field；cap 截断
   - `interpolateScaleColor('blue_red', 0)` ≈ blue；`t=1` ≈ red；`t=0.5` 中间
   - tint 命中时 `resolveRowBackground` 返回 tint，即使 scale 也会命中
   - tint 未命中时返回 scale hex
   - icon 先匹配；未知丢弃
-- [ ] **Step 2: 绿 → commit**
+- [x] **Step 2: 绿 → commit**
 
 ---
 
@@ -178,8 +178,8 @@ async def test_prefs_write_scales_icons_and_caps(test_client):
 - Modify: `list/index.vue` — state + persist + `issueRowProps` 用 `resolveRowBackground`；CF 列前缀 icon
 - Modify: `IssueBoard.vue` — props + `cardTintStyle` 改 appearance（tint 优先；否则 scale bg）
 
-- [ ] **Step 1:** 接线；保留 E46 tint class；scale 用 inline `background`
-- [ ] **Step 2:** vitest 仍绿；手动无冒烟要求；commit
+- [x] **Step 1:** 接线；保留 E46 tint class；scale 用 inline `background`
+- [x] **Step 2:** vitest 仍绿；手动无冒烟要求；commit
 
 ---
 
@@ -190,8 +190,8 @@ async def test_prefs_write_scales_icons_and_caps(test_client):
 - Sync: 全部历史 `1.32.0` version 断言 → `1.33.0`
 - Create: `agent-harness/opentask-cli/tests/test_e49_display_v2.py` — version + help 提及 Display/API（无 display prefs 子命令则 assert `--help` 与 version）
 
-- [ ] **Step 1: 红测** `test_version_is_1_33_0`
-- [ ] **Step 2: bump + sync → 绿 → commit**
+- [x] **Step 1: 红测** `test_version_is_1_33_0`
+- [x] **Step 2: bump + sync → 绿 → commit**
 
 ---
 
