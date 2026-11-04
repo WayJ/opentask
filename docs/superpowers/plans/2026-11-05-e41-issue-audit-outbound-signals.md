@@ -29,7 +29,7 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e41-issue-aud
 - Create: `docs/superpowers/plans/2026-11-05-e41-issue-audit-outbound-signals.md`（本文件）
 - Create: `docs/superpowers/acceptances/2026-11-05-E41-acceptance.md`（骨架；收口补 tip/测数）
 
-- [ ] **Step 1:** 入库 plan + acceptance 骨架并 commit
+- [x] **Step 1:** 入库 plan + acceptance 骨架并 commit
 
 ---
 
@@ -60,12 +60,12 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e41-issue-aud
 - Consumes: `_add_timeline`、E36 `changes[]` 形状
 - Produces: GET `/{id}/timeline` 可见四类新 `action_type`；无变更不写
 
-- [ ] **Step 1: 红测**
+- [x] **Step 1: 红测**
   - PATCH issue `cycleId` / `estimatePoints` / `projectId` → timeline 对应一条；同值再 PATCH 不增行
   - upsert 两 CF 变更 → 两条 `custom_field_changed`（含 fieldKey/from/to）
   - upsert formula → 仍 400；无新 timeline
   - 跨 WS issue → 404
-- [ ] **Step 2: 跑测确认红 → 最小实现绿 → commit**
+- [x] **Step 2: 跑测确认红 → 最小实现绿 → commit**
 
 ---
 
@@ -94,8 +94,8 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e41-issue-aud
 - Consumes: IssueTimeline + User name 批量查
 - Produces: CSV bytes + truncated flag；跨租户 404
 
-- [ ] **Step 1: 红测** 单 Issue CSV 列头与行；`actionType` 过滤；limit=1 截断头；WS 级 `since`/`issueId`；外租户 issue 404
-- [ ] **Step 2: 实现绿 → commit**
+- [x] **Step 1: 红测** 单 Issue CSV 列头与行；`actionType` 过滤；limit=1 截断头；WS 级 `since`/`issueId`；外租户 issue 404
+- [x] **Step 2: 实现绿 → commit**
 
 ---
 
@@ -128,8 +128,8 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e41-issue-aud
 - Consumes: E29 `fire_webhooks` / HMAC / delivery log
 - Produces: 订阅方每字段一条；未订阅不投递；formula 不触发
 
-- [ ] **Step 1: 红测** webhook create 含新事件 ok；upsert CF → mock `httpx`/`dispatch` 见到 `issue.custom_field_changed`×N；未订阅无调用；长值 timeline 截断
-- [ ] **Step 2: 实现绿 → commit**
+- [x] **Step 1: 红测** webhook create 含新事件 ok；upsert CF → mock `httpx`/`dispatch` 见到 `issue.custom_field_changed`×N；未订阅无调用；长值 timeline 截断
+- [x] **Step 2: 实现绿 → commit**
 
 ---
 
@@ -149,8 +149,8 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e41-issue-aud
 - Modify: `frontend/src/views/settings/webhooks/index.vue` — 多选 label 用「自定义字段变更」（或 `WEBHOOK_EVENT_LABELS`）
 - Test: `frontend/src/utils/formatTimelineAction.test.ts`；扩展 `webhooks.test.ts`
 
-- [ ] **Step 1: 红测** 四类 formatter；`WEBHOOK_EVENTS` 含新事件
-- [ ] **Step 2: 实现绿；vitest → commit**
+- [x] **Step 1: 红测** 四类 formatter；`WEBHOOK_EVENTS` 含新事件
+- [x] **Step 2: 实现绿；vitest → commit**
 
 ---
 
@@ -166,17 +166,17 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e41-issue-aud
   - `issue timeline-export-workspace [--out FILE] [--since ISO] [--action-type …] [--issue-id] [--limit N]`
 - Create: `agent-harness/opentask-cli/tests/test_e41_issue_audit.py` — version；三命令 help；webhook events 含新事件
 
-- [ ] **Step 1: 红测** version / help / events
-- [ ] **Step 2: 实现绿 → commit**
+- [x] **Step 1: 红测** version / help / events
+- [x] **Step 2: 实现绿 → commit**
 
 ---
 
 ### Task 7 — 门禁 + acceptance tip
 
-- [ ] BE 定向 `test_e41_issue_audit_outbound.py` + 全量（记 flake `test_user_search`）
-- [ ] CLI 全量；FE vitest + build
-- [ ] 回填 `docs/superpowers/acceptances/2026-11-05-E41-acceptance.md` tip/测数
-- [ ] 最终 tip commit；**不 push**；**不自开 E42**；STOP
+- [x] BE 定向 `test_e41_issue_audit_outbound.py` + 全量（记 flake `test_user_search`）
+- [x] CLI 全量；FE vitest + build
+- [x] 回填 `docs/superpowers/acceptances/2026-11-05-E41-acceptance.md` tip/测数
+- [x] 最终 tip commit；**不 push**；**不自开 E42**；STOP
 
 ---
 

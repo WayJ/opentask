@@ -1160,6 +1160,34 @@ class OpenTaskClient:
                 raise APIError(response.status_code, response.text)
             return response.content
 
+    async def get_issue_timeline(self, issue_id: str, limit: int = 50) -> dict:
+        """E41: list issue timeline."""
+        return await self.get(f"/api/issues/{issue_id}/timeline", params={"limit": limit})
+
+    async def export_issue_timeline_csv(
+        self, issue_id: str, params: dict | None = None
+    ) -> bytes:
+        """E41: download single-issue timeline CSV."""
+        import httpx
+        url = f"{self.base_url}/api/issues/{issue_id}/timeline/export.csv"
+        headers = self._get_headers()
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(url, params=params or {}, headers=headers)
+            if response.status_code >= 400:
+                raise APIError(response.status_code, response.text)
+            return response.content
+
+    async def export_workspace_timeline_csv(self, params: dict | None = None) -> bytes:
+        """E41: download workspace timeline CSV."""
+        import httpx
+        url = f"{self.base_url}/api/issues/timeline/export.csv"
+        headers = self._get_headers()
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(url, params=params or {}, headers=headers)
+            if response.status_code >= 400:
+                raise APIError(response.status_code, response.text)
+            return response.content
+
     async def import_issues_csv(self, file_path: str) -> dict:
         """E28: upload CSV to import issues."""
         import httpx

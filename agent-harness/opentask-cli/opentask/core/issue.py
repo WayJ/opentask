@@ -2962,3 +2962,130 @@ def import_issues(obj, file_path, as_json):
     except APIError as e:
         _handle_error(skin, e, "Failed to import issues", json_mode)
         sys.exit(1)
+
+
+def _issue_id_by_code_flag(issue_id: str) -> tuple[str, bool]:
+    import re
+    issue_code_pattern = re.compile(
+        r"^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$", re.IGNORECASE
+    )
+    return issue_id, issue_code_pattern.match(issue_id) is not None
+
+
+@issue_cli.command(name="timeline")
+@click.argument("issue_id")
+@click.option("--limit", default=50, show_default=True, help="Max rows")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def issue_timeline(obj, issue_id, limit, as_json):
+    """E41: List issue timeline activities."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        sys.exit(1)
+    iid, by_code = _issue_id_by_code_flag(issue_id)
+    try:
+        issue = asyncio.run(client.get_issue(iid, by_code=by_code))
+        real_id = issue.get("id", iid)
+        data = asyncio.run(client.get_issue_timeline(real_id, limit=limit))
+        body = data.get("data", data) if isinstance(data, dict) else data
+        if json_mode:
+            click.echo(_format_json_response(success=True, data=body, message="timeline"))
+            return
+        rows = (body or {}).get("rows") if isinstance(body, dict) else body
+        if not rows:
+            skin.info("No timeline entries")
+            return
+        for r in rows:
+            if not isinstance(r, dict):
+                continue
+            at = r.get("action_type") or r.get("actionType")
+            created = r.get("created_at") or r.get("createdAt") or ""
+            click.echo(f"{created}  {at}")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to fetch timeline", json_mode)
+        sys.exit(1)
+
+
+@issue_cli.command(name="timeline-export")
+@click.argument("issue_id")
+@click.option("--out", "out_path", default=None, help="Write CSV to file (default: stdout)")
+@click.option("--action-type", "action_types", multiple=True, help="Filter action_type (repeatable)")
+@click.option("--limit", default=None, type=int, help="Row limit (server hard cap 10000)")
+@click.option("--json", "as_json", is_flag=True, help="JSON wrapper when --out")
+@click.pass_obj
+def issue_timeline_export(obj, issue_id, out_path, action_types, limit, as_json):
+    """E41: Export single-issue timeline as CSV."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        sys.exit(1)
+    iid, by_code = _issue_id_by_code_flag(issue_id)
+    try:
+        issue = asyncio.run(client.get_issue(iid, by_code=by_code))
+        real_id = issue.get("id", iid)
+        params = {}
+        if action_types:
+            params["actionType"] = list(action_types)
+        if limit is not None:
+            params["limit"] = limit
+        content = asyncio.run(client.export_issue_timeline_csv(real_id, params))
+        text = content.decode("utf-8") if isinstance(content, (bytes, bytearray)) else str(content)
+        if out_path:
+            with open(out_path, "w", encoding="utf-8") as f:
+                f.write(text)
+            if json_mode:
+                click.echo(_format_json_response(success=True, data={"out": out_path, "bytes": len(content)}, message="exported"))
+            else:
+                skin.success(f"Exported to {out_path}")
+        else:
+            click.echo(text, nl=False if text.endswith("\n") else True)
+    except APIError as e:
+        _handle_error(skin, e, "Failed to export timeline", json_mode)
+        sys.exit(1)
+
+
+@issue_cli.command(name="timeline-export-workspace")
+@click.option("--out", "out_path", default=None, help="Write CSV to file (default: stdout)")
+@click.option("--since", default=None, help="ISO lower bound on created_at")
+@click.option("--action-type", "action_types", multiple=True, help="Filter action_type (repeatable)")
+@click.option("--issue-id", "filter_issue_id", default=None, help="Filter to one issue id")
+@click.option("--limit", default=None, type=int, help="Row limit (server hard cap 10000)")
+@click.option("--json", "as_json", is_flag=True, help="JSON wrapper when --out")
+@click.pass_obj
+def issue_timeline_export_workspace(obj, out_path, since, action_types, filter_issue_id, limit, as_json):
+    """E41: Export workspace timeline as CSV."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        sys.exit(1)
+    params = {}
+    if since:
+        params["since"] = since
+    if action_types:
+        params["actionType"] = list(action_types)
+    if filter_issue_id:
+        params["issueId"] = filter_issue_id
+    if limit is not None:
+        params["limit"] = limit
+    try:
+        content = asyncio.run(client.export_workspace_timeline_csv(params))
+        text = content.decode("utf-8") if isinstance(content, (bytes, bytearray)) else str(content)
+        if out_path:
+            with open(out_path, "w", encoding="utf-8") as f:
+                f.write(text)
+            if json_mode:
+                click.echo(_format_json_response(success=True, data={"out": out_path, "bytes": len(content)}, message="exported"))
+            else:
+                skin.success(f"Exported to {out_path}")
+        else:
+            click.echo(text, nl=False if text.endswith("\n") else True)
+    except APIError as e:
+        _handle_error(skin, e, "Failed to export workspace timeline", json_mode)
+        sys.exit(1)
