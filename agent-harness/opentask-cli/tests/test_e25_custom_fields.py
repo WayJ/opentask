@@ -1,4 +1,4 @@
-"""E25 CLI: custom-field list|create + issue set-field + version 1.11.0."""
+"""E25 CLI: custom-field list|create + issue set-field + version 1.12.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli
@@ -8,7 +8,7 @@ def test_version_1_9_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.11.0" in result.output
+    assert "1.12.0" in result.output
 
 
 def test_custom_field_help():

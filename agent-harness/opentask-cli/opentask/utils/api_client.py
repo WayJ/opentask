@@ -1018,6 +1018,34 @@ class OpenTaskClient:
     # Issue API
     # ============================================================================
 
+
+    async def export_issues_csv(self, params: dict | None = None) -> bytes:
+        """E28: download issues CSV for current workspace."""
+        import httpx
+        url = f"{self.base_url}/api/issues/export.csv"
+        headers = self._get_headers()
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(url, params=params or {}, headers=headers)
+            if response.status_code >= 400:
+                raise APIError(response.status_code, response.text)
+            return response.content
+
+    async def import_issues_csv(self, file_path: str) -> dict:
+        """E28: upload CSV to import issues."""
+        import httpx
+        import os
+        url = f"{self.base_url}/api/issues/import"
+        headers = self._get_headers()
+        headers.pop("Content-Type", None)
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File not found: {file_path}")
+        filename = os.path.basename(file_path)
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            with open(file_path, "rb") as f:
+                files = {"file": (filename, f, "text/csv")}
+                response = await client.post(url, files=files, headers=headers)
+                return self._handle_response(response)
+
     async def list_issues(
         self,
         page: int = 1,

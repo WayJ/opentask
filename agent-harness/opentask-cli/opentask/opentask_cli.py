@@ -50,7 +50,7 @@ from .core.doc import doc_cli
 
 
 # Global version
-VERSION = "1.11.0"
+VERSION = "1.12.0"
 
 # Context object passed to commands
 class Context:
@@ -329,6 +329,8 @@ def repl(ctx):
         "project use <id>": "Set active project",
         "project current": "Show active project",
         "issue list": "List issues",
+        "issue export [--out FILE]": "E28 export CSV",
+        "issue import FILE": "E28 import CSV",
         "issue show <id>": "Show issue details",
         "issue create -t TITLE": "Create new issue",
         "config show": "Show configuration",

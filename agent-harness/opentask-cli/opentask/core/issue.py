@@ -2847,3 +2847,83 @@ def set_issue_field(obj: "Context", issue_id: str, key: str, value: str, as_json
     except APIError as e:
         _handle_error(skin, e, "Failed to set field", json_mode)
         sys.exit(1)
+
+
+@issue_cli.command(name="export")
+@click.option("--out", "out_path", default=None, help="Write CSV to file (default: stdout)")
+@click.option("--status", "-s", default=None, help="Filter by status")
+@click.option("--priority", "-p", default=None, help="Filter by priority")
+@click.option("--project", "-P", "project_id", default=None, help="Filter by project ID")
+@click.option("--assignee", "-a", "assignee_id", default=None, help="Filter by assignee (me allowed)")
+@click.option("--cycle", "cycle_id", default=None, help="Filter by cycle ID")
+@click.option("--search", default=None, help="Search keyword")
+@click.option("--json", "as_json", is_flag=True, help="JSON wrapper (meta only; body still CSV unless --out)")
+@click.pass_obj
+def export_issues(obj, out_path, status, priority, project_id, assignee_id, cycle_id, search, as_json):
+    """E28: Export workspace issues as CSV."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        sys.exit(1)
+
+    params = {}
+    if status:
+        params["status"] = status
+    if priority:
+        params["priority"] = priority
+    if project_id:
+        params["project_id"] = project_id
+    if assignee_id:
+        params["assignee_id"] = assignee_id
+    if cycle_id:
+        params["cycle_id"] = cycle_id
+    if search:
+        params["search"] = search
+
+    try:
+        content = asyncio.run(client.export_issues_csv(params))
+        text = content.decode("utf-8") if isinstance(content, (bytes, bytearray)) else str(content)
+        if out_path:
+            with open(out_path, "w", encoding="utf-8") as f:
+                f.write(text)
+            if json_mode:
+                click.echo(_format_json_response(success=True, data={"out": out_path, "bytes": len(content)}, message="exported"))
+            else:
+                skin.success(f"Exported to {out_path}")
+        else:
+            click.echo(text, nl=False if text.endswith("\n") else True)
+    except APIError as e:
+        _handle_error(skin, e, "Failed to export issues", json_mode)
+        sys.exit(1)
+
+
+@issue_cli.command(name="import")
+@click.argument("file_path", type=click.Path(exists=True, dir_okay=False))
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def import_issues(obj, file_path, as_json):
+    """E28: Import issues from CSV (upsert by issue_code)."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        sys.exit(1)
+
+    try:
+        data = asyncio.run(client.import_issues_csv(file_path))
+        body = data.get("data", data) if isinstance(data, dict) else data
+        if json_mode:
+            click.echo(_format_json_response(success=True, data=body, message="imported"))
+            return
+        created = body.get("created", 0) if isinstance(body, dict) else 0
+        updated = body.get("updated", 0) if isinstance(body, dict) else 0
+        errors = body.get("errors", []) if isinstance(body, dict) else []
+        skin.success(f"Import done: created={created} updated={updated} errors={len(errors)}")
+        for err in (errors or [])[:10]:
+            skin.warn(f"  row {err.get('row')}: {err.get('message')}")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to import issues", json_mode)
+        sys.exit(1)
