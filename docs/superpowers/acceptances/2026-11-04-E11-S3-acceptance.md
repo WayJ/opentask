@@ -3,6 +3,7 @@
 **Date:** 2026-11-04 (Asia/Shanghai)  
 **Worktree:** `/workspace/opentask-worktrees/E11-S3` · `sprint/E11-S3`  
 **Plan SHA:** `999fc6d29eab349b2f58e72dae58f98f09efbcf5`  
+**HEAD at acceptance:** `6a561de70a936c3e2627102d5ca1f769e70c7a2c` · impl `e81076e`
 **Impl tip (pre-docs):** `e81076e78e4475852fe46a16312b6aaf66b5cdfb`  
 **Baseline:** E11-S2 `da6b140` (794 pytest)
 
