@@ -2,7 +2,7 @@
 
 面向人类与 AI Agent 的 OpenTask 命令行客户端。
 
-**Version**: **v1.7.0** · Python 3.8+ · 默认 API `http://localhost:7377`
+**Version**: **v1.8.0** · Python 3.8+ · 默认 API `http://localhost:7377`
 
 ## 主轴（E14）
 
@@ -10,7 +10,9 @@
 
 遗留：`requirement` / `task` / `collection` 仍可用（后端保留），但不再作为默认主路径（E12 去 PGE）。
 
-> **E23**：Workspace 业务实时通道（`/ws/workspace`）仅前端订阅；CLI **不接 WS**，版本保持 **1.7.0**。
+> **E24**：`opentask insights summary [--cycle ID]` 对齐 `/api/insights/summary`；版本 **1.8.0**。
+>
+> **E23**：Workspace 业务实时通道（`/ws/workspace`）仅前端订阅；CLI **不接 WS**。
 
 ## 安装
 

@@ -828,6 +828,19 @@ class OpenTaskClient:
             data={"issueId": issue_id},
         )
 
+    # ========================================================================
+    # Insights (E24)
+    # ========================================================================
+
+    async def insights_summary(self, cycle_id: str | None = None, assignee_limit: int | None = None) -> dict:
+        params = {}
+        if cycle_id:
+            params["cycleId"] = cycle_id
+        if assignee_limit is not None:
+            params["assigneeLimit"] = assignee_limit
+        return await self.get("/api/insights/summary", params=params or None)
+
+
     # ============================================================================
     # Entity Documents API
     # ============================================================================

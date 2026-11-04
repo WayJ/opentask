@@ -41,12 +41,13 @@ from .core.view import view_cli
 from .core.member import member_cli, invite_cli
 from .core.initiative import initiative_cli
 from .core.customer import customer_cli
+from .core.insights import insights_cli
 from .core.request import request_cli
 from .core.doc import doc_cli
 
 
 # Global version
-VERSION = "1.7.0"
+VERSION = "1.8.0"
 
 # Context object passed to commands
 class Context:
@@ -394,6 +395,7 @@ cli.add_command(member_cli)
 cli.add_command(invite_cli)
 cli.add_command(initiative_cli)
 cli.add_command(customer_cli)
+cli.add_command(insights_cli)
 cli.add_command(request_cli)
 cli.add_command(doc_cli)
 cli.add_command(requirement_cli)
