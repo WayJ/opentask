@@ -3,7 +3,7 @@
 日期：2026-11-05（Asia/Shanghai）  
 分支：`sprint/E47-S1`  
 基线：`5ab2400`  
-**tip：** _(见本 commit HEAD；下方 SHA 以 `git rev-parse HEAD` 为准)_
+**tip：** （全文 ）
 
 ## 范围落地
 
