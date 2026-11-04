@@ -48,6 +48,7 @@ from opentask.models.notification import Notification
 from opentask.models.issue_saved_view import IssueSavedView
 from opentask.models.issue_display_prefs import IssueDisplayPrefs
 from opentask.models.cycle import Cycle
+from opentask.models.milestone import Milestone
 from opentask.models.oauth2 import (
     OAuthAccessToken,
     OAuthAuthorizationCode,
@@ -109,6 +110,7 @@ __all__ = [
     "IssueSavedView",
     "IssueDisplayPrefs",
     "Cycle",
+    "Milestone",
     "OAuthClient",
     "OAuthAuthorizationCode",
     "OAuthAccessToken",

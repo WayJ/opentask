@@ -184,6 +184,15 @@ class Issue(DBModel):
         comment="故事点估算（可选）",
     )
 
+    # Milestone 归属（E8-S1）
+    milestone_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("milestones.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="所属里程碑 ID",
+    )
+
     # 软删除
     is_deleted: Mapped[bool] = mapped_column(
         Boolean,
@@ -301,6 +310,7 @@ class Issue(DBModel):
         Index("idx_issues_assignee_status", "assignee_id", "status"),
         Index("idx_issues_parent", "parent_issue_id"),
         Index("idx_issues_cycle", "cycle_id"),
+        Index("idx_issues_milestone", "milestone_id"),
     )
 
 

@@ -50,6 +50,7 @@ class IssueBase(BaseModel):
     parent_issue_id: Optional[str] = Field(None, description="父 Issue ID（一等公民子 Issue）")
     cycle_id: Optional[str] = Field(None, description="所属 Cycle ID")
     estimate_points: Optional[float] = Field(None, ge=0, description="故事点估算（可选）")
+    milestone_id: Optional[str] = Field(None, description="所属里程碑 ID")
 
 
 class IssueCreate(IssueBase):
@@ -76,6 +77,7 @@ class IssueUpdate(BaseModel):
     parent_issue_id: Optional[str] = None
     cycle_id: Optional[str] = None
     estimate_points: Optional[float] = None
+    milestone_id: Optional[str] = None
 
 
 class ProjectInfo(BaseModel):
@@ -272,6 +274,10 @@ class IssueQueryParams(BaseModel):
     cycle_id: Optional[str] = Field(
         None,
         description="Cycle ID 筛选；传 __none__ 表示无 Cycle",
+    )
+    milestone_id: Optional[str] = Field(
+        None,
+        description="Milestone ID 筛选；传 __none__ 表示无里程碑",
     )
     sort_by: str = Field("created_at", description="排序字段")
     sort_order: str = Field("desc", pattern="^(asc|desc)$", description="排序方向")

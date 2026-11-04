@@ -91,6 +91,7 @@ async def get_issues(
     reporter_id: Optional[str] = Query(None, description="报告人 ID"),
     search: Optional[str] = Query(None, description="搜索关键词"),
     cycle_id: Optional[str] = Query(None, description="Cycle ID；__none__ 表示无 Cycle"),
+    milestone_id: Optional[str] = Query(None, description="Milestone ID；__none__ 表示无里程碑"),
     sort_by: str = Query("created_at", description="排序字段"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$", description="排序方向"),
     service: IssueService = Depends(get_issue_service),
@@ -110,6 +111,7 @@ async def get_issues(
         reporter_id=reporter_id,
         search=search,
         cycle_id=cycle_id,
+        milestone_id=milestone_id,
         sort_by=sort_by,
         sort_order=sort_order,
     )

@@ -116,6 +116,14 @@ class Project(Base):
         comment="所属工作区",
     )
 
+    # 项目时间盒（E8-S1 Timeline）
+    starts_at: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True, comment="项目开始时间"
+    )
+    target_date: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True, comment="项目目标日期"
+    )
+
     # 关联
     requirements = relationship("Requirement", back_populates="project", cascade="all, delete-orphan")
     repos = relationship("RepoConfig", back_populates="project", cascade="all, delete-orphan")

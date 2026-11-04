@@ -29,6 +29,7 @@ from opentask.models.issue.enums import (
     RelationType,
 )
 from opentask.models.cycle.model import Cycle
+from opentask.models.milestone.model import Milestone
 from opentask.services.user_center.rbac_service import RbacService
 from opentask.services.notification.service import NotificationService
 
@@ -123,6 +124,11 @@ class IssueService:
                 query = query.where(Issue.cycle_id.is_(None))
             else:
                 query = query.where(Issue.cycle_id == params.cycle_id)
+        if getattr(params, "milestone_id", None):
+            if params.milestone_id == "__none__":
+                query = query.where(Issue.milestone_id.is_(None))
+            else:
+                query = query.where(Issue.milestone_id == params.milestone_id)
         if params.search:
             search_pattern = f"%{params.search}%"
             query = query.where(
@@ -316,6 +322,27 @@ class IssueService:
         if workspace_id is None or cycle.workspace_id != workspace_id:
             raise ValueError("Cycle 必须属于同一工作区")
 
+    async def _validate_milestone_id(
+        self,
+        *,
+        milestone_id: str | None,
+        issue_project_id: str | None,
+        workspace_id: str | None,
+    ) -> None:
+        """校验 Milestone：存在、同工作区，且 milestone.project_id == issue.project_id。"""
+        if milestone_id is None:
+            return
+        if not issue_project_id:
+            raise ValueError("Issue 未关联项目，不能挂载里程碑")
+        result = await self.db.execute(select(Milestone).where(Milestone.id == milestone_id))
+        ms = result.scalar_one_or_none()
+        if not ms:
+            raise ValueError("里程碑不存在")
+        if workspace_id is None or ms.workspace_id != workspace_id:
+            raise ValueError("里程碑必须属于同一工作区")
+        if ms.project_id != issue_project_id:
+            raise ValueError("里程碑必须属于 Issue 所在项目")
+
     async def create_issue(
         self,
         data: IssueCreate,
@@ -339,6 +366,11 @@ class IssueService:
         )
         await self._validate_cycle_id(
             cycle_id=issue_data.get("cycle_id"),
+            workspace_id=workspace_id,
+        )
+        await self._validate_milestone_id(
+            milestone_id=issue_data.get("milestone_id"),
+            issue_project_id=issue_data.get("project_id"),
             workspace_id=workspace_id,
         )
         issue_data["created_by"] = user_id
@@ -396,6 +428,18 @@ class IssueService:
                 return None
             await self._validate_cycle_id(
                 cycle_id=update_data.get("cycle_id"),
+                workspace_id=existing.workspace_id,
+            )
+
+        if "milestone_id" in update_data:
+            existing = await self.get_issue(issue_id)
+            if not existing:
+                return None
+            # project_id may also be updating in same payload
+            project_id = update_data.get("project_id", existing.project_id)
+            await self._validate_milestone_id(
+                milestone_id=update_data.get("milestone_id"),
+                issue_project_id=project_id,
                 workspace_id=existing.workspace_id,
             )
 

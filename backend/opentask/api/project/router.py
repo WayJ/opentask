@@ -1,5 +1,6 @@
 """项目和仓库管理 API 路由"""
 import logging
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel
@@ -16,12 +17,14 @@ from opentask.models.requirement.schema import (
 )
 from opentask.models.requirement.enums import MergeStatus
 from opentask.services.project_service import ProjectService, RepoConfigService, RequirementRepoService
+from opentask.services.milestone.service import MilestoneService, require_writer, serialize_milestone
+from opentask.models.workspace.model import Workspace, WorkspaceMember
 from opentask.services.user_center.rbac_service import RbacService
 from opentask.repositories.base import get_session
 from opentask.auth import authenticate
 from opentask.models.user.model import UserModel
 from opentask.utils.response import success_response, error_response, StatusCode
-from opentask.api.workspace.deps import get_optional_workspace_context
+from opentask.api.workspace.deps import get_optional_workspace_context, require_workspace_context
 from opentask.services.workspace.service import WorkspaceService
 
 logger = logging.getLogger(__name__)
@@ -108,15 +111,31 @@ async def get_project(
     return success_response(data=service.to_response(project))
 
 
+class ProjectUpdateBody(BaseModel):
+    """项目更新请求体（全部可选）"""
+    name: str | None = None
+    description: str | None = None
+    starts_at: datetime | None = None
+    target_date: datetime | None = None
+
+
 @router.put("/{project_id}")
 async def update_project(
     project_id: str,
-    name: str | None = Body(None),
-    description: str | None = Body(None),
+    body: ProjectUpdateBody = Body(...),
     service: ProjectService = Depends(get_project_service),
 ):
-    """更新项目"""
-    project = await service.update(project_id, name, description)
+    """更新项目（含 starts_at / target_date）"""
+    kwargs = {}
+    if "name" in body.model_fields_set:
+        kwargs["name"] = body.name
+    if "description" in body.model_fields_set:
+        kwargs["description"] = body.description
+    if "starts_at" in body.model_fields_set:
+        kwargs["starts_at"] = body.starts_at
+    if "target_date" in body.model_fields_set:
+        kwargs["target_date"] = body.target_date
+    project = await service.update(project_id, **kwargs)
     return success_response(data=service.to_response(project), message="项目更新成功")
 
 
@@ -266,6 +285,125 @@ async def unlink_requirement_repo(
     return success_response(message="关联已取消")
 
 
+
+# ============================================================================
+# 里程碑（E8-S1）
+# ============================================================================
+
+milestones_router = APIRouter(prefix="/{project_id}/milestones", tags=["Milestones"])
+
+
+class MilestoneCreateBody(BaseModel):
+    name: str
+    description: str | None = None
+    target_date: datetime | None = None
+    status: str = "planned"
+    position: int = 0
+
+
+class MilestoneUpdateBody(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    target_date: datetime | None = None
+    status: str | None = None
+    position: int | None = None
+
+
+@milestones_router.get("")
+async def list_milestones(
+    project_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    ws, _member, _user = ctx
+    rows = await MilestoneService(db).list(project_id=project_id, workspace_id=ws.id)
+    return success_response(data=[serialize_milestone(r) for r in rows])
+
+
+@milestones_router.post("")
+async def create_milestone(
+    project_id: str,
+    body: MilestoneCreateBody,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    ws, member, _user = ctx
+    require_writer(member)
+    row = await MilestoneService(db).create(
+        project_id=project_id,
+        workspace_id=ws.id,
+        name=body.name,
+        description=body.description,
+        target_date=body.target_date,
+        status=body.status,
+        position=body.position,
+    )
+    return success_response(data=serialize_milestone(row), message="里程碑已创建")
+
+
+@milestones_router.get("/{milestone_id}")
+async def get_milestone(
+    project_id: str,
+    milestone_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    ws, _member, _user = ctx
+    row = await MilestoneService(db).get(
+        milestone_id, project_id=project_id, workspace_id=ws.id
+    )
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="里程碑不存在")
+    return success_response(data=serialize_milestone(row))
+
+
+@milestones_router.patch("/{milestone_id}")
+async def update_milestone(
+    project_id: str,
+    milestone_id: str,
+    body: MilestoneUpdateBody,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    ws, member, _user = ctx
+    require_writer(member)
+    svc = MilestoneService(db)
+    row = await svc.get(milestone_id, project_id=project_id, workspace_id=ws.id)
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="里程碑不存在")
+    kwargs = {}
+    if "name" in body.model_fields_set:
+        kwargs["name"] = body.name
+    if "description" in body.model_fields_set:
+        kwargs["description"] = body.description
+    if "target_date" in body.model_fields_set:
+        kwargs["target_date"] = body.target_date
+    if "status" in body.model_fields_set:
+        kwargs["status"] = body.status
+    if "position" in body.model_fields_set:
+        kwargs["position"] = body.position
+    row = await svc.update(row, **kwargs)
+    return success_response(data=serialize_milestone(row), message="里程碑已更新")
+
+
+@milestones_router.delete("/{milestone_id}")
+async def delete_milestone(
+    project_id: str,
+    milestone_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    ws, member, _user = ctx
+    require_writer(member)
+    svc = MilestoneService(db)
+    row = await svc.get(milestone_id, project_id=project_id, workspace_id=ws.id)
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="里程碑不存在")
+    await svc.delete(row)
+    return success_response(message="里程碑已删除")
+
+
 # 将子路由器添加到主路由器
 router.include_router(repo_router)
+router.include_router(milestones_router)
 router.include_router(requirement_repo_router)

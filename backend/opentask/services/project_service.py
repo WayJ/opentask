@@ -96,10 +96,30 @@ class ProjectService:
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
-    async def update(self, project_id: str, name: str | None = None, description: str | None = None) -> Project:
-        """更新项目"""
+    async def update(
+        self,
+        project_id: str,
+        name: str | None = None,
+        description: str | None = None,
+        starts_at=...,
+        target_date=...,
+    ) -> Project:
+        """更新项目（含 E8-S1 starts_at / target_date）"""
+        from datetime import datetime
+
         project = await self.get_by_id(project_id)
         logger.info(f"Before update - project: {project.id}, name={project.name}, description={project.description}, received name={name}, description={description}")
+
+        def _parse(value):
+            if value is None:
+                return None
+            if isinstance(value, datetime):
+                return value.replace(tzinfo=None) if value.tzinfo else value
+            if isinstance(value, str):
+                text = value.strip().replace("Z", "+00:00")
+                dt = datetime.fromisoformat(text)
+                return dt.replace(tzinfo=None) if dt.tzinfo else dt
+            return value
 
         updated = False
         if name is not None and name != "" and name != project.name:
@@ -110,6 +130,12 @@ class ProjectService:
             project.description = description
             updated = True
             logger.info(f"Updating description to: {description}")
+        if starts_at is not ...:
+            project.starts_at = _parse(starts_at)
+            updated = True
+        if target_date is not ...:
+            project.target_date = _parse(target_date)
+            updated = True
 
         if updated:
             await self.db.flush()
@@ -137,6 +163,8 @@ class ProjectService:
             is_active=project.is_active,
             created_at=project.created_at,
             updated_at=project.updated_at,
+            starts_at=getattr(project, "starts_at", None),
+            target_date=getattr(project, "target_date", None),
         )
 
 

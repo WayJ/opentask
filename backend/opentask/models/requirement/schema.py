@@ -135,6 +135,8 @@ class ProjectResponse(ProjectBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    starts_at: datetime | None = None
+    target_date: datetime | None = None
 
     class Config:
         from_attributes = True
