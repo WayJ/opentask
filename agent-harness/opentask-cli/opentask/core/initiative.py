@@ -141,3 +141,102 @@ def initiative_delete(obj, initiative_id, as_json):
         obj.skin.success("已删除")
     except APIError as e:
         handle_api_error(e, json_mode)
+
+
+@initiative_cli.group(name="relations")
+def relations_cli():
+    """List Initiative relations."""
+    pass
+
+
+@relations_cli.command(name="list")
+@click.argument("initiative_id")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def relations_list(obj, initiative_id, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.list_initiative_relations(initiative_id))
+        if json_mode:
+            echo_json(True, data=data)
+            return
+        items = (data or {}).get("items", []) if isinstance(data, dict) else []
+        if not items:
+            obj.skin.info("无关系")
+            return
+        obj.skin.table(
+            ["ID", "Type", "Dir", "Peer"],
+            [
+                [
+                    (i.get("id") or "")[:8],
+                    i.get("type") or "",
+                    i.get("direction") or "",
+                    ((i.get("initiative") or {}).get("name") or "")[:40],
+                ]
+                for i in items
+            ],
+        )
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@initiative_cli.group(name="relation")
+def relation_cli():
+    """Add / remove Initiative relations."""
+    pass
+
+
+@relation_cli.command(name="add")
+@click.argument("initiative_id")
+@click.option("--target", required=True, help="Target initiative id")
+@click.option(
+    "--type",
+    "relation_type",
+    required=True,
+    type=click.Choice(["blocks", "is_blocked_by", "relates_to"], case_sensitive=True),
+)
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def relation_add(obj, initiative_id, target, relation_type, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(
+            client.add_initiative_relation(initiative_id, target, relation_type)
+        )
+        if json_mode:
+            echo_json(True, data=data, message="relation added")
+            return
+        obj.skin.success(f"已添加: {(data or {}).get('id', '')}")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@relation_cli.command(name="remove")
+@click.argument("initiative_id")
+@click.option("--relation-id", "relation_id", required=True)
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def relation_remove(obj, initiative_id, relation_id, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(
+            client.remove_initiative_relation(initiative_id, relation_id)
+        )
+        if json_mode:
+            echo_json(True, data=data or {"id": relation_id}, message="relation removed")
+            return
+        obj.skin.success("已删除")
+    except APIError as e:
+        handle_api_error(e, json_mode)

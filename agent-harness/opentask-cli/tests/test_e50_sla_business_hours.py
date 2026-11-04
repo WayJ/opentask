@@ -1,4 +1,4 @@
-"""E50 CLI: workspace/sla business-hours + version 1.48.0."""
+"""E50 CLI: workspace/sla business-hours + version 1.49.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli
@@ -8,7 +8,7 @@ def test_version_1_34_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.48.0" in result.output
+    assert "1.49.0" in result.output
 
 
 def test_workspace_update_help_has_business_hours():

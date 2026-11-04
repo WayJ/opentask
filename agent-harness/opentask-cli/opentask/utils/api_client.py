@@ -796,6 +796,22 @@ class OpenTaskClient:
     async def delete_initiative(self, initiative_id: str) -> dict:
         return await self.delete(f"/api/initiatives/{initiative_id}")
 
+    async def list_initiative_relations(self, initiative_id: str) -> dict:
+        return await self.get(f"/api/initiatives/{initiative_id}/relations")
+
+    async def add_initiative_relation(
+        self, initiative_id: str, target_initiative_id: str, relation_type: str
+    ) -> dict:
+        return await self.post(
+            f"/api/initiatives/{initiative_id}/relations",
+            data={"targetInitiativeId": target_initiative_id, "type": relation_type},
+        )
+
+    async def remove_initiative_relation(self, initiative_id: str, relation_id: str) -> dict:
+        return await self.delete(
+            f"/api/initiatives/{initiative_id}/relations/{relation_id}"
+        )
+
     # ========================================================================
     # Customers / Customer Requests (E22)
     # ========================================================================

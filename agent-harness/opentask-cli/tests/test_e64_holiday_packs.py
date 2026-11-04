@@ -1,17 +1,17 @@
-"""E64 CLI: sla holiday-packs list --region/--year + version 1.48.0."""
+"""E64 CLI: sla holiday-packs list --region/--year + version 1.49.0."""
 from click.testing import CliRunner
 
 from opentask import __version__
 from opentask.opentask_cli import VERSION, cli
 
 
-def test_version_1_48_0():
+def test_version_1_49_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.48.0" in result.output
-    assert VERSION == "1.48.0"
-    assert __version__ == "1.48.0"
+    assert "1.49.0" in result.output
+    assert VERSION == "1.49.0"
+    assert __version__ == "1.49.0"
 
 
 def test_holiday_packs_list_help_region_year():
