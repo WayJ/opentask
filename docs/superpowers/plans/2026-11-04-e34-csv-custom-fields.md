@@ -17,20 +17,20 @@
 ---
 
 ### Task 1 — Docs
-- [ ] design + plan 入库
-- [ ] acceptance 骨架；收口补 tip/测试数
+- [x] design + plan 入库
+- [x] acceptance 骨架；收口补 tip/测试数
 
 ### Task 2 — BE Export / Import / Template（TDD）
-- [ ] export 追加未归档 `cf.<key>`；空值空单元格
-- [ ] template 动态列头
-- [ ] import 解析 `cf.*`；类型转换；未知/校验失败 partial + errors[]
-- [ ] pytest：导出列、导入写入、未知 key、boolean/multi
+- [x] export 追加未归档 `cf.<key>`；空值空单元格
+- [x] template 动态列头
+- [x] import 解析 `cf.*`；类型转换；未知/校验失败 partial + errors[]
+- [x] pytest：导出列、导入写入、未知 key、boolean/multi
 
 ### Task 3 — FE
-- [ ] Import 文案提 `cf.*`；必要时 helper 测
+- [x] Import 文案提 `cf.*`；必要时 helper 测
 
 ### Task 4 — CLI 1.18.0
-- [ ] version bump；export/import help 提 `cf.<key>`；全仓断言
+- [x] version bump；export/import help 提 `cf.<key>`；全仓断言
 
 ### Task 5 — 门禁
-- [ ] BE/CLI pytest；FE vitest/build；acceptance tip；STOP
+- [x] BE/CLI pytest；FE vitest/build；acceptance tip；STOP
