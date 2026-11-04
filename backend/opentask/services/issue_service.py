@@ -840,9 +840,10 @@ class IssueService:
         return result.rowcount > 0
 
     async def get_tags(self, issue_id: str) -> List[IssueTag]:
-        """获取 Issue 的所有标签"""
-        # Tag 功能已移除，返回空列表
-        return []
+        """获取 Issue 的所有标签关联行"""
+        query = select(IssueTag).where(IssueTag.issue_id == issue_id)
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
 
     # ========================================================================
     # 反应操作

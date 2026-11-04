@@ -555,7 +555,7 @@ class IssueTag(DBModel):
 
     # 关系
     issue: Mapped["Issue"] = relationship("Issue", back_populates="tags")
-    # tag: Mapped["Tag"] = relationship("Tag")  # Tag 模型已移除
+    tag: Mapped["Tag"] = relationship("Tag")  # noqa: F821 — Tag in models.tag
 
     # 索引
     __table_args__ = (

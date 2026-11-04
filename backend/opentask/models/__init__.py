@@ -33,7 +33,7 @@ from opentask.models.agent import Agent
 
 # 补齐未自动注册的模型模块：确保 `from opentask.models import *` / alembic
 # autogenerate 拿到完整 metadata（此前 conftest 需手工 import Tag 同理）
-from opentask.models.tag import Tag
+from opentask.models.tag import Tag, TagGroup
 from opentask.models.issue import (
     Issue,
     IssueComment,
@@ -94,6 +94,7 @@ __all__ = [
     "RefreshToken",
     "Agent",
     "Tag",
+    "TagGroup",
     "Issue",
     "IssueComment",
     "IssueRelation",

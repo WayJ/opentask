@@ -48,8 +48,16 @@ from opentask.models.issue_collection.schema import (
 )
 from opentask.models.issue.enums import RelationType
 from opentask.services.issue_service import IssueService
+from opentask.services.tag.service import (
+    TagService,
+    load_tags_for_issues,
+    require_writer as require_tag_writer,
+    serialize_tag_brief,
+)
+from opentask.api.workspace.deps import get_optional_workspace_context, require_workspace_context
+from opentask.models.workspace.model import Workspace, WorkspaceMember
+from pydantic import BaseModel, Field
 from opentask.services.user_center.rbac_service import RbacService
-from opentask.api.workspace.deps import get_optional_workspace_context
 from opentask.services.workspace.service import WorkspaceService
 from opentask.services.storage.service import get_storage_service
 from opentask.services.issue_collection_service import IssueCollectionService
@@ -123,7 +131,12 @@ async def get_issues(
     )
 
     # 使用 IssueResponse 的 field_validator 自动处理用户信息转换
-    rows = [IssueResponse.model_validate(issue) for issue in issues]
+    tag_map = await load_tags_for_issues(service.db, issues)
+    rows = []
+    for issue in issues:
+        payload = IssueResponse.model_validate(issue).model_dump(mode="json", exclude_none=False)
+        payload["tags"] = [serialize_tag_brief(t) for t in tag_map.get(issue.id, [])]
+        rows.append(payload)
 
     return {
         "code": 200,
@@ -545,6 +558,8 @@ async def get_issue(
 
     # 转换为字典，使用 mode='json' 确保所有字段都被序列化
     issue_dict = IssueResponse.model_validate(issue).model_dump(mode='json', exclude_none=False)
+    detail_tags = await load_tags_for_issues(db, [issue])
+    issue_dict["tags"] = [serialize_tag_brief(t) for t in detail_tags.get(issue.id, [])]
 
     # E4-S3：子 Issue 轻量摘要
     children = await service.list_child_issues(issue.id)
@@ -942,20 +957,49 @@ async def remove_relation(
 # 标签操作
 # ========================================================================
 
+class IssueTagsReplace(BaseModel):
+    tag_ids: List[int] = Field(default_factory=list)
+
+
 @router.get("/{issue_id}/tags")
 async def get_tags(
     issue_id: str,
-    service: IssueService = Depends(get_issue_service),
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
 ):
     """获取 Issue 的所有标签"""
-    # Tag 功能已移除，返回空列表
+    ws, _member, _user = ctx
+    rows = await TagService(session).list_issue_tags(issue_id, workspace_id=ws.id)
+    briefs = [serialize_tag_brief(t) for t in rows]
     return {
         "code": 200,
         "message": "success",
-        "data": {
-            "rows": [],
-            "total": 0,
-        },
+        "data": {"rows": briefs, "total": len(briefs)},
+        "timestamp": 0,
+    }
+
+
+@router.put("/{issue_id}/tags")
+async def replace_tags(
+    issue_id: str,
+    body: IssueTagsReplace,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    """整体替换 Issue 标签（L picker）"""
+    ws, member, user = ctx
+    require_tag_writer(member)
+    rows = await TagService(session).replace_issue_tags(
+        issue_id=issue_id,
+        tag_ids=body.tag_ids,
+        workspace_id=ws.id,
+        user_id=str(user.id),
+    )
+    briefs = [serialize_tag_brief(t) for t in rows]
+    return {
+        "code": 200,
+        "message": "标签已更新",
+        "data": {"rows": briefs, "total": len(briefs)},
         "timestamp": 0,
     }
 
@@ -964,34 +1008,42 @@ async def get_tags(
 async def add_tag(
     issue_id: str,
     tag_id: int,
-    service: IssueService = Depends(get_issue_service),
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
 ):
     """添加标签到 Issue"""
-    try:
-        issue_tag = await service.add_tag(issue_id, tag_id)
-        return {
-            "code": 200,
-            "message": "标签添加成功",
-            "data": {"issue_tag_id": issue_tag.id},
-            "timestamp": 0,
-        }
-    except Exception as e:
-        logger.error(f"添加标签失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    ws, member, user = ctx
+    require_tag_writer(member)
+    tag = await TagService(session).attach_tag(
+        issue_id=issue_id,
+        tag_id=tag_id,
+        workspace_id=ws.id,
+        user_id=str(user.id),
+    )
+    return {
+        "code": 200,
+        "message": "标签添加成功",
+        "data": {"tag": serialize_tag_brief(tag)},
+        "timestamp": 0,
+    }
 
 
 @router.delete("/{issue_id}/tags/{tag_id}")
 async def remove_tag(
     issue_id: str,
     tag_id: int,
-    service: IssueService = Depends(get_issue_service),
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
 ):
     """从 Issue 移除标签"""
-    success = await service.remove_tag(issue_id, tag_id)
-
-    if not success:
-        raise HTTPException(status_code=404, detail="标签不存在")
-
+    ws, member, user = ctx
+    require_tag_writer(member)
+    await TagService(session).detach_tag(
+        issue_id=issue_id,
+        tag_id=tag_id,
+        workspace_id=ws.id,
+        user_id=str(user.id),
+    )
     return {
         "code": 200,
         "message": "标签移除成功",

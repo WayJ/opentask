@@ -154,35 +154,73 @@ class ContractIssueService(IssueService):
 # 标签（labels ↔ tags）辅助
 # ============================================================================
 
-async def get_or_create_tag(db: AsyncSession, name: str) -> Tag:
-    """按名称取 Tag，不存在则创建（并发下唯一冲突时回退重查）
+
+async def _resolve_fallback_workspace_id(db: AsyncSession) -> str:
+    """Issue 无 workspace_id 时：最早工作区；若库中无工作区则惰性创建 Default。"""
+    from datetime import datetime as _dt
+    from opentask.models.workspace.model import Workspace
+
+    existing = (
+        await db.execute(
+            select(Workspace.id).order_by(Workspace.created_at.asc(), Workspace.id.asc()).limit(1)
+        )
+    ).scalar_one_or_none()
+    if existing:
+        return str(existing)
+    now = _dt.utcnow()
+    ws = Workspace(
+        name="Default",
+        slug=f"default-{now.strftime('%Y%m%d%H%M%S')}",
+        description="auto for label sync",
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(ws)
+    await db.flush()
+    return str(ws.id)
+
+
+async def get_or_create_tag(db: AsyncSession, name: str, *, workspace_id: str) -> Tag:
+    """按 (workspace_id, name) 取 Tag，不存在则创建（并发下唯一冲突时回退重查）
+
+    workspace_id 为 keyword-only，强制调用方传入工作区，避免全局标签泄漏。
 
     不提交：插入经 SAVEPOINT flush（撞唯一约束只回滚到保存点，
     不殃及事务内其他未提交变更），由调用方统一提交——
     sync_issue_labels 因此保持"全成或全不成"的原子性。
     """
-    result = await db.execute(select(Tag).where(Tag.name == name))
+    if not workspace_id:
+        raise ValueError("workspace_id is required for get_or_create_tag")
+    result = await db.execute(
+        select(Tag).where(Tag.name == name, Tag.workspace_id == workspace_id)
+    )
     tag = result.scalar_one_or_none()
     if tag is not None:
         return tag
 
-    tag = Tag(name=name)
+    tag = Tag(name=name, workspace_id=workspace_id, color="#3b82f6")
     db.add(tag)
     try:
         async with db.begin_nested():
             await db.flush()  # 拿 id；冲突只回滚保存点
     except IntegrityError:
         # 并发创建撞唯一约束：保存点已回滚，重查取对方已提交的行
-        result = await db.execute(select(Tag).where(Tag.name == name))
+        result = await db.execute(
+            select(Tag).where(Tag.name == name, Tag.workspace_id == workspace_id)
+        )
         tag = result.scalar_one()
     return tag
 
 
-async def get_tag_ids_by_names(db: AsyncSession, names: Sequence[str]) -> Dict[str, int]:
-    """名称 → tag_id 映射（仅返回命中的）"""
+async def get_tag_ids_by_names(
+    db: AsyncSession, names: Sequence[str], *, workspace_id: str
+) -> Dict[str, int]:
+    """名称 → tag_id 映射（仅返回命中的；工作区内）"""
     if not names:
         return {}
-    result = await db.execute(select(Tag).where(Tag.name.in_(list(names))))
+    result = await db.execute(
+        select(Tag).where(Tag.name.in_(list(names)), Tag.workspace_id == workspace_id)
+    )
     return {t.name: t.id for t in result.scalars().all()}
 
 
@@ -203,6 +241,15 @@ async def sync_issue_labels(
     desired_list = list(dict.fromkeys(desired))
     desired_names = set(desired_list)
 
+    issue_row = (
+        await service.db.execute(select(Issue).where(Issue.id == issue_id))
+    ).scalar_one_or_none()
+    if issue_row is None:
+        raise ValueError(f"issue not found: {issue_id}")
+    workspace_id = issue_row.workspace_id
+    if not workspace_id:
+        workspace_id = await _resolve_fallback_workspace_id(service.db)
+
     current = await get_issue_current_tags(service.db, issue_id)  # {name: issue_tag_id}
     current_names = set(current)
 
@@ -213,7 +260,9 @@ async def sync_issue_labels(
         return
 
     if to_remove:
-        tag_ids_by_name = await get_tag_ids_by_names(service.db, to_remove)
+        tag_ids_by_name = await get_tag_ids_by_names(
+            service.db, to_remove, workspace_id=workspace_id
+        )
         remove_tag_ids = [tag_ids_by_name[n] for n in to_remove if n in tag_ids_by_name]
         await service.db.execute(
             delete(IssueTag).where(
@@ -232,7 +281,7 @@ async def sync_issue_labels(
                 )
 
     for name in to_add:
-        tag = await get_or_create_tag(service.db, name)
+        tag = await get_or_create_tag(service.db, name, workspace_id=workspace_id)
         service.db.add(IssueTag(issue_id=issue_id, tag_id=tag.id))
         service.db.add(
             IssueTimeline(

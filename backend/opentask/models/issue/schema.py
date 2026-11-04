@@ -87,6 +87,17 @@ class ProjectInfo(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+
+class TagBrief(BaseModel):
+    """Issue 上的轻量标签（E7-S1 groupBy / 详情）"""
+    id: int
+    name: str
+    color: str = "#3b82f6"
+    group_id: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class IssueChildSummary(BaseModel):
     """子 Issue 轻量摘要"""
     id: str
