@@ -28,7 +28,7 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-04-e40-formula-c
 - Create: `docs/superpowers/plans/2026-11-04-e40-formula-custom-fields.md`（本文件）
 - Create: `docs/superpowers/acceptances/2026-11-04-E40-acceptance.md`（骨架；收口补 tip/测数）
 
-- [ ] **Step 1:** 入库 plan + acceptance 骨架并 commit
+- [x] **Step 1:** 入库 plan + acceptance 骨架并 commit
 
 ---
 
@@ -57,8 +57,8 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-04-e40-formula-c
 - Consumes: E25 CRUD 模式
 - Produces: formula 字段可创建；环/深度/非法 AST → 400；upsert 拒写
 
-- [ ] **Step 1: 红测** create formula ok；缺 expr 400；环依赖 400；深度>8 400；非 formula 带 expr 400；upsert formula 400
-- [ ] **Step 2: 跑测确认红 → 最小实现（可先 stub parse 放行简单字面量）→ 绿 → commit**
+- [x] **Step 1: 红测** create formula ok；缺 expr 400；环依赖 400；深度>8 400；非 formula 带 expr 400；upsert formula 400
+- [x] **Step 2: 跑测确认红 → 最小实现（可先 stub parse 放行简单字面量）→ 绿 → commit**
 
 注：完整解析器在 Task 3；本任务可用最小 `parse_formula` 接口（字面量/依赖提取）使 create 通路先绿。
 
@@ -85,8 +85,8 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-04-e40-formula-c
 - Issue `customFields[]` formula 项：`value`/`computed:true`/`error?`
 - 除零→`div_zero`；类型→`type_error`；依赖→`dep_error`；解析→`parse_error`；value=null 不 500
 
-- [ ] **Step 1: 红测** IF/COALESCE/算术；除零；链式 formula；源变更后 GET 变；validate-formula；列表批量不串租户；viewer 读 ok
-- [ ] **Step 2: 实现绿 → commit**
+- [x] **Step 1: 红测** IF/COALESCE/算术；除零；链式 formula；源变更后 GET 变；validate-formula；列表批量不串租户；viewer 读 ok
+- [x] **Step 2: 实现绿 → commit**
 
 ---
 
@@ -106,8 +106,8 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-04-e40-formula-c
   - formula：只读 ƒ 标签；error → `—` + title tooltip；不可 save
 - Modify: `frontend/src/utils/groupIssuesBy.test.ts` 或 custom-fields.test — formula 不进 grouping 选项
 
-- [ ] **Step 1: 红测** format/helpers；isGroupingCfType('formula')===false
-- [ ] **Step 2: 实现绿；vitest → commit**
+- [x] **Step 1: 红测** format/helpers；isGroupingCfType('formula')===false
+- [x] **Step 2: 实现绿；vitest → commit**
 
 ---
 
@@ -123,18 +123,18 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-04-e40-formula-c
 - Bump **1.24.0**：`__init__.py`、`opentask_cli.py`、`setup.py`、`pyproject.toml`；全仓 `1.23.0`→`1.24.0`
 - Create: `agent-harness/opentask-cli/tests/test_e40_formula_custom_fields.py`
 
-- [ ] **Step 1: 红测** version / create help 含 formula / validate-formula help
-- [ ] **Step 2: 实现 + bump → 绿 → commit**
+- [x] **Step 1: 红测** version / create help 含 formula / validate-formula help
+- [x] **Step 2: 实现 + bump → 绿 → commit**
 
 ---
 
 ### Task 6 — 门禁 + acceptance
 
-- [ ] BE：`pytest backend/tests/api/test_e40_formula_custom_fields.py -q`；全量 `pytest backend/tests -q`（记 passed；`test_user_search` flake 可记）
-- [ ] CLI：`pytest agent-harness/opentask-cli/tests -q`
-- [ ] FE：`cd frontend && npx vitest run && npm run build`
-- [ ] 写满 acceptance（tip SHA、测数、ADR、非目标）
-- [ ] 最终 tip；**不 push**；**不自开 E41**；回执 `superpowers: design/plan/TDD/verify/acceptance = ok`
+- [x] BE：`pytest backend/tests/api/test_e40_formula_custom_fields.py -q`；全量 `pytest backend/tests -q`（记 passed；`test_user_search` flake 可记）
+- [x] CLI：`pytest agent-harness/opentask-cli/tests -q`
+- [x] FE：`cd frontend && npx vitest run && npm run build`
+- [x] 写满 acceptance（tip SHA、测数、ADR、非目标）
+- [x] 最终 tip；**不 push**；**不自开 E41**；回执 `superpowers: design/plan/TDD/verify/acceptance = ok`
 
 ---
 
