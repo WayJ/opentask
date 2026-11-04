@@ -3,8 +3,8 @@ version: "2.0"
 name: OpenTask Linear product UI
 description: >
   OpenTask 前端视觉真源——适配 Linear.app 产品 UI 语言（getdesign linear.app），
-  保留 Vue3 + Naive UI + soybean-admin 壳 + UnoCSS。主题色 #5e6ad2；默认暗色画布；
-  亮色映射 inverse-*。不嵌入 Linear 专有字体，使用系统字体栈。
+  保留 Vue3 + Naive UI + soybean-admin 壳 + UnoCSS。主题色 #5e6ad2；默认亮色画布；
+  暗色映射 dark canvas 令牌。不嵌入 Linear 专有字体，使用系统字体栈。
 
 colors:
   # Naive themeColor（src/theme/settings.ts）
@@ -14,7 +14,7 @@ colors:
   primary-active: "#5e69d1"
   on-primary: "#ffffff"
 
-  # Dark canvas（默认 themeScheme: dark）
+  # Dark canvas（可选 themeScheme: dark；默认已改为 light）
   canvas: "#010102"
   surface-1: "#0f1011"
   surface-2: "#141516"
@@ -92,7 +92,7 @@ components:
 本文件是前端视觉真源（v2.0）。技术底座仍为 **Vue 3 + Naive UI + soybean-admin 布局壳 + UnoCSS**：
 
 - **主题色**：`themeColor: #5e6ad2`（Linear indigo），由 Naive 派生 hover/pressed。
-- **默认主题**：`themeScheme: 'dark'`（Linear 近黑画布 `#010102`）；用户可切换亮色（inverse 令牌）。
+- **默认主题**：`themeScheme: 'light'`（亮色画布 + inverse 令牌）；用户可切换暗色（Linear 近黑 `#010102`）。清站点 `SOY_*` localStorage 后才能看到默认。
 - **通用令牌**：`frontend/src/styles/design-system.css` 的 `--color-*`；暗色在 `html.dark` 覆盖。
 - **字体**：系统栈 only —— 不嵌入 Linear Display / Linear Text。
 - **品牌**：应用名 OpenTask；logo 为 OT monogram（候选 D）。

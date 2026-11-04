@@ -35,15 +35,21 @@ describe('E13 Linear sidebar IA', () => {
     }
   });
 
-  it('keeps Projects (workflow) and Workspace reachable in menu', () => {
+  it('puts Projects under Workspace and hides top-level workflow', () => {
     const workflow = findRoute(authRoutes as any[], 'workflow');
-    expect(workflow.meta?.hideInMenu).toBeFalsy();
-    const projects = findRoute(authRoutes as any[], 'workflow_projects');
-    expect(projects).toBeTruthy();
-    expect(projects.meta?.hideInMenu).toBeFalsy();
+    expect(workflow).toBeTruthy();
+    expect(workflow.meta?.hideInMenu).toBe(true);
 
     const workspace = findRoute(authRoutes as any[], 'workspace');
+    expect(workspace).toBeTruthy();
     expect(workspace.meta?.hideInMenu).toBeFalsy();
+
+    const projectsUnderWs = (workspace.children || []).find((c: any) => c.name === 'workflow_projects');
+    expect(projectsUnderWs, 'workflow_projects should be a workspace child').toBeTruthy();
+    expect(projectsUnderWs.meta?.hideInMenu).toBeFalsy();
+
+    // top-level menu must not expose Projects via workflow group
+    expect(workflow.meta?.hideInMenu).toBe(true);
   });
 
   it('still hides workflow_requirements (E12 de-PGE)', () => {

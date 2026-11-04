@@ -265,7 +265,7 @@ const local: App.I18n.Schema = {
     dashboard: '研发效能看板',
     workflow: '项目',
     projects: '项目管理',
-    workflow_projects: '全部项目',
+    workflow_projects: '项目',
     'workflow_project-detail': '项目详情',
     workflow_requirements: '需求（遗留）',
     'workflow_requirement-detail': '需求详情',

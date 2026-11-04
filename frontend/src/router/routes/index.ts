@@ -17,7 +17,9 @@ const customRoutes: CustomRoute[] = [
       title: 'workflow',
       i18nKey: 'route.workflow',
       icon: 'mdi:folder-multiple-outline',
-      order: 5
+      order: 5,
+      // E13 follow-up: Projects 归入 Workspace；顶层 workflow 仅保留深链
+      hideInMenu: true
     },
     children: [
       {
@@ -28,15 +30,6 @@ const customRoutes: CustomRoute[] = [
           title: 'workflow_project-detail',
           i18nKey: 'route.workflow_project-detail',
           hideInMenu: true
-        }
-      },
-      {
-        name: 'workflow_projects',
-        path: '/workflow/projects',
-        component: 'view.workflow_projects',
-        meta: {
-          title: 'workflow_projects',
-          i18nKey: 'route.workflow_projects'
         }
       },
       {
@@ -261,6 +254,71 @@ const customRoutes: CustomRoute[] = [
           title: 'issue_collection_create',
           i18nKey: 'route.issue_collection_create',
           hideInMenu: true
+        }
+      }
+    ]
+  },
+  {
+    name: 'workspace',
+    path: '/workspace',
+    component: 'layout.base',
+    meta: {
+      title: 'workspace',
+      i18nKey: 'route.workspace',
+      icon: 'mdi:office-building-outline',
+      order: 3
+    },
+    children: [
+      {
+        // Reuse view.workflow_projects; path kept for deep-link compatibility
+        name: 'workflow_projects',
+        path: '/workflow/projects',
+        component: 'view.workflow_projects',
+        meta: {
+          title: 'workflow_projects',
+          i18nKey: 'route.workflow_projects',
+          icon: 'mdi:clipboard-list-outline',
+          order: 1
+        }
+      },
+      {
+        name: 'workspace_cycles',
+        path: '/workspace/cycles',
+        component: 'view.workspace_cycles',
+        meta: {
+          title: 'workspace_cycles',
+          i18nKey: 'route.workspace_cycles',
+          order: 2
+        }
+      },
+      {
+        name: 'workspace_labels',
+        path: '/workspace/labels',
+        component: 'view.workspace_labels',
+        meta: {
+          title: 'workspace_labels',
+          i18nKey: 'route.workspace_labels',
+          order: 3
+        }
+      },
+      {
+        name: 'workspace_members',
+        path: '/workspace/members',
+        component: 'view.workspace_members',
+        meta: {
+          title: 'workspace_members',
+          i18nKey: 'route.workspace_members',
+          order: 4
+        }
+      },
+      {
+        name: 'workspace_issue-templates',
+        path: '/workspace/issue-templates',
+        component: 'view.workspace_issue-templates',
+        meta: {
+          title: 'workspace_issue-templates',
+          i18nKey: 'route.workspace_issue-templates',
+          order: 5
         }
       }
     ]
