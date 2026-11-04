@@ -55,7 +55,7 @@ from opentask.services.tag.service import (
     require_writer as require_tag_writer,
     serialize_tag_brief,
 )
-from opentask.api.workspace.deps import get_optional_workspace_context, require_workspace_context
+from opentask.api.workspace.deps import get_optional_workspace_context, require_workspace_context, ensure_entity_workspace_access
 from opentask.models.workspace.model import Workspace, WorkspaceMember
 from pydantic import BaseModel, Field
 from opentask.services.user_center.rbac_service import RbacService
@@ -74,6 +74,46 @@ async def get_issue_service(
 ) -> IssueService:
     """获取 Issue 服务依赖"""
     return IssueService(db)
+
+
+async def _require_issue_access(
+    issue_id: str,
+    *,
+    service: IssueService,
+    user: UserModel,
+    by_code: bool = False,
+    workspace_id: str | None = None,
+):
+    """E15：加载 Issue 并校验调用者对其 workspace_id 的成员资格。"""
+    issue = await service.get_issue(issue_id, by_code=by_code, workspace_id=workspace_id)
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue 不存在")
+    await ensure_entity_workspace_access(service.db, str(user.id), issue.workspace_id)
+    return issue
+
+
+async def _require_comment_issue_access(
+    comment_id: str,
+    *,
+    service: IssueService,
+    user: UserModel,
+):
+    """E15：按评论所属 Issue 校验成员。"""
+    from opentask.models.issue.model import IssueComment
+
+    result = await service.db.execute(
+        select(IssueComment).where(
+            IssueComment.id == comment_id,
+            IssueComment.is_deleted == False,
+        )
+    )
+    comment = result.scalar_one_or_none()
+    if comment is None:
+        raise HTTPException(status_code=404, detail="评论不存在")
+    await _require_issue_access(comment.issue_id, service=service, user=user)
+    return comment
+
+
 
 
 # ========================================================================
@@ -570,11 +610,12 @@ async def get_issue(
         GET /api/issues/OT-1?by_code=true                  # 通过 KEY-N 查询
         GET /api/issues/ISSUE2026-32?by_code=true          # 通过 legacy code 查询
     """
-    workspace, _member, _user = ws_ctx
+    workspace, _member, user = ws_ctx
+    # by_code 仍用 header WS 精确过滤（不回退）；按 UUID 不靠 header，靠实体 membership
     workspace_id = workspace.id if (workspace is not None and by_code) else None
-    issue = await service.get_issue(issue_id, by_code=by_code, workspace_id=workspace_id)
-    if not issue:
-        raise HTTPException(status_code=404, detail="Issue 不存在")
+    issue = await _require_issue_access(
+        issue_id, service=service, user=user, by_code=by_code, workspace_id=workspace_id
+    )
 
     # 转换为字典，使用 mode='json' 确保所有字段都被序列化
     issue_dict = IssueResponse.model_validate(issue).model_dump(mode='json', exclude_none=False)
@@ -622,7 +663,8 @@ async def update_issue(
     service: IssueService = Depends(get_issue_service),
     current_user: UserModel = Depends(authenticate),
 ):
-    """更新 Issue"""
+    """更新 Issue（E15：成员校验）"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
 
     try:
         issue = await service.update_issue(issue_id, data, str(current_user.id))
@@ -645,7 +687,8 @@ async def delete_issue(
     service: IssueService = Depends(get_issue_service),
     current_user: UserModel = Depends(authenticate),
 ):
-    """删除 Issue（软删除）"""
+    """删除 Issue（软删除；E15：成员校验）"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
 
     success = await service.delete_issue(issue_id, str(current_user.id))
     if not success:
@@ -707,8 +750,10 @@ async def get_comments(
     issue_id: str,
     service: IssueService = Depends(get_issue_service),
     db: AsyncSession = Depends(get_session),
+    current_user: UserModel = Depends(authenticate),
 ):
-    """获取 Issue 的所有评论"""
+    """获取 Issue 的所有评论（E15：成员校验）"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     comments = await service.get_comments(issue_id)
 
     # 收集所有唯一的 user_id
@@ -763,6 +808,7 @@ async def add_comment(
     限制：
     - content: 1-500 字符
     """
+    await _require_issue_access(issue_id, service=service, user=current_user)
     user_id = str(current_user.id)
     content = data.content
 
@@ -825,6 +871,7 @@ async def update_comment(
     限制：
     - content: 1-500 字符
     """
+    await _require_comment_issue_access(comment_id, service=service, user=current_user)
     if not comment_data.content:
         raise HTTPException(status_code=400, detail="评论内容不能为空")
 
@@ -853,7 +900,8 @@ async def delete_comment(
     service: IssueService = Depends(get_issue_service),
     current_user: UserModel = Depends(authenticate),
 ):
-    """删除评论（软删除）"""
+    """删除评论（软删除；E15：成员校验）"""
+    await _require_comment_issue_access(comment_id, service=service, user=current_user)
     success = await service.delete_comment(comment_id, str(current_user.id))
     if not success:
         raise HTTPException(status_code=404, detail="评论不存在或无权限删除")
@@ -873,10 +921,8 @@ async def get_issue_children(
     service: IssueService = Depends(get_issue_service),
     current_user: UserModel = Depends(authenticate),
 ):
-    """列出 Issue 的直接子项（depth-1 摘要）"""
-    issue = await service.get_issue(issue_id)
-    if not issue:
-        raise HTTPException(status_code=404, detail="Issue 不存在")
+    """列出 Issue 的直接子项（depth-1 摘要；E15：成员校验）"""
+    issue = await _require_issue_access(issue_id, service=service, user=current_user)
     children = await service.list_child_issues(issue_id)
     rows = [
         IssueChildSummary(
@@ -903,8 +949,10 @@ async def get_issue_children(
 async def get_relations(
     issue_id: str,
     service: IssueService = Depends(get_issue_service),
+    current_user: UserModel = Depends(authenticate),
 ):
-    """获取 Issue 的所有关系"""
+    """获取 Issue 的所有关系（E15：成员校验）"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     source_relations, target_relations = await service.get_relations(issue_id)
 
     source_rows = [IssueRelationResponse.model_validate(r) for r in source_relations]
@@ -929,7 +977,8 @@ async def add_relation(
     service: IssueService = Depends(get_issue_service),
     current_user: UserModel = Depends(authenticate),
 ):
-    """添加 Issue 关系"""
+    """添加 Issue 关系（E15：成员校验）"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     try:
         relation = await service.add_relation(
             source_id=issue_id,
@@ -954,8 +1003,10 @@ async def remove_relation(
     target_id: str = Query(..., description="目标 Issue ID"),
     relation_type: RelationType = Query(..., description="关系类型"),
     service: IssueService = Depends(get_issue_service),
+    current_user: UserModel = Depends(authenticate),
 ):
-    """移除 Issue 关系"""
+    """移除 Issue 关系（E15：成员校验）"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     success = await service.remove_relation(
         source_id=issue_id,
         target_id=target_id,
@@ -1080,8 +1131,10 @@ async def remove_tag(
 async def get_reactions(
     issue_id: str,
     service: IssueService = Depends(get_issue_service),
+    current_user: UserModel = Depends(authenticate),
 ):
-    """获取 Issue 的所有反应"""
+    """获取 Issue 的所有反应（E15：成员校验）"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     stats = await service.get_reaction_stats(issue_id)
 
     return {
@@ -1102,7 +1155,8 @@ async def add_reaction(
     current_user: UserModel = Depends(authenticate),
     service: IssueService = Depends(get_issue_service),
 ):
-    """添加反应"""
+    """添加反应（E15：成员校验）"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     logger.info(f"DEBUG: add_reaction called, user_id={current_user.id}")
     user_id = str(current_user.id)
 
@@ -1126,7 +1180,8 @@ async def remove_reaction(
     current_user: UserModel = Depends(authenticate),
     service: IssueService = Depends(get_issue_service),
 ):
-    """移除反应"""
+    """移除反应（E15：成员校验）"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     user_id = str(current_user.id)
 
     try:
@@ -1157,8 +1212,10 @@ async def get_timeline(
     limit: int = Query(50, ge=1, le=100, description="返回数量"),
     service: IssueService = Depends(get_issue_service),
     db: AsyncSession = Depends(get_session),
+    current_user: UserModel = Depends(authenticate),
 ):
-    """获取 Issue 时间线"""
+    """获取 Issue 时间线（E15：成员校验）"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     timeline = await service.get_timeline(issue_id, limit)
 
     # 收集所有唯一的 user_id
@@ -1216,6 +1273,7 @@ async def update_status(
     current_user: UserModel = Depends(authenticate),
 ):
     """快速更新 Issue 状态"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     update_data = IssueUpdate(status=status)  # type: ignore
     issue = await service.update_issue(issue_id, update_data, str(current_user.id))
 
@@ -1238,6 +1296,7 @@ async def update_assignee(
     current_user: UserModel = Depends(authenticate),
 ):
     """快速更新 Issue 负责人"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     update_data = IssueUpdate(assignee_id=assignee_id)
     issue = await service.update_issue(issue_id, update_data, str(current_user.id))
 
@@ -1260,6 +1319,7 @@ async def update_priority(
     current_user: UserModel = Depends(authenticate),
 ):
     """快速更新 Issue 优先级"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     update_data = IssueUpdate(priority=priority)  # type: ignore
     issue = await service.update_issue(issue_id, update_data, str(current_user.id))
 
@@ -1282,6 +1342,7 @@ async def update_reporter(
     current_user: UserModel = Depends(authenticate),
 ):
     """快速更新 Issue 报告人"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     update_data = IssueUpdate(reporter_id=reporter_id)
     issue = await service.update_issue(issue_id, update_data, str(current_user.id))
 
@@ -1304,8 +1365,10 @@ async def update_reporter(
 async def get_issue_attachments(
     issue_id: str,
     service: IssueService = Depends(get_issue_service),
+    current_user: UserModel = Depends(authenticate),
 ):
-    """获取 Issue 的所有附件。空列表必须 200（E11-S4）。"""
+    """获取 Issue 的所有附件。空列表必须 200（E11-S4）。E15：成员校验。"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     try:
         attachments = await service.get_attachments(issue_id)
     except Exception as e:
@@ -1351,7 +1414,8 @@ async def upload_issue_attachment(
     current_user: UserModel = Depends(authenticate),
     service: IssueService = Depends(get_issue_service),
 ):
-    """上传附件到 Issue"""
+    """上传附件到 Issue（E15：成员校验）"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     user_id = str(current_user.id)
 
     try:
@@ -1405,7 +1469,8 @@ async def delete_issue_attachment(
     current_user: UserModel = Depends(authenticate),
     service: IssueService = Depends(get_issue_service),
 ):
-    """删除 Issue 附件"""
+    """删除 Issue 附件（E15：成员校验）"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     user_id = str(current_user.id)
 
     success = await service.delete_attachment(issue_id, attachment_id, user_id)

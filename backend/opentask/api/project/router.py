@@ -24,7 +24,7 @@ from opentask.repositories.base import get_session
 from opentask.auth import authenticate
 from opentask.models.user.model import UserModel
 from opentask.utils.response import success_response, error_response, StatusCode
-from opentask.api.workspace.deps import get_optional_workspace_context, require_workspace_context
+from opentask.api.workspace.deps import get_optional_workspace_context, require_workspace_context, ensure_entity_workspace_access
 from opentask.services.workspace.service import WorkspaceService
 
 logger = logging.getLogger(__name__)
@@ -113,9 +113,11 @@ async def list_projects(
 async def get_project(
     project_id: str,
     service: ProjectService = Depends(get_project_service),
+    current_user: UserModel = Depends(authenticate),
 ):
-    """获取单个项目"""
+    """获取单个项目（E15：校验实体 workspace 成员资格）"""
     project = await service.get_by_id(project_id)
+    await ensure_entity_workspace_access(service.db, str(current_user.id), project.workspace_id)
     return success_response(data=service.to_response(project))
 
 
@@ -132,8 +134,11 @@ async def update_project(
     project_id: str,
     body: ProjectUpdateBody = Body(...),
     service: ProjectService = Depends(get_project_service),
+    current_user: UserModel = Depends(authenticate),
 ):
-    """更新项目（含 starts_at / target_date）"""
+    """更新项目（含 starts_at / target_date；E15：成员校验）"""
+    existing = await service.get_by_id(project_id)
+    await ensure_entity_workspace_access(service.db, str(current_user.id), existing.workspace_id)
     kwargs = {}
     if "name" in body.model_fields_set:
         kwargs["name"] = body.name
@@ -151,8 +156,11 @@ async def update_project(
 async def delete_project(
     project_id: str,
     service: ProjectService = Depends(get_project_service),
+    current_user: UserModel = Depends(authenticate),
 ):
-    """删除项目"""
+    """删除项目（E15：成员校验）"""
+    existing = await service.get_by_id(project_id)
+    await ensure_entity_workspace_access(service.db, str(current_user.id), existing.workspace_id)
     await service.delete(project_id)
     return success_response(message="项目删除成功")
 
