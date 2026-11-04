@@ -18,6 +18,7 @@ from opentask.api.inbox import router as inbox_router
 from opentask.api.saved_views import router as saved_views_router
 from opentask.api.display_prefs import router as display_prefs_router
 from opentask.api.cycles import router as cycles_router
+from opentask.api.favorites import router as favorites_router
 from opentask.api.tags.router import tags_router, groups_router as tag_groups_router
 # from opentask.api.ai.router import router as ai_router  # 模块不存在，已注释
 from opentask.api.mission_center import router as mission_center_router
@@ -102,6 +103,7 @@ class App(fastapi.FastAPI):
         self.include_router(saved_views_router)
         self.include_router(display_prefs_router)
         self.include_router(cycles_router)
+        self.include_router(favorites_router)
         self.include_router(tags_router)
         self.include_router(tag_groups_router)
         self.include_router(agent_router, dependencies=common_dependencies)
