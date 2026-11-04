@@ -8,7 +8,7 @@
 ✅ 本地齐套（未 push）
 
 ## tip
-（commit 后补）
+`b2206fb` (`b2206fbac7e5342658b110ddbc8a8ebda6041c63`)
 
 ## 测试数
 - BE pytest：883 passed / 1 flake（`test_user_search` 隔离复跑确认）/ 24 skipped；本 Epic `tests/api/test_notif_prefs_reactions.py` **7P**
