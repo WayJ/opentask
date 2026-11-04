@@ -3,7 +3,7 @@
 日期：2026-11-05（Asia/Shanghai）  
 分支：`sprint/E42-S1`  
 基线：`a4a03a0`  
-tip：`TIP_PLACEHOLDER`
+tip：`c478528`
 
 ## 范围（已交付）
 - **A** 表 `sla_policies` / `issue_sla_clocks`；migration `i5d6e7f8a9b3`；pref `sla_breached` 默认 true；`WEBHOOK_EVENTS` += `issue.sla_breached`
