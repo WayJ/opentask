@@ -15,6 +15,7 @@ from opentask.services.vcs.github_webhook import (
     verify_github_signature,
 )
 from opentask.services.vcs.service import IssueVcsService, serialize_vcs_link
+from opentask.services.vcs.status_hooks import apply_pr_status_hooks
 from opentask.utils.response import success_response
 
 router = APIRouter(prefix="/api/webhooks/github", tags=["GitHub Webhooks"])
@@ -54,7 +55,16 @@ async def github_pull_request_webhook(
         title=fields.get("title"),
         head_ref=fields.get("head_ref"),
     )
+    issue_status = await apply_pr_status_hooks(
+        session,
+        workspace_id=row.workspace_id,
+        issue_id=row.issue_id,
+        pr_link_status=status_val,
+    )
+    data = serialize_vcs_link(row)
+    if issue_status is not None:
+        data["issueStatus"] = issue_status
     return success_response(
-        data=serialize_vcs_link(row),
+        data=data,
         message="webhook ingested",
     )

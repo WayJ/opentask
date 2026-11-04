@@ -21,6 +21,9 @@ class WorkspaceUpdate(BaseModel):
     cycleRolloverPolicy: Optional[str] = Field(None, pattern="^(into_next|leave_unassigned)$")
     cycleCapacityLookback: Optional[int] = Field(None, ge=1, le=20)
     issueKey: Optional[str] = Field(None, min_length=1, max_length=6)
+    gitStatusHooksEnabled: Optional[bool] = None
+    gitHookOnPrOpen: Optional[str] = Field(None, max_length=32)
+    gitHookOnPrMerged: Optional[str] = Field(None, max_length=32)
 
 
 class WorkspaceMemberAdd(BaseModel):
@@ -46,6 +49,9 @@ class WorkspaceOut(BaseModel):
     cycleRolloverPolicy: str = "into_next"
     cycleCapacityLookback: int = 3
     issueKey: str = "OT"
+    gitStatusHooksEnabled: bool = False
+    gitHookOnPrOpen: str = "in_progress"
+    gitHookOnPrMerged: str = "resolved"
     createdAt: datetime
     updatedAt: datetime
 

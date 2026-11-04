@@ -34,6 +34,9 @@ def _ws_out(ws, role: str | None = None) -> dict:
         "cycleRolloverPolicy": getattr(ws, "cycle_rollover_policy", None) or "into_next",
         "cycleCapacityLookback": int(getattr(ws, "cycle_capacity_lookback", 3) or 3),
         "issueKey": getattr(ws, "issue_key", None) or "OT",
+        "gitStatusHooksEnabled": bool(getattr(ws, "git_status_hooks_enabled", False)),
+        "gitHookOnPrOpen": getattr(ws, "git_hook_on_pr_open", None) or "in_progress",
+        "gitHookOnPrMerged": getattr(ws, "git_hook_on_pr_merged", None) or "resolved",
         "createdAt": ws.created_at,
         "updatedAt": ws.updated_at,
     }

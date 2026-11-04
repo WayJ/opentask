@@ -167,6 +167,12 @@ class WorkspaceService:
                 if clash.first() is not None:
                     raise HTTPException(status_code=400, detail="issue_key 已被占用")
                 ws.issue_key = key
+        if dto.gitStatusHooksEnabled is not None:
+            ws.git_status_hooks_enabled = bool(dto.gitStatusHooksEnabled)
+        if dto.gitHookOnPrOpen is not None:
+            ws.git_hook_on_pr_open = str(dto.gitHookOnPrOpen).strip() or "in_progress"
+        if dto.gitHookOnPrMerged is not None:
+            ws.git_hook_on_pr_merged = str(dto.gitHookOnPrMerged).strip() or "resolved"
         ws.updated_at = datetime.utcnow()
         await self.session.commit()
         await self.session.refresh(ws)

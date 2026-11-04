@@ -54,6 +54,27 @@ class Workspace(DBModel):
         server_default="0",
         comment="已分配最大序号；下一单 = counter+1",
     )
+    git_status_hooks_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        insert_default=False,
+        server_default="false",
+        comment="PR webhook 可自动更新 Issue 状态",
+    )
+    git_hook_on_pr_open: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        insert_default="in_progress",
+        server_default="in_progress",
+        comment="PR open/draft 目标 Issue 状态",
+    )
+    git_hook_on_pr_merged: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        insert_default="resolved",
+        server_default="resolved",
+        comment="PR merged 目标 Issue 状态",
+    )
     created_by: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, insert_default=datetime.utcnow
