@@ -102,7 +102,6 @@ describe('resolveIssueHotkeyAction', () => {
       resolveIssueHotkeyAction({ ...base, key: 'Escape', hasSelection: true, editable: true })
     ).toBeNull();
   });
-});
 
   it('returns create_from_template for Alt+C', () => {
     expect(resolveIssueHotkeyAction({ ...base, key: 'c', altKey: true })).toEqual({
@@ -110,4 +109,5 @@ describe('resolveIssueHotkeyAction', () => {
     });
     expect(resolveIssueHotkeyAction({ ...base, key: 'c', altKey: true, editable: true })).toBeNull();
   });
+});
 

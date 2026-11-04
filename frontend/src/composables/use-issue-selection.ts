@@ -50,9 +50,7 @@ export function useIssueSelection() {
     const slice = order.slice(lo, hi + 1);
     const set = new Set(selectedIds.value);
     for (const id of slice) set.add(id);
-    selectedIds.value = order.filter(id => set.has(id)).concat(
-      [...set].filter(id => !order.includes(id))
-    );
+    selectedIds.value = order.filter(id => set.has(id)).concat([...set].filter(id => !order.includes(id)));
     anchorId.value = target;
   }
 
