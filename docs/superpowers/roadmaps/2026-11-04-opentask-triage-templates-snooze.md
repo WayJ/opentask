@@ -37,7 +37,7 @@ date: 2026-11-04
 | sprint | state | note |
 |---|---|---|
 | S1 | **closed**（local） | Triage；acceptance `2026-11-04-E9-S1-acceptance.md`；未推远程 |
-| S2 | planned | Issue 模板表/API + 创建流/⌘K 接线；种子自 FE `ISSUE_TEMPLATES` |
+| S2 | closed | Issue 模板表/API + 创建流/⌘K 接线；种子自 FE `ISSUE_TEMPLATES` |
 | S3 | planned | Inbox snooze + 打磨 + Epic local-complete |
 
 推荐顺序理由：Triage 是 E9 产品标题能力且无存量 DB 可挂，先立队列与状态机（S1）；模板已有 FE 常量但无租户持久化，第二波接到创建/⌘K（S2）；snooze 改动面最小（notifications 加列 + 列表过滤），放最后与整包验收同频（S3），避免 S1/S2 夹具被 Inbox 行为大改打断。
@@ -96,3 +96,4 @@ date: 2026-11-04
 |---|---|
 | 2026-11-04 | Phase 1：explore + roadmap + design + S1 stub；worktree `E9-S1` @ `77990b4`；**无**产品实现、**无**推远程 |
 | 2026-11-04 | E9-S1 local-complete：Triage API+FE；pytest 736；未开 S2；未推远程 |
+| 2026-11-04 | E9-S2 local-complete：issue_templates CRUD+seed+FE；pytest 744（+8 templates）；未开 S3；未推远程 |

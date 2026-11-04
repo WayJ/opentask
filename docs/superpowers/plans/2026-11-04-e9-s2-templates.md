@@ -40,8 +40,8 @@
 
 ### Task 1: Docs
 
-- [ ] Write this plan + S2 sprint stub
-- [ ] Commit `docs(E9-S2): TDD plan for Issue templates`
+- [x] Write this plan + S2 sprint stub
+- [x] Commit `docs(E9-S2): TDD plan for Issue templates`
 
 ### Task 2: Pytest RED
 
@@ -61,8 +61,8 @@
 - create without template still works
 - seed twice → still 5 builtins (idempotent by seed_key)
 
-- [ ] Write failing tests; run → FAIL 404
-- [ ] Commit RED
+- [x] Write failing tests; run → FAIL 404
+- [x] Commit RED
 
 ### Task 3: Model + Alembic GREEN
 
@@ -84,9 +84,9 @@ class IssueTemplate(DBModel):
     UniqueConstraint workspace_id, seed_key  # allow multiple NULL via partial or just app-enforce
 ```
 
-- [ ] Model + export in `models/__init__.py`
-- [ ] Migration `e1f2a3b4c5d7`
-- [ ] Commit
+- [x] Model + export in `models/__init__.py`
+- [x] Migration `e1f2a3b4c5d7`
+- [x] Commit
 
 ### Task 4: Service + API + templateId on create GREEN
 
@@ -104,7 +104,7 @@ Merge rules:
   2. Overlay request fields that were set
   For API test: send minimal `{ title: "X", template_id }` and expect type from template.
 
-- [ ] Implement; pytest file PASS; commit
+- [x] Implement; pytest file PASS; commit
 
 ### Task 5: FE
 
@@ -116,13 +116,13 @@ Merge rules:
 - Keep `ISSUE_TEMPLATES` as fallback/seed mirror only
 - eslint + vitest if touched; build if feasible
 
-- [ ] Commit FE
+- [x] Commit FE
 
 ### Task 6: Gates + acceptance
 
-- [ ] Full pytest ≥736 + new template tests
-- [ ] Acceptance + sprint closed; roadmap S2 closed local
-- [ ] **No push**; **do not** start S3
+- [x] Full pytest ≥736 + new template tests
+- [x] Acceptance + sprint closed; roadmap S2 closed local
+- [x] **No push**; **do not** start S3
 
 ## Acceptance criteria
 
