@@ -30,6 +30,7 @@ import { fetchIssueWatchers, issueApi, unwatchIssue, watchIssue } from '@/servic
 import { fetchAddFavorite, fetchFavorites, fetchRemoveFavorite } from '@/service/api/favorites';
 import { type CustomerRequestRow, fetchCustomerRequests } from '@/service/api/customer-requests';
 import { fetchIssueBranchName } from '@/service/api/issue-vcs';
+import type { IssueCustomFieldValue } from '@/service/api/custom-fields';
 import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
 import { subscribeWorkspaceRealtime } from '@/composables/use-workspace-realtime';
@@ -37,6 +38,7 @@ import { useIssueFocus } from '@/composables/use-issue-focus';
 import MarkdownEditor from '@/components/MarkdownEditor.vue';
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
 import IssueReactions from '@/components/IssueReactions.vue';
+import IssueCustomFieldsEditor from '@/components/issue/IssueCustomFieldsEditor.vue';
 import UserSelect from '@/components/UserSelect.vue';
 import AttachmentList from '@/components/common/AttachmentList.vue';
 import EntityDocsPanel from '@/components/entity-docs/EntityDocsPanel.vue';
@@ -63,6 +65,7 @@ const pinnedFavoriteId = ref<string | null>(null);
 const pinLoading = ref(false);
 const watching = ref(false);
 const linkedCustomerRequests = ref<CustomerRequestRow[]>([]);
+const customFields = ref<IssueCustomFieldValue[]>([]);
 const watchLoading = ref(false);
 const watchers = ref<Array<{ user_id: string; username?: string; name?: string }>>([]);
 const copyBranchLoading = ref(false);
@@ -221,6 +224,7 @@ async function loadIssue() {
   try {
     const data = await issueStore.getIssue(issueId.value);
     issue.value = data;
+    customFields.value = ((data as any)?.customFields as IssueCustomFieldValue[]) || [];
     // 加载相关数据
     Promise.all([
       loadComments(),
@@ -1205,6 +1209,10 @@ async function toggleSidebarPin() {
   }
 }
 
+function onCustomFieldsUpdated(rows: IssueCustomFieldValue[]) {
+  customFields.value = rows;
+}
+
 async function loadLinkedCustomerRequests() {
   const id = issueId.value;
   if (!id) {
@@ -1684,6 +1692,14 @@ onUnmounted(() => {
                 <NText v-if="issue.estimated_hours">预估: {{ issue.estimated_hours }}h</NText>
                 <NText v-if="issue.actual_hours" style="margin-left: 8px">实际: {{ issue.actual_hours }}h</NText>
               </div>
+            </div>
+
+            <!-- Custom fields (E25) -->
+            <div id="issue-custom-fields" class="sidebar-section">
+              <div class="sidebar-section-title">
+                <span>自定义字段</span>
+              </div>
+              <IssueCustomFieldsEditor :issue-id="issueId" :values="customFields" @updated="onCustomFieldsUpdated" />
             </div>
 
             <!-- Customer requests (E22) — only when linked -->

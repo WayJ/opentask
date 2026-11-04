@@ -94,6 +94,7 @@ from opentask.models.milestone import Milestone  # noqa: F401 — metadata 注�
 from opentask.models.issue_vcs_link import IssueVcsLink  # noqa: F401 — metadata 注册 E11-S1
 from opentask.models.cycle import Cycle  # noqa: F401 — metadata 注册
 from opentask.models.customer import Customer, CustomerRequest, CustomerRequestIssue  # noqa: F401 — E22
+from opentask.models.custom_field import CustomField, IssueCustomFieldValue  # noqa: F401 — E25
 from opentask.jwt_utils import create_access_token
 
 

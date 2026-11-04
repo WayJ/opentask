@@ -19,6 +19,7 @@ export * from './issue-templates';
 export * from './initiatives';
 export * from './customers';
 export * from './insights';
+export * from './custom-fields';
 export * from './customer-requests';
 export * from './entity-documents';
 export * from './issue-vcs';

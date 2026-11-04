@@ -320,6 +320,16 @@ const customRoutes: CustomRoute[] = [
           i18nKey: 'route.workspace_issue-templates',
           order: 5
         }
+      },
+      {
+        name: 'workspace_custom-fields',
+        path: '/workspace/custom-fields',
+        component: 'view.workspace_custom-fields',
+        meta: {
+          title: 'workspace_custom-fields',
+          i18nKey: 'route.workspace_custom-fields',
+          order: 6
+        }
       }
     ]
   }

@@ -743,6 +743,15 @@ export const generatedRoutes: GeneratedRoute[] = [
     },
     children: [
       {
+        name: 'workspace_custom-fields',
+        path: '/workspace/custom-fields',
+        component: 'view.workspace_custom-fields',
+        meta: {
+          title: 'workspace_custom-fields',
+          i18nKey: 'route.workspace_custom-fields'
+        }
+      },
+      {
         name: 'workspace_cycles',
         path: '/workspace/cycles',
         component: 'view.workspace_cycles',

@@ -232,6 +232,7 @@ const routeMap: RouteMap = {
   "workflow_requirement-detail": "/workflow/requirement-detail",
   "workflow_requirements": "/workflow/requirements",
   "workspace": "/workspace",
+  "workspace_custom-fields": "/workspace/custom-fields",
   "workspace_cycles": "/workspace/cycles",
   "workspace_issue-templates": "/workspace/issue-templates",
   "workspace_labels": "/workspace/labels",

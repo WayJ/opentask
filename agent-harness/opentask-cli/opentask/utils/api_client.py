@@ -828,6 +828,27 @@ class OpenTaskClient:
             data={"issueId": issue_id},
         )
 
+
+    # ========================================================================
+    # Custom Fields (E25)
+    # ========================================================================
+
+    async def list_custom_fields(self, include_archived: bool = False) -> dict:
+        params = {}
+        if include_archived:
+            params["includeArchived"] = "true"
+        return await self.get("/api/custom-fields", params=params or None)
+
+    async def create_custom_field(self, name: str, field_type: str, **kwargs) -> dict:
+        data = {"name": name, "type": field_type, **kwargs}
+        return await self.post("/api/custom-fields", data=data)
+
+    async def set_issue_custom_fields(self, issue_id: str, values: list[dict]) -> dict:
+        return await self.patch(
+            f"/api/issues/{issue_id}/custom-fields",
+            data={"values": values},
+        )
+
     # ========================================================================
     # Insights (E24)
     # ========================================================================

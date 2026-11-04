@@ -55,6 +55,7 @@ from opentask.services.tag.service import (
     require_writer as require_tag_writer,
     serialize_tag_brief,
 )
+from opentask.services.custom_field.service import CustomFieldService, require_writer as require_cf_writer
 from opentask.api.workspace.deps import get_optional_workspace_context, require_workspace_context, ensure_entity_workspace_access
 from opentask.models.workspace.model import Workspace, WorkspaceMember
 from pydantic import BaseModel, Field
@@ -136,6 +137,7 @@ async def get_issues(
     watching: Optional[bool] = Query(None, description="E19：仅我关注的"),
     due_before: Optional[str] = Query(None, description="E19：due_date ≤ YYYY-MM-DD"),
     due_soon: Optional[bool] = Query(None, description="E19：3 日内到期且未关闭"),
+    include: Optional[str] = Query(None, description="E25：逗号分隔附加；custom_fields"),
     sort_by: str = Query("created_at", description="排序字段"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$", description="排序方向"),
     service: IssueService = Depends(get_issue_service),
@@ -184,6 +186,12 @@ async def get_issues(
     # 使用 IssueResponse 的 field_validator 自动处理用户信息转换
     tag_map = await load_tags_for_issues(service.db, issues)
     block_map = await service.relation_block_counts([i.id for i in issues])
+    include_set = {p.strip() for p in (include or "").split(",") if p.strip()}
+    cf_map = {}
+    if "custom_fields" in include_set and ws_id is not None:
+        cf_map = await CustomFieldService(service.db).values_for_issues(
+            workspace_id=ws_id, issue_ids=[i.id for i in issues]
+        )
     rows = []
     for issue in issues:
         payload = IssueResponse.model_validate(issue).model_dump(mode="json", exclude_none=False)
@@ -191,6 +199,8 @@ async def get_issues(
         counts = block_map.get(issue.id, {"blocks_count": 0, "blocked_by_count": 0})
         payload["blocks_count"] = counts["blocks_count"]
         payload["blocked_by_count"] = counts["blocked_by_count"]
+        if "custom_fields" in include_set:
+            payload["customFields"] = cf_map.get(issue.id, [])
         rows.append(payload)
 
     return {
@@ -633,6 +643,12 @@ async def get_issue(
     issue_dict = IssueResponse.model_validate(issue).model_dump(mode='json', exclude_none=False)
     detail_tags = await load_tags_for_issues(db, [issue])
     issue_dict["tags"] = [serialize_tag_brief(t) for t in detail_tags.get(issue.id, [])]
+
+    # E25：详情默认带 customFields
+    cf_map = await CustomFieldService(db).values_for_issues(
+        workspace_id=issue.workspace_id, issue_ids=[issue.id]
+    )
+    issue_dict["customFields"] = cf_map.get(issue.id, [])
 
     # E4-S3：子 Issue 轻量摘要
     children = await service.list_child_issues(issue.id)
@@ -1153,6 +1169,43 @@ async def remove_tag(
         "code": 200,
         "message": "标签移除成功",
         "data": None,
+        "timestamp": 0,
+    }
+
+
+
+
+# ========================================================================
+# Custom Fields (E25)
+# ========================================================================
+
+class IssueCustomFieldsPatch(BaseModel):
+    values: list[dict] = Field(default_factory=list, description="[{fieldId|key, value}]")
+
+
+@router.patch("/{issue_id}/custom-fields")
+async def patch_issue_custom_fields(
+    issue_id: str,
+    body: IssueCustomFieldsPatch,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+    service: IssueService = Depends(get_issue_service),
+):
+    """批量 upsert Issue 自定义字段取值（value=null 清除）"""
+    ws, member, user = ctx
+    require_cf_writer(member)
+    issue = await _require_issue_access(issue_id, service=service, user=user)
+    if issue.workspace_id != ws.id:
+        raise HTTPException(status_code=404, detail="Issue 不存在")
+    rows = await CustomFieldService(session).upsert_issue_values(
+        workspace_id=ws.id,
+        issue_id=issue.id,
+        entries=list(body.values or []),
+    )
+    return {
+        "code": 200,
+        "message": "自定义字段已更新",
+        "data": {"customFields": rows},
         "timestamp": 0,
     }
 

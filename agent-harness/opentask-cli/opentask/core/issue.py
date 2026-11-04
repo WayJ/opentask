@@ -2792,3 +2792,58 @@ def relation_remove(obj: "Context", issue_id: str, target: str, relation_type: s
     except APIError as e:
         _handle_error(skin, e, "Failed to remove relation", json_mode)
         sys.exit(1)
+
+
+@issue_cli.command(name="set-field")
+@click.argument("issue_id")
+@click.argument("key")
+@click.argument("value")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def set_issue_field(obj: "Context", issue_id: str, key: str, value: str, as_json: bool):
+    """设置 Issue 自定义字段取值（E25）。
+
+    VALUE 解析：
+    - true/false → boolean
+    - 纯数字 → number
+    - YYYY-MM-DD → date/text 原样
+    - 含逗号 → multi_select 数组
+    - 否则 text / single_select 字符串
+    - 字面量 null / ~ → 清除
+    """
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        sys.exit(1)
+
+    raw = value.strip()
+    if raw.lower() in ("null", "~", ""):
+        parsed = None
+    elif raw.lower() in ("true", "false"):
+        parsed = raw.lower() == "true"
+    elif "," in raw:
+        parsed = [x.strip() for x in raw.split(",") if x.strip()]
+    else:
+        try:
+            if "." in raw:
+                parsed = float(raw)
+            else:
+                parsed = int(raw)
+        except ValueError:
+            parsed = raw
+
+    try:
+        real_id, _info = asyncio.run(_resolve_issue_id(client, issue_id))
+        data = asyncio.run(
+            client.set_issue_custom_fields(real_id, [{"key": key, "value": parsed}])
+        )
+        body = data.get("data", data) if isinstance(data, dict) else data
+        if json_mode:
+            click.echo(_format_json_response(success=True, data=body, message="field set"))
+            return
+        skin.success(f"已设置 {key}={parsed!r} on {issue_id}")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to set field", json_mode)
+        sys.exit(1)
