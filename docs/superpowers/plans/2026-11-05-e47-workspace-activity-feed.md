@@ -37,7 +37,7 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e47-workspace
 - Create: 本 plan
 - Create: `docs/superpowers/acceptances/2026-11-05-E47-acceptance.md`（骨架；收口补 tip/测数）
 
-- [ ] **Step 1:** 入库 plan + acceptance 骨架并 commit
+- [x] **Step 1:** 入库 plan + acceptance 骨架并 commit
 
 ---
 
@@ -59,8 +59,8 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e47-workspace
 **Interfaces:**
 - Produces: `query_timeline_entries` / `encode_activity_cursor` / `decode_activity_cursor` / caps
 
-- [ ] **Step 1: 红测** cursor roundtrip；非法 cursor ValueError；`_clamp_activity_limit(500)==200`；`_clamp_activity_limit(0)==1`
-- [ ] **Step 2: 绿 → commit**
+- [x] **Step 1: 红测** cursor roundtrip；非法 cursor ValueError；`_clamp_activity_limit(500)==200`；`_clamp_activity_limit(0)==1`
+- [x] **Step 2: 绿 → commit**
 
 ---
 
@@ -89,15 +89,15 @@ async def list_workspace_activity(
   - 批量加载 Issue + User；`success_response(data={"items":..., "nextCursor": ...|null})`
   - **只读**；不写 timeline；不 fire
 
-- [ ] **Step 1: 红测**
+- [x] **Step 1: 红测**
   - 空 WS → items=[] nextCursor=null
   - 建 issue 改 status → feed 含 status_changed；含 issueCode
   - actionType / since / actorId / issueId 过滤
   - limit=500 → 返回 ≤200；cursor 第二页无重叠
   - 非法 actionType 400；跨 WS 不可见
   - spy：GET activity 期间 patch fire_webhooks / fire_automations / IssueService.add_timeline（或 append path）assert not called
-- [ ] **Step 2: 绿 → commit**
-- [ ] **Step 3:** E41 CSV 定向回归绿
+- [x] **Step 2: 绿 → commit**
+- [x] **Step 3:** E41 CSV 定向回归绿
 
 ---
 
@@ -110,8 +110,8 @@ async def list_workspace_activity(
 - Create: `frontend/src/utils/activityFeed.test.ts`
 - Modify: `frontend/src/service/api/issue.ts` 增加 `fetchWorkspaceActivity(params)`
 
-- [ ] **Step 1: 红测** buildActivityQuery 序列化；空态 format；since 快捷
-- [ ] **Step 2: 绿 → commit**
+- [x] **Step 1: 红测** buildActivityQuery 序列化；空态 format；since 快捷
+- [x] **Step 2: 绿 → commit**
 
 ---
 
@@ -125,7 +125,7 @@ async def list_workspace_activity(
 - Modify: `dashboard/index.vue` Card header-extra「查看全部活动」→ `/activity`；**不**改 RecentActivity 数据语义
 - Optional vitest：dashboard 链文案或 route name 存在（轻量）
 
-- [ ] **Step 1: 实现页+路由+链 → vitest 绿 → commit**
+- [x] **Step 1: 实现页+路由+链 → vitest 绿 → commit**
 
 ---
 
@@ -149,18 +149,18 @@ def activity_cli(): ...
 - Bump **全部** version → **1.31.0**：pyproject / `__init__.py` / setup.py / VERSION；同步历史 `assert "1.30.0"` → `1.31.0`
 - Test: `tests/test_e47_activity.py` — version；`activity list --help` 含 since/action-type/issue/limit/json
 
-- [ ] **Step 1: 红测 version/help → 绿 → commit**
-- [ ] **Step 2: 确认四文件均为 1.31.0**
+- [x] **Step 1: 红测 version/help → 绿 → commit**
+- [x] **Step 2: 确认四文件均为 1.31.0**
 
 ---
 
 ### Task 7 — 门禁 + acceptance tip
 
-- [ ] BE full + `test_e47_*` + `test_e41_*` 定向
-- [ ] CLI full
-- [ ] FE vitest + `npm run build`
-- [ ] 写满 acceptance；最终 tip commit
-- [ ] **STOP**；不 push；不自开 E48
+- [x] BE full + `test_e47_*` + `test_e41_*` 定向
+- [x] CLI full
+- [x] FE vitest + `npm run build`
+- [x] 写满 acceptance；最终 tip commit
+- [x] **STOP**；不 push；不自开 E48
 
 ---
 
