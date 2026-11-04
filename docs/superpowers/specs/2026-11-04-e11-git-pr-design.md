@@ -2,7 +2,7 @@
 
 日期：2026-11-04  
 Epic：E11  
-状态：draft（Phase 1；无产品 impl）  
+状态：implemented（E11 local-complete；S1–S3）  
 基线：`sprint/E10-S3` @ `55ed5b7`；worktree `/workspace/opentask-worktrees/E11-S1`（分支 `sprint/E11-S1`）  
 北星：OpenTask Linear PRD §E11  
 Alembic head：`c3d4e5f6a7b8`（`entity_documents`）

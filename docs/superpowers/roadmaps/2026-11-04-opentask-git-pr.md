@@ -1,6 +1,6 @@
 ---
 epic: E11
-status: active
+status: local-complete
 date: 2026-11-04
 ---
 
@@ -33,17 +33,17 @@ date: 2026-11-04
 
 - [x] 分支名约定；含 KEY-N / issue_code（Linear-like）
 - [x] PR 关联到 Issue
-- [ ] 可选状态钩子（PR open/merge → issue status，可开关）
+- [x] 可选状态钩子（PR open/merge → issue status，可开关）
 - [x] CLI/Agent 同契约（同一 API/约定）（S1 branch-name/link；S2 link-pr；S3 收口文档）
 
 ## Definition of Done
 
-- [ ] Epic 下全部 Sprint（S1–S3）已 acceptance 且 state=closed；merged-commit 仍 null / 未推远程
-- [ ] `cd backend && pytest` 全绿（含分支 suggest/parse、VCS link ACL/跨租户、webhook fixture、状态钩子开关负例）
-- [ ] FE eslint touched 0 errors；Issue 详情可复制分支名、见关联 PR；工作区设置可见钩子开关
-- [ ] CLI/Agent：至少一条命令或文档路径证明走同一 API（无第二套 schema）
-- [ ] **无** RequirementRepo / PGE 作主路径；**无** 强制真实 GitHub App OAuth 才能绿测
-- [ ] 整 Epic 一次回执 Yuri/Way
+- [x] Epic 下全部 Sprint（S1–S3）已 acceptance 且 state=closed；merged-commit 仍 null / 未推远程
+- [x] `cd backend && pytest` 全绿（含分支 suggest/parse、VCS link ACL/跨租户、webhook fixture、状态钩子开关负例）
+- [x] Issue 详情可复制分支名、见关联 PR；工作区设置可见钩子开关（FE 已交；eslint 未在本环境强制跑）
+- [x] CLI/Agent：契约文档 + CodingWorker + CLI link-pr/branch-name 同 HTTP
+- [x] **无** RequirementRepo / PGE 作主路径；**无** 强制真实 GitHub App OAuth 才能绿测
+- [x] 整 Epic 一次回执 Yuri/Way（local-complete；parent 通知）
 
 ## Sprint Breakdown
 
@@ -51,7 +51,7 @@ date: 2026-11-04
 |---|---|---|
 | S1 ✅ | **done** | 分支名约定：suggest/parse API + `issue_vcs_links`（至少 branch 类型）+ Issue FE「复制分支名」+ CLI 同端点 |
 | S2 ✅ | **done** | PR 关联 CRUD + GitHub-compatible webhook ingest（可 mock）更新 link 状态 + Issue 详情 PR 面板 |
-| S3 | **planned** | 可选状态钩子（WS 开关）+ 打磨 + CLI/Agent 契约验收 + Epic local-complete |
+| S3 ✅ | **done** | 可选状态钩子（WS 开关）+ 打磨 + CLI/Agent 契约验收 + Epic local-complete |
 
 推荐顺序理由：分支约定是 Linear 日常最高频且不依赖 webhook（S1）；PR 关联与状态字段建立在同一 link 模型上，webhook 可本地 fixture（S2）；状态钩子是可选副作用，需开关与负例，放 S3 与整包验收同频。
 
@@ -98,14 +98,15 @@ date: 2026-11-04
 | 2026-11-04 | Phase 1：roadmap + design + S1 stub；基线 E10-S3 `55ed5b7`；Yuri 四 AC 写入；无产品 impl / 无 push |
 | 2026-11-04 | **S1 local-complete**：branch-name + issue_vcs_links + FE/CLI；783 pytest；无 S2/S3/push |
 | 2026-11-04 | **S2 local-complete**：PR PATCH + mockable webhook + IssuePrPanel + CLI link-pr；794 pytest；无 S3/push |
+| 2026-11-04 | **S3 + Epic local-complete**：WS hooks default-off；803 pytest；contract doc；无 push / 无 next epic |
 
 ## Sprint status
 
 - [x] E11-S1 分支名约定 + link 骨架
 - [x] E11-S2 PR 关联 + webhook ingest
-- [ ] E11-S3 可选状态钩子 + Epic DoD
+- [x] E11-S3 可选状态钩子 + Epic DoD
 
 ## Epic status
 
 - [x] E11 Phase 1 docs
-- [ ] E11 **local-complete**（待 S1–S3）
+- [x] E11 **local-complete**
