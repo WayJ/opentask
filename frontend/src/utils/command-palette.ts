@@ -129,10 +129,12 @@ export function buildNavActions(
 export function buildFocusIssueActions(opts: {
   hasFocusedIssue: boolean;
   openLabels: () => void;
+  openEstimate?: () => void;
   title?: string;
+  estimateTitle?: string;
 }): PaletteItem[] {
   if (!opts.hasFocusedIssue) return [];
-  return [
+  const items: PaletteItem[] = [
     {
       id: 'action.labels',
       kind: 'action',
@@ -141,6 +143,16 @@ export function buildFocusIssueActions(opts: {
       run: () => opts.openLabels()
     }
   ];
+  if (opts.openEstimate) {
+    items.push({
+      id: 'action.estimate',
+      kind: 'action',
+      title: opts.estimateTitle ?? 'Set estimate…',
+      keywords: ['estimate', 'points', '估点', 'story points', 'E'],
+      run: () => opts.openEstimate?.()
+    });
+  }
+  return items;
 }
 
 export function menusToPaletteItems(

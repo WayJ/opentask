@@ -63,10 +63,21 @@ const statusType: Record<string, 'default' | 'info' | 'success' | 'warning'> = {
 
 const capacityText = computed(() => {
   if (!capacity.value) return '';
+  const unit = capacity.value.unit || (capacity.value.basis === 'members' ? 'members' : 'issues');
+  const unitLabel =
+    unit === 'points' ? '点' : unit === 'members' ? '（成员数）' : '个 Issue';
+  let text = '';
   if (capacity.value.basis === 'history') {
-    return `建议容量约 ${capacity.value.suggestedCapacity} 个 Issue（近 ${capacity.value.lookbackN} 个已完成 Cycle 均值）`;
+    text = `建议容量约 ${capacity.value.suggestedCapacity} ${unitLabel}（近 ${capacity.value.lookbackN} 个已完成 Cycle 均值；默认按故事点，无点时回退 Issue 数）`;
+  } else {
+    text = `建议容量约 ${capacity.value.suggestedCapacity} ${unitLabel}（尚无完成历史，按成员数回退）`;
   }
-  return `建议容量约 ${capacity.value.suggestedCapacity}（按成员数回退，尚无完成历史）`;
+  const load = capacity.value.currentLoad;
+  if (load) {
+    text += `；当前 Cycle 负载 ${load.points} 点 / ${load.issueCount} Issue`;
+    if (load.hours) text += ` / ${load.hours}h`;
+  }
+  return text;
 });
 
 function toIsoDate(ts: number) {

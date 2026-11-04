@@ -11,7 +11,7 @@ describe('normalizeIssueDisplay', () => {
     expect(d.fields.assignee).toBe(true);
     expect(d.fields.priority).toBe(true);
     expect(d.fields.issue_code).toBe(true);
-    expect(d.fields.estimate_points).toBe(false);
+    expect(d.fields.estimate_points).toBe(true);
   });
 
   it('merges known keys and ignores unknown', () => {

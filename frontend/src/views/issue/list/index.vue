@@ -938,6 +938,12 @@ const columns: DataTableColumns<Api.Issue.Issue> = [
     }
   },
   {
+    title: '估点',
+    key: 'estimate_points',
+    width: 72,
+    render: row => (row.estimate_points != null ? String(row.estimate_points) : '—')
+  },
+  {
     title: '负责人',
     key: 'assignee_id',
     width: 120,

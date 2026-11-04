@@ -164,6 +164,7 @@ const editingDueDate = ref(false);
 const editingProject = ref(false);
 const editingCycle = ref(false);
 const editingMilestone = ref(false);
+const editingEstimate = ref(false);
 
 // 临时值
 const tempStatus = ref<string | null>(null);
@@ -175,6 +176,7 @@ const tempDueDate = ref<number | null>(null);
 const tempProject = ref<string | null>(null);
 const tempCycle = ref<string | null>(null);
 const tempMilestone = ref<string | null>(null);
+const tempEstimate = ref<number | null>(null);
 
 // Constants for template
 const getTypeType = getIssueTypeTagType;
@@ -183,6 +185,16 @@ const getPriorityType = getIssuePriorityTagType;
 const statusOptions = issueStatusOptions;
 const priorityOptions = issuePriorityOptions;
 const typeOptions = issueTypeOptions;
+const estimateOptions = [
+  { label: '—', value: null },
+  { label: '1', value: 1 },
+  { label: '2', value: 2 },
+  { label: '3', value: 3 },
+  { label: '5', value: 5 },
+  { label: '8', value: 8 },
+  { label: '13', value: 13 },
+  { label: '21', value: 21 }
+];
 
 // Load issue detail
 async function loadIssue() {
@@ -833,6 +845,24 @@ function cancelMilestone() {
   editingMilestone.value = false;
 }
 
+async function saveEstimate() {
+  if (!issueId.value) return;
+  try {
+    await issueStore.updateIssue(issueId.value, {
+      estimate_points: tempEstimate.value
+    });
+    await loadIssue();
+    window.$message?.success('估点已更新');
+  } catch {
+    window.$message?.error('估点更新失败');
+  }
+}
+
+function cancelEstimate() {
+  tempEstimate.value = null;
+  editingEstimate.value = false;
+}
+
 // Add comment
 async function handleAddComment() {
   if (!newComment.value.trim() || !issueId.value) return;
@@ -1463,6 +1493,25 @@ onMounted(() => {
             >
               <template #label-icon>
                 <icon-mdi-folder />
+              </template>
+            </EditableField>
+
+            <!-- Estimate points (E16) -->
+            <EditableField
+              v-model="tempEstimate"
+              v-model:editing="editingEstimate"
+              label="估点"
+              :display-value="issue.estimate_points != null ? String(issue.estimate_points) : ''"
+              :options="estimateOptions"
+              placeholder="未设置"
+              select-width="100px"
+              :clearable="true"
+              @save="saveEstimate"
+              @cancel="cancelEstimate"
+              @start-edit="tempEstimate = issue.estimate_points ?? null"
+            >
+              <template #label-icon>
+                <icon-mdi-counter />
               </template>
             </EditableField>
 

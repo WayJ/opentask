@@ -27,7 +27,7 @@ const props = withDefaults(
       assignee: true,
       priority: true,
       labels: true,
-      estimate_points: false,
+      estimate_points: true,
       due_date: false,
       project: false,
       cycle: false,

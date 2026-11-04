@@ -54,7 +54,7 @@ const DEFAULT_FIELDS: IssueDisplayFields = {
   assignee: true,
   priority: true,
   labels: true,
-  estimate_points: false,
+  estimate_points: true,
   due_date: false,
   project: false,
   cycle: false,
