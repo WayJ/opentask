@@ -121,6 +121,16 @@ class WorkspaceService:
             ws.name = dto.name.strip()
         if dto.description is not None:
             ws.description = dto.description
+        if dto.cyclesEnabled is not None:
+            ws.cycles_enabled = bool(dto.cyclesEnabled)
+        if dto.cycleDurationDays is not None:
+            ws.cycle_duration_days = int(dto.cycleDurationDays)
+        if dto.cycleRolloverPolicy is not None:
+            if dto.cycleRolloverPolicy not in ("into_next", "leave_unassigned"):
+                raise HTTPException(status_code=400, detail="无效的 rollover 策略")
+            ws.cycle_rollover_policy = dto.cycleRolloverPolicy
+        if dto.cycleCapacityLookback is not None:
+            ws.cycle_capacity_lookback = int(dto.cycleCapacityLookback)
         ws.updated_at = datetime.utcnow()
         await self.session.commit()
         await self.session.refresh(ws)

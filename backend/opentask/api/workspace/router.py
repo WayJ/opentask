@@ -25,6 +25,10 @@ def _ws_out(ws, role: str | None = None) -> dict:
         "slug": ws.slug,
         "description": ws.description,
         "role": role,
+        "cyclesEnabled": bool(getattr(ws, "cycles_enabled", False)),
+        "cycleDurationDays": int(getattr(ws, "cycle_duration_days", 14) or 14),
+        "cycleRolloverPolicy": getattr(ws, "cycle_rollover_policy", None) or "into_next",
+        "cycleCapacityLookback": int(getattr(ws, "cycle_capacity_lookback", 3) or 3),
         "createdAt": ws.created_at,
         "updatedAt": ws.updated_at,
     }

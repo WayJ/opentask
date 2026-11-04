@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from opentask.models.base import DBModel
@@ -24,6 +24,22 @@ class Workspace(DBModel):
     name: Mapped[str] = mapped_column(String(120), nullable=False, comment="显示名")
     slug: Mapped[str] = mapped_column(String(80), nullable=False, comment="URL/唯一短名")
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    cycles_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, insert_default=False, server_default="false", comment="启用 Cycles"
+    )
+    cycle_duration_days: Mapped[int] = mapped_column(
+        Integer, nullable=False, insert_default=14, server_default="14", comment="默认 Cycle 天数"
+    )
+    cycle_rollover_policy: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        insert_default="into_next",
+        server_default="into_next",
+        comment="into_next|leave_unassigned",
+    )
+    cycle_capacity_lookback: Mapped[int] = mapped_column(
+        Integer, nullable=False, insert_default=3, server_default="3", comment="容量回看 completed Cycle 数"
+    )
     created_by: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, insert_default=datetime.utcnow

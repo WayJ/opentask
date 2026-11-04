@@ -16,6 +16,10 @@ class WorkspaceCreate(BaseModel):
 class WorkspaceUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=120)
     description: Optional[str] = None
+    cyclesEnabled: Optional[bool] = None
+    cycleDurationDays: Optional[int] = Field(None, ge=1, le=365)
+    cycleRolloverPolicy: Optional[str] = Field(None, pattern="^(into_next|leave_unassigned)$")
+    cycleCapacityLookback: Optional[int] = Field(None, ge=1, le=20)
 
 
 class WorkspaceMemberAdd(BaseModel):
@@ -36,5 +40,9 @@ class WorkspaceOut(BaseModel):
     slug: str
     description: Optional[str] = None
     role: Optional[str] = None  # 当前用户在该工作区的角色
+    cyclesEnabled: bool = False
+    cycleDurationDays: int = 14
+    cycleRolloverPolicy: str = "into_next"
+    cycleCapacityLookback: int = 3
     createdAt: datetime
     updatedAt: datetime
