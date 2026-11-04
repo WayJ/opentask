@@ -71,6 +71,12 @@ class SlaPolicy(DBModel):
         JSON().with_variant(JSONB(), "postgresql"),
         nullable=True,
     )
+    # E58: light applied packs ledger
+    applied_holiday_packs: Mapped[Optional[list]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"),
+        nullable=True,
+        comment="E58: [{region, year, appliedAt}]",
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, insert_default=datetime.utcnow
     )

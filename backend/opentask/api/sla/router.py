@@ -17,6 +17,7 @@ from opentask.services.sla.service import (
     require_writer,
     serialize_policy,
 )
+from opentask.services.sla.holiday_packs import list_packs, load_pack
 from opentask.utils.response import success_response
 
 router = APIRouter(prefix="/api/sla", tags=["SLA"])
@@ -125,3 +126,77 @@ async def run_due_sla(
         actor_user_id=str(user.id),
     )
     return success_response(data=result, message="已执行")
+
+
+class HolidayPackTargetBody(BaseModel):
+    target: str = "workspace"
+    policyId: Optional[str] = None
+
+
+@router.get("/holiday-packs")
+async def holiday_packs_list(
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+):
+    """E58: list static packs (global read-only)."""
+    _ws, _member, _user = ctx
+    rows = list_packs()
+    return success_response(data={"rows": rows, "total": len(rows)})
+
+
+@router.get("/holiday-packs/{region}/{year}")
+async def holiday_packs_show(
+    region: str,
+    year: int,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+):
+    _ws, _member, _user = ctx
+    try:
+        pack = load_pack(region, year)
+    except FileNotFoundError as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except ValueError as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return success_response(data=pack)
+
+
+@router.post("/holiday-packs/{region}/{year}/preview")
+async def holiday_packs_preview(
+    region: str,
+    year: int,
+    body: HolidayPackTargetBody | None = None,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    ws, _member, _user = ctx
+    body = body or HolidayPackTargetBody()
+    data = await SlaService(session).preview_holiday_pack(
+        workspace=ws,
+        region=region,
+        year=year,
+        target=body.target,
+        policy_id=body.policyId,
+    )
+    return success_response(data=data)
+
+
+@router.post("/holiday-packs/{region}/{year}/apply")
+async def holiday_packs_apply(
+    region: str,
+    year: int,
+    body: HolidayPackTargetBody | None = None,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    ws, member, _user = ctx
+    require_owner(member)
+    body = body or HolidayPackTargetBody()
+    data = await SlaService(session).apply_holiday_pack(
+        workspace=ws,
+        region=region,
+        year=year,
+        target=body.target,
+        policy_id=body.policyId,
+    )
+    return success_response(data=data, message="已应用假日包")

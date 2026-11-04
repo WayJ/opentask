@@ -39,6 +39,7 @@ def _ws_out(ws, role: str | None = None) -> dict:
         "gitHookOnPrMerged": getattr(ws, "git_hook_on_pr_merged", None) or "resolved",
         "timezone": getattr(ws, "timezone", None),
         "businessHours": getattr(ws, "business_hours", None) or {"enabled": False, "windows": {}},
+        "appliedHolidayPacks": getattr(ws, "applied_holiday_packs", None) or [],
         "createdAt": ws.created_at,
         "updatedAt": ws.updated_at,
     }

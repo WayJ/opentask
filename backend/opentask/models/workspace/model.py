@@ -93,6 +93,11 @@ class Workspace(DBModel):
         nullable=True,
         comment="E57: {enabled, windowHours, deadThreshold, consecutiveDeadThreshold?, autoDisable, muteUntil?}",
     )
+    applied_holiday_packs: Mapped[Optional[list]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"),
+        nullable=True,
+        comment="E58: [{region, year, appliedAt}]",
+    )
     created_by: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, insert_default=datetime.utcnow

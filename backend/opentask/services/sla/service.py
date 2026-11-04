@@ -22,7 +22,14 @@ from opentask.models.sla.model import (
     TARGET_MINUTES_MIN,
 )
 from opentask.models.workspace.model import Workspace, WorkspaceMember
+from opentask.services.sla.holiday_packs import (
+    load_pack,
+    merge_exceptions_pack_wins,
+    pack_to_exceptions,
+    upsert_applied_ledger,
+)
 from opentask.services.sla.business_hours import (
+    normalize_business_hours,
     add_business_minutes,
     elapsed_business_minutes,
     normalize_policy_calendar,
@@ -118,6 +125,7 @@ def serialize_policy(row: SlaPolicy, ws: Workspace | None = None) -> dict:
         "notifyAssignee": bool(row.notify_assignee),
         "notifyWatchers": bool(row.notify_watchers),
         "calendar": getattr(row, "calendar", None),
+        "appliedHolidayPacks": getattr(row, "applied_holiday_packs", None) or [],
         "createdAt": row.created_at.isoformat() if row.created_at else None,
         "updatedAt": row.updated_at.isoformat() if row.updated_at else None,
     }
@@ -766,6 +774,135 @@ class SlaService:
             clock.deadline_at = compute_deadline(now, remaining, ws, policy)
             recomputed += 1
         return {"recomputed": recomputed, "scanned": recomputed, "capped": capped}
+
+
+    async def preview_holiday_pack(
+        self,
+        *,
+        workspace: Workspace,
+        region: str,
+        year: int,
+        target: str = "workspace",
+        policy_id: str | None = None,
+    ) -> dict:
+        """Preview merge; no DB write."""
+        try:
+            pack = load_pack(region, year)
+        except FileNotFoundError as e:
+            raise HTTPException(status_code=404, detail=str(e)) from e
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        pack_ex = pack_to_exceptions(pack)
+        target_s = (target or "workspace").strip().lower()
+        policy = None
+        if target_s == "policy":
+            if not policy_id:
+                raise HTTPException(status_code=400, detail="policyId 必填")
+            policy = await self.get_policy(workspace_id=workspace.id, policy_id=policy_id)
+            cal = getattr(policy, "calendar", None) or {}
+            existing = list((cal.get("exceptions") if isinstance(cal, dict) else None) or [])
+        elif target_s == "workspace":
+            bh = normalize_business_hours(getattr(workspace, "business_hours", None))
+            existing = list(bh.get("exceptions") or [])
+        else:
+            raise HTTPException(status_code=400, detail="target 须为 workspace|policy")
+        try:
+            merged = merge_exceptions_pack_wins(existing, pack_ex)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        return {
+            "region": pack["region"],
+            "year": pack["year"],
+            "name": pack["name"],
+            "sourceNote": pack["sourceNote"],
+            "target": target_s,
+            "policyId": policy.id if policy else None,
+            "added": merged["added"],
+            "replaced": merged["replaced"],
+            "unchanged": merged["unchanged"],
+            "skipped": merged["skipped"],
+            "exceptions": merged["exceptions"],
+            "countBefore": len(existing),
+            "countAfter": len(merged["exceptions"]),
+        }
+
+    async def apply_holiday_pack(
+        self,
+        *,
+        workspace: Workspace,
+        region: str,
+        year: int,
+        target: str = "workspace",
+        policy_id: str | None = None,
+    ) -> dict:
+        """Write merged exceptions + ledger; recompute (WS all / policy only)."""
+        preview = await self.preview_holiday_pack(
+            workspace=workspace,
+            region=region,
+            year=year,
+            target=target,
+            policy_id=policy_id,
+        )
+        target_s = preview["target"]
+        now_iso = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+        recompute = {"recomputed": 0, "scanned": 0, "capped": False}
+
+        ledger: list = []
+        if target_s == "workspace":
+            bh = normalize_business_hours(getattr(workspace, "business_hours", None))
+            bh["exceptions"] = preview["exceptions"]
+            workspace.business_hours = bh
+            ledger = upsert_applied_ledger(
+                getattr(workspace, "applied_holiday_packs", None),
+                preview["region"],
+                preview["year"],
+                applied_at=now_iso,
+            )
+            workspace.applied_holiday_packs = ledger
+            workspace.updated_at = datetime.utcnow()
+            await self.db.flush()
+            recompute = await self.recompute_deadlines_for_workspace(
+                workspace_id=workspace.id
+            )
+            await self.db.commit()
+            await self.db.refresh(workspace)
+        else:
+            policy = await self.get_policy(
+                workspace_id=workspace.id, policy_id=preview["policyId"]
+            )
+            cal = normalize_policy_calendar(getattr(policy, "calendar", None)) or {}
+            new_cal = dict(cal)
+            new_cal["exceptions"] = preview["exceptions"]
+            try:
+                policy.calendar = normalize_policy_calendar(new_cal)
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e)) from e
+            ledger = upsert_applied_ledger(
+                getattr(policy, "applied_holiday_packs", None),
+                preview["region"],
+                preview["year"],
+                applied_at=now_iso,
+            )
+            policy.applied_holiday_packs = ledger
+            policy.updated_at = datetime.utcnow()
+            await self.db.flush()
+            recompute = await self.recompute_deadlines_for_policy(
+                workspace_id=workspace.id, policy_id=policy.id
+            )
+            await self.db.commit()
+            await self.db.refresh(policy)
+
+        return {
+            **{k: preview[k] for k in (
+                "region", "year", "name", "sourceNote", "target", "policyId",
+                "added", "replaced", "unchanged", "skipped",
+                "countBefore", "countAfter",
+            )},
+            "exceptions": preview["exceptions"],
+            "appliedHolidayPacks": ledger,
+            "recompute": recompute,
+        }
+
 
     async def mark_first_response(
         self,
