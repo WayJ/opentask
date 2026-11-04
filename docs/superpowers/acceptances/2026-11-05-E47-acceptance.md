@@ -3,7 +3,7 @@
 日期：2026-11-05（Asia/Shanghai）  
 分支：`sprint/E47-S1`  
 基线：`5ab2400`  
-**tip：** （全文 ；若滞后以 HEAD 为准）
+**tip：** `03c467e`（全文 `03c467edea597a4ad36f89bd7091abad3883a510`）
 
 ## 范围落地
 
