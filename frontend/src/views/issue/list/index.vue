@@ -42,6 +42,7 @@ import {
   fetchUpdateSavedView
 } from '@/service/api/saved-views';
 import { fetchIssueDisplayPrefs, fetchPutIssueDisplayPrefs } from '@/service/api/display-prefs';
+import { fetchAddFavorite, fetchFavorites, fetchRemoveFavorite } from '@/service/api/favorites';
 import { fetchWorkspaceList } from '@/service/api/workspace';
 import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
@@ -363,6 +364,54 @@ async function toggleActiveViewFavorite() {
     window.$message?.success(view.isFavorite ? '已取消收藏' : '已收藏');
   } catch {
     window.$message?.error('更新收藏失败');
+  }
+}
+
+const sidebarPinnedViewFavoriteId = ref<string | null>(null);
+const sidebarPinLoading = ref(false);
+
+async function loadSidebarPinForActiveView() {
+  const id = activeSavedViewId.value;
+  if (!id) {
+    sidebarPinnedViewFavoriteId.value = null;
+    return;
+  }
+  try {
+    const res = await fetchFavorites();
+    const rows = res.data?.rows || [];
+    const hit = rows.find(r => r.targetType === 'saved_view' && r.targetId === id);
+    sidebarPinnedViewFavoriteId.value = hit?.id ?? null;
+  } catch {
+    sidebarPinnedViewFavoriteId.value = null;
+  }
+}
+
+watch(activeSavedViewId, () => {
+  loadSidebarPinForActiveView();
+});
+
+async function toggleActiveViewSidebarPin() {
+  const id = activeSavedViewId.value;
+  if (!id) {
+    window.$message?.info('请先应用一个已保存视图');
+    return;
+  }
+  sidebarPinLoading.value = true;
+  try {
+    if (sidebarPinnedViewFavoriteId.value) {
+      await fetchRemoveFavorite(sidebarPinnedViewFavoriteId.value);
+      sidebarPinnedViewFavoriteId.value = null;
+      window.$message?.success('已从侧栏移除');
+    } else {
+      const res = await fetchAddFavorite({ target_type: 'saved_view', target_id: id });
+      sidebarPinnedViewFavoriteId.value = res.data?.id ?? null;
+      window.$message?.success('已收藏到侧栏');
+    }
+    window.dispatchEvent(new CustomEvent('opentask:favorites-changed'));
+  } catch {
+    window.$message?.error('更新侧栏收藏失败');
+  } finally {
+    sidebarPinLoading.value = false;
   }
 }
 
@@ -1111,10 +1160,26 @@ onMounted(async () => {
               <template #trigger>
                 <NButton text size="small" class="action-btn" @click="toggleActiveViewFavorite">
                   <icon-mdi-star />
-                  <span class="action-btn-text">收藏</span>
+                  <span class="action-btn-text">星标</span>
                 </NButton>
               </template>
-              <div>切换当前视图收藏状态</div>
+              <div>星标视图（列表顶栏 chips，≠ 侧栏收藏）</div>
+            </NTooltip>
+
+            <NTooltip v-if="activeSavedViewId">
+              <template #trigger>
+                <NButton
+                  text
+                  size="small"
+                  class="action-btn"
+                  :loading="sidebarPinLoading"
+                  @click="toggleActiveViewSidebarPin"
+                >
+                  <icon-mdi-pin-outline />
+                  <span class="action-btn-text">{{ sidebarPinnedViewFavoriteId ? '取消侧栏' : '收藏到侧栏' }}</span>
+                </NButton>
+              </template>
+              <div>固定到左侧边栏 Favorites（独立于星标）</div>
             </NTooltip>
 
             <NTooltip v-if="activeSavedViewId">

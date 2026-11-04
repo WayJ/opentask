@@ -18,3 +18,4 @@ export * from './saved-views';
 export * from './cycles';
 export * from './tag';
 export * from './display-prefs';
+export * from './favorites';

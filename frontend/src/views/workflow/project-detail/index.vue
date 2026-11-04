@@ -8,11 +8,14 @@ import {
   createRepoConfig,
   deleteProjectMilestone,
   deleteRepoConfig,
+  fetchAddFavorite,
+  fetchFavorites,
   fetchProjectHealth,
   fetchProjectMilestones,
   fetchProjectRepos,
   fetchProjectTimeline,
   fetchProjectWatchers,
+  fetchRemoveFavorite,
   postProjectHealth,
   unwatchProject,
   updateProjectMilestone,
@@ -87,6 +90,8 @@ const healthForm = reactive({
 });
 const watching = ref(false);
 const watchLoading = ref(false);
+const pinnedFavoriteId = ref<string | null>(null);
+const pinLoading = ref(false);
 
 const timelineZoom = ref<TimelineZoom>('week');
 const timelineData = ref<Api.Project.TimelineData | null>(null);
@@ -215,6 +220,42 @@ async function loadWatchers() {
     watching.value = rows.some(r => r.user_id === currentUserId.value);
   } catch {
     watching.value = false;
+  }
+}
+
+async function loadPinState() {
+  if (!projectId) {
+    pinnedFavoriteId.value = null;
+    return;
+  }
+  try {
+    const response = await fetchFavorites();
+    const rows = response.data?.rows || [];
+    const hit = rows.find(r => r.targetType === 'project' && r.targetId === projectId);
+    pinnedFavoriteId.value = hit?.id ?? null;
+  } catch {
+    pinnedFavoriteId.value = null;
+  }
+}
+
+async function toggleSidebarPin() {
+  if (!projectId) return;
+  pinLoading.value = true;
+  try {
+    if (pinnedFavoriteId.value) {
+      await fetchRemoveFavorite(pinnedFavoriteId.value);
+      pinnedFavoriteId.value = null;
+      window.$message?.success('已从侧栏移除');
+    } else {
+      const response = await fetchAddFavorite({ target_type: 'project', target_id: projectId });
+      pinnedFavoriteId.value = response.data?.id ?? null;
+      window.$message?.success('已收藏到侧栏');
+    }
+    window.dispatchEvent(new CustomEvent('opentask:favorites-changed'));
+  } catch {
+    window.$message?.error('更新侧栏收藏失败');
+  } finally {
+    pinLoading.value = false;
   }
 }
 
@@ -544,6 +585,7 @@ onMounted(() => {
   loadMilestones();
   loadHealth();
   loadWatchers();
+  loadPinState();
   loadTimeline();
 });
 </script>
@@ -573,6 +615,9 @@ onMounted(() => {
             <NSpace>
               <NButton :loading="watchLoading" @click="toggleWatch">
                 {{ watching ? '取消关注' : '关注' }}
+              </NButton>
+              <NButton :loading="pinLoading" @click="toggleSidebarPin">
+                {{ pinnedFavoriteId ? '取消侧栏收藏' : '收藏到侧栏' }}
               </NButton>
               <NButton @click="openHealthModal">更新健康</NButton>
               <NButton @click="openEditProjectModal">

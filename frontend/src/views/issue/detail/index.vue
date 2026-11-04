@@ -27,6 +27,7 @@ import { fetchProjectMilestones, projectApi } from '@/service/api/project';
 import { type CycleItem, fetchCycles } from '@/service/api/cycles';
 import { type TagItem, tagApi } from '@/service/api/tag';
 import { issueApi } from '@/service/api/issue';
+import { fetchAddFavorite, fetchFavorites, fetchRemoveFavorite } from '@/service/api/favorites';
 import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
 import { useIssueFocus } from '@/composables/use-issue-focus';
@@ -53,6 +54,8 @@ const issueId = computed(() => (route.query.id as string) || '');
 const currentUserId = computed(() => authStore.userInfo.userId || 'admin');
 const issue = ref<Api.Issue.Issue | null>(null);
 const loading = ref(false);
+const pinnedFavoriteId = ref<string | null>(null);
+const pinLoading = ref(false);
 
 // Comments
 const comments = ref<Api.Issue.IssueComment[]>([]);
@@ -1012,8 +1015,48 @@ watch(
   }
 );
 
+
+async function loadPinState() {
+  const id = issueId.value;
+  if (!id) {
+    pinnedFavoriteId.value = null;
+    return;
+  }
+  try {
+    const response = await fetchFavorites();
+    const rows = response.data?.rows || [];
+    const hit = rows.find(r => r.targetType === 'issue' && r.targetId === id);
+    pinnedFavoriteId.value = hit?.id ?? null;
+  } catch {
+    pinnedFavoriteId.value = null;
+  }
+}
+
+async function toggleSidebarPin() {
+  const id = issueId.value;
+  if (!id) return;
+  pinLoading.value = true;
+  try {
+    if (pinnedFavoriteId.value) {
+      await fetchRemoveFavorite(pinnedFavoriteId.value);
+      pinnedFavoriteId.value = null;
+      window.$message?.success('已从侧栏移除');
+    } else {
+      const response = await fetchAddFavorite({ target_type: 'issue', target_id: id });
+      pinnedFavoriteId.value = response.data?.id ?? null;
+      window.$message?.success('已收藏到侧栏');
+    }
+    window.dispatchEvent(new CustomEvent('opentask:favorites-changed'));
+  } catch {
+    window.$message?.error('更新侧栏收藏失败');
+  } finally {
+    pinLoading.value = false;
+  }
+}
+
 onMounted(() => {
   loadIssue();
+  loadPinState();
   loadProjects();
   loadCycles();
 });
@@ -1076,6 +1119,9 @@ onMounted(() => {
                     <icon-mdi-delete />
                   </template>
                   删除
+                </NButton>
+                <NButton size="small" :loading="pinLoading" @click="toggleSidebarPin">
+                  {{ pinnedFavoriteId ? '取消侧栏收藏' : '收藏到侧栏' }}
                 </NButton>
               </NButtonGroup>
             </div>
