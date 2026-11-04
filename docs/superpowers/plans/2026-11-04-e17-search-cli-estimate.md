@@ -4,8 +4,8 @@
 基线 tip：`b4ec445` · 分支 `sprint/E17-S1`
 
 ## Task 1 — Docs
-- [ ] design + plan（本文件）
-- [ ] acceptance 收口时补 tip/测试数
+- [x] design + plan（本文件）
+- [x] acceptance 收口时补 tip/测试数
 
 ## Task 2 — A1 alembic :7377
 1. `cd backend && uv run alembic upgrade head`
