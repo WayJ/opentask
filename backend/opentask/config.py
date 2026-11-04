@@ -111,6 +111,13 @@ def get_env_value(key: str, default: Optional[str] = None) -> str:
         'DINGTALK_APP_KEY': ['dingtalk', 'app_key'],
         'DINGTALK_APP_SECRET': ['dingtalk', 'app_secret'],
         'AUTH_DINGTALK_AUTO_REGISTER': ['auth', 'dingtalk_auto_register'],
+        'SMTP_HOST': ['smtp', 'host'],
+        'SMTP_PORT': ['smtp', 'port'],
+        'SMTP_USER': ['smtp', 'user'],
+        'SMTP_PASSWORD': ['smtp', 'password'],
+        'SMTP_FROM': ['smtp', 'from'],
+        'SMTP_TLS': ['smtp', 'tls'],
+        'FRONTEND_BASE_URL': ['app', 'frontend_base_url'],
     }
 
     # 使用映射或默认拆分逻辑
@@ -475,6 +482,38 @@ class Config(BaseSettings):
     def task_monitor_timeout_hours(self) -> int:
         """任务监控超时时间（小时）"""
         return int(self._get_value("TASK_MONITOR_TIMEOUT_HOURS", "1"))
+
+    # ===== E30 出站邮件 SMTP =====
+    @property
+    def smtp_host(self) -> str:
+        return self._get_value("SMTP_HOST", "")
+
+    @property
+    def smtp_port(self) -> int:
+        return int(self._get_value("SMTP_PORT", "587") or "587")
+
+    @property
+    def smtp_user(self) -> str:
+        return self._get_value("SMTP_USER", "")
+
+    @property
+    def smtp_password(self) -> str:
+        return self._get_value("SMTP_PASSWORD", "")
+
+    @property
+    def smtp_from(self) -> str:
+        return self._get_value("SMTP_FROM", "")
+
+    @property
+    def smtp_tls(self) -> bool:
+        v = self._get_value("SMTP_TLS", "true")
+        return str(v).lower() in ("true", "1", "yes")
+
+    @property
+    def frontend_base_url(self) -> str:
+        """FE 深链基址（邮件正文可选）。"""
+        return self._get_value("FRONTEND_BASE_URL", "").rstrip("/")
+
 
 
 config = Config()

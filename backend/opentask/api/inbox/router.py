@@ -13,6 +13,11 @@ from opentask.models.user.model import UserModel
 from opentask.repositories.base import get_session
 from opentask.models.notification_preference.model import PREF_KEYS
 from opentask.services.notification.service import NotificationService, serialize_notification
+from opentask.services.email import (
+    email_configured,
+    resolve_recipient_email,
+    send_test_email,
+)
 from opentask.api.workspace.deps import require_workspace_context
 from opentask.models.workspace.model import Workspace, WorkspaceMember
 from opentask.services.workspace.service import WorkspaceService
@@ -35,6 +40,7 @@ class PrefsBody(BaseModel):
     due_date_changed: Optional[bool] = None
     issue_watch_event: Optional[bool] = None
     automation_comment: Optional[bool] = None
+    email_enabled: Optional[bool] = None
 
 
 async def _optional_workspace_id(
@@ -78,6 +84,8 @@ async def put_inbox_preferences(
     """E27：upsert 本人偏好；仅改传入字段。"""
     ws, _member, user = ctx
     updates = {k: getattr(body, k) for k in PREF_KEYS if getattr(body, k) is not None}
+    if body.email_enabled is not None:
+        updates["email_enabled"] = body.email_enabled
     row = await NotificationService(session).upsert_prefs(
         user_id=str(user.id), workspace_id=ws.id, updates=updates
     )
@@ -86,6 +94,40 @@ async def put_inbox_preferences(
     )
     return success_response(data=data, message="已保存")
 
+
+
+
+@router.post("/email-test")
+async def post_inbox_email_test(
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    """E30：向当前用户发送一封测试邮件。"""
+    ws, _member, user = ctx
+    if not email_configured():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="邮件未配置：请设置 SMTP_HOST 与 SMTP_FROM",
+        )
+    to = resolve_recipient_email(user)
+    if not to:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="当前用户无可用邮箱（username 需含 @，如 user@example.com）",
+        )
+    try:
+        ok = await send_test_email(to=to)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"发送失败: {e}",
+        ) from e
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="邮件未配置或发送被跳过",
+        )
+    return success_response(data={"sent": True, "to": to}, message="测试邮件已发送")
 
 @router.get("")
 async def list_inbox(

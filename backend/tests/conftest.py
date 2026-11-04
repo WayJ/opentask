@@ -200,6 +200,12 @@ async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
         async with engine.begin() as conn:
             from opentask.models.base import DBModel
             await conn.run_sync(lambda sync_conn: DBModel.metadata.create_all(sync_conn, checkfirst=True))
+            # Additive columns (create_all won't ALTER existing tables)
+            from sqlalchemy import text as _sql_text
+            await conn.execute(_sql_text(
+                "ALTER TABLE IF EXISTS notification_preferences "
+                "ADD COLUMN IF NOT EXISTS email_enabled BOOLEAN NOT NULL DEFAULT FALSE"
+            ))
             print(f"[OK] Test database ({TEST_DB_NAME}) tables created")
     except Exception as e:
         import logging

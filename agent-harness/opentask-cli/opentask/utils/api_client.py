@@ -927,6 +927,9 @@ class OpenTaskClient:
     async def put_notif_prefs(self, updates: dict) -> dict:
         return await self.put("/api/inbox/preferences", data=updates)
 
+    async def notif_email_test(self) -> dict:
+        return await self.post("/api/inbox/email-test")
+
     async def insights_summary(self, cycle_id: str | None = None, assignee_limit: int | None = None) -> dict:
         params = {}
         if cycle_id:

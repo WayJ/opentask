@@ -18,6 +18,11 @@ from opentask.models.notification_preference.model import (
 from opentask.models.user.model import UserModel
 from opentask.models.workspace.model import WorkspaceMember
 from opentask.services.workspace_realtime import publish_inbox_created
+from opentask.services.email import (
+    email_configured,
+    resolve_recipient_email,
+    send_notification_email,
+)
 
 # @username 或 @uuid；捕获 token（不含 @）
 _MENTION_RE = re.compile(r"@([A-Za-z0-9_.-]{1,64})")
@@ -67,6 +72,8 @@ class NotificationService:
             # flush 失败则交给调用方事务；不阻塞主路径
             return row
         await publish_inbox_created(row, actor_user_id=actor_user_id)
+        # E30：best-effort 出站邮件（失败不影响 Inbox）
+        await self._maybe_send_email(row)
         return row
 
     def default_prefs_dict(self) -> dict:
@@ -80,11 +87,14 @@ class NotificationService:
             "userId": user_id,
             "workspaceId": workspace_id,
             **base,
+            "email_enabled": False,
+            "email_configured": email_configured(),
         }
         if row is None:
             return out
         for k in PREF_KEYS:
             out[k] = bool(getattr(row, k))
+        out["email_enabled"] = bool(getattr(row, "email_enabled", False))
         return out
 
     async def get_prefs(
@@ -115,6 +125,8 @@ class NotificationService:
         for k in PREF_KEYS:
             if k in updates and updates[k] is not None:
                 setattr(row, k, bool(updates[k]))
+        if "email_enabled" in updates and updates["email_enabled"] is not None:
+            row.email_enabled = bool(updates["email_enabled"])
         row.updated_at = datetime.utcnow()
         await self.db.commit()
         await self.db.refresh(row)
@@ -508,6 +520,47 @@ class NotificationService:
         await self.db.commit()
         await self.db.refresh(row)
         return row
+
+
+
+    async def is_email_enabled(self, *, workspace_id: str, user_id: str) -> bool:
+        """Channel toggle; no row → False (opt-in)."""
+        row = await self.get_prefs(user_id=user_id, workspace_id=workspace_id)
+        if row is None:
+            return False
+        return bool(getattr(row, "email_enabled", False))
+
+    async def _maybe_send_email(self, row: Notification) -> None:
+        """After inbox create: email_enabled + configured + recipient address."""
+        try:
+            if not email_configured():
+                return
+            if not await self.is_email_enabled(
+                workspace_id=row.workspace_id, user_id=str(row.recipient_user_id)
+            ):
+                return
+            uq = await self.db.execute(
+                select(UserModel).where(UserModel.id == str(row.recipient_user_id))
+            )
+            user = uq.scalar_one_or_none()
+            to = resolve_recipient_email(user)
+            if not to:
+                return
+            await send_notification_email(
+                to=to,
+                title=row.title or "",
+                body=row.body,
+                notif_type=row.type,
+                resource_type=row.resource_type,
+                resource_id=row.resource_id,
+            )
+        except Exception:
+            # never break inbox path
+            import logging
+
+            logging.getLogger(__name__).exception(
+                "email hook failed notif=%s", getattr(row, "id", None)
+            )
 
 
 def serialize_notification(n: Notification) -> dict:

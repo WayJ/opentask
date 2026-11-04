@@ -1,4 +1,4 @@
-"""Notification preference commands (E27)."""
+"""Notification preference + email commands (E27/E30)."""
 from __future__ import annotations
 
 import asyncio
@@ -18,12 +18,13 @@ PREF_KEYS = [
     "due_date_changed",
     "issue_watch_event",
     "automation_comment",
+    "email_enabled",
 ]
 
 
 @click.group(name="notif")
 def notif_cli():
-    """通知相关（偏好等）。"""
+    """通知相关（偏好 / 邮件测试）。"""
     pass
 
 
@@ -52,6 +53,8 @@ def prefs_get(obj, as_json):
         for k in PREF_KEYS:
             val = (data or {}).get(k)
             rows.append([k, "on" if val else "off"])
+        configured = (data or {}).get("email_configured")
+        rows.append(["email_configured", "yes" if configured else "no"])
         obj.skin.table(["Key", "Enabled"], rows)
     except APIError as e:
         handle_api_error(e, json_mode)
@@ -98,5 +101,26 @@ def prefs_set(obj, pref_key, turn_on, turn_off, json_body, as_json):
         obj.skin.success("已保存")
         for k, v in updates.items():
             obj.skin.info(f"{k} = {'on' if (data or {}).get(k, v) else 'off'}")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@notif_cli.command(name="email-test")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def email_test(obj, as_json):
+    """向当前用户发送一封测试邮件（需 SMTP 已配置）。"""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.notif_email_test())
+        if json_mode:
+            echo_json(True, data=data)
+            return
+        to = (data or {}).get("to") or ""
+        obj.skin.success(f"测试邮件已发送 → {to}" if to else "测试邮件已发送")
     except APIError as e:
         handle_api_error(e, json_mode)

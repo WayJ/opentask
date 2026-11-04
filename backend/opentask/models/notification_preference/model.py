@@ -55,6 +55,8 @@ class NotificationPreference(DBModel):
     due_date_changed: Mapped[bool] = mapped_column(Boolean, nullable=False, insert_default=True)
     issue_watch_event: Mapped[bool] = mapped_column(Boolean, nullable=False, insert_default=True)
     automation_comment: Mapped[bool] = mapped_column(Boolean, nullable=False, insert_default=True)
+    # E30：邮件通道总开关（opt-in，默认关；不在 PREF_KEYS 类型映射内）
+    email_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, insert_default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, insert_default=datetime.utcnow
     )

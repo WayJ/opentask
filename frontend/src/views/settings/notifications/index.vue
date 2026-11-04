@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
-import { NCard, NSpace, NSpin, NSwitch, NText } from 'naive-ui';
+import { NAlert, NCard, NSpace, NSpin, NSwitch, NText } from 'naive-ui';
 import {
   type NotifPrefKey,
   type NotifPrefs,
   NOTIF_PREF_KEYS,
   NOTIF_PREF_LABELS,
   fetchNotifPrefs,
+  isEmailToggleDisabled,
   updateNotifPrefs
 } from '@/service/api/notif-prefs';
 
@@ -30,7 +31,7 @@ async function load() {
   }
 }
 
-async function toggle(key: NotifPrefKey, value: boolean) {
+async function toggle(key: NotifPrefKey | 'email_enabled', value: boolean) {
   if (!prefs.value) return;
   const prev = prefs.value[key];
   prefs.value = { ...prefs.value, [key]: value };
@@ -68,6 +69,25 @@ onMounted(load);
           </div>
         </NSpace>
         <NText v-else depth="3">加载中…</NText>
+      </NSpin>
+    </NCard>
+
+    <NCard title="邮件通知" :bordered="false" class="mt-16px">
+      <NAlert v-if="prefs && isEmailToggleDisabled(prefs)" type="warning" class="mb-12px" :bordered="false">
+        服务器未配置 SMTP（需 SMTP_HOST 与 SMTP_FROM）。邮件通道暂不可用。
+      </NAlert>
+      <NText depth="3" class="mb-12px block">
+        开启后，在类型偏好允许时，将同类事件额外发送到你的邮箱（username 需含 @）。默认关闭。
+      </NText>
+      <NSpin :show="loading">
+        <div v-if="prefs" class="flex items-center justify-between py-6px">
+          <NText>启用出站邮件</NText>
+          <NSwitch
+            :value="prefs.email_enabled"
+            :disabled="saving || isEmailToggleDisabled(prefs)"
+            @update:value="(v: boolean) => toggle('email_enabled', v)"
+          />
+        </div>
       </NSpin>
     </NCard>
   </div>
