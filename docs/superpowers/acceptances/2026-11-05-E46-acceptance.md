@@ -3,7 +3,7 @@
 日期：2026-11-05（Asia/Shanghai）  
 分支：`sprint/E46-S1`  
 基线：`b5b132e`  
-**tip：** `4010fc9`（全文 `4010fc967ef33887a4d95c9e6b2d66f9b0403bcf`；若文件 tip 滞后以 HEAD 为准）
+**tip：** `d1de2ac`（全文 `d1de2ac3dde39d34407f33911ed523c15c619000`；若文件 tip 滞后以 HEAD 为准）
 
 ## 范围落地
 
