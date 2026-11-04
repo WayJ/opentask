@@ -637,7 +637,27 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'workspace_labels',
           i18nKey: 'route.workspace_labels'
         }
+      },
+      {
+        name: 'workspace_members',
+        path: '/workspace/members',
+        component: 'view.workspace_members',
+        meta: {
+          title: 'workspace_members',
+          i18nKey: 'route.workspace_members'
+        }
       }
     ]
+  },
+  {
+    name: 'invite',
+    path: '/invite/:token',
+    component: 'layout.blank$view.invite',
+    meta: {
+      title: 'invite',
+      i18nKey: 'route.invite',
+      constant: true,
+      hideInMenu: true
+    }
   }
 ];

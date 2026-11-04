@@ -249,6 +249,8 @@ const local: App.I18n.Schema = {
     500: '服务器错误',
     'iframe-page': '外链页面',
     home: '首页',
+    workspace_members: '成员 Members',
+    invite: '邀请',
     workspace_labels: '标签 Labels',
     workspace_cycles: '冲刺 Cycles',
     inbox: '收件箱',

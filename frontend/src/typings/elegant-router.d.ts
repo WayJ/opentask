@@ -78,6 +78,8 @@ declare module "@elegant-router/types" {
     "workspace": "/workspace";
     "workspace_cycles": "/workspace/cycles";
     "workspace_labels": "/workspace/labels";
+    "workspace_members": "/workspace/members";
+    "invite": "/invite/:token";
   };
 
   /**
@@ -126,6 +128,7 @@ declare module "@elegant-router/types" {
     | "work-management"
     | "workflow"
     | "workspace"
+    | "invite"
   >;
 
   /**
@@ -191,6 +194,8 @@ declare module "@elegant-router/types" {
     | "workflow_requirements"
     | "workspace_cycles"
     | "workspace_labels"
+    | "workspace_members"
+    | "invite"
   >;
 
   /**

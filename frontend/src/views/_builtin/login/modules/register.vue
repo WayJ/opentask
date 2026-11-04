@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive } from 'vue';
+import { useRoute } from 'vue-router';
 import { fetchRegister } from '@/service/api';
 import { useAuthStore } from '@/store/modules/auth';
 import { useRouterPush } from '@/hooks/common/router';
@@ -12,8 +13,13 @@ defineOptions({
 });
 
 const authStore = useAuthStore();
+const route = useRoute();
 const { toggleLoginModule } = useRouterPush();
 const { formRef, validate } = useNaiveForm();
+const inviteToken = computed(() => {
+  const q = route.query.invite;
+  return typeof q === 'string' && q ? q : undefined;
+});
 
 interface FormModel {
   userName: string;
@@ -39,7 +45,12 @@ const rules = computed<Record<keyof FormModel, App.Global.FormRule[]>>(() => {
 
 async function handleSubmit() {
   await validate();
-  const { data, error } = await fetchRegister(model.userName, model.password, model.userName);
+  const { data, error } = await fetchRegister(
+    model.userName,
+    model.password,
+    model.userName,
+    inviteToken.value
+  );
   if (error) {
     window.$message?.error(error.message || $t('common.error'));
     return;

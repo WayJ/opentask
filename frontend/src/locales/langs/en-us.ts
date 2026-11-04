@@ -251,6 +251,8 @@ const local: App.I18n.Schema = {
     500: 'Server Error',
     'iframe-page': 'Iframe',
     home: 'Home',
+    workspace_members: 'Members',
+    invite: 'Invite',
     workspace_labels: 'Labels',
     workspace_cycles: 'Cycles',
     inbox: 'Inbox',
