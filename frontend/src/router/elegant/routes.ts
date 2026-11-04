@@ -655,6 +655,15 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       },
       {
+        name: 'workspace_issue-templates',
+        path: '/workspace/issue-templates',
+        component: 'view.workspace_issue-templates',
+        meta: {
+          title: 'workspace_issue-templates',
+          i18nKey: 'route.workspace_issue-templates'
+        }
+      },
+      {
         name: 'workspace_labels',
         path: '/workspace/labels',
         component: 'view.workspace_labels',

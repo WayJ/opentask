@@ -28,11 +28,13 @@ export function buildNavActions(
   titles: {
     issues: string;
     createIssue: string;
+    createFromTemplate?: string;
     projects: string;
     inbox: string;
     triage?: string;
     cycles?: string;
     labels?: string;
+    issueTemplates?: string;
   }
 ): PaletteItem[] {
   const items: PaletteItem[] = [
@@ -90,6 +92,24 @@ export function buildNavActions(
       title: titles.labels,
       keywords: ['labels', 'label', 'tags', '标签'],
       run: () => navigate('/workspace/labels')
+    });
+  }
+  if (titles.createFromTemplate) {
+    items.push({
+      id: 'nav.create_from_template',
+      kind: 'action',
+      title: titles.createFromTemplate,
+      keywords: ['template', 'templates', '从模板', '模板', 'create'],
+      run: () => navigate('/issue/create?pickTemplate=1')
+    });
+  }
+  if (titles.issueTemplates) {
+    items.push({
+      id: 'nav.issue_templates',
+      kind: 'action',
+      title: titles.issueTemplates,
+      keywords: ['issue templates', 'templates', '模板设置'],
+      run: () => navigate('/workspace/issue-templates')
     });
   }
   return items;

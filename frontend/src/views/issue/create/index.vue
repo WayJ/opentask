@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
-import { onBeforeRouteLeave, useRouter } from 'vue-router';
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import { NButton, NCard, NDivider, NEmpty, NInput, NModal, NSpace, NTag, NText, NTooltip, NUpload } from 'naive-ui';
 import { issuePriorityOptions, issueTypeOptions } from '@/constants/issue';
 import type { IssueTemplate } from '@/constants/issueTemplates';
 import { fetchProjectList } from '@/service/api';
+import { fetchIssueTemplates } from '@/service/api/issue-templates';
 import { issueApi } from '@/service/api/issue';
 import { useIssueStore } from '@/store/modules/issue';
 import MarkdownEditor from '@/components/MarkdownEditor.vue';
@@ -18,6 +19,7 @@ defineOptions({
 });
 
 const router = useRouter();
+const route = useRoute();
 const issueStore = useIssueStore();
 
 // 页面状态
@@ -33,6 +35,7 @@ const projectsLoading = ref(false);
 const showTemplateSelector = ref(false);
 const showTemplateForm = ref(false);
 const selectedTemplate = ref<IssueTemplate | null>(null);
+const appliedTemplateId = ref<string | null>(null);
 
 // 表单数据
 const formData = ref<{
@@ -176,6 +179,14 @@ function handleSelectTemplate(template: IssueTemplate) {
 function handleCreateFromTemplate(title: string, content: string) {
   formData.value.title = title;
   formData.value.description = content;
+  const tpl = selectedTemplate.value;
+  if (tpl?.defaultType) {
+    formData.value.type = tpl.defaultType as Api.Issue.IssueType;
+  }
+  if (tpl?.defaultPriority) {
+    formData.value.priority = tpl.defaultPriority as Api.Issue.IssuePriority;
+  }
+  appliedTemplateId.value = tpl?.apiId || (tpl?.id?.includes('-') ? tpl.id : null);
   showTemplateForm.value = false;
   selectedTemplate.value = null;
   hasUnsavedChanges.value = true;
@@ -200,7 +211,8 @@ async function handleCreate() {
       task_id: formData.value.task_id,
       requirement_id: formData.value.requirement_id,
       assignee_id: formData.value.assignee_id,
-      reporter_id: 'admin'
+      reporter_id: 'admin',
+      template_id: appliedTemplateId.value || undefined
     });
 
     // 上传待上传的附件
@@ -250,8 +262,75 @@ watch(
 );
 
 // 页面挂载
-onMounted(() => {
+
+function mapApiTemplateToIssueTemplate(row: {
+  id: string;
+  seedKey?: string | null;
+  name: string;
+  description?: string | null;
+  icon?: string | null;
+  payload?: {
+    title?: string;
+    description?: string;
+    type?: string;
+    priority?: string;
+    fields?: IssueTemplate['fields'];
+  };
+}): IssueTemplate {
+  const fallbackFields: IssueTemplate['fields'] = [
+    {
+      name: 'title',
+      label: '标题',
+      type: 'text',
+      required: true,
+      placeholder: row.payload?.title || '标题'
+    },
+    {
+      name: 'description',
+      label: '描述',
+      type: 'textarea',
+      required: false,
+      placeholder: row.payload?.description || ''
+    }
+  ];
+  return {
+    id: row.id,
+    apiId: row.id,
+    seedKey: row.seedKey || undefined,
+    name: row.name,
+    description: row.description || '',
+    icon: row.icon || 'i-carbon-document',
+    fields: row.payload?.fields?.length ? row.payload.fields : fallbackFields,
+    defaultType: row.payload?.type,
+    defaultPriority: row.payload?.priority
+  };
+}
+
+async function openTemplateFromQuery() {
+  const pick = route.query.pickTemplate;
+  if (pick === '1' || pick === 'true') {
+    showTemplateSelector.value = true;
+    return;
+  }
+  const templateId = typeof route.query.templateId === 'string' ? route.query.templateId : '';
+  if (!templateId) return;
+  try {
+    const { data } = await fetchIssueTemplates();
+    const row = data?.rows?.find(r => r.id === templateId);
+    if (!row) {
+      showTemplateSelector.value = true;
+      return;
+    }
+    selectedTemplate.value = mapApiTemplateToIssueTemplate(row);
+    showTemplateForm.value = true;
+  } catch {
+    showTemplateSelector.value = true;
+  }
+}
+
+onMounted(async () => {
   loadProjects();
+  await openTemplateFromQuery();
   // 自动聚焦标题输入框
   nextTick(() => {
     titleInputRef.value?.focus();

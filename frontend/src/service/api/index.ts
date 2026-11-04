@@ -15,6 +15,7 @@ export * from './issue-collection';
 export * from './workspace';
 export * from './inbox';
 export * from './triage';
+export * from './issue-templates';
 export * from './saved-views';
 export * from './cycles';
 export * from './tag';

@@ -52,11 +52,13 @@ watchEffect(() => {
   const navActions = buildNavActions(navigate, {
     issues: $t('common.commandPalette.navIssues'),
     createIssue: $t('common.commandPalette.navCreateIssue'),
+    createFromTemplate: $t('common.commandPalette.navCreateFromTemplate'),
     projects: $t('common.commandPalette.navProjects'),
     inbox: $t('common.commandPalette.navInbox'),
     triage: $t('common.commandPalette.navTriage'),
     cycles: $t('common.commandPalette.navCycles'),
-    labels: $t('common.commandPalette.navLabels')
+    labels: $t('common.commandPalette.navLabels'),
+    issueTemplates: $t('route.workspace_issue-templates')
   });
   const focusActions = buildFocusIssueActions({
     hasFocusedIssue: Boolean(focus.focusedIssueId.value),

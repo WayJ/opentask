@@ -67,6 +67,21 @@ describe('buildNavActions + groups', () => {
     expect(filtered[0].items.map(i => i.id)).toEqual(['nav.inbox']);
   });
 
+  it('includes create-from-template action when titled', () => {
+    const nav = vi.fn();
+    const actions = buildNavActions(nav, {
+      issues: 'Issues',
+      createIssue: 'Create Issue',
+      createFromTemplate: 'Create from template',
+      projects: 'Projects',
+      inbox: 'Inbox'
+    });
+    const item = actions.find(a => a.id === 'nav.create_from_template');
+    expect(item).toBeTruthy();
+    item!.run();
+    expect(nav).toHaveBeenCalledWith('/issue/create?pickTemplate=1');
+  });
+
   it('includes Menus group when menus match', () => {
     const nav = vi.fn();
     const menus = menusToPaletteItems(

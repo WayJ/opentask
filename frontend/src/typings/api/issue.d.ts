@@ -100,7 +100,10 @@ export namespace Api.Issue {
   }
 
   /** 创建 Issue */
-  export type CreateIssue = IssueBase;
+  export interface CreateIssue extends IssueBase {
+    /** E9-S2 workspace issue template */
+    template_id?: string;
+  }
 
   /** 更新 Issue */
   export interface UpdateIssue {

@@ -373,9 +373,13 @@ declare namespace App {
           searching: string;
           navIssues: string;
           navCreateIssue: string;
+          navCreateFromTemplate: string;
           navProjects: string;
           navCycles: string;
           navInbox: string;
+          navTriage: string;
+          navLabels: string;
+          actionAddLabel: string;
         };
       };
       request: {
