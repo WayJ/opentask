@@ -1,18 +1,22 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import UserSelect from '@/components/UserSelect.vue';
 import { issueApi } from '@/service/api/issue';
 import {
   ACTIVITY_ACTION_OPTIONS,
+  ACTIVITY_QUICK_EMOJIS,
   type ActivityItem,
   buildActivityQuery,
+  emptyActivityDescription,
   formatActivityActor,
-  formatActivityRow
+  formatActivityRow,
+  toggleReactionSummary
 } from '@/utils/activityFeed';
 
 defineOptions({ name: 'ActivityPage' });
 
+const route = useRoute();
 const router = useRouter();
 const loading = ref(false);
 const loadingMore = ref(false);
@@ -21,8 +25,10 @@ const nextCursor = ref<string | null>(null);
 const actionTypes = ref<string[]>([]);
 const sincePreset = ref<'24h' | '7d' | null>('7d');
 const actorId = ref<string | null>(null);
+const watchingOnly = ref(false);
 
 const empty = computed(() => !loading.value && items.value.length === 0);
+const emptyDesc = computed(() => emptyActivityDescription(watchingOnly.value));
 
 function relTime(iso?: string | null): string {
   if (!iso) return '';
@@ -38,6 +44,20 @@ function relTime(iso?: string | null): string {
   return date.toLocaleDateString('zh-CN');
 }
 
+function syncWatchingFromQuery() {
+  const q = route.query.watching;
+  const on = q === '1' || q === 'true' || q === 'True';
+  watchingOnly.value = on;
+}
+
+async function markRead(): Promise<void> {
+  try {
+    await issueApi.markActivityRead({ watching: watchingOnly.value });
+  } catch {
+    /* ignore mark-read errors on open */
+  }
+}
+
 async function load(reset = true) {
   if (reset) {
     loading.value = true;
@@ -51,6 +71,7 @@ async function load(reset = true) {
       sincePreset: sincePreset.value,
       actionTypes: actionTypes.value,
       actorId: actorId.value,
+      watching: watchingOnly.value || null,
       cursor: reset ? null : nextCursor.value,
       limit: 50
     });
@@ -62,6 +83,9 @@ async function load(reset = true) {
     const page = (data.items || []) as ActivityItem[];
     items.value = reset ? page : items.value.concat(page);
     nextCursor.value = data.nextCursor ?? null;
+    if (reset) {
+      await markRead();
+    }
   } finally {
     loading.value = false;
     loadingMore.value = false;
@@ -72,9 +96,44 @@ function openIssue(item: ActivityItem) {
   router.push({ name: 'issue_detail', query: { id: item.issueId } });
 }
 
-watch([actionTypes, sincePreset, actorId], () => load(true));
+async function toggleChip(item: ActivityItem, emoji: string, ev: Event) {
+  ev.stopPropagation();
+  const cur = item.reactions?.summary?.find(s => s.emoji === emoji);
+  const myReacted = !!cur?.myReacted;
+  const nextReacted = !myReacted;
+  const prev = item.reactions ? { ...item.reactions, summary: [...(item.reactions.summary || [])] } : null;
+  item.reactions = toggleReactionSummary(item.reactions, emoji, nextReacted);
+
+  try {
+    const isComment = item.reactions?.scope === 'comment' && item.reactions.commentId;
+    if (isComment) {
+      if (nextReacted) {
+        await issueApi.addCommentReaction(item.issueId, item.reactions!.commentId!, emoji);
+      } else {
+        await issueApi.removeCommentReaction(item.issueId, item.reactions!.commentId!, emoji);
+      }
+    } else if (nextReacted) {
+      await issueApi.addReaction(item.issueId, emoji);
+    } else {
+      await issueApi.removeReaction(item.issueId, emoji);
+    }
+  } catch (e: any) {
+    item.reactions = prev as any;
+    window.$message?.error(e?.message || '反应失败');
+  }
+}
+
+watch([actionTypes, sincePreset, actorId, watchingOnly], () => load(true));
+
+watch(
+  () => route.query.watching,
+  () => {
+    syncWatchingFromQuery();
+  }
+);
 
 onMounted(() => {
+  syncWatchingFromQuery();
   load(true);
 });
 </script>
@@ -100,6 +159,10 @@ onMounted(() => {
       <div class="w-200px">
         <UserSelect v-model="actorId" size="small" placeholder="执行者" />
       </div>
+      <div class="flex items-center gap-6px text-13px">
+        <NSwitch v-model:value="watchingOnly" size="small" />
+        <span>仅关注</span>
+      </div>
     </div>
 
     <NSpin :show="loading">
@@ -117,12 +180,34 @@ onMounted(() => {
               <span class="text-12px text-gray-400">{{ relTime(item.createdAt) }}</span>
             </template>
             <template #description>
-              <span class="text-12px text-gray-400">{{ item.issueTitle }}</span>
+              <div class="flex flex-wrap items-center gap-8px">
+                <span class="text-12px text-gray-400">{{ item.issueTitle }}</span>
+                <div class="activity-rx" @click.stop>
+                  <button
+                    v-for="chip in item.reactions?.summary || []"
+                    :key="chip.emoji"
+                    type="button"
+                    class="activity-rx__chip"
+                    :class="{ on: chip.myReacted }"
+                    @click="toggleChip(item, chip.emoji, $event)"
+                  >
+                    <span>{{ chip.emoji }}</span>
+                    <span>{{ chip.count }}</span>
+                  </button>
+                  <NDropdown
+                    trigger="click"
+                    :options="ACTIVITY_QUICK_EMOJIS.map(e => ({ label: e, key: e }))"
+                    @select="(key: string) => toggleChip(item, key, new Event('click'))"
+                  >
+                    <button type="button" class="activity-rx__add" title="添加反应">+</button>
+                  </NDropdown>
+                </div>
+              </div>
             </template>
           </NThing>
         </NListItem>
       </NList>
-      <NEmpty v-else-if="empty" description="暂无活动" />
+      <NEmpty v-else-if="empty" :description="emptyDesc" />
     </NSpin>
 
     <div v-if="nextCursor" class="mt-16px flex justify-center">
@@ -135,5 +220,31 @@ onMounted(() => {
 .activity-page {
   max-width: 960px;
   margin: 0 auto;
+}
+.activity-rx {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+}
+.activity-rx__chip,
+.activity-rx__add {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #f7f7fb;
+  border-radius: 999px;
+  padding: 0 6px;
+  height: 22px;
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.activity-rx__chip.on {
+  background: rgba(94, 106, 210, 0.16);
+  border-color: rgba(94, 106, 210, 0.4);
+}
+.activity-rx__add {
+  opacity: 0.7;
 }
 </style>

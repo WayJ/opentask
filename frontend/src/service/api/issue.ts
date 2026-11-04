@@ -319,7 +319,7 @@ export const issueApi = {
     });
   },
 
-  /** E47：工作区 Activity Feed */
+  /** E47/E52：工作区 Activity Feed */
   fetchWorkspaceActivity: (params?: Record<string, unknown>) => {
     return request<{
       items: Array<{
@@ -331,12 +331,35 @@ export const issueApi = {
         actor?: { id: string; username?: string | null; displayName?: string | null } | null;
         createdAt?: string | null;
         payload?: Record<string, unknown> | null;
+        reactions?: {
+          scope: 'issue' | 'comment';
+          commentId?: string | null;
+          summary: Array<{ emoji: string; count: number; myReacted: boolean }>;
+        } | null;
       }>;
       nextCursor: string | null;
     }>({
       url: '/api/issues/activity',
       method: 'GET',
       params: cleanParams(params || {})
+    });
+  },
+
+  /** E52：薄铃铛未读数 */
+  fetchActivityUnreadCount: (params?: { watching?: boolean }) => {
+    return request<{ count: number; capped: boolean }>({
+      url: '/api/issues/activity/unread-count',
+      method: 'GET',
+      params: cleanParams({ watching: params?.watching ?? true })
+    });
+  },
+
+  /** E52：打开 Feed 标记已读 */
+  markActivityRead: (body?: { watching?: boolean }) => {
+    return request<{ lastSeenAt?: string | null; lastSeenId?: string }>({
+      url: '/api/issues/activity/mark-read',
+      method: 'POST',
+      data: body ?? { watching: true }
     });
   },
 
