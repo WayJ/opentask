@@ -23,7 +23,7 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-04-e38-automatio
 - Create: `docs/superpowers/plans/2026-11-04-e38-automation-delayed-actions.md`（本文件）
 - Create: `docs/superpowers/acceptances/2026-11-04-E38-acceptance.md`（骨架；收口补 tip/测数）
 
-- [ ] **Step 1:** 入库 plan + acceptance 骨架并 commit
+- [x] **Step 1:** 入库 plan + acceptance 骨架并 commit
 
 ---
 
@@ -50,19 +50,19 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-04-e38-automatio
   - `AutomationService.list_pending(workspace_id, status="pending", limit=100)`
   - delay helpers: `parse_delay_minutes(cfg) -> int`（0=即时）；非法 raise 400
 
-- [ ] **Step 1: 红测** — 写 `test_e38_automation_delayed_actions.py`：
+- [x] **Step 1: 红测** — 写 `test_e38_automation_delayed_actions.py`：
   - `delay_minutes` 缺省/0 → 即时执行（回归 set_priority）
   - `delay_minutes=5` → 不立即改 issue；DB 有 pending；`run_at` ≈ now+5m
   - 非法 delay（-1 / 10081 / "x"）create → 400
   - 同 rule+issue 二次触发不双写 pending
   - disable 规则 → pending.status=cancelled
   - camel `delayMinutes` 亦接受
-- [ ] **Step 2: 跑测确认红**
-- [ ] **Step 3: 最小实现绿**
+- [x] **Step 2: 跑测确认红**
+- [x] **Step 3: 最小实现绿**
   - Model + migration（indexes `(workspace_id,status,run_at)`、`(rule_id,issue_id,status)`）
   - validate + enqueue + strip delay from snapshot
   - `_execute_action` 支持 `config_override`
-- [ ] **Step 4: 相关测绿并 commit**
+- [x] **Step 4: 相关测绿并 commit**
 
 ---
 
@@ -79,14 +79,14 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-04-e38-automatio
 - `GET /api/automations/pending?status=pending` → `{rows,total}` limit 100
 - Per pending: rule missing/disabled → cancelled；issue gone/wrong WS → cancelled；重评 condition 不匹配 → cancelled；else execute snapshot → done|failed；失败隔离
 
-- [ ] **Step 1: 红测**
+- [x] **Step 1: 红测**
   - 未到期 run-due → processed 含行但不 executed（或 skipped 计 processed 且不改 issue）——按 design：仅选 `run_at<=now`，故未到期不入选 processed=0
   - 到期 → 执行 set_status / add_comment / set_priority；pending=done
   - 条件失效 → cancelled
   - rule disable 后 tick → cancelled
   - 人为失败隔离（一条 failed 不影响另一条）
   - viewer run-due 403；跨租户不泄漏
-- [ ] **Step 2: 红确认 → 实现绿 → commit**
+- [x] **Step 2: 红确认 → 实现绿 → commit**
 
 ---
 
@@ -97,9 +97,9 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-04-e38-automatio
 - Modify: `frontend/src/service/api/automations.test.ts`
 - Modify: `frontend/src/views/workspace/automations/index.vue`（延迟分钟输入；写入 actionConfig；列表摘要）
 
-- [ ] **Step 1: 红测** helpers：withDelayMinutes(0) 剥离；>0 写 delay_minutes；summarize 含 `delay 60m →`
-- [ ] **Step 2: 实现绿**；表单 `delayMinutes` NInputNumber 0…10080；watch 合并进 actionConfigText（保留其它键）
-- [ ] **Step 3: vitest 绿并 commit**
+- [x] **Step 1: 红测** helpers：withDelayMinutes(0) 剥离；>0 写 delay_minutes；summarize 含 `delay 60m →`
+- [x] **Step 2: 实现绿**；表单 `delayMinutes` NInputNumber 0…10080；watch 合并进 actionConfigText（保留其它键）
+- [x] **Step 3: vitest 绿并 commit**
 
 ---
 
@@ -111,17 +111,17 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-04-e38-automatio
 - Modify: version → **1.22.0**：`opentask/__init__.py`、`opentask_cli.py`、`setup.py`、`pyproject.toml`；**全仓**历史 `1.21.0` 断言同步
 - Create: `agent-harness/opentask-cli/tests/test_e38_automation_delayed.py`
 
-- [ ] **Step 1: 红测** version / `automation run-due --help` / pending help
-- [ ] **Step 2: 实现 + bump → 绿 → commit**
+- [x] **Step 1: 红测** version / `automation run-due --help` / pending help
+- [x] **Step 2: 实现 + bump → 绿 → commit**
 
 ---
 
 ### Task 6 — 门禁 + acceptance
 
-- [ ] BE 全量 pytest（记录 passed/skip；`test_user_search` flake 可文档化）
-- [ ] CLI 全量；FE vitest + build
-- [ ] 填 acceptance tip/测数；`superpowers: design/plan/TDD/verify/acceptance = ok`
-- [ ] **STOP**；不 push；不自开 E39
+- [x] BE 全量 pytest（记录 passed/skip；`test_user_search` flake 可文档化）
+- [x] CLI 全量；FE vitest + build
+- [x] 填 acceptance tip/测数；`superpowers: design/plan/TDD/verify/acceptance = ok`
+- [x] **STOP**；不 push；不自开 E39
 
 ## ADR（对齐 design §9）
 | ID | 决定 |
