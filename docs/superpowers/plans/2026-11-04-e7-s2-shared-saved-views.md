@@ -47,8 +47,8 @@
 
 **Files:** Modify `backend/tests/api/test_saved_views.py`
 
-- [ ] Add helpers: `_add_member(..., role=)` like tags tests
-- [ ] Cover:
+- [x] Add helpers: `_add_member(..., role=)` like tags tests
+- [x] Cover:
   1. `test_create_shared_view_listed_for_other_member` — A creates `is_shared=true`; B list has it in `shared` not `personal`; A personal empty of that id; serialize has `isShared: true`
   2. `test_list_personal_shared_isolation` — A personal + A shared; B sees only shared (+ B's own personal)
   3. `test_member_cannot_patch_others_personal` — 404
@@ -67,43 +67,43 @@ Response shape:
 
 Serialize adds `"isShared": bool`.
 
-- [ ] Run RED: `cd backend && .venv/bin/pytest tests/api/test_saved_views.py -v --tb=short`
-- [ ] Commit tests + plan + sprint stub
+- [x] Run RED: `cd backend && .venv/bin/pytest tests/api/test_saved_views.py -v --tb=short`
+- [x] Commit tests + plan + sprint stub
 
 ### Task 2: Model + Alembic GREEN foundation
 
-- [ ] Add `is_shared: Mapped[bool]` default false; optional index `idx_saved_views_ws_shared`
-- [ ] Migration `c3d4e5f6a7b9` revises `b2c3d4e5f6a8`; idempotent inspect; server_default false; NOT NULL
-- [ ] Commit
+- [x] Add `is_shared: Mapped[bool]` default false; optional index `idx_saved_views_ws_shared`
+- [x] Migration `c3d4e5f6a7b9` revises `b2c3d4e5f6a8`; idempotent inspect; server_default false; NOT NULL
+- [x] Commit
 
 ### Task 3: Service + Router GREEN
 
-- [ ] `list_accessible` → (personal, shared)
-- [ ] `get_accessible` — mine personal OR shared in WS
-- [ ] `assert_can_write_view(view, *, user_id, member_role)` — personal: owner only; shared: owner_user_id or role==owner; else HTTPException 403 (caller uses 404 when not accessible)
-- [ ] `create(..., is_shared=False)` ; reject is_favorite=True when is_shared (force false)
-- [ ] `save_as(view, *, owner_user_id, name=None)` → new personal row
-- [ ] Router: require_writer on create/update/delete/save-as; favorite only personal accessible; update create/update bodies with `is_shared`
-- [ ] GREEN pytest test_saved_views
-- [ ] Commit
+- [x] `list_accessible` → (personal, shared)
+- [x] `get_accessible` — mine personal OR shared in WS
+- [x] `assert_can_write_view(view, *, user_id, member_role)` — personal: owner only; shared: owner_user_id or role==owner; else HTTPException 403 (caller uses 404 when not accessible)
+- [x] `create(..., is_shared=False)` ; reject is_favorite=True when is_shared (force false)
+- [x] `save_as(view, *, owner_user_id, name=None)` → new personal row
+- [x] Router: require_writer on create/update/delete/save-as; favorite only personal accessible; update create/update bodies with `is_shared`
+- [x] GREEN pytest test_saved_views
+- [x] Commit
 
 ### Task 4: FE API + list UI + sections
 
-- [ ] Extend `SavedView` with `isShared`; list result `personal`/`shared`/`rows`; `fetchSaveAsSavedView`
-- [ ] Helper `partitionSavedViews` or use API sections; dropdown groups 「我的」/「共享」
-- [ ] Save modal: checkbox 「共享给工作区」; title adapts
-- [ ] When active view is shared and current user cannot write: show 「另存为」 instead of/in addition to update path; hide favorite for shared
-- [ ] Favorites chips: only personal favorites
-- [ ] loadSavedViews merges personal+shared into `savedViews` for apply/⌘K
-- [ ] Optional vitest: `partitionSavedViewOptions` builds group keys
-- [ ] lint + build
-- [ ] Commit
+- [x] Extend `SavedView` with `isShared`; list result `personal`/`shared`/`rows`; `fetchSaveAsSavedView`
+- [x] Helper `partitionSavedViews` or use API sections; dropdown groups 「我的」/「共享」
+- [x] Save modal: checkbox 「共享给工作区」; title adapts
+- [x] When active view is shared and current user cannot write: show 「另存为」 instead of/in addition to update path; hide favorite for shared
+- [x] Favorites chips: only personal favorites
+- [x] loadSavedViews merges personal+shared into `savedViews` for apply/⌘K
+- [x] Optional vitest: `partitionSavedViewOptions` builds group keys
+- [x] lint + build
+- [x] Commit
 
 ### Task 5: Gates + acceptance + close S2
 
-- [ ] Full pytest; vitest slice if any; lint 0 errors; build
-- [ ] Acceptance doc; sprint state=closed; roadmap S2 closed; Epic still active
-- [ ] **No push**
+- [x] Full pytest; vitest slice if any; lint 0 errors; build
+- [x] Acceptance doc; sprint state=closed; roadmap S2 closed; Epic still active
+- [x] **No push**
 
 ## Out of scope (leftover → S3)
 
