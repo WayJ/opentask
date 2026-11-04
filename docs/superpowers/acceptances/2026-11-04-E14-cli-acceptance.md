@@ -1,7 +1,7 @@
 # E14 验收：OpenTask CLI 做完整（Workspace + Linear 面）
 
 日期：2026-11-04（Asia/Shanghai）  
-分支：`sprint/E14-S1` @ `4593500`  
+分支：`sprint/E14-S1` · tip `cc19cb4`（功能包 `4593500`）  
 包版本：**1.1.0**  
 约束：**未 push / 未开 PR**
 
