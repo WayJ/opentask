@@ -36,6 +36,7 @@ class RequestUpdate(BaseModel):
     priority: Optional[str] = None
     clearPriority: bool = False
     customerId: Optional[str] = None
+    publicRepliesEnabled: Optional[bool] = None
 
 
 class LinkIssueBody(BaseModel):
@@ -94,13 +95,21 @@ async def create_request(
 @router.get("/{request_id}")
 async def get_request(
     request_id: str,
+    include_token: bool = Query(False, alias="include_token"),
     ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
     session: AsyncSession = Depends(get_session),
 ):
     ws, _member, _user = ctx
     svc = CustomerRequestService(session)
     row = await svc.get(workspace_id=ws.id, request_id=request_id)
-    return success_response(data=await svc.to_response(row, include_issues=True))
+    return success_response(
+        data=await svc.to_response(
+            row,
+            include_issues=True,
+            include_token=include_token,
+            include_public_replies=True,
+        )
+    )
 
 
 @router.patch("/{request_id}")
@@ -123,6 +132,7 @@ async def update_request(
         priority=body.priority,
         clear_priority=body.clearPriority,
         customer_id=body.customerId,
+        public_replies_enabled=body.publicRepliesEnabled,
     )
     return success_response(
         data=await svc.to_response(row, ids, include_issues=True),
@@ -177,4 +187,68 @@ async def unlink_issue(
     return success_response(
         data=await svc.to_response(row, ids, include_issues=True),
         message="已解除关联",
+    )
+
+
+class StatusLinkEnableBody(BaseModel):
+    publicRepliesEnabled: Optional[bool] = None
+
+
+@router.post("/{request_id}/status-link/enable")
+async def enable_status_link(
+    request_id: str,
+    body: StatusLinkEnableBody | None = None,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    ws, member, _user = ctx
+    require_writer(member)
+    svc = CustomerRequestService(session)
+    payload = body or StatusLinkEnableBody()
+    row = await svc.enable_status_link(
+        workspace_id=ws.id,
+        request_id=request_id,
+        public_replies_enabled=payload.publicRepliesEnabled,
+    )
+    return success_response(
+        data=await svc.to_response(
+            row, include_issues=True, include_token=True, include_public_replies=True
+        ),
+        message="已启用公开状态链接",
+    )
+
+
+@router.post("/{request_id}/status-link/rotate")
+async def rotate_status_link(
+    request_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    ws, member, _user = ctx
+    require_writer(member)
+    svc = CustomerRequestService(session)
+    row = await svc.rotate_status_link(workspace_id=ws.id, request_id=request_id)
+    return success_response(
+        data=await svc.to_response(
+            row, include_issues=True, include_token=True, include_public_replies=True
+        ),
+        message="已轮换公开状态链接",
+    )
+
+
+@router.post("/{request_id}/status-link/revoke")
+async def revoke_status_link(
+    request_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    ws, member, _user = ctx
+    require_writer(member)
+    svc = CustomerRequestService(session)
+    row = await svc.revoke_status_link(workspace_id=ws.id, request_id=request_id)
+    return success_response(
+        data=await svc.to_response(
+            row, include_issues=True, include_public_replies=True
+        ),
+        message="已撤销公开状态链接",
     )

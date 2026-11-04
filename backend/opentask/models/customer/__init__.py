@@ -4,6 +4,7 @@ from opentask.models.customer.model import (
     Customer,
     CustomerRequest,
     CustomerRequestIssue,
+    CustomerRequestPublicReply,
 )
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "Customer",
     "CustomerRequest",
     "CustomerRequestIssue",
+    "CustomerRequestPublicReply",
 ]

@@ -60,7 +60,7 @@ from opentask.models.project_watcher import ProjectWatcher
 from opentask.models.issue_watcher import IssueWatcher
 from opentask.models.activity_read_cursor import ActivityReadCursor
 from opentask.models.favorite import Favorite
-from opentask.models.customer import Customer, CustomerRequest, CustomerRequestIssue
+from opentask.models.customer import Customer, CustomerRequest, CustomerRequestIssue, CustomerRequestPublicReply
 from opentask.models.custom_field import CustomField, IssueCustomFieldValue, IssueFormulaCache
 from opentask.models.automation import AutomationRule, AutomationPendingAction
 from opentask.models.workspace_webhook import WorkspaceWebhook, WebhookDeliveryLog
@@ -143,6 +143,7 @@ __all__ = [
     "Customer",
     "CustomerRequest",
     "CustomerRequestIssue",
+    "CustomerRequestPublicReply",
     "CustomField",
     "IssueCustomFieldValue",
     "IssueFormulaCache",

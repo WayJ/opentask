@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 from sqlalchemy import (
+    Boolean,
     DateTime,
     ForeignKey,
     Index,
@@ -90,6 +91,16 @@ class CustomerRequest(DBModel):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, insert_default=datetime.utcnow, onupdate=datetime.utcnow
     )
+    # E63 public status portal
+    status_token: Mapped[Optional[str]] = mapped_column(
+        String(64), nullable=True, unique=True, index=True
+    )
+    status_token_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, insert_default=False
+    )
+    public_replies_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, insert_default=False
+    )
 
     __table_args__ = (
         Index("idx_customer_requests_ws_status", "workspace_id", "status"),
@@ -117,3 +128,23 @@ class CustomerRequestIssue(DBModel):
     )
 
     __table_args__ = (Index("idx_customer_request_issues_issue", "issue_id"),)
+
+
+class CustomerRequestPublicReply(DBModel):
+    """Anonymous public reply when request has no linked Issue (E63 Q3a)."""
+
+    __tablename__ = "customer_request_public_replies"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, insert_default=_uuid)
+    request_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("customer_requests.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, insert_default=datetime.utcnow
+    )
+
+    __table_args__ = (Index("idx_cr_public_replies_request", "request_id", "created_at"),)

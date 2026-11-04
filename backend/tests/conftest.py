@@ -94,7 +94,7 @@ from opentask.models.milestone import Milestone  # noqa: F401 — metadata 注�
 from opentask.models.issue_vcs_link import IssueVcsLink  # noqa: F401 — metadata 注册 E11-S1
 from opentask.models.activity_read_cursor import ActivityReadCursor  # noqa: F401 — E52
 from opentask.models.cycle import Cycle  # noqa: F401 — metadata 注册
-from opentask.models.customer import Customer, CustomerRequest, CustomerRequestIssue  # noqa: F401 — E22
+from opentask.models.customer import Customer, CustomerRequest, CustomerRequestIssue, CustomerRequestPublicReply  # noqa: F401 — E22/E63
 from opentask.models.custom_field import CustomField, IssueCustomFieldValue  # noqa: F401 — E25
 from opentask.models.automation import AutomationRule  # noqa: F401 — E26
 from opentask.models.automation import AutomationPendingAction  # noqa: F401 — E38
@@ -274,6 +274,23 @@ async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
                 "ALTER TABLE IF EXISTS insights_saved_reports "
                 "ADD COLUMN IF NOT EXISTS visibility VARCHAR(16) NOT NULL DEFAULT 'personal'"
             ))
+            # E63 customer request public status
+            for _stmt in (
+                "ALTER TABLE IF EXISTS customer_requests ADD COLUMN IF NOT EXISTS status_token VARCHAR(64)",
+                "ALTER TABLE IF EXISTS customer_requests ADD COLUMN IF NOT EXISTS status_token_enabled BOOLEAN NOT NULL DEFAULT FALSE",
+                "ALTER TABLE IF EXISTS customer_requests ADD COLUMN IF NOT EXISTS public_replies_enabled BOOLEAN NOT NULL DEFAULT FALSE",
+                """
+                CREATE TABLE IF NOT EXISTS customer_request_public_replies (
+                    id VARCHAR(36) PRIMARY KEY,
+                    request_id VARCHAR(36) NOT NULL REFERENCES customer_requests(id) ON DELETE CASCADE,
+                    body TEXT NOT NULL,
+                    created_at TIMESTAMP NOT NULL
+                )
+                """,
+                "CREATE INDEX IF NOT EXISTS idx_cr_public_replies_request ON customer_request_public_replies (request_id, created_at)",
+                "CREATE UNIQUE INDEX IF NOT EXISTS ix_customer_requests_status_token ON customer_requests (status_token)",
+            ):
+                await conn.execute(_sql_text(_stmt))
             # E60 search FTS mid — PG tsvector + GIN
             for _tbl, _expr, _idx in (
                 (
