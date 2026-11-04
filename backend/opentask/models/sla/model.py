@@ -19,7 +19,7 @@ from sqlalchemy.types import JSON
 
 from opentask.models.base import DBModel
 
-SLA_METRICS = ("time_in_status",)
+SLA_METRICS = ("time_in_status", "first_response")
 CLOCK_STATUSES = ("running", "paused", "met", "breached", "cancelled")
 CLOSED_STOP_STATUSES = frozenset({"resolved", "closed", "rejected"})
 TARGET_MINUTES_MIN = 1

@@ -1248,12 +1248,20 @@ class IssueService:
             action_data={"comment_id": comment.id, "parent_id": parent_id},
         )
 
+        # E48：非创建者首评 → first_response clocks met（同事务）
+        issue = await self.get_issue(issue_id)
+        if issue is not None:
+            await SlaService(self.db).mark_first_response(
+                issue=issue, actor_user_id=user_id
+            )
+
         await self.db.commit()
         # 注释掉 refresh 以避免枚举值问题
         # await self.db.refresh(comment)
 
         # Inbox：评论 / @mention 通知（非作者）；自动化 → automation_comment
-        issue = await self.get_issue(issue_id)
+        if issue is None:
+            issue = await self.get_issue(issue_id)
         if issue:
             meta = meta_data or {}
             is_automation = (

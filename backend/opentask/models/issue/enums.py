@@ -74,3 +74,5 @@ class TimelineAction(str, Enum):
     CYCLE_CHANGED = "cycle_changed"              # E41：Cycle 变更
     ESTIMATE_CHANGED = "estimate_changed"        # E41：估分变更
     PROJECT_CHANGED = "project_changed"          # E41：项目变更
+    SLA_PAUSED = "sla_paused"                    # E48：SLA 暂停
+    SLA_RESUMED = "sla_resumed"                  # E48：SLA 恢复

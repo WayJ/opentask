@@ -1695,7 +1695,7 @@ async def get_issue_sla(
     pairs = await SlaService(service.db).list_issue_clocks(
         workspace_id=workspace.id, issue_id=issue.id
     )
-    rows = [serialize_clock(c, policy_name=name) for c, name in pairs]
+    rows = [serialize_clock(c, policy_name=name, metric=metric) for c, name, metric in pairs]
     return success_response(data={"rows": rows, "total": len(rows)})
 
 

@@ -523,6 +523,7 @@ class IssueTimeline(DBModel):
              "resolved", "closed", "reopened",
              "custom_field_changed", "cycle_changed", "estimate_changed",
              "project_changed",
+             "sla_paused", "sla_resumed",
              name="timeline_action"),
         nullable=False,
         index=True,

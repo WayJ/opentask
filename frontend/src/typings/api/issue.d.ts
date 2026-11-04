@@ -71,6 +71,8 @@ export namespace Api.Issue {
     CYCLE_CHANGED = 'cycle_changed',
     ESTIMATE_CHANGED = 'estimate_changed',
     PROJECT_CHANGED = 'project_changed'
+    SLA_PAUSED = 'sla_paused',
+    SLA_RESUMED = 'sla_resumed',
   }
 
   /** 用户信息 */

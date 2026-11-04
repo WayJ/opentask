@@ -248,6 +248,11 @@ async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
                 "ALTER TABLE IF EXISTS issue_sla_clocks ADD COLUMN IF NOT EXISTS segment_started_at TIMESTAMP",
             ):
                 await conn.execute(_sql_text(_stmt))
+            # E48 timeline_action enum values (no alembic per Q6a)
+            for _val in ("sla_paused", "sla_resumed"):
+                await conn.execute(
+                    _sql_text(f"ALTER TYPE timeline_action ADD VALUE IF NOT EXISTS '{_val}'")
+                )
             print(f"[OK] Test database ({TEST_DB_NAME}) tables created")
     except Exception as e:
         import logging

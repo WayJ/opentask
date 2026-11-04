@@ -1,4 +1,4 @@
-"""SLA policies + clocks + run-due (E42) + pause/automation (E45)."""
+"""SLA policies + clocks + run-due (E42) + pause/automation (E45) + first_response/pause timeline (E48)."""
 from __future__ import annotations
 
 import logging
@@ -9,8 +9,8 @@ from fastapi import HTTPException, status as http_status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from opentask.models.issue.enums import IssueStatus
-from opentask.models.issue.model import Issue
+from opentask.models.issue.enums import IssueStatus, TimelineAction
+from opentask.models.issue.model import Issue, IssueTimeline
 from opentask.models.issue_watcher.model import IssueWatcher
 from opentask.models.sla.model import (
     CLOSED_STOP_STATUSES,
@@ -69,13 +69,19 @@ def serialize_policy(row: SlaPolicy) -> dict:
     }
 
 
-def serialize_clock(row: IssueSlaClock, *, policy_name: Optional[str] = None) -> dict:
+def serialize_clock(
+    row: IssueSlaClock,
+    *,
+    policy_name: Optional[str] = None,
+    metric: Optional[str] = None,
+) -> dict:
     return {
         "id": row.id,
         "workspaceId": row.workspace_id,
         "issueId": row.issue_id,
         "policyId": row.policy_id,
         "policyName": policy_name,
+        "metric": metric,
         "status": row.status,
         "startedAt": row.started_at.isoformat() if row.started_at else None,
         "deadlineAt": row.deadline_at.isoformat() if row.deadline_at else None,
@@ -230,7 +236,7 @@ class SlaService:
 
     async def list_issue_clocks(
         self, *, workspace_id: str, issue_id: str
-    ) -> list[tuple[IssueSlaClock, Optional[str]]]:
+    ) -> list[tuple[IssueSlaClock, Optional[str], Optional[str]]]:
         issue_q = await self.db.execute(
             select(Issue).where(
                 Issue.id == issue_id,
@@ -242,7 +248,7 @@ class SlaService:
         if not issue:
             raise HTTPException(status_code=404, detail="Issue 不存在")
         q = await self.db.execute(
-            select(IssueSlaClock, SlaPolicy.name)
+            select(IssueSlaClock, SlaPolicy.name, SlaPolicy.metric)
             .outerjoin(SlaPolicy, SlaPolicy.id == IssueSlaClock.policy_id)
             .where(
                 IssueSlaClock.issue_id == issue_id,
@@ -250,7 +256,7 @@ class SlaService:
             )
             .order_by(IssueSlaClock.started_at.desc())
         )
-        return [(c, name) for c, name in q.all()]
+        return [(c, name, metric) for c, name, metric in q.all()]
 
     async def sync_clocks(
         self,
@@ -273,7 +279,6 @@ class SlaService:
             select(SlaPolicy).where(
                 SlaPolicy.workspace_id == issue.workspace_id,
                 SlaPolicy.enabled == True,  # noqa: E712
-                SlaPolicy.metric == "time_in_status",
             )
         )
         policies = list(pq.scalars().all())
@@ -311,6 +316,24 @@ class SlaService:
                 active.status = "paused"
                 active.paused_at = now
                 # Q3: keep old deadline_at
+                # E48: pause timeline only — no webhook/automation (Q3a)
+                self.db.add(
+                    IssueTimeline(
+                        issue_id=issue.id,
+                        user_id=None,
+                        action_type=TimelineAction.SLA_PAUSED,
+                        action_data={
+                            "policyId": policy.id,
+                            "policyName": policy.name,
+                            "metric": policy.metric,
+                            "elapsedBeforePauseMinutes": int(
+                                active.elapsed_before_pause_minutes or 0
+                            ),
+                            "fromStatus": old_s,
+                            "toStatus": new_s,
+                        },
+                    )
+                )
                 continue
 
             # 3) paused → resume (not stop, not still in pause)
@@ -325,6 +348,24 @@ class SlaService:
                 active.paused_at = None
                 active.segment_started_at = now
                 active.deadline_at = now + timedelta(minutes=remaining)
+                self.db.add(
+                    IssueTimeline(
+                        issue_id=issue.id,
+                        user_id=None,
+                        action_type=TimelineAction.SLA_RESUMED,
+                        action_data={
+                            "policyId": policy.id,
+                            "policyName": policy.name,
+                            "metric": policy.metric,
+                            "remainingMinutes": remaining,
+                            "newDeadlineAt": active.deadline_at.isoformat()
+                            if active.deadline_at
+                            else None,
+                            "fromStatus": old_s,
+                            "toStatus": new_s,
+                        },
+                    )
+                )
                 continue
 
             # 4) start new running if no active clock
@@ -439,6 +480,7 @@ class SlaService:
                             "title": issue.title,
                             "policyId": policy.id,
                             "policyName": policy.name,
+                            "metric": policy.metric,
                             "deadlineAt": clock.deadline_at.isoformat()
                             if clock.deadline_at
                             else None,
@@ -461,6 +503,7 @@ class SlaService:
                         event={
                             "policyId": policy.id,
                             "policyName": policy.name,
+                            "metric": policy.metric,
                             "deadlineAt": clock.deadline_at.isoformat()
                             if clock.deadline_at
                             else None,
@@ -489,3 +532,43 @@ class SlaService:
             "skipped": skipped,
             "errors": errors,
         }
+
+    async def mark_first_response(
+        self,
+        *,
+        issue: Issue,
+        actor_user_id: str,
+    ) -> None:
+        """Mark first_response clocks met on first non-creator comment (Q1a/Q2b). Same txn."""
+        if not issue or not issue.workspace_id or not actor_user_id:
+            return
+        creator = issue.created_by or issue.reporter_id
+        if creator and str(actor_user_id) == str(creator):
+            return
+
+        pq = await self.db.execute(
+            select(SlaPolicy).where(
+                SlaPolicy.workspace_id == issue.workspace_id,
+                SlaPolicy.enabled == True,  # noqa: E712
+                SlaPolicy.metric == "first_response",
+            )
+        )
+        policies = list(pq.scalars().all())
+        if not policies:
+            return
+
+        now = datetime.utcnow()
+        for policy in policies:
+            aq = await self.db.execute(
+                select(IssueSlaClock).where(
+                    IssueSlaClock.issue_id == issue.id,
+                    IssueSlaClock.policy_id == policy.id,
+                    IssueSlaClock.status.in_(("running", "paused")),
+                )
+            )
+            active = aq.scalar_one_or_none()
+            if active is None:
+                continue
+            active.status = "met"
+            active.stopped_at = now
+            # responseKind/actorId recorded conceptually on met; no pause-class timeline (D4)
