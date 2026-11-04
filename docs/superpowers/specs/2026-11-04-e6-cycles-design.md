@@ -2,8 +2,8 @@
 
 日期：2026-11-04  
 Epic：E6  
-状态：active（S1 本地 closed：CRUD+设置 UI；S2/S3 待做）  
-基线：`sprint/E5-S3` @ `da13c86`；worktree `/workspace/opentask-worktrees/E6-S1`（分支 `sprint/E6-S1`）  
+状态：active（S1/S2 本地 closed；S3 待做：rollover/capacity/generate）  
+基线：`sprint/E6-S1` @ `15b95ea`；worktree `/workspace/opentask-worktrees/E6-S2`（分支 `sprint/E6-S2`）  
 北星：OpenTask Linear PRD §E6
 
 ## 1. 目标
