@@ -40,6 +40,18 @@ export const generatedRoutes: GeneratedRoute[] = [
     }
   },
   {
+    name: 'activity',
+    path: '/activity',
+    component: 'layout.base$view.activity',
+    meta: {
+      title: 'activity',
+      i18nKey: 'route.activity',
+      icon: 'mdi:timeline-text-outline',
+      order: 2.55,
+      hideInMenu: true
+    }
+  },
+  {
     name: 'agents',
     path: '/agents',
     component: 'layout.base$view.agents',
@@ -141,18 +153,6 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       }
     ]
-  },
-  {
-    name: 'activity',
-    path: '/activity',
-    component: 'layout.base$view.activity',
-    meta: {
-      title: 'activity',
-      i18nKey: 'route.activity',
-      icon: 'mdi:timeline-text-outline',
-      order: 2.55,
-      hideInMenu: true
-    }
   },
   {
     name: 'insights',
