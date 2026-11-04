@@ -66,6 +66,11 @@ class SlaPolicy(DBModel):
         nullable=False,
         insert_default=list,
     )
+    # E56: optional calendar overlay {timezone?, windows?, exceptions?}; null = inherit WS
+    calendar: Mapped[Optional[dict]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, insert_default=datetime.utcnow
     )

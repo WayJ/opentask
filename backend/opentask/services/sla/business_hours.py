@@ -316,3 +316,64 @@ def is_business_hours_enabled(ws_timezone: Optional[str], business_hours: Option
         return validate_timezone(ws_timezone) is not None
     except ValueError:
         return False
+
+
+def normalize_policy_calendar(raw: Any) -> Optional[dict[str, Any]]:
+    """E56 Q1a/Q4a: policy.calendar overlay. None/{} = full inherit WS."""
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise ValueError("calendar 必须是对象或 null")
+    if not raw:
+        return None
+    out: dict[str, Any] = {}
+    if "timezone" in raw and raw.get("timezone") is not None:
+        tz = validate_timezone(raw.get("timezone"))
+        if tz is None:
+            raise ValueError("非法 IANA timezone")
+        out["timezone"] = tz
+    if "windows" in raw and raw.get("windows") is not None:
+        out["windows"] = normalize_windows(raw.get("windows"))
+    if "exceptions" in raw and raw.get("exceptions") is not None:
+        win_for_default = out.get("windows")
+        out["exceptions"] = normalize_exceptions(
+            raw.get("exceptions"), windows_for_default=win_for_default
+        )
+    return out if out else None
+
+
+def resolve_effective_calendar(
+    ws: Any,
+    policy: Any = None,
+) -> Optional[dict[str, Any]]:
+    """Merge WS + optional policy.calendar → {timezone,windows,exceptions} or None (wall-clock).
+
+    Q2a: when WS business_hours.enabled=false (or no usable tz), always wall-clock;
+    policy overlay cannot force-open business minutes.
+    """
+    if ws is None:
+        return None
+    bh_raw = getattr(ws, "business_hours", None)
+    tz_raw = getattr(ws, "timezone", None)
+    if not is_business_hours_enabled(tz_raw, bh_raw):
+        return None
+    bh = bh_raw if isinstance(bh_raw, dict) else {}
+    cal_raw = getattr(policy, "calendar", None) if policy is not None else None
+    cal = cal_raw if isinstance(cal_raw, dict) else {}
+    if "timezone" in cal and cal.get("timezone") is not None:
+        tz = validate_timezone(cal.get("timezone")) or str(tz_raw)
+    else:
+        tz = str(tz_raw)
+    if "windows" in cal and cal.get("windows") is not None:
+        windows = normalize_windows(cal.get("windows"))
+    else:
+        windows = normalize_windows(bh.get("windows"))
+    if "exceptions" in cal and cal.get("exceptions") is not None:
+        exceptions = normalize_exceptions(
+            cal.get("exceptions"), windows_for_default=windows
+        )
+    else:
+        exceptions = normalize_exceptions(
+            bh.get("exceptions") or [], windows_for_default=windows
+        )
+    return {"timezone": tz, "windows": windows, "exceptions": exceptions}
