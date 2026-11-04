@@ -36,7 +36,7 @@ date: 2026-11-04
 |---|---|---|
 | S1 | closed | **Palette 壳 + ⌘K/Ctrl+K + 页面/动作跳转**；acceptance: `docs/superpowers/acceptances/2026-11-04-E5-S1-acceptance.md`；tip `0063b58` |
 | S2 | closed | **实体搜索分组**：Issues（title + by_code）、Projects、Saved Views→应用筛选；防抖查询 + 分组结果。acceptance: `docs/superpowers/acceptances/2026-11-04-E5-S2-acceptance.md`；tip `9dc0e9e` |
-| S3 | closed | **焦点选择 + C/A/S/P/I + pickers**；**⌘B/Ctrl+B** Board↔List；详情 focus；`ignoreWhenEditable`；看板 URL `?id=`；Epic local-complete。acceptance: `docs/superpowers/acceptances/2026-11-04-E5-S3-acceptance.md`；tip  |
+| S3 | closed | **焦点选择 + C/A/S/P/I + pickers**；**⌘B/Ctrl+B** Board↔List；详情 focus；`ignoreWhenEditable`；看板 URL `?id=`；Epic local-complete。acceptance: `docs/superpowers/acceptances/2026-11-04-E5-S3-acceptance.md`；tip `a04c200` |
 
 推荐顺序理由：先固化全局挂载与打开契约（S1），再叠实体检索（S2），最后绑定焦点与变更热键（S3）——变更热键依赖焦点与既有 updateStatus/Assignee/Priority API，避免 S1 过重。
 
