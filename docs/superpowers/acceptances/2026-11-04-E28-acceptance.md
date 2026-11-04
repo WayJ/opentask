@@ -8,7 +8,7 @@
 ✅ 本地齐套（未 push）
 
 ## tip
-`TIP_PLACEHOLDER`
+`17d2ca0` (`17d2ca056299899c36646b943ca787eff49160c5`)
 
 ## 测试数
 - BE pytest：886 passed / 1 flake（`test_user_search` 隔离复跑确认）/ 24 skipped；本 Epic `tests/api/test_issue_csv.py` **3P**
