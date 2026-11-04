@@ -13,6 +13,7 @@ from sqlalchemy.orm import selectinload
 from opentask.models.issue.model import Issue, IssueTag, IssueTimeline
 from opentask.models.tag.model import Tag, TagGroup
 from opentask.services.automation.service import fire_automations
+from opentask.services.workspace_webhook.service import fire_webhooks
 from opentask.models.workspace.model import WorkspaceMember
 
 DEFAULT_COLOR = "#3b82f6"
@@ -293,6 +294,19 @@ class TagService:
             actor_user_id=user_id,
             event={"tagId": tag_id, "label": tag.name},
         )
+        await fire_webhooks(
+            self.db,
+            workspace_id=workspace_id,
+            event_type="issue.label_added",
+            data={
+                "id": str(issue.id),
+                "issueCode": issue.issue_code,
+                "title": issue.title,
+                "labelId": tag_id,
+                "labelName": tag.name,
+                "actorUserId": user_id,
+            },
+        )
         return tag
 
     async def detach_tag(
@@ -325,6 +339,19 @@ class TagService:
             )
         )
         await self.db.commit()
+        await fire_webhooks(
+            self.db,
+            workspace_id=workspace_id,
+            event_type="issue.label_removed",
+            data={
+                "id": str(issue.id),
+                "issueCode": issue.issue_code,
+                "title": issue.title,
+                "labelId": tag_id,
+                "labelName": tag.name,
+                "actorUserId": user_id,
+            },
+        )
 
     async def replace_issue_tags(
         self,
@@ -401,6 +428,21 @@ class TagService:
                 )
             )
         await self.db.commit()
+        for tid in sorted(to_remove):
+            tag = await self.get_tag(tid, workspace_id=workspace_id)
+            await fire_webhooks(
+                self.db,
+                workspace_id=workspace_id,
+                event_type="issue.label_removed",
+                data={
+                    "id": str(issue.id),
+                    "issueCode": issue.issue_code,
+                    "title": issue.title,
+                    "labelId": tid,
+                    "labelName": tag.name if tag else None,
+                    "actorUserId": user_id,
+                },
+            )
         for tid in to_add:
             tag = by_id.get(tid)
             await fire_automations(
@@ -410,6 +452,19 @@ class TagService:
                 issue=issue,
                 actor_user_id=user_id,
                 event={"tagId": tid, "label": tag.name if tag else None},
+            )
+            await fire_webhooks(
+                self.db,
+                workspace_id=workspace_id,
+                event_type="issue.label_added",
+                data={
+                    "id": str(issue.id),
+                    "issueCode": issue.issue_code,
+                    "title": issue.title,
+                    "labelId": tid,
+                    "labelName": tag.name if tag else None,
+                    "actorUserId": user_id,
+                },
             )
         return await self.list_issue_tags(issue_id, workspace_id=workspace_id)
 

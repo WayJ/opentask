@@ -628,10 +628,12 @@ class IssueService:
 
         # 记录分配变更
         assignee_changed_to = None
+        assignee_changed_from = None
         assignee_did_change = False
         if "assignee_id" in update_data:
             old_assignee = await self._get_issue_assignee(issue_id)
             if old_assignee != update_data["assignee_id"]:
+                assignee_changed_from = old_assignee
                 assignee_changed_to = update_data["assignee_id"]
                 assignee_did_change = True
                 # 获取用户信息对象
@@ -832,6 +834,20 @@ class IssueService:
                     issue=issue,
                     actor_user_id=user_id,
                     event={"to": assignee_changed_to},
+                )
+                # E44: dedicated outbound webhook (also keep issue.updated above)
+                await fire_webhooks(
+                    self.db,
+                    workspace_id=issue.workspace_id,
+                    event_type="issue.assignee_changed",
+                    data={
+                        "id": str(issue.id),
+                        "issueCode": issue.issue_code,
+                        "title": issue.title,
+                        "from": assignee_changed_from,
+                        "to": assignee_changed_to,
+                        "actorUserId": user_id,
+                    },
                 )
         return issue
 
