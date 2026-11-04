@@ -330,6 +330,16 @@ const customRoutes: CustomRoute[] = [
           i18nKey: 'route.workspace_custom-fields',
           order: 6
         }
+      },
+      {
+        name: 'workspace_automations',
+        path: '/workspace/automations',
+        component: 'view.workspace_automations',
+        meta: {
+          title: 'workspace_automations',
+          i18nKey: 'route.workspace_automations',
+          order: 7
+        }
       }
     ]
   }

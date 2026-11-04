@@ -20,6 +20,7 @@ export * from './initiatives';
 export * from './customers';
 export * from './insights';
 export * from './custom-fields';
+export * from './automations';
 export * from './customer-requests';
 export * from './entity-documents';
 export * from './issue-vcs';

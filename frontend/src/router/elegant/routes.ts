@@ -743,6 +743,15 @@ export const generatedRoutes: GeneratedRoute[] = [
     },
     children: [
       {
+        name: 'workspace_automations',
+        path: '/workspace/automations',
+        component: 'view.workspace_automations',
+        meta: {
+          title: 'workspace_automations',
+          i18nKey: 'route.workspace_automations'
+        }
+      },
+      {
         name: 'workspace_custom-fields',
         path: '/workspace/custom-fields',
         component: 'view.workspace_custom-fields',

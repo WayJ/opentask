@@ -259,6 +259,7 @@ const local: App.I18n.Schema = {
     workspace_members: 'Members',
     invite: 'Invite',
     workspace_labels: 'Labels',
+    'workspace_automations': 'Automations',
     'workspace_custom-fields': 'Custom Fields',
     'workspace_issue-templates': 'Issue Templates',
     workspace_cycles: 'Cycles',
