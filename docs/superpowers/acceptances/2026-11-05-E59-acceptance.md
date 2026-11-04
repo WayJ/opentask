@@ -31,7 +31,7 @@ D1–D7 / Q1a–Q6a 按 design 落地。
 ## Tip
 
 - 分支：`sprint/E59-S1`
-- tip：`62e29b4`（全文 `62e29b4605f330b96599533fc17b8c88b22a92cc`）
+- tip：`0f24e65`（全文 `0f24e65ddc87c4bfa95e53f48c3d122e836dcf47`）
 - **未 push / 未开 PR / 未开 E60**
 
 ## Receipt
