@@ -9,7 +9,9 @@ import { fetchCycles } from '@/service/api/cycles';
 import { useRouteStore } from '@/store/modules/route';
 import { useAppHotkeys } from '@/composables/use-app-hotkeys';
 import { useCommandPalette } from '@/composables/use-command-palette';
-import { buildNavActions, menusToPaletteItems } from '@/utils/command-palette';
+import { useIssueFocus } from '@/composables/use-issue-focus';
+import { useIssueFieldPickers } from '@/composables/use-issue-field-pickers';
+import { buildFocusIssueActions, buildNavActions, menusToPaletteItems } from '@/utils/command-palette';
 import {
   cyclesToPaletteItems,
   filterByNameQuery,
@@ -28,6 +30,8 @@ defineOptions({ name: 'CommandPaletteHost' });
 const router = useRouter();
 const routeStore = useRouteStore();
 const palette = useCommandPalette();
+const focus = useIssueFocus();
+const pickers = useIssueFieldPickers();
 
 useAppHotkeys();
 
@@ -45,13 +49,20 @@ watchEffect(() => {
     cycles: $t('common.commandPalette.groupCycles')
   });
 
-  const actions = buildNavActions(navigate, {
+  const navActions = buildNavActions(navigate, {
     issues: $t('common.commandPalette.navIssues'),
     createIssue: $t('common.commandPalette.navCreateIssue'),
     projects: $t('common.commandPalette.navProjects'),
     inbox: $t('common.commandPalette.navInbox'),
-    cycles: $t('common.commandPalette.navCycles')
+    cycles: $t('common.commandPalette.navCycles'),
+    labels: $t('common.commandPalette.navLabels')
   });
+  const focusActions = buildFocusIssueActions({
+    hasFocusedIssue: Boolean(focus.focusedIssueId.value),
+    openLabels: () => pickers.openLabels(),
+    title: $t('common.commandPalette.actionAddLabel')
+  });
+  const actions = [...navActions, ...focusActions];
 
   const menus = menusToPaletteItems(
     routeStore.searchMenus.map(m => ({

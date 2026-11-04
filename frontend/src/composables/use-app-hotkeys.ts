@@ -13,7 +13,7 @@ import { useIssueListViewMode } from './use-issue-list-view-mode';
  * Global app hotkeys:
  * - Meta/Ctrl+K toggles palette (allowed in inputs)
  * - Esc closes palette
- * - C / A / S / P / I (ignoreWhenEditable; blocked when palette open)
+ * - C / A / S / P / I / L (ignoreWhenEditable; blocked when palette open)
  * - Meta/Ctrl+B toggles Board↔List on /issue/list
  */
 export function useAppHotkeys() {
@@ -70,6 +70,9 @@ export function useAppHotkeys() {
         break;
       case 'priority':
         pickers.openPriority();
+        break;
+      case 'labels':
+        pickers.openLabels();
         break;
       case 'assign_me': {
         const issueId = focus.focusedIssueId.value;

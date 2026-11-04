@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  buildFocusIssueActions,
   buildNavActions,
   buildPaletteGroups,
   clampActiveIndex,
@@ -133,5 +134,20 @@ describe('buildPaletteGroups entity sections', () => {
       issues: [{ id: 'issue.1', kind: 'issue', title: 'Fix', run: () => undefined }]
     });
     expect(groups.map(g => g.id)).toEqual(['actions']);
+  });
+});
+
+describe('buildFocusIssueActions', () => {
+  it('returns empty without focus', () => {
+    expect(buildFocusIssueActions({ hasFocusedIssue: false, openLabels: () => {} })).toEqual([]);
+  });
+
+  it('returns Add label action when focused', () => {
+    const openLabels = vi.fn();
+    const items = buildFocusIssueActions({ hasFocusedIssue: true, openLabels, title: '添加标签…' });
+    expect(items).toHaveLength(1);
+    expect(items[0]?.id).toBe('action.labels');
+    items[0]?.run();
+    expect(openLabels).toHaveBeenCalled();
   });
 });

@@ -235,6 +235,18 @@ export const issueApi = {
     });
   },
 
+  /** 整体替换标签（L picker） */
+  replaceTags: (issueId: string, tagIds: number[]) => {
+    return request<{
+      rows: Api.Issue.IssueTag[];
+      total: number;
+    }>({
+      url: `/api/issues/${issueId}/tags`,
+      method: 'PUT',
+      data: { tag_ids: tagIds }
+    });
+  },
+
   /**
    * 获取时间线
    */

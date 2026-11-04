@@ -25,7 +25,14 @@ export function itemMatchesQuery(item: PaletteItem, query: string): boolean {
 
 export function buildNavActions(
   navigate: (path: string) => void,
-  titles: { issues: string; createIssue: string; projects: string; inbox: string; cycles?: string }
+  titles: {
+    issues: string;
+    createIssue: string;
+    projects: string;
+    inbox: string;
+    cycles?: string;
+    labels?: string;
+  }
 ): PaletteItem[] {
   const items: PaletteItem[] = [
     {
@@ -66,7 +73,34 @@ export function buildNavActions(
       run: () => navigate('/workspace/cycles')
     });
   }
+  if (titles.labels) {
+    items.push({
+      id: 'nav.labels',
+      kind: 'action',
+      title: titles.labels,
+      keywords: ['labels', 'label', 'tags', '标签'],
+      run: () => navigate('/workspace/labels')
+    });
+  }
   return items;
+}
+
+/** Focus-dependent issue actions (⌘K minimal label action). */
+export function buildFocusIssueActions(opts: {
+  hasFocusedIssue: boolean;
+  openLabels: () => void;
+  title?: string;
+}): PaletteItem[] {
+  if (!opts.hasFocusedIssue) return [];
+  return [
+    {
+      id: 'action.labels',
+      kind: 'action',
+      title: opts.title ?? 'Add label…',
+      keywords: ['label', 'labels', 'tag', 'tags', '标签', 'L'],
+      run: () => opts.openLabels()
+    }
+  ];
 }
 
 export function menusToPaletteItems(

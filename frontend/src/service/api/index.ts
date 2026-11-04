@@ -16,3 +16,4 @@ export * from './workspace';
 export * from './inbox';
 export * from './saved-views';
 export * from './cycles';
+export * from './tag';

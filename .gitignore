@@ -134,3 +134,4 @@ worktrees/
 opentask-todo.txt
 opentask-works.txt.superpowers/
 .smoke/
+node_modules

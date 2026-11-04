@@ -41,11 +41,14 @@ describe('resolveIssueHotkeyAction', () => {
     expect(resolveIssueHotkeyAction({ ...base, key: 'a' })).toEqual({ type: 'assignee' });
     expect(resolveIssueHotkeyAction({ ...base, key: 'p' })).toEqual({ type: 'priority' });
     expect(resolveIssueHotkeyAction({ ...base, key: 'i' })).toEqual({ type: 'assign_me' });
+    expect(resolveIssueHotkeyAction({ ...base, key: 'l' })).toEqual({ type: 'labels' });
+    expect(resolveIssueHotkeyAction({ ...base, key: 'L' })).toEqual({ type: 'labels' });
   });
 
   it('returns null for A/S/P/I without focus', () => {
     expect(resolveIssueHotkeyAction({ ...base, key: 's', hasFocusedIssue: false })).toBeNull();
     expect(resolveIssueHotkeyAction({ ...base, key: 'a', hasFocusedIssue: false })).toBeNull();
+    expect(resolveIssueHotkeyAction({ ...base, key: 'l', hasFocusedIssue: false })).toBeNull();
   });
 
   it('ignores single letters when editable or palette open', () => {

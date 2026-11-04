@@ -628,6 +628,15 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'workspace_cycles',
           i18nKey: 'route.workspace_cycles'
         }
+      },
+      {
+        name: 'workspace_labels',
+        path: '/workspace/labels',
+        component: 'view.workspace_labels',
+        meta: {
+          title: 'workspace_labels',
+          i18nKey: 'route.workspace_labels'
+        }
       }
     ]
   }

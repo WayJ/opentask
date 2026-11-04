@@ -62,6 +62,8 @@ const local: App.I18n.Schema = {
       navIssues: 'Issues',
       navCreateIssue: 'Create Issue',
       navProjects: 'Projects',
+      actionAddLabel: 'Add label…',
+      navLabels: 'Labels',
       navCycles: 'Cycles settings',
       navInbox: 'Inbox'
     }
@@ -249,6 +251,7 @@ const local: App.I18n.Schema = {
     500: 'Server Error',
     'iframe-page': 'Iframe',
     home: 'Home',
+    workspace_labels: 'Labels',
     workspace_cycles: 'Cycles',
     inbox: 'Inbox',
     dashboard: 'Dev Dashboard',

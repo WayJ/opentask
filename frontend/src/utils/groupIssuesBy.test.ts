@@ -86,8 +86,36 @@ describe('groupIssuesBy', () => {
     expect(buckets.find(b => b.key === 'in_progress')?.label).toBe('进行中');
   });
 
+  it('groups by label with multi-expand and __unlabelled__', () => {
+    const labelled = [
+      makeIssue({
+        id: '1',
+        title: 'A',
+        tags: [
+          { id: 1, name: 'bug', color: '#f00' },
+          { id: 2, name: 'urgent', color: '#0f0' }
+        ]
+      } as any),
+      makeIssue({
+        id: '2',
+        title: 'B',
+        tags: [{ id: 1, name: 'bug', color: '#f00' }]
+      } as any),
+      makeIssue({ id: '3', title: 'C' })
+    ];
+    const buckets = groupIssuesBy(labelled, 'label');
+    expect(buckets[0]?.key).toBe('__unlabelled__');
+    expect(buckets[0]?.issues.map(i => i.id)).toEqual(['3']);
+    const bug = buckets.find(b => b.key === '1');
+    expect(bug?.label).toBe('bug');
+    expect(bug?.issues.map(i => i.id).sort()).toEqual(['1', '2']);
+    const urgent = buckets.find(b => b.key === '2');
+    expect(urgent?.issues.map(i => i.id)).toEqual(['1']);
+  });
+
   it('isGroupByKey validates', () => {
     expect(isGroupByKey('priority')).toBe(true);
+    expect(isGroupByKey('label')).toBe(true);
     expect(isGroupByKey('foo')).toBe(false);
   });
 });

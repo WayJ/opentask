@@ -148,6 +148,7 @@ export namespace Api.Issue {
     assignee?: UserInfo;
     reporter?: UserInfo;
     children?: IssueChildSummary[];
+    tags?: IssueTag[];
   }
 
   /** Issue 列表查询参数 */
@@ -243,12 +244,16 @@ export namespace Api.Issue {
     user_info?: UserInfo;
   }
 
-  /** Issue 标签 */
+  /** Issue 标签（列表/详情 brief） */
   export interface IssueTag {
     id: number;
     name: string;
     color: string;
-    type: string;
+    groupId?: string | null;
+    /** @deprecated legacy shape */
+    type?: string;
+    tag_id?: number;
+    tag?: { name?: string; color?: string };
   }
 
   /** Issue 反应 */

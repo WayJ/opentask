@@ -5,7 +5,7 @@
 import { issuePriorityOptions, issueStatusOptions, issueTypeOptions } from '@/constants/issue';
 import type { Api } from '@/typings/api';
 
-export type GroupByKey = 'none' | 'status' | 'assignee' | 'priority' | 'type';
+export type GroupByKey = 'none' | 'status' | 'assignee' | 'priority' | 'type' | 'label';
 
 export interface IssueGroupBucket {
   /** 稳定桶键（assignee 未分配为 __unassigned__） */
@@ -17,6 +17,9 @@ export interface IssueGroupBucket {
 
 const UNASSIGNED_KEY = '__unassigned__';
 const UNASSIGNED_LABEL = '未分配';
+
+export const UNLABELLED_KEY = '__unlabelled__';
+const UNLABELLED_LABEL = '无标签';
 
 const STATUS_LABEL = Object.fromEntries(issueStatusOptions.map(o => [o.value, o.label]));
 const PRIORITY_LABEL = Object.fromEntries(issuePriorityOptions.map(o => [o.value, o.label]));
@@ -73,6 +76,13 @@ function orderKeys(groupBy: Exclude<GroupByKey, 'none'>, keys: string[]): string
   const preferred = preferredOrder(groupBy);
 
   if (!preferred) {
+    if (groupBy === 'label') {
+      const rest = keys.filter(k => k !== UNLABELLED_KEY).sort((a, b) => a.localeCompare(b));
+      if (keys.includes(UNLABELLED_KEY)) {
+        return [UNLABELLED_KEY, ...rest];
+      }
+      return rest;
+    }
     // assignee：未分配置顶，其余按 key 字母序
     const rest = keys.filter(k => k !== UNASSIGNED_KEY).sort((a, b) => a.localeCompare(b));
     if (keys.includes(UNASSIGNED_KEY)) {
@@ -90,12 +100,50 @@ function orderKeys(groupBy: Exclude<GroupByKey, 'none'>, keys: string[]): string
 /**
  * 将 issues 按属性分桶。`none` 返回空数组（由调用方渲染原列表）。
  */
+function issueLabels(issue: Api.Issue.Issue): Array<{ id: string | number; name: string }> {
+  const raw = (issue as Api.Issue.Issue & { tags?: Array<{ id?: number | string; name?: string }> }).tags;
+  if (!Array.isArray(raw) || raw.length === 0) return [];
+  return raw
+    .filter(t => t && ((t.id !== undefined && t.id !== null) || Boolean(t.name)))
+    .map(t => ({ id: t.id ?? t.name!, name: t.name || String(t.id) }));
+}
+
+function ensureBucket(map: Map<string, IssueGroupBucket>, key: string, label: string): IssueGroupBucket {
+  let bucket = map.get(key);
+  if (!bucket) {
+    bucket = { key, label, issues: [] };
+    map.set(key, bucket);
+  } else if (bucket.label === UNLABELLED_LABEL && label && label !== UNLABELLED_LABEL) {
+    bucket.label = label;
+  }
+  return bucket;
+}
+
+function groupByLabel(issues: Api.Issue.Issue[]): IssueGroupBucket[] {
+  const map = new Map<string, IssueGroupBucket>();
+  for (const issue of issues) {
+    const labels = issueLabels(issue);
+    if (!labels.length) {
+      ensureBucket(map, UNLABELLED_KEY, UNLABELLED_LABEL).issues.push(issue);
+    } else {
+      for (const tag of labels) {
+        ensureBucket(map, String(tag.id), tag.name).issues.push(issue);
+      }
+    }
+  }
+  return orderKeys('label', [...map.keys()]).map(k => map.get(k)!);
+}
+
 export function groupIssuesBy(issues: Api.Issue.Issue[], groupBy: GroupByKey): IssueGroupBucket[] {
   if (groupBy === 'none' || !issues?.length) {
     return [];
   }
 
   const map = new Map<string, IssueGroupBucket>();
+
+  if (groupBy === 'label') {
+    return groupByLabel(issues);
+  }
 
   for (const issue of issues) {
     const { key, label } = resolveKeyAndLabel(issue, groupBy);
@@ -118,9 +166,17 @@ export const GROUP_BY_OPTIONS: { label: string; value: GroupByKey }[] = [
   { label: '状态', value: 'status' },
   { label: '负责人', value: 'assignee' },
   { label: '优先级', value: 'priority' },
-  { label: '类型', value: 'type' }
+  { label: '类型', value: 'type' },
+  { label: '标签', value: 'label' }
 ];
 
 export function isGroupByKey(value: unknown): value is GroupByKey {
-  return value === 'none' || value === 'status' || value === 'assignee' || value === 'priority' || value === 'type';
+  return (
+    value === 'none' ||
+    value === 'status' ||
+    value === 'assignee' ||
+    value === 'priority' ||
+    value === 'type' ||
+    value === 'label'
+  );
 }

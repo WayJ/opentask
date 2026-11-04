@@ -1,6 +1,6 @@
 import { ref } from 'vue';
 
-export type IssueFieldPickerKind = 'status' | 'assignee' | 'priority' | null;
+export type IssueFieldPickerKind = 'status' | 'assignee' | 'priority' | 'labels' | null;
 
 const activePicker = ref<IssueFieldPickerKind>(null);
 
@@ -31,12 +31,17 @@ export function useIssueFieldPickers() {
     openPicker('priority');
   }
 
+  function openLabels() {
+    openPicker('labels');
+  }
+
   return {
     activePicker,
     openPicker,
     closePicker,
     openStatus,
     openAssignee,
-    openPriority
+    openPriority,
+    openLabels
   };
 }

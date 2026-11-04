@@ -25,6 +25,7 @@ import {
 } from '@/constants/issue';
 import { projectApi } from '@/service/api/project';
 import { type CycleItem, fetchCycles } from '@/service/api/cycles';
+import { type TagItem, tagApi } from '@/service/api/tag';
 import { issueApi } from '@/service/api/issue';
 import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
@@ -89,6 +90,9 @@ const addingSubIssue = ref(false);
 
 // Tags
 const tags = ref<Api.Issue.IssueTag[]>([]);
+const availableTags = ref<TagItem[]>([]);
+const showAddTag = ref(false);
+const pendingTagId = ref<number | null>(null);
 
 // Reactions
 const reactions = ref<Record<string, string[]>>({});
@@ -170,6 +174,7 @@ async function loadIssue() {
       loadTimeline(),
       loadRelations(),
       loadTags(),
+      loadAvailableTags(),
       loadReactions(),
       loadAttachments(),
       loadParentAndChildren()
@@ -498,6 +503,53 @@ async function loadTags() {
     tags.value = data || [];
   } catch {
     // Silently fail
+  }
+}
+
+function tagDisplayName(tag: Api.Issue.IssueTag) {
+  return tag.name || tag.tag?.name || String(tag.id ?? tag.tag_id ?? '');
+}
+
+function tagDisplayColor(tag: Api.Issue.IssueTag) {
+  return tag.color || tag.tag?.color || '#3b82f6';
+}
+
+function tagNumericId(tag: Api.Issue.IssueTag) {
+  return Number(tag.id ?? tag.tag_id);
+}
+
+async function loadAvailableTags() {
+  try {
+    const res = await tagApi.list();
+    availableTags.value = res.data?.rows || [];
+  } catch {
+    availableTags.value = [];
+  }
+}
+
+async function handleAddTag() {
+  if (!issueId.value || pendingTagId.value === null) return;
+  try {
+    await issueStore.addTag(issueId.value, pendingTagId.value);
+    pendingTagId.value = null;
+    showAddTag.value = false;
+    await loadTags();
+    window.$message?.success?.('标签已添加');
+  } catch (e: any) {
+    window.$message?.error?.(e?.message || '添加标签失败');
+  }
+}
+
+async function handleRemoveTag(tag: Api.Issue.IssueTag) {
+  if (!issueId.value) return;
+  const id = tagNumericId(tag);
+  if (Number.isNaN(id)) return;
+  try {
+    await issueStore.removeTag(issueId.value, id);
+    await loadTags();
+    window.$message?.success?.('标签已移除');
+  } catch (e: any) {
+    window.$message?.error?.(e?.message || '移除标签失败');
   }
 }
 
@@ -1303,12 +1355,43 @@ onMounted(() => {
             </div>
 
             <!-- Tags -->
-            <div v-if="tags.length > 0" class="sidebar-section">
-              <div class="sidebar-section-title">标签</div>
+            <div class="sidebar-section">
+              <div class="sidebar-section-title">
+                <span>标签</span>
+                <NButton text size="tiny" @click="showAddTag = !showAddTag">+ 添加</NButton>
+              </div>
               <div class="tags-list">
-                <NTag v-for="(tag, idx) in tags" :key="'tag-' + idx + '-' + tag.tag_id" size="small" :bordered="false">
-                  {{ tag.tag?.name }}
+                <NTag
+                  v-for="(tag, idx) in tags"
+                  :key="'tag-' + idx + '-' + (tag.id ?? tag.tag_id)"
+                  size="small"
+                  closable
+                  :bordered="false"
+                  :style="{ background: tagDisplayColor(tag), color: '#fff' }"
+                  @close="handleRemoveTag(tag)"
+                >
+                  {{ tagDisplayName(tag) }}
                 </NTag>
+                <NText v-if="!tags.length" depth="3" style="font-size: 12px">暂无标签</NText>
+              </div>
+              <div v-if="showAddTag" class="mt-2">
+                <NSelect
+                  v-model:value="pendingTagId"
+                  :options="availableTags.map(t => ({ label: t.name, value: t.id }))"
+                  placeholder="选择标签"
+                  size="small"
+                  filterable
+                  clearable
+                />
+                <NButton
+                  class="mt-2"
+                  size="tiny"
+                  type="primary"
+                  :disabled="pendingTagId === null"
+                  @click="handleAddTag"
+                >
+                  确认添加
+                </NButton>
               </div>
             </div>
 
@@ -1692,12 +1775,23 @@ onMounted(() => {
 }
 
 .sidebar-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   font-size: var(--font-size-xs);
   font-weight: 600;
   color: var(--color-text-secondary);
   margin-bottom: var(--space-md);
   text-transform: none;
   letter-spacing: 0;
+}
+
+.tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
 }
 
 .linked-issues {
@@ -1721,12 +1815,6 @@ onMounted(() => {
 .linked-issue:hover {
   background: var(--color-bg-hover);
   transform: translateX(4px);
-}
-
-.tags-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
 }
 
 .metadata {

@@ -15,6 +15,7 @@ export type IssueHotkeyAction =
   | { type: 'assignee' }
   | { type: 'priority' }
   | { type: 'assign_me' }
+  | { type: 'labels' }
   | { type: 'toggle_view' };
 
 export interface ResolveIssueHotkeyInput {
@@ -55,6 +56,7 @@ export function resolveIssueHotkeyAction(input: ResolveIssueHotkeyInput): IssueH
   if (key === 'a') return { type: 'assignee' };
   if (key === 'p') return { type: 'priority' };
   if (key === 'i') return { type: 'assign_me' };
+  if (key === 'l') return { type: 'labels' };
 
   return null;
 }

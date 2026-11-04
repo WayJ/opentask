@@ -62,6 +62,8 @@ const local: App.I18n.Schema = {
       navIssues: 'Issue 列表',
       navCreateIssue: '创建 Issue',
       navProjects: '项目',
+      actionAddLabel: '添加标签…',
+      navLabels: '标签 Labels',
       navCycles: 'Cycles 设置',
       navInbox: '收件箱'
     }
@@ -247,6 +249,7 @@ const local: App.I18n.Schema = {
     500: '服务器错误',
     'iframe-page': '外链页面',
     home: '首页',
+    workspace_labels: '标签 Labels',
     workspace_cycles: '冲刺 Cycles',
     inbox: '收件箱',
     dashboard: '研发效能看板',
