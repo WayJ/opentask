@@ -38,6 +38,10 @@ class WebhookUpdate(BaseModel):
     enabled: Optional[bool] = None
 
 
+class DeadLetterRetryBody(BaseModel):
+    deliveryLogIds: list[str] = Field(..., min_length=1)
+
+
 @router.get("")
 async def list_webhooks(
     ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
@@ -82,6 +86,75 @@ async def run_due_deliveries(
     require_reader(member)
     result = await WorkspaceWebhookService(session).run_due_deliveries(workspace_id=ws.id)
     return success_response(data=result, message="已执行")
+
+
+@router.get("/stats")
+async def webhook_stats(
+    window: Optional[str] = None,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    """E54: WS-level delivery stats for a time window (default 7d)."""
+    ws, member, _user = ctx
+    require_reader(member)
+    data = await WorkspaceWebhookService(session).delivery_stats(
+        workspace_id=ws.id, window=window
+    )
+    return success_response(data=data)
+
+
+@router.get("/dead-letter")
+async def list_dead_letter(
+    limit: int = 50,
+    cursor: Optional[str] = None,
+    webhook_id: Optional[str] = None,
+    event: Optional[str] = None,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    """E54: cross-hook dead-letter inbox (status=dead only)."""
+    ws, member, _user = ctx
+    require_reader(member)
+    data = await WorkspaceWebhookService(session).list_dead_letter(
+        workspace_id=ws.id,
+        limit=limit,
+        cursor=cursor,
+        webhook_id=webhook_id,
+        event=event,
+    )
+    return success_response(data=data)
+
+
+@router.post("/dead-letter/retry")
+async def bulk_retry_dead_letter(
+    body: DeadLetterRetryBody,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    """E54: bulk replay dead/failed deliveries (cap 50). Owner only."""
+    ws, member, _user = ctx
+    require_owner(member)
+    data = await WorkspaceWebhookService(session).bulk_retry_dead_letter(
+        workspace_id=ws.id,
+        delivery_log_ids=body.deliveryLogIds,
+    )
+    return success_response(data=data, message="已批量重试")
+
+
+@router.get("/{webhook_id}/stats")
+async def webhook_stats_one(
+    webhook_id: str,
+    window: Optional[str] = None,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    """E54: per-hook delivery stats."""
+    ws, member, _user = ctx
+    require_reader(member)
+    data = await WorkspaceWebhookService(session).delivery_stats(
+        workspace_id=ws.id, window=window, webhook_id=webhook_id
+    )
+    return success_response(data=data)
 
 
 @router.get("/{webhook_id}")

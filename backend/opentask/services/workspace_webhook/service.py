@@ -15,7 +15,7 @@ from urllib.parse import urlparse
 
 import httpx
 from fastapi import HTTPException, status as http_status
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opentask.models.workspace.model import WorkspaceMember
@@ -24,6 +24,16 @@ from opentask.models.workspace_webhook.model import (
     WEBHOOK_EVENTS,
     WebhookDeliveryLog,
     WorkspaceWebhook,
+)
+from opentask.services.issue_timeline_export import (
+    decode_activity_cursor,
+    encode_activity_cursor,
+)
+from opentask.services.workspace_webhook.stats import (
+    BULK_RETRY_CAP,
+    aggregate_totals,
+    parse_window,
+    window_since,
 )
 
 logger = logging.getLogger(__name__)
@@ -562,6 +572,236 @@ class WorkspaceWebhookService:
             log_row=log,
             sync_attempts=1,
         )
+
+
+    async def delivery_stats(
+        self,
+        *,
+        workspace_id: str,
+        window: Optional[str] = None,
+        webhook_id: Optional[str] = None,
+    ) -> dict[str, Any]:
+        try:
+            win = parse_window(window)
+        except ValueError:
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail="invalid_window",
+            )
+        hook: Optional[WorkspaceWebhook] = None
+        if webhook_id:
+            hook = await self._get_or_404(workspace_id, webhook_id)
+        since = window_since(win)
+        filters = [
+            WebhookDeliveryLog.workspace_id == workspace_id,
+            WebhookDeliveryLog.created_at >= since,
+        ]
+        if webhook_id:
+            filters.append(WebhookDeliveryLog.webhook_id == webhook_id)
+        stmt = select(WebhookDeliveryLog).where(*filters)
+        logs = list((await self.db.execute(stmt)).scalars().all())
+
+        def _row_dict(log: WebhookDeliveryLog) -> dict[str, Any]:
+            return {
+                "status": log.status,
+                "success": bool(log.success),
+                "latencyMs": log.latency_ms,
+                "webhookId": log.webhook_id,
+            }
+
+        totals = aggregate_totals([_row_dict(l) for l in logs])
+        out: dict[str, Any] = {"window": win, "totals": totals}
+        if webhook_id is None:
+            # group by webhook
+            by: dict[str, list[dict[str, Any]]] = {}
+            for log in logs:
+                by.setdefault(log.webhook_id, []).append(_row_dict(log))
+            hook_ids = list(by.keys())
+            name_map: dict[str, WorkspaceWebhook] = {}
+            if hook_ids:
+                hstmt = select(WorkspaceWebhook).where(
+                    WorkspaceWebhook.workspace_id == workspace_id,
+                    WorkspaceWebhook.id.in_(hook_ids),
+                )
+                for h in (await self.db.execute(hstmt)).scalars().all():
+                    name_map[h.id] = h
+            by_webhook = []
+            for hid, rows in by.items():
+                h = name_map.get(hid)
+                by_webhook.append(
+                    {
+                        "webhookId": hid,
+                        "name": h.name if h else None,
+                        "url": h.url if h else None,
+                        "totals": aggregate_totals(rows),
+                    }
+                )
+            out["byWebhook"] = by_webhook
+        else:
+            out["webhookId"] = webhook_id
+            if hook is not None:
+                out["name"] = hook.name
+                out["url"] = hook.url
+        return out
+
+    async def list_dead_letter(
+        self,
+        *,
+        workspace_id: str,
+        limit: int = 50,
+        cursor: Optional[str] = None,
+        webhook_id: Optional[str] = None,
+        event: Optional[str] = None,
+    ) -> dict[str, Any]:
+        lim = max(1, min(int(limit or 50), 100))
+        if webhook_id:
+            await self._get_or_404(workspace_id, webhook_id)
+        filters = [
+            WebhookDeliveryLog.workspace_id == workspace_id,
+            WebhookDeliveryLog.status == "dead",
+        ]
+        if webhook_id:
+            filters.append(WebhookDeliveryLog.webhook_id == webhook_id)
+        if event:
+            filters.append(WebhookDeliveryLog.event_type == event)
+        cursor_pair: Optional[tuple[datetime, str]] = None
+        if cursor:
+            try:
+                cursor_pair = decode_activity_cursor(cursor)
+            except ValueError:
+                raise HTTPException(
+                    status_code=http_status.HTTP_400_BAD_REQUEST,
+                    detail="invalid_cursor",
+                )
+            c_at, c_id = cursor_pair
+            filters.append(
+                or_(
+                    WebhookDeliveryLog.created_at < c_at,
+                    (WebhookDeliveryLog.created_at == c_at)
+                    & (WebhookDeliveryLog.id < c_id),
+                )
+            )
+        stmt = (
+            select(WebhookDeliveryLog)
+            .where(*filters)
+            .order_by(
+                WebhookDeliveryLog.created_at.desc(),
+                WebhookDeliveryLog.id.desc(),
+            )
+            .limit(lim + 1)
+        )
+        rows = list((await self.db.execute(stmt)).scalars().all())
+        next_cursor = None
+        if len(rows) > lim:
+            rows = rows[:lim]
+            last = rows[-1]
+            next_cursor = encode_activity_cursor(last.created_at, last.id)
+        # attach webhook names
+        hook_ids = list({r.webhook_id for r in rows})
+        name_map: dict[str, WorkspaceWebhook] = {}
+        if hook_ids:
+            hstmt = select(WorkspaceWebhook).where(
+                WorkspaceWebhook.workspace_id == workspace_id,
+                WorkspaceWebhook.id.in_(hook_ids),
+            )
+            for h in (await self.db.execute(hstmt)).scalars().all():
+                name_map[h.id] = h
+        payload = []
+        for r in rows:
+            item = serialize_delivery(r)
+            h = name_map.get(r.webhook_id)
+            item["webhookName"] = h.name if h else None
+            item["webhookUrl"] = h.url if h else None
+            payload.append(item)
+        return {"rows": payload, "nextCursor": next_cursor, "total": len(payload)}
+
+    async def bulk_retry_dead_letter(
+        self,
+        *,
+        workspace_id: str,
+        delivery_log_ids: list[str],
+    ) -> dict[str, Any]:
+        if not delivery_log_ids:
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail="deliveryLogIds 不能为空",
+            )
+        if len(delivery_log_ids) > BULK_RETRY_CAP:
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail="bulk_retry_cap",
+            )
+        # dedupe preserve order
+        seen: set[str] = set()
+        ordered: list[str] = []
+        for i in delivery_log_ids:
+            sid = str(i).strip()
+            if not sid or sid in seen:
+                continue
+            seen.add(sid)
+            ordered.append(sid)
+        results: list[dict[str, Any]] = []
+        succeeded = failed = 0
+        for lid in ordered:
+            stmt = select(WebhookDeliveryLog).where(
+                WebhookDeliveryLog.id == lid,
+                WebhookDeliveryLog.workspace_id == workspace_id,
+            )
+            log = (await self.db.execute(stmt)).scalar_one_or_none()
+            if not log:
+                results.append(
+                    {
+                        "deliveryLogId": lid,
+                        "ok": False,
+                        "error": "not_found",
+                    }
+                )
+                failed += 1
+                continue
+            try:
+                result = await self.retry_delivery(
+                    workspace_id=workspace_id,
+                    webhook_id=log.webhook_id,
+                    delivery_log_id=lid,
+                )
+                ok = bool(result.get("success"))
+                results.append(
+                    {
+                        "deliveryLogId": lid,
+                        "ok": ok,
+                        "result": result,
+                        **({} if ok else {"error": result.get("error") or "retry_failed"}),
+                    }
+                )
+                if ok:
+                    succeeded += 1
+                else:
+                    failed += 1
+            except HTTPException as exc:
+                results.append(
+                    {
+                        "deliveryLogId": lid,
+                        "ok": False,
+                        "error": str(exc.detail),
+                    }
+                )
+                failed += 1
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("bulk retry %s failed", lid)
+                results.append(
+                    {
+                        "deliveryLogId": lid,
+                        "ok": False,
+                        "error": str(exc)[:300],
+                    }
+                )
+                failed += 1
+        return {
+            "results": results,
+            "succeeded": succeeded,
+            "failed": failed,
+        }
+
 
     async def _get_or_404(self, workspace_id: str, webhook_id: str) -> WorkspaceWebhook:
         stmt = select(WorkspaceWebhook).where(
