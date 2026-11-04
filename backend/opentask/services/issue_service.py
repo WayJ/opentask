@@ -374,6 +374,7 @@ class IssueService:
         issue_code = await self._generate_issue_code(workspace_id)
 
         issue_data = data.model_dump()
+        issue_data.pop("template_id", None)
         await self._validate_parent_issue_id(
             issue_id=None,
             parent_issue_id=issue_data.get("parent_issue_id"),

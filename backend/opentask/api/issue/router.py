@@ -48,6 +48,7 @@ from opentask.models.issue_collection.schema import (
 )
 from opentask.models.issue.enums import RelationType
 from opentask.services.issue_service import IssueService
+from opentask.services.issue_template.service import IssueTemplateService
 from opentask.services.tag.service import (
     TagService,
     load_tags_for_issues,
@@ -216,10 +217,23 @@ async def create_issue(
     current_user: UserModel = Depends(authenticate),
     ws_ctx=Depends(get_optional_workspace_context),
 ):
-    """创建 Issue（可选 X-Workspace-Id）"""
+    """创建 Issue（可选 X-Workspace-Id；可选 template_id 合并模板 payload）"""
 
     try:
         workspace, _member, user = ws_ctx
+        # E9-S2：template_id → 合并 payload（body 非空 title 保留）
+        if data.template_id:
+            if workspace is None:
+                raise HTTPException(status_code=400, detail="使用模板需要 X-Workspace-Id")
+            tpl = await IssueTemplateService(service.db).get(
+                workspace_id=workspace.id, template_id=data.template_id
+            )
+            merged = IssueTemplateService.apply_template_defaults(
+                tpl.payload or {}, data.model_dump()
+            )
+            # drop template_id before Issue(**)
+            merged.pop("template_id", None)
+            data = IssueCreate(**merged)
         # 部门归属快照：取创建人主部门
         dept_id = await RbacService(service.db).get_primary_dept_id(user)
         issue = await service.create_issue(

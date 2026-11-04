@@ -55,7 +55,7 @@ class IssueBase(BaseModel):
 
 class IssueCreate(IssueBase):
     """创建 Issue Schema"""
-    pass
+    template_id: Optional[str] = Field(None, description="E9-S2：应用工作区 Issue 模板")
 
 
 class IssueUpdate(BaseModel):
