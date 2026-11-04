@@ -16,7 +16,8 @@ const customRoutes: CustomRoute[] = [
     meta: {
       title: 'workflow',
       i18nKey: 'route.workflow',
-      order: 1
+      icon: 'mdi:folder-multiple-outline',
+      order: 5
     },
     children: [
       {
@@ -67,7 +68,8 @@ const customRoutes: CustomRoute[] = [
     meta: {
       title: 'work-management',
       i18nKey: 'route.work-management',
-      order: 2
+      order: 90,
+      hideInMenu: true
     },
     children: [
       {
@@ -189,7 +191,8 @@ const customRoutes: CustomRoute[] = [
     meta: {
       title: 'issue',
       i18nKey: 'route.issue',
-      order: 3
+      icon: 'mdi:checkbox-marked-circle-outline',
+      order: 2
     },
     children: [
       {
@@ -270,7 +273,12 @@ export function createStaticRoutes() {
 
   const authRoutes: ElegantRoute[] = [];
 
+  // customRoutes 优先：同名时跳过 generated，避免侧栏出现重复「工作管理/流水线」
+  const seen = new Set<string>();
   [...customRoutes, ...generatedRoutes].forEach(item => {
+    const key = String(item.name);
+    if (seen.has(key)) return;
+    seen.add(key);
     if (item.meta?.constant) {
       constantRoutes.push(item);
     } else {

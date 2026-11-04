@@ -57,7 +57,8 @@ export const generatedRoutes: GeneratedRoute[] = [
       title: 'dashboard',
       i18nKey: 'route.dashboard',
       icon: 'mdi:chart-line',
-      order: 10
+      order: 10,
+      hideInMenu: true
     }
   },
   {
@@ -68,7 +69,8 @@ export const generatedRoutes: GeneratedRoute[] = [
       title: 'home',
       i18nKey: 'route.home',
       icon: 'mdi:view-dashboard-outline',
-      order: 0
+      order: 0,
+      hideInMenu: true
     }
   },
   {
@@ -92,8 +94,7 @@ export const generatedRoutes: GeneratedRoute[] = [
       title: 'inbox',
       i18nKey: 'route.inbox',
       icon: 'mdi:bell-outline',
-      order: 2.5,
-      hideInMenu: true
+      order: 1
     }
   },
   {
@@ -115,8 +116,8 @@ export const generatedRoutes: GeneratedRoute[] = [
     meta: {
       title: 'issue',
       i18nKey: 'route.issue',
-      icon: 'mdi:clipboard-text-outline',
-      order: 4
+      icon: 'mdi:checkbox-marked-circle-outline',
+      order: 2
     },
     children: [
       {
@@ -319,7 +320,8 @@ export const generatedRoutes: GeneratedRoute[] = [
       title: 'manage',
       i18nKey: 'route.manage',
       icon: 'carbon:cloud-service-management',
-      order: 9
+      order: 9,
+      hideInMenu: true
     },
     children: [
       {
@@ -438,7 +440,7 @@ export const generatedRoutes: GeneratedRoute[] = [
       title: 'initiatives',
       i18nKey: 'route.initiatives',
       icon: 'mdi:flag-variant',
-      order: 2.5
+      order: 4
     }
   },
   {
@@ -613,7 +615,7 @@ export const generatedRoutes: GeneratedRoute[] = [
       title: 'workflow',
       i18nKey: 'route.workflow',
       icon: 'mdi:folder-multiple-outline',
-      order: 1
+      order: 5
     },
     children: [
       {
@@ -665,7 +667,9 @@ export const generatedRoutes: GeneratedRoute[] = [
     component: 'layout.base',
     meta: {
       title: 'workspace',
-      i18nKey: 'route.workspace'
+      i18nKey: 'route.workspace',
+      icon: 'mdi:office-building-outline',
+      order: 3
     },
     children: [
       {
