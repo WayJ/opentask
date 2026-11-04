@@ -31,10 +31,10 @@ date: 2026-11-04
 
 ## PRD / Yuri ACs
 
-- [ ] 分支名约定；含 KEY-N / issue_code（Linear-like）
+- [x] 分支名约定；含 KEY-N / issue_code（Linear-like）
 - [ ] PR 关联到 Issue
 - [ ] 可选状态钩子（PR open/merge → issue status，可开关）
-- [ ] CLI/Agent 同契约（同一 API/约定）
+- [x] CLI/Agent 同契约（同一 API/约定）（S1 branch-name/link；S3 收口文档）
 
 ## Definition of Done
 
@@ -49,7 +49,7 @@ date: 2026-11-04
 
 | sprint | state | note |
 |---|---|---|
-| S1 | **planned** | 分支名约定：suggest/parse API + `issue_vcs_links`（至少 branch 类型）+ Issue FE「复制分支名」+ CLI 同端点 |
+| S1 ✅ | **done** | 分支名约定：suggest/parse API + `issue_vcs_links`（至少 branch 类型）+ Issue FE「复制分支名」+ CLI 同端点 |
 | S2 | **planned** | PR 关联 CRUD + GitHub-compatible webhook ingest（可 mock）更新 link 状态 + Issue 详情 PR 面板 |
 | S3 | **planned** | 可选状态钩子（WS 开关）+ 打磨 + CLI/Agent 契约验收 + Epic local-complete |
 
@@ -96,10 +96,11 @@ date: 2026-11-04
 | date | note |
 |---|---|
 | 2026-11-04 | Phase 1：roadmap + design + S1 stub；基线 E10-S3 `55ed5b7`；Yuri 四 AC 写入；无产品 impl / 无 push |
+| 2026-11-04 | **S1 local-complete**：branch-name + issue_vcs_links + FE/CLI；783 pytest；无 S2/S3/push |
 
 ## Sprint status
 
-- [ ] E11-S1 分支名约定 + link 骨架
+- [x] E11-S1 分支名约定 + link 骨架
 - [ ] E11-S2 PR 关联 + webhook ingest
 - [ ] E11-S3 可选状态钩子 + Epic DoD
 
