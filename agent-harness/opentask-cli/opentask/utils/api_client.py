@@ -951,6 +951,41 @@ class OpenTaskClient:
     async def run_due_webhook_deliveries(self) -> dict:
         return await self.post("/api/webhooks/run-due-deliveries")
 
+    async def get_webhook_stats(
+        self, *, window: str | None = None, webhook_id: str | None = None
+    ) -> dict:
+        params: dict = {}
+        if window:
+            params["window"] = window
+        if webhook_id:
+            return await self.get(f"/api/webhooks/{webhook_id}/stats", params=params or None)
+        return await self.get("/api/webhooks/stats", params=params or None)
+
+    async def list_webhook_dead_letter(
+        self,
+        *,
+        webhook_id: str | None = None,
+        event: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+    ) -> dict:
+        params: dict = {}
+        if webhook_id:
+            params["webhook_id"] = webhook_id
+        if event:
+            params["event"] = event
+        if limit is not None:
+            params["limit"] = limit
+        if cursor:
+            params["cursor"] = cursor
+        return await self.get("/api/webhooks/dead-letter", params=params or None)
+
+    async def bulk_retry_webhook_dead_letter(self, delivery_log_ids: list) -> dict:
+        return await self.post(
+            "/api/webhooks/dead-letter/retry",
+            data={"deliveryLogIds": list(delivery_log_ids)},
+        )
+
 
     # ========================================================================
     # Issue Forms (E31)
