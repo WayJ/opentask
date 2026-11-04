@@ -9,6 +9,12 @@ import {
   INTEGRATION_PRESET_EVENTS,
   isDeliveryReplayable,
   normalizeStatsPayload,
+  mergeAlertSettings,
+  normalizeAlertSettings,
+  isMutedUntil,
+  isAlertPending,
+  isAutoDisabledWebhook,
+  DEFAULT_ALERT_SETTINGS,
   parseWebhookEvents,
   STAT_WINDOWS,
   WEBHOOK_EVENTS,
@@ -184,3 +190,44 @@ describe('E54 webhook observability helpers', () => {
   });
 });
 
+
+
+describe('E57 alert settings helpers', () => {
+  it('normalize defaults opt-in off', () => {
+    const n = normalizeAlertSettings(null);
+    expect(n.enabled).toBe(false);
+    expect(n.windowHours).toBe(24);
+    expect(n).toMatchObject(DEFAULT_ALERT_SETTINGS);
+  });
+
+  it('merge inherits and overlays fields', () => {
+    const ws = normalizeAlertSettings({ enabled: true, deadThreshold: 10 });
+    const m = mergeAlertSettings(ws, { deadThreshold: 3 });
+    expect(m.enabled).toBe(true);
+    expect(m.deadThreshold).toBe(3);
+    expect(m.windowHours).toBe(24);
+    const inherit = mergeAlertSettings(ws, null);
+    expect(inherit.deadThreshold).toBe(10);
+    const empty = mergeAlertSettings(ws, {});
+    expect(empty.deadThreshold).toBe(10);
+  });
+
+  it('mute suppresses pending alert state', () => {
+    const now = new Date('2026-11-05T12:00:00Z');
+    expect(isMutedUntil(new Date(now.getTime() + 3600_000).toISOString(), now)).toBe(true);
+    expect(isMutedUntil(new Date(now.getTime() - 3600_000).toISOString(), now)).toBe(false);
+    const muted = normalizeAlertSettings({
+      enabled: true,
+      muteUntil: new Date(now.getTime() + 3600_000).toISOString()
+    });
+    expect(isAlertPending(muted, now)).toBe(false);
+    expect(isAlertPending(normalizeAlertSettings({ enabled: true, muteUntil: null }), now)).toBe(true);
+    expect(isAlertPending(normalizeAlertSettings({ enabled: false }), now)).toBe(false);
+  });
+
+  it('auto-disabled badge helper', () => {
+    expect(isAutoDisabledWebhook({ enabled: false, pausedReason: 'auto_dead_letter_alert' })).toBe(true);
+    expect(isAutoDisabledWebhook({ enabled: true, pausedReason: 'auto_dead_letter_alert' })).toBe(false);
+    expect(isAutoDisabledWebhook({ enabled: false, pausedReason: null })).toBe(false);
+  });
+});

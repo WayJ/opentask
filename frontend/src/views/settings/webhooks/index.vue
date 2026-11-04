@@ -8,6 +8,7 @@ import {
   NCheckboxGroup,
   NDataTable,
   NInput,
+  NInputNumber,
   NModal,
   NRadioButton,
   NRadioGroup,
@@ -20,9 +21,11 @@ import {
 import {
   type DeadLetterRow,
   type StatWindow,
+  type WebhookAlertSettings,
   type WebhookDelivery,
   type WebhookRow,
   type WebhookStatsPayload,
+  DEFAULT_ALERT_SETTINGS,
   DEFAULT_STAT_WINDOW,
   STAT_WINDOWS,
   WEBHOOK_EVENTS,
@@ -33,16 +36,23 @@ import {
   fetchCreateWebhook,
   fetchDeadLetter,
   fetchDeleteWebhook,
+  fetchMuteWebhookAlerts,
   fetchRetryWebhookDelivery,
+  fetchSetWebhookAlertSettings,
   fetchTestWebhook,
+  fetchUnmuteWebhookAlerts,
   fetchUpdateWebhook,
   fetchWebhook,
+  fetchWebhookAlertSettings,
   fetchWebhookStats,
   fetchWebhooks,
   filterDeadLetterRows,
   filterDeliveriesByEvent,
   formatSuccessRate,
+  isAlertPending,
+  isAutoDisabledWebhook,
   isDeliveryReplayable,
+  normalizeAlertSettings,
   normalizeStatsPayload
 } from '@/service/api/webhooks';
 
@@ -75,6 +85,86 @@ const deadHookFilter = ref<string>('all');
 const deadEventFilter = ref<string>('all');
 const deadSelected = ref<string[]>([]);
 const bulkRetrying = ref(false);
+
+/** E57 alert settings */
+const alertOpen = ref(false);
+const alertSaving = ref(false);
+const alertForm = reactive({ ...DEFAULT_ALERT_SETTINGS } as WebhookAlertSettings);
+const muteUntilInput = ref('');
+const alertPendingLabel = computed(() =>
+  isAlertPending(normalizeAlertSettings(alertForm)) ? '告警开启中' : '已关闭或静音'
+);
+
+async function loadAlertSettings() {
+  const { data, error } = await fetchWebhookAlertSettings();
+  if (error) {
+    window.$message?.error?.(error.message || '告警设置加载失败');
+    return;
+  }
+  const s = normalizeAlertSettings(data?.settings || data?.effective);
+  Object.assign(alertForm, s);
+  muteUntilInput.value = s.muteUntil || '';
+}
+
+async function saveAlertSettings() {
+  alertSaving.value = true;
+  try {
+    const { error } = await fetchSetWebhookAlertSettings({
+      settings: {
+        enabled: alertForm.enabled,
+        windowHours: Number(alertForm.windowHours) || 24,
+        deadThreshold: Number(alertForm.deadThreshold) || 10,
+        consecutiveDeadThreshold: alertForm.consecutiveDeadThreshold,
+        autoDisable: alertForm.autoDisable,
+        muteUntil: muteUntilInput.value || null
+      }
+    });
+    if (error) {
+      window.$message?.error?.(error.message || '保存失败');
+      return;
+    }
+    window.$message?.success?.('告警设置已保存');
+    await loadAlertSettings();
+  } finally {
+    alertSaving.value = false;
+  }
+}
+
+async function muteAlertsNow() {
+  const until = muteUntilInput.value.trim();
+  if (!until) {
+    window.$message?.warning?.('请填写 muteUntil（ISO）');
+    return;
+  }
+  const { error } = await fetchMuteWebhookAlerts(until);
+  if (error) {
+    window.$message?.error?.(error.message || '静音失败');
+    return;
+  }
+  window.$message?.success?.('已静音');
+  await loadAlertSettings();
+}
+
+async function unmuteAlertsNow() {
+  const { error } = await fetchUnmuteWebhookAlerts();
+  if (error) {
+    window.$message?.error?.(error.message || '取消静音失败');
+    return;
+  }
+  window.$message?.success?.('已取消静音');
+  await loadAlertSettings();
+}
+
+async function reenableAutoDisabled(webhookId: string) {
+  const { error } = await fetchUpdateWebhook(webhookId, { enabled: true });
+  if (error) {
+    window.$message?.error?.(error.message || '启用失败');
+    return;
+  }
+  window.$message?.success?.('已重新启用');
+  await load();
+  if (deadOpen.value) await loadDeadLetter();
+}
 
 const windowOptions = STAT_WINDOWS.map(w => ({ label: w, value: w }));
 
@@ -154,12 +244,19 @@ const columns: DataTableColumns<WebhookRow> = [
   {
     title: '启用',
     key: 'enabled',
-    width: 90,
+    width: 140,
     render: row =>
-      h(NSwitch, {
-        value: row.enabled,
-        size: 'small',
-        onUpdateValue: (v: boolean) => toggle(row, v)
+      h(NSpace, { size: 4, align: 'center' }, {
+        default: () => [
+          h(NSwitch, {
+            value: row.enabled,
+            size: 'small',
+            onUpdateValue: (v: boolean) => toggle(row, v)
+          }),
+          isAutoDisabledWebhook(row)
+            ? h(NTag, { size: 'tiny', type: 'warning', bordered: false }, { default: () => '已自动停用' })
+            : null
+        ]
       })
   },
   {
@@ -279,6 +376,7 @@ async function load() {
     loading.value = false;
   }
   await loadStats();
+  await loadAlertSettings();
 }
 
 async function onWindowChange(w: StatWindow) {
@@ -482,20 +580,44 @@ const deadColumns: DataTableColumns<DeadLetterRow> = [
     render: row => (row.createdAt || '').replace('T', ' ').slice(0, 19) || '—'
   },
   {
+    title: '状态',
+    key: 'autoDisabled',
+    width: 110,
+    render: row =>
+      row.autoDisabled || row.pausedReason === 'auto_dead_letter_alert'
+        ? h(NTag, { size: 'tiny', type: 'warning', bordered: false }, { default: () => '已自动停用' })
+        : '—'
+  },
+  {
     title: '操作',
     key: 'actions',
-    width: 90,
+    width: 150,
     render: row =>
-      h(
-        NButton,
-        {
-          size: 'tiny',
-          type: 'primary',
-          tertiary: true,
-          onClick: () => retryDeadOne(row)
-        },
-        { default: () => '重试' }
-      )
+      h(NSpace, { size: 4 }, {
+        default: () => [
+          h(
+            NButton,
+            {
+              size: 'tiny',
+              type: 'primary',
+              tertiary: true,
+              onClick: () => retryDeadOne(row)
+            },
+            { default: () => '重试' }
+          ),
+          row.autoDisabled || row.pausedReason === 'auto_dead_letter_alert'
+            ? h(
+                NButton,
+                {
+                  size: 'tiny',
+                  tertiary: true,
+                  onClick: () => reenableAutoDisabled(row.webhookId)
+                },
+                { default: () => '启用' }
+              )
+            : null
+        ]
+      })
   }
 ];
 
@@ -550,6 +672,50 @@ onMounted(load);
             </div>
           </NSpace>
         </NSpace>
+      </NCard>
+
+      <NCard size="small" class="mb-4">
+        <template #header>
+          <NSpace align="center" justify="space-between" style="width:100%">
+            <span style="font-weight:500;cursor:pointer" @click="alertOpen = !alertOpen">死信告警</span>
+            <NText depth="3" style="font-size:12px">{{ alertPendingLabel }}</NText>
+          </NSpace>
+        </template>
+        <div v-show="alertOpen">
+          <NSpace vertical>
+            <NSpace align="center">
+              <NText>总开关（opt-in）</NText>
+              <NSwitch v-model:value="alertForm.enabled" size="small" />
+              <NText depth="3">关闭时永不告警</NText>
+            </NSpace>
+            <NSpace align="center">
+              <NText>窗口小时</NText>
+              <NInputNumber v-model:value="alertForm.windowHours" :min="1" :max="168" size="small" style="width:120px" />
+              <NText>死信阈值</NText>
+              <NInputNumber v-model:value="alertForm.deadThreshold" :min="1" size="small" style="width:120px" />
+            </NSpace>
+            <NSpace align="center">
+              <NText>连续死信阈值（可选）</NText>
+              <NInputNumber
+                v-model:value="alertForm.consecutiveDeadThreshold"
+                :min="1"
+                clearable
+                size="small"
+                style="width:120px"
+                placeholder="关闭"
+              />
+              <NText>硬顶自动停用</NText>
+              <NSwitch v-model:value="alertForm.autoDisable" size="small" />
+            </NSpace>
+            <NSpace align="center">
+              <NText>muteUntil</NText>
+              <NInput v-model:value="muteUntilInput" placeholder="ISO 时间，可空" size="small" style="width:280px" />
+              <NButton size="small" tertiary @click="muteAlertsNow">静音</NButton>
+              <NButton size="small" tertiary @click="unmuteAlertsNow">取消静音</NButton>
+            </NSpace>
+            <NButton type="primary" size="small" :loading="alertSaving" @click="saveAlertSettings">保存告警设置</NButton>
+          </NSpace>
+        </div>
       </NCard>
 
       <NCard size="small" title="新建" class="mb-4">

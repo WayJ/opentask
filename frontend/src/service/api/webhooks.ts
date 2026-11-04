@@ -90,6 +90,8 @@ export interface WebhookRow {
   url: string;
   events: string[];
   enabled: boolean;
+  alertSettings?: WebhookAlertSettings | null;
+  pausedReason?: string | null;
   createdBy?: string | null;
   secretHint?: string;
   secret?: string;
@@ -134,6 +136,8 @@ export function fetchUpdateWebhook(
     name: string | null;
     setName: boolean;
     enabled: boolean;
+    alertSettings: WebhookAlertSettings | null;
+    setAlertSettings: boolean;
   }>
 ) {
   return request<WebhookRow>({ url: `/api/webhooks/${id}`, method: 'patch', data: body });
@@ -216,6 +220,8 @@ export interface WebhookStatsPayload {
 export interface DeadLetterRow extends WebhookDelivery {
   webhookName?: string | null;
   webhookUrl?: string | null;
+  pausedReason?: string | null;
+  autoDisabled?: boolean;
 }
 
 export interface DeadLetterListResult {
@@ -343,5 +349,148 @@ export function fetchBulkRetryDeadLetter(deliveryLogIds: string[]) {
     url: '/api/webhooks/dead-letter/retry',
     method: 'post',
     data: { deliveryLogIds }
+  });
+}
+
+
+/** E57 dead-letter alert settings */
+export interface WebhookAlertSettings {
+  enabled: boolean;
+  windowHours: number;
+  deadThreshold: number;
+  consecutiveDeadThreshold?: number | null;
+  autoDisable: boolean;
+  muteUntil?: string | null;
+}
+
+export const DEFAULT_ALERT_SETTINGS: WebhookAlertSettings = {
+  enabled: false,
+  windowHours: 24,
+  deadThreshold: 10,
+  consecutiveDeadThreshold: null,
+  autoDisable: false,
+  muteUntil: null
+};
+
+export function normalizeAlertSettings(raw: unknown): WebhookAlertSettings {
+  const r = (raw || {}) as Record<string, unknown>;
+  const consec = r.consecutiveDeadThreshold;
+  return {
+    enabled: Boolean(r.enabled ?? DEFAULT_ALERT_SETTINGS.enabled),
+    windowHours: Number(r.windowHours ?? DEFAULT_ALERT_SETTINGS.windowHours) || 24,
+    deadThreshold: Number(r.deadThreshold ?? DEFAULT_ALERT_SETTINGS.deadThreshold) || 10,
+    consecutiveDeadThreshold:
+      consec === null || consec === undefined || consec === ''
+        ? null
+        : Number(consec),
+    autoDisable: Boolean(r.autoDisable ?? false),
+    muteUntil: (r.muteUntil as string | null | undefined) ?? null
+  };
+}
+
+/** Field-level merge: null/undefined overlay → inherit WS (E56 calendar style). */
+export function mergeAlertSettings(
+  ws: unknown,
+  overlay: unknown
+): WebhookAlertSettings {
+  const base = normalizeAlertSettings(ws);
+  if (overlay == null || (typeof overlay === 'object' && overlay !== null && Object.keys(overlay as object).length === 0)) {
+    return base;
+  }
+  const o = overlay as Record<string, unknown>;
+  const out: WebhookAlertSettings = { ...base };
+  if ('enabled' in o && o.enabled !== undefined) out.enabled = Boolean(o.enabled);
+  if ('windowHours' in o && o.windowHours != null) out.windowHours = Number(o.windowHours) || base.windowHours;
+  if ('deadThreshold' in o && o.deadThreshold != null) out.deadThreshold = Number(o.deadThreshold) || base.deadThreshold;
+  if ('consecutiveDeadThreshold' in o) {
+    out.consecutiveDeadThreshold =
+      o.consecutiveDeadThreshold === null || o.consecutiveDeadThreshold === undefined
+        ? null
+        : Number(o.consecutiveDeadThreshold);
+  }
+  if ('autoDisable' in o && o.autoDisable !== undefined) out.autoDisable = Boolean(o.autoDisable);
+  if ('muteUntil' in o) out.muteUntil = (o.muteUntil as string | null | undefined) ?? null;
+  return out;
+}
+
+export function isMutedUntil(muteUntil: string | null | undefined, now: Date = new Date()): boolean {
+  if (!muteUntil) return false;
+  const t = Date.parse(muteUntil);
+  if (Number.isNaN(t)) return false;
+  return t > now.getTime();
+}
+
+/** True when master on, not muted, and would show "pending alert" affordance. */
+export function isAlertPending(
+  effective: WebhookAlertSettings,
+  now: Date = new Date()
+): boolean {
+  if (!effective.enabled) return false;
+  if (isMutedUntil(effective.muteUntil, now)) return false;
+  return true;
+}
+
+export function isAutoDisabledWebhook(row: { enabled?: boolean; pausedReason?: string | null }): boolean {
+  return row.enabled === false && row.pausedReason === 'auto_dead_letter_alert';
+}
+
+export interface AlertSettingsPayload {
+  workspaceId: string;
+  settings: WebhookAlertSettings;
+  webhookId?: string | null;
+  overlay?: WebhookAlertSettings | null;
+  effective: WebhookAlertSettings;
+}
+
+export function normalizeAlertSettingsPayload(raw: unknown): AlertSettingsPayload {
+  const r = (raw || {}) as Record<string, unknown>;
+  return {
+    workspaceId: String(r.workspaceId || ''),
+    settings: normalizeAlertSettings(r.settings),
+    webhookId: (r.webhookId as string | null | undefined) ?? null,
+    overlay: r.overlay == null ? null : normalizeAlertSettings(r.overlay),
+    effective: normalizeAlertSettings(r.effective ?? r.settings)
+  };
+}
+
+export function fetchWebhookAlertSettings(webhookId?: string) {
+  return request<AlertSettingsPayload>({
+    url: '/api/webhooks/alerts',
+    method: 'get',
+    params: webhookId ? { webhook_id: webhookId } : undefined
+  });
+}
+
+export function fetchSetWebhookAlertSettings(body: {
+  settings: Partial<WebhookAlertSettings>;
+  webhookId?: string;
+}) {
+  return request<AlertSettingsPayload>({
+    url: '/api/webhooks/alerts',
+    method: 'patch',
+    data: body
+  });
+}
+
+export function fetchMuteWebhookAlerts(until: string, webhookId?: string) {
+  return request<AlertSettingsPayload>({
+    url: '/api/webhooks/alerts/mute',
+    method: 'post',
+    data: { until, webhookId }
+  });
+}
+
+export function fetchUnmuteWebhookAlerts(webhookId?: string) {
+  return request<AlertSettingsPayload>({
+    url: '/api/webhooks/alerts/unmute',
+    method: 'post',
+    params: webhookId ? { webhook_id: webhookId } : undefined
+  });
+}
+
+export function fetchRunWebhookAlertEval() {
+  return request<Record<string, unknown>>({
+    url: '/api/webhooks/run-alert-eval',
+    method: 'post'
   });
 }

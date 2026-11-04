@@ -32,6 +32,7 @@ export interface NotifPrefs {
   automation_comment: boolean;
   due_reminder: boolean;
   sla_breached: boolean;
+  webhook_delivery_alert: boolean;
   due_reminder_digest: boolean;
   email_enabled: boolean;
   email_configured: boolean;
@@ -46,7 +47,8 @@ export const NOTIF_PREF_LABELS: Record<NotifPrefKey, string> = {
   issue_watch_event: '关注更新',
   automation_comment: '自动化评论',
   due_reminder: '到期提醒',
-  sla_breached: 'SLA 违约'
+  sla_breached: 'SLA 违约',
+  webhook_delivery_alert: 'Webhook 死信告警'
 };
 
 export function fetchNotifPrefs() {
