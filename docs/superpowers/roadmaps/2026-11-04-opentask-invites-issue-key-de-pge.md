@@ -39,7 +39,7 @@ date: 2026-11-04
 | sprint | state | note |
 |---|---|---|
 | S1 | **closed**（local） | KEY-N + dual-parse + FE/CLI + alembic `b8c9d0e1f2a4`；acceptance `2026-11-04-E12-S1-acceptance.md`；未推远程 |
-| S2 | planned | Invites API + accept/register 落地 + 成员管理 UI（改角色/移除/离开）+ 保留 `add_member(userId)` |
+| S2 | local-complete | Invites API + accept/register 落地 + 成员管理 UI（改角色/移除/离开）+ 保留 `add_member(userId)` |
 | S3 | planned | 去 PGE 导航/默认/deprecated 标记 + CodingWorker/Agent 文案 + 打磨 + Epic local-complete |
 
 推荐顺序理由：单号是列表/⌘K/CLI/外链的展示真相源，先固化（S1）避免邀请/文案仍引用 `ISSUE2026-*`；邀请与成员 UI 依赖稳定工作区设置面（S2）；去 PGE 是横切入口清理，放最后与整包验收同频（S3），避免 S1/S2 测试夹具被导航大改打断。
@@ -103,3 +103,4 @@ date: 2026-11-04
 |---|---|
 | 2026-11-04 | Phase 1：explore + roadmap + design + S1 stub；worktree `E12-S1` @ `9fef926`；**无**产品实现、**无**推远程 |
 | 2026-11-04 | E12-S1 local-complete：plan+TDD+impl+acceptance；pytest 708；未开 S2；未推远程 |
+| 2026-11-04 | E12-S2 local-complete：invites+members UI；pytest 721；未开 S3；未推远程 |
