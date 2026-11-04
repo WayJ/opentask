@@ -5,7 +5,7 @@
 **pass** — S1 范围交付：`workspaces.issue_key`/`issue_counter`（平台 UNIQUE）+ Alembic `b8c9d0e1f2a4`（revises `a7b8c9d0e1f3`）存量回填 + `issues.legacy_issue_code`；新建 Issue 分配 `KEY-N`；改 `issueKey` 仅影响新单；`get_issue(by_code)` 双解析（code∨legacy）并在带 `X-Workspace-Id` 时按 workspace 过滤；列表 search 含 code/legacy；Workspace API/FE 设置读写 `issueKey`；CLI/`looksLikeIssueCode` 认 KEY-N；Jira key 编解码在 **不改写** legacy 年号公式前提下增加 KEY-N 独立号段双读（避免全量门禁被污染 KEY-N 行打爆）。**未**做 invites / 成员 UI / SMTP / 去 PGE。未推远程。
 
 **Fingerprint (impl tip):** `bad406b53512d1509ad812d1b846125dcb5d206f`
-**Branch tip:** `bad406b53512d1509ad812d1b846125dcb5d206f`
+**Branch tip:** `77ab2d53b88a711075e30e91ff668acec086807b`
 **Branch:** `sprint/E12-S1`
 **Worktree:** `/workspace/opentask-worktrees/E12-S1`
 **Plan:** `docs/superpowers/plans/2026-11-04-e12-s1-issue-key.md` @ `c46e9ba86972b9a6a10ac7d4e30ce1902c699ea4`
