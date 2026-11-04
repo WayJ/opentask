@@ -11,6 +11,8 @@
 export interface CustomFieldFilter {
   key: string;
   value: string;
+  /** E46：缺省 eq；range 仅 number/date */
+  op?: 'eq' | 'gt' | 'gte' | 'lt' | 'lte';
 }
 
 export interface ParsedQuery {
@@ -212,15 +214,25 @@ export function buildQueryFromTokens(tokens: SearchToken[]): ParsedQuery {
 
         case 'field':
         case 'cf': {
-          // field:key:value — token.value is "key:value..." (\S+ keeps colons)
+          // E32: cf:key:value · E46: cf:key>=8 / cf:key>5 / cf:key<=1 / cf:key<9
           const raw = token.value;
-          const colon = raw.indexOf(':');
-          if (colon <= 0) break;
-          const key = raw.slice(0, colon).trim().toLowerCase();
-          const value = raw.slice(colon + 1);
+          const opMatch = raw.match(/^([a-z][a-z0-9_-]{0,63})(>=|<=|>|<|=|:)(.*)$/i);
+          if (!opMatch) break;
+          const key = opMatch[1].trim().toLowerCase();
+          const sym = opMatch[2];
+          const value = opMatch[3];
           if (!key) break;
+          const opMap: Record<string, 'eq' | 'gt' | 'gte' | 'lt' | 'lte'> = {
+            ':': 'eq',
+            '=': 'eq',
+            '>': 'gt',
+            '>=': 'gte',
+            '<': 'lt',
+            '<=': 'lte'
+          };
+          const op = opMap[sym] || 'eq';
           if (!query.custom_fields) query.custom_fields = [];
-          query.custom_fields.push({ key, value });
+          query.custom_fields.push(op === 'eq' ? { key, value } : { key, value, op });
           break;
         }
 
@@ -261,7 +273,11 @@ export function parsedQueryToFilters(query: ParsedQuery): SmartSearchListFilters
     cycle_id: query.cycle_id,
     labels: query.labels?.length ? [...query.labels] : undefined,
     custom_fields: query.custom_fields?.length
-      ? query.custom_fields.map(f => ({ key: f.key, value: f.value }))
+      ? query.custom_fields.map(f =>
+          f.op && f.op !== 'eq'
+            ? { key: f.key, value: f.value, op: f.op }
+            : { key: f.key, value: f.value }
+        )
       : undefined
   };
 }
@@ -274,7 +290,9 @@ export function customFieldsToCfParams(
   if (!filters?.length) return out;
   for (const f of filters) {
     if (!f?.key) continue;
-    out[`cf.${f.key}`] = f.value ?? '';
+    const op = f.op && f.op !== 'eq' ? f.op : null;
+    const name = op ? `cf.${f.key}[${op}]` : `cf.${f.key}`;
+    out[name] = f.value ?? '';
   }
   return out;
 }
@@ -298,7 +316,8 @@ export function generateSearchSuggestions(): string[] {
     'cycle:__none__ - 无 Cycle',
     'project:<id> - 按项目过滤',
     'field:severity:s1 - 自定义字段过滤（cf:key:value 亦可）',
-    'field:score:10 - 公式字段按计算值等值过滤（只读）'
+    'field:score:10 - 公式字段按计算值等值过滤（只读）',
+    'cf:score>=8 - 公式/数字字段 range 过滤（E46）'
   ];
 }
 

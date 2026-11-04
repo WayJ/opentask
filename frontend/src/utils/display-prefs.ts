@@ -18,6 +18,17 @@ export type DisplayFieldKey =
 
 export type IssueDisplayFields = Record<DisplayFieldKey, boolean>;
 
+export type ConditionalTint = 'danger' | 'warning' | 'success' | 'info' | 'neutral';
+export type ConditionalOp = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte';
+export type ConditionalTarget = 'row' | 'cell';
+
+export interface ConditionalFormatRule {
+  id: string;
+  when: { field: string; op: ConditionalOp; value: unknown };
+  style: { rowTint: ConditionalTint };
+  target: ConditionalTarget;
+}
+
 export interface IssueDisplayState {
   viewMode: 'list' | 'board';
   groupBy: GroupByKey;
@@ -26,6 +37,8 @@ export interface IssueDisplayState {
   fields: IssueDisplayFields;
   /** E32：要在列表显示的自定义字段 key（有序） */
   customFieldKeys: string[];
+  /** E46：条件格式（≤10；客户端求值） */
+  conditionalFormats: ConditionalFormatRule[];
 }
 
 export const DISPLAY_FIELD_KEYS: DisplayFieldKey[] = [
@@ -80,6 +93,43 @@ function isSwimlaneBy(value: unknown): value is SwimlaneBy {
   return isSystemSwimlaneBy(value) || isCfDim(value);
 }
 
+const TINTS = new Set(['danger', 'warning', 'success', 'info', 'neutral']);
+const CFMT_OPS = new Set(['eq', 'neq', 'gt', 'gte', 'lt', 'lte']);
+const CFMT_TARGETS = new Set(['row', 'cell']);
+const CFMT_FIELD_RE = /^(?:cf:[a-z][a-z0-9_-]{0,63}|priority|status|due_date|estimate_points)$/;
+const CFMT_MAX = 10;
+
+function normalizeConditionalFormats(raw: unknown): ConditionalFormatRule[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ConditionalFormatRule[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const obj = item as Record<string, unknown>;
+    const when = obj.when;
+    const style = obj.style;
+    if (!when || typeof when !== 'object' || !style || typeof style !== 'object') continue;
+    const w = when as Record<string, unknown>;
+    const s = style as Record<string, unknown>;
+    const field = String(w.field || '').trim();
+    if (!CFMT_FIELD_RE.test(field)) continue;
+    const op = String(w.op || '').trim().toLowerCase();
+    if (!CFMT_OPS.has(op)) continue;
+    const tint = String(s.rowTint || s.row_tint || '').trim().toLowerCase();
+    if (!TINTS.has(tint)) continue;
+    const target = String(obj.target || 'row').trim().toLowerCase();
+    if (!CFMT_TARGETS.has(target)) continue;
+    const id = String(obj.id || '').trim() || `cfmt_${out.length + 1}`;
+    out.push({
+      id,
+      when: { field, op: op as ConditionalOp, value: w.value },
+      style: { rowTint: tint as ConditionalTint },
+      target: target as ConditionalTarget
+    });
+    if (out.length >= CFMT_MAX) break;
+  }
+  return out;
+}
+
 export function defaultIssueDisplay(): IssueDisplayState {
   return {
     viewMode: 'list',
@@ -87,7 +137,8 @@ export function defaultIssueDisplay(): IssueDisplayState {
     swimlaneBy: 'none',
     hideEmptyLanes: false,
     fields: { ...DEFAULT_FIELDS },
-    customFieldKeys: []
+    customFieldKeys: [],
+    conditionalFormats: []
   };
 }
 
@@ -123,6 +174,9 @@ export function normalizeIssueDisplay(raw: unknown): IssueDisplayState {
       .map(k => String(k || '').trim().toLowerCase())
       .filter(Boolean);
   }
+  out.conditionalFormats = normalizeConditionalFormats(
+    obj.conditional_formats ?? obj.conditionalFormats
+  );
 
   // 选中 cf:<key> 时并入 custom_field_keys（去重）
   for (const dim of [out.groupBy, out.swimlaneBy]) {
@@ -141,8 +195,59 @@ export function displayStateToJson(state: IssueDisplayState): Record<string, unk
     swimlane_by: state.swimlaneBy,
     hide_empty_lanes: state.hideEmptyLanes,
     fields: { ...state.fields },
-    custom_field_keys: [...(state.customFieldKeys || [])]
+    custom_field_keys: [...(state.customFieldKeys || [])],
+    conditional_formats: [...(state.conditionalFormats || [])]
   };
+}
+
+/** E46：按数组序先匹配先生效；返回 row tint 或 null */
+export function resolveRowTint(
+  issue: Record<string, unknown>,
+  rules: ConditionalFormatRule[] | undefined | null
+): ConditionalTint | null {
+  if (!rules || !rules.length) return null;
+  for (const rule of rules) {
+    if (rule.target !== 'row') continue;
+    if (matchConditionalWhen(issue, rule.when)) return rule.style.rowTint;
+  }
+  return null;
+}
+
+export function matchConditionalWhen(
+  issue: Record<string, unknown>,
+  when: { field: string; op: ConditionalOp; value: unknown }
+): boolean {
+  const actual = readIssueField(issue, when.field);
+  if (actual === null || actual === undefined) return false;
+  const op = when.op;
+  const expected = when.value;
+  if (op === 'eq') return actual == expected || String(actual) === String(expected);
+  if (op === 'neq') return actual != expected && String(actual) !== String(expected);
+  const aNum = Number(actual);
+  const bNum = Number(expected);
+  const numeric = !Number.isNaN(aNum) && !Number.isNaN(bNum);
+  const aCmp: string | number = numeric ? aNum : String(actual);
+  const bCmp: string | number = numeric ? bNum : String(expected);
+  if (op === 'gt') return aCmp > bCmp;
+  if (op === 'gte') return aCmp >= bCmp;
+  if (op === 'lt') return aCmp < bCmp;
+  if (op === 'lte') return aCmp <= bCmp;
+  return false;
+}
+
+function readIssueField(issue: Record<string, unknown>, field: string): unknown {
+  if (field.startsWith('cf:')) {
+    const key = field.slice(3);
+    const list = (issue.customFields || issue.custom_fields || []) as Array<Record<string, unknown>>;
+    if (Array.isArray(list)) {
+      const hit = list.find(x => String(x.key || '') === key);
+      if (hit && !hit.error) return hit.value;
+    }
+    return null;
+  }
+  if (field === 'estimate_points') return issue.estimatePoints ?? issue.estimate_points;
+  if (field === 'due_date') return issue.dueDate ?? issue.due_date;
+  return issue[field];
 }
 
 export function formatCustomFieldCellValue(value: unknown): string {

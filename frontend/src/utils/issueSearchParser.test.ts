@@ -60,3 +60,12 @@ describe('parseSearchString E32 custom fields', () => {
     expect(customFieldsToCfParams(f.custom_fields)).toEqual({ 'cf.severity': 's1' });
   });
 });
+
+
+describe('E46 SmartSearch range ops', () => {
+  it('parses cf:score>=8', () => {
+    const q = parseSearchString('cf:score>=8');
+    expect(q.custom_fields).toEqual([{ key: 'score', value: '8', op: 'gte' }]);
+    expect(customFieldsToCfParams(q.custom_fields)).toEqual({ 'cf.score[gte]': '8' });
+  });
+});

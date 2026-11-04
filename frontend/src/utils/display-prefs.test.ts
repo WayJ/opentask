@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultIssueDisplay, displayStateToJson, normalizeIssueDisplay } from './display-prefs';
+import { defaultIssueDisplay, displayStateToJson, normalizeIssueDisplay, resolveRowTint } from './display-prefs';
 
 describe('normalizeIssueDisplay', () => {
   it('returns defaults for null/invalid', () => {
@@ -75,5 +75,48 @@ describe('E37 cf: swimlane/groupBy normalize', () => {
     });
     expect(d.swimlaneBy).toBe('none');
     expect(d.groupBy).toBe('none');
+  });
+});
+
+describe('E46 conditionalFormats', () => {
+  it('normalizes rules and drops invalid', () => {
+    const d = normalizeIssueDisplay({
+      conditional_formats: [
+        {
+          id: 'c1',
+          when: { field: 'cf:risk', op: 'gte', value: 8 },
+          style: { rowTint: 'danger' },
+          target: 'row'
+        },
+        {
+          id: 'bad',
+          when: { field: 'cf:x', op: 'nope', value: 1 },
+          style: { rowTint: 'danger' },
+          target: 'row'
+        }
+      ]
+    });
+    expect(d.conditionalFormats).toHaveLength(1);
+    expect(d.conditionalFormats[0].style.rowTint).toBe('danger');
+    expect(displayStateToJson(d).conditional_formats).toHaveLength(1);
+  });
+
+  it('resolveRowTint first-match-wins', () => {
+    const rules = [
+      {
+        id: 'a',
+        when: { field: 'priority', op: 'eq' as const, value: 'high' },
+        style: { rowTint: 'warning' as const },
+        target: 'row' as const
+      },
+      {
+        id: 'b',
+        when: { field: 'priority', op: 'eq' as const, value: 'high' },
+        style: { rowTint: 'danger' as const },
+        target: 'row' as const
+      }
+    ];
+    expect(resolveRowTint({ priority: 'high' }, rules)).toBe('warning');
+    expect(resolveRowTint({ priority: 'low' }, rules)).toBeNull();
   });
 });

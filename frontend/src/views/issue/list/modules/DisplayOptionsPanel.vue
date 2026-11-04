@@ -4,6 +4,8 @@ import { NButton, NCheckbox, NSelect, NSpace, NSwitch, NText } from 'naive-ui';
 import {
   DISPLAY_FIELD_KEYS,
   DISPLAY_FIELD_LABELS,
+  type ConditionalFormatRule,
+  type ConditionalTint,
   type DisplayFieldKey,
   type IssueDisplayFields,
   SWIMLANE_OPTIONS,
@@ -21,6 +23,8 @@ const props = defineProps<{
   /** E32：可选自定义字段 */
   customFieldOptions?: { key: string; name: string; type?: string }[];
   customFieldKeys?: string[];
+  /** E46 */
+  conditionalFormats?: ConditionalFormatRule[];
 }>();
 
 const emit = defineEmits<{
@@ -28,6 +32,7 @@ const emit = defineEmits<{
   'update:swimlaneBy': [SwimlaneBy];
   'update:hideEmptyLanes': [boolean];
   'update:customFieldKeys': [string[]];
+  'update:conditionalFormats': [ConditionalFormatRule[]];
   'set-personal-default': [];
   reset: [];
 }>();
@@ -52,6 +57,25 @@ function toggleCustomField(key: string, checked: boolean) {
   if (checked && idx < 0) cur.push(key);
   if (!checked && idx >= 0) cur.splice(idx, 1);
   emit('update:customFieldKeys', cur);
+}
+
+function addFormat() {
+  const cur = [...(props.conditionalFormats || [])];
+  if (cur.length >= 10) return;
+  const tint: ConditionalTint = 'warning';
+  cur.push({
+    id: `cfmt_${Date.now()}`,
+    when: { field: 'priority', op: 'eq', value: 'high' },
+    style: { rowTint: tint },
+    target: 'row'
+  });
+  emit('update:conditionalFormats', cur);
+}
+
+function removeFormat(idx: number) {
+  const cur = [...(props.conditionalFormats || [])];
+  cur.splice(idx, 1);
+  emit('update:conditionalFormats', cur);
 }
 </script>
 
@@ -101,6 +125,23 @@ function toggleCustomField(key: string, checked: boolean) {
         />
       </div>
     </div>
+    <div class="section">
+      <NText depth="3" class="section-title">条件格式（≤10）</NText>
+      <div v-for="(rule, idx) in conditionalFormats || []" :key="rule.id" class="cfmt-row">
+        <NText depth="3" class="cfmt-summary">
+          <span class="tint-dot" :data-tint="rule.style.rowTint" />
+          {{ rule.when.field }} {{ rule.when.op }} {{ rule.when.value }}
+        </NText>
+        <NButton size="tiny" quaternary @click="removeFormat(idx)">删</NButton>
+      </div>
+      <NButton
+        size="tiny"
+        :disabled="(conditionalFormats || []).length >= 10"
+        @click="addFormat"
+      >
+        添加规则
+      </NButton>
+    </div>
     <NSpace>
       <NButton size="small" :loading="saving" @click="emit('set-personal-default')">设为个人默认</NButton>
       <NButton size="small" quaternary @click="emit('reset')">重置</NButton>
@@ -134,4 +175,28 @@ function toggleCustomField(key: string, checked: boolean) {
   align-items: center;
   justify-content: space-between;
 }
+.cfmt-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.cfmt-summary {
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tint-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  background: #999;
+}
+.tint-dot[data-tint='danger'] { background: #d03050; }
+.tint-dot[data-tint='warning'] { background: #f0a020; }
+.tint-dot[data-tint='success'] { background: #18a058; }
+.tint-dot[data-tint='info'] { background: #2080f0; }
+.tint-dot[data-tint='neutral'] { background: #888; }
 </style>

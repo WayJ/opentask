@@ -14,7 +14,8 @@ import { useIssueFocus } from '@/composables/use-issue-focus';
 import { useIssueSelection } from '@/composables/use-issue-selection';
 import { buildIssueDetailLocation } from '@/utils/issue-board-nav';
 import { BOARD_STATUS_COLUMNS, type BoardSwimlane, buildBoardSwimlanes } from '@/utils/boardSwimlanes';
-import type { IssueDisplayFields, SwimlaneBy } from '@/utils/display-prefs';
+import type { ConditionalFormatRule, IssueDisplayFields, SwimlaneBy } from '@/utils/display-prefs';
+import { resolveRowTint } from '@/utils/display-prefs';
 import type { Api } from '@/typings/api';
 
 defineOptions({ name: 'IssueBoard' });
@@ -25,10 +26,12 @@ const props = withDefaults(
     swimlaneBy?: SwimlaneBy;
     hideEmptyLanes?: boolean;
     fields?: IssueDisplayFields;
+    conditionalFormats?: ConditionalFormatRule[];
   }>(),
   {
     swimlaneBy: 'none',
     hideEmptyLanes: false,
+    conditionalFormats: () => [],
     fields: () => ({
       assignee: true,
       priority: true,
@@ -42,6 +45,20 @@ const props = withDefaults(
     })
   }
 );
+
+const TINT_BG: Record<string, string> = {
+  danger: 'color-mix(in srgb, #d03050 14%, transparent)',
+  warning: 'color-mix(in srgb, #f0a020 16%, transparent)',
+  success: 'color-mix(in srgb, #18a058 14%, transparent)',
+  info: 'color-mix(in srgb, #2080f0 14%, transparent)',
+  neutral: 'color-mix(in srgb, #888 12%, transparent)'
+};
+
+function cardTintStyle(issue: Api.Issue.Issue): Record<string, string> | undefined {
+  const tint = resolveRowTint(issue as unknown as Record<string, unknown>, props.conditionalFormats);
+  if (!tint) return undefined;
+  return { background: TINT_BG[tint] };
+}
 
 const issueFocus = useIssueFocus();
 const issueSelection = useIssueSelection();
@@ -212,6 +229,7 @@ function showField(key: keyof IssueDisplayFields): boolean {
                 size="small"
                 hoverable
                 class="board-card"
+                :style="cardTintStyle(issue)"
                 :class="{
                   'is-focused': issueFocus.focusedIssueId === issue.id,
                   'is-selected': issueSelection.isSelected(issue.id)

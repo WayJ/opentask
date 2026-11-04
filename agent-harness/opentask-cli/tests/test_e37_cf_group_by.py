@@ -1,4 +1,4 @@
-"""E37 CLI: issue list --group-by cf:<key> + version 1.29.0."""
+"""E37 CLI: issue list --group-by cf:<key> + version 1.30.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli
@@ -8,7 +8,7 @@ def test_version_1_21_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.29.0" in result.output
+    assert "1.30.0" in result.output
 
 
 def test_issue_list_help_mentions_group_by_cf():

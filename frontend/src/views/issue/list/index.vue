@@ -60,13 +60,15 @@ import {
   type GroupByKey
 } from '@/utils/groupIssuesBy';
 import {
+  type ConditionalFormatRule,
   type IssueDisplayFields,
   type SwimlaneBy,
   defaultIssueDisplay,
   displayStateToJson,
   formatCustomFieldCellValue,
   isGroupingCfType,
-  normalizeIssueDisplay
+  normalizeIssueDisplay,
+  resolveRowTint
 } from '@/utils/display-prefs';
 import { nestIssuesDepth1 } from '@/utils/nestIssuesDepth1';
 import {
@@ -142,10 +144,39 @@ const activeGroupBy = computed(() => groupBy.value as Exclude<GroupByKey, 'none'
 const displayFields = ref<IssueDisplayFields>(defaultIssueDisplay().fields);
 const customFieldKeys = ref<string[]>([]);
 const customFieldDefs = ref<CustomFieldRow[]>([]);
+const conditionalFormats = ref<ConditionalFormatRule[]>([]);
 const swimlaneBy = ref<SwimlaneBy>('none');
 const hideEmptyLanes = ref(false);
 const displayPrefsSaving = ref(false);
 const displayPopoverShow = ref(false);
+/** E46：列表 API 排序（含 cf:<key>） */
+const listSortBy = ref<string>('created_at');
+const listSortOrder = ref<'asc' | 'desc'>('desc');
+const sortByOptions = computed(() => {
+  const base = [
+    { label: '创建时间', value: 'created_at' },
+    { label: '更新时间', value: 'updated_at' },
+    { label: '优先级', value: 'priority' },
+    { label: '状态', value: 'status' },
+    { label: '标题', value: 'title' },
+    { label: '截止日期', value: 'due_date' }
+  ];
+  const extras = customFieldDefs.value
+    .filter(f => {
+      const t = f.type;
+      if (t === 'multi_select') return false;
+      if (t === 'formula') {
+        const rt = (f as any).formulaResultType || 'number';
+        return ['number', 'text', 'date', 'boolean'].includes(rt);
+      }
+      return ['number', 'text', 'date', 'boolean'].includes(t);
+    })
+    .map(f => ({
+      label: f.type === 'formula' ? `${f.name}（计算值）` : f.name,
+      value: `cf:${f.key}`
+    }));
+  return [...base, ...extras];
+});
 
 function sanitizeCfDim<T extends string>(dim: T, kind: 'group' | 'swimlane'): T | 'none' {
   const key = parseCfDim(dim);
@@ -170,7 +201,8 @@ function currentDisplayJson() {
     swimlaneBy: swimlaneBy.value,
     hideEmptyLanes: hideEmptyLanes.value,
     fields: displayFields.value,
-    customFieldKeys: customFieldKeys.value
+    customFieldKeys: customFieldKeys.value,
+    conditionalFormats: conditionalFormats.value
   });
 }
 
@@ -181,6 +213,7 @@ function applyDisplayState(partial: {
   hideEmptyLanes?: boolean;
   fields?: IssueDisplayFields;
   customFieldKeys?: string[];
+  conditionalFormats?: ConditionalFormatRule[];
 }) {
   if (partial.viewMode) viewMode.value = partial.viewMode;
   if (partial.groupBy) groupBy.value = sanitizeCfDim(partial.groupBy, 'group');
@@ -188,6 +221,7 @@ function applyDisplayState(partial: {
   if (typeof partial.hideEmptyLanes === 'boolean') hideEmptyLanes.value = partial.hideEmptyLanes;
   if (partial.fields) displayFields.value = { ...partial.fields };
   if (partial.customFieldKeys) customFieldKeys.value = [...partial.customFieldKeys];
+  if (partial.conditionalFormats) conditionalFormats.value = [...partial.conditionalFormats];
 }
 
 async function loadCustomFieldDefs() {
@@ -214,7 +248,8 @@ async function loadPersonalDisplayPrefs() {
       swimlaneBy: normalized.swimlaneBy,
       hideEmptyLanes: normalized.hideEmptyLanes,
       fields: normalized.fields,
-      customFieldKeys: normalized.customFieldKeys
+      customFieldKeys: normalized.customFieldKeys,
+      conditionalFormats: normalized.conditionalFormats
     });
   } catch {
     /* ignore prefs load */
@@ -243,6 +278,7 @@ function resetDisplayOptions() {
   hideEmptyLanes.value = d.hideEmptyLanes;
   displayFields.value = { ...d.fields };
   customFieldKeys.value = [];
+  conditionalFormats.value = [];
 }
 
 /** E4-S3：当前页 depth-1 嵌套（父不在本页则子作顶层） */
@@ -594,6 +630,7 @@ async function loadIssues() {
         Boolean(filters.custom_fields?.length) ||
         Boolean(parseCfDim(groupBy.value)) ||
         Boolean(parseCfDim(swimlaneBy.value));
+      const needCfSort = String(listSortBy.value || '').startsWith('cf:');
       const response = await issueApi.getIssues({
         page,
         page_size: 100,
@@ -607,7 +644,9 @@ async function loadIssues() {
         reporter_id: filters.reporter_id,
         watching: filters.watching,
         due_soon: filters.due_soon,
-        include: needCf ? 'custom_fields' : undefined,
+        sort_by: listSortBy.value || 'created_at',
+        sort_order: listSortOrder.value || 'desc',
+        include: needCf || needCfSort || conditionalFormats.value.length ? 'custom_fields' : undefined,
         ...cfParams
       } as any);
 
@@ -869,19 +908,48 @@ watch(
   { immediate: true }
 );
 
+const TINT_BG: Record<string, string> = {
+  danger: 'color-mix(in srgb, #d03050 12%, transparent)',
+  warning: 'color-mix(in srgb, #f0a020 14%, transparent)',
+  success: 'color-mix(in srgb, #18a058 12%, transparent)',
+  info: 'color-mix(in srgb, #2080f0 12%, transparent)',
+  neutral: 'color-mix(in srgb, #888 10%, transparent)'
+};
+
 function issueRowProps(row: Api.Issue.Issue) {
   const focused = issueFocus.focusedIssueId.value === row.id;
   const selected = issueSelection.isSelected(row.id);
-  const classes = [focused ? 'issue-row-focused' : '', selected ? 'issue-row-selected' : ''].filter(Boolean).join(' ');
+  const tint = resolveRowTint(row as unknown as Record<string, unknown>, conditionalFormats.value);
+  const classes = [
+    focused ? 'issue-row-focused' : '',
+    selected ? 'issue-row-selected' : '',
+    tint ? `issue-row-tint-${tint}` : ''
+  ]
+    .filter(Boolean)
+    .join(' ');
+  let style: string | undefined;
+  if (focused) style = 'outline: 2px solid var(--color-primary); outline-offset: -2px;';
+  else if (selected) style = 'background: color-mix(in srgb, var(--color-primary) 8%, transparent);';
+  else if (tint) style = `background: ${TINT_BG[tint]};`;
   return {
     class: classes || undefined,
-    style: focused
-      ? 'outline: 2px solid var(--color-primary); outline-offset: -2px;'
-      : selected
-        ? 'background: color-mix(in srgb, var(--color-primary) 8%, transparent);'
-        : undefined,
+    style,
     onClick: () => focusIssueRow(row)
   };
+}
+
+function onConditionalFormatsUpdate(next: ConditionalFormatRule[]) {
+  conditionalFormats.value = [...(next || [])];
+}
+
+function onListSortByUpdate(v: string) {
+  listSortBy.value = v || 'created_at';
+  loadIssues();
+}
+
+function onListSortOrderUpdate(v: 'asc' | 'desc') {
+  listSortOrder.value = v || 'desc';
+  loadIssues();
 }
 
 function relationBadgeNodes(row: Api.Issue.Issue) {
@@ -1610,15 +1678,34 @@ onUnmounted(() => {
                 :saving="displayPrefsSaving"
                 :custom-field-options="customFieldDefs.map(f => ({ key: f.key, name: f.name, type: f.type, formulaResultType: f.formulaResultType }))"
                 :custom-field-keys="customFieldKeys"
+                :conditional-formats="conditionalFormats"
                 @update:fields="onDisplayFieldsUpdate"
                 @update:swimlane-by="onSwimlaneByUpdate"
                 @update:hide-empty-lanes="onHideEmptyLanesUpdate"
                 @update:custom-field-keys="onCustomFieldKeysUpdate"
+                @update:conditional-formats="onConditionalFormatsUpdate"
                 @set-personal-default="setPersonalDisplayDefault"
                 @reset="resetDisplayOptions"
               />
             </NPopover>
 
+            <div class="group-by-select">
+              <NText depth="3" class="group-by-label">排序</NText>
+              <NSelect
+                :value="listSortBy"
+                :options="sortByOptions"
+                size="small"
+                style="width: 150px"
+                @update:value="onListSortByUpdate"
+              />
+              <NSelect
+                :value="listSortOrder"
+                :options="[{ label: '降序', value: 'desc' }, { label: '升序', value: 'asc' }]"
+                size="small"
+                style="width: 90px"
+                @update:value="onListSortOrderUpdate"
+              />
+            </div>
             <div class="group-by-select">
               <NText depth="3" class="group-by-label">分组</NText>
               <NSelect
@@ -1770,6 +1857,7 @@ onUnmounted(() => {
             :issues="filteredIssues"
             :swimlane-by="swimlaneBy"
             :hide-empty-lanes="hideEmptyLanes"
+            :conditional-formats="conditionalFormats"
             :fields="displayFields"
             @changed="loadIssues"
           />

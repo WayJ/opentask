@@ -298,9 +298,9 @@ def _resolve_user_id(skin: ReplSkin, client: OpenTaskClient, assignee_input: str
 @click.option("--unassigned", is_flag=True, help="Show unassigned issues")
 @click.option("--page", default=1, help="Page number")
 @click.option("--page-size", default=20, help="Page size")
-@click.option("--sort-by", default="created_at", help="Sort field")
+@click.option("--sort-by", default="created_at", help="Sort field (E46: cf:<key> for CF/formula)")
 @click.option("--sort-order", default="desc", help="Sort order (asc/desc)")
-@click.option("--cf", multiple=True, help="E32/E43: custom field filter key=value (repeatable; formula keys match computed value)")
+@click.option("--cf", multiple=True, help="E32/E43/E46: custom field filter key=value or key[gte]=8 (repeatable; formula keys match computed value)")
 @click.option(
     "--group-by",
     "group_by",
@@ -598,7 +598,7 @@ def find_issues(obj: "Context", keyword: str, in_title: bool, in_description: bo
 @click.option("--open-only", is_flag=True, help="Show only open issues")
 @click.option("--page", default=1, help="Page number")
 @click.option("--page-size", default=20, help="Page size")
-@click.option("--sort-by", default="created_at", help="Sort field")
+@click.option("--sort-by", default="created_at", help="Sort field (E46: cf:<key> for CF/formula)")
 @click.option("--sort-order", default="desc", help="Sort order (asc/desc)")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.pass_obj

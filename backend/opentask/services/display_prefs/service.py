@@ -32,7 +32,16 @@ DEFAULT_DISPLAY: dict[str, Any] = {
     "hide_empty_lanes": False,
     "fields": dict(DEFAULT_FIELDS),
     "custom_field_keys": [],
+    "conditional_formats": [],
 }
+
+_CFMT_TINTS = frozenset({"danger", "warning", "success", "info", "neutral"})
+_CFMT_TARGETS = frozenset({"row", "cell"})
+_CFMT_OPS = frozenset({"eq", "neq", "gt", "gte", "lt", "lte"})
+_CFMT_SYSTEM_FIELDS = frozenset({"priority", "status", "due_date", "estimate_points"})
+_CFMT_MAX = 10
+_CFMT_FIELD_RE = re.compile(r"^(?:cf:([a-z][a-z0-9_-]{0,63})|priority|status|due_date|estimate_points)$")
+
 
 _SWIMLANE_OK = {"none", "assignee", "priority", "type", "label"}
 _VIEW_MODE_OK = {"list", "board"}
@@ -105,6 +114,46 @@ def normalize_display_json(raw: Any) -> dict[str, Any]:
             seen.add(kk)
             keys.append(kk)
     out["custom_field_keys"] = keys
+    out["conditional_formats"] = _normalize_conditional_formats(
+        raw.get("conditional_formats") or raw.get("conditionalFormats")
+    )
+    return out
+
+
+def _normalize_conditional_formats(raw: Any) -> list[dict[str, Any]]:
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        when = item.get("when")
+        style = item.get("style")
+        if not isinstance(when, dict) or not isinstance(style, dict):
+            continue
+        field = str(when.get("field") or "").strip()
+        if not _CFMT_FIELD_RE.match(field):
+            continue
+        op = str(when.get("op") or "").strip().lower()
+        if op not in _CFMT_OPS:
+            continue
+        tint = str(style.get("rowTint") or style.get("row_tint") or "").strip().lower()
+        if tint not in _CFMT_TINTS:
+            continue
+        target = str(item.get("target") or "row").strip().lower()
+        if target not in _CFMT_TARGETS:
+            continue
+        cid = str(item.get("id") or "").strip() or f"cfmt_{len(out)+1}"
+        out.append(
+            {
+                "id": cid,
+                "when": {"field": field, "op": op, "value": when.get("value")},
+                "style": {"rowTint": tint},
+                "target": target,
+            }
+        )
+        if len(out) >= _CFMT_MAX:
+            break
     return out
 
 
@@ -180,6 +229,18 @@ async def validate_and_normalize_display(
     on_write: bool,
 ) -> dict[str, Any]:
     """Shape-normalize then validate cf:* dims against workspace fields."""
+    if on_write and isinstance(raw, dict):
+        cfmt = raw.get("conditional_formats")
+        if cfmt is None:
+            cfmt = raw.get("conditionalFormats")
+        if isinstance(cfmt, list) and len(cfmt) > _CFMT_MAX:
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "code": "conditional_formats_too_many",
+                    "message": f"conditionalFormats 最多 {_CFMT_MAX} 条",
+                },
+            )
     out = normalize_display_json(raw)
 
     gb = out.get("group_by")
