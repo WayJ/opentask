@@ -45,7 +45,8 @@ const settingsForm = reactive({
   cycleDurationDays: 14,
   cycleRolloverPolicy: 'into_next' as 'into_next' | 'leave_unassigned',
   cycleCapacityLookback: 3,
-  issueKey: 'OT'
+  issueKey: 'OT',
+  gitStatusHooksEnabled: false
 });
 
 const createForm = reactive({
@@ -114,6 +115,7 @@ async function load() {
       (wsRes.data.cycleRolloverPolicy as 'into_next' | 'leave_unassigned') || 'into_next';
     settingsForm.cycleCapacityLookback = wsRes.data.cycleCapacityLookback ?? 3;
     settingsForm.issueKey = (wsRes.data.issueKey || 'OT').toUpperCase();
+    settingsForm.gitStatusHooksEnabled = Boolean(wsRes.data.gitStatusHooksEnabled);
 
     if (cyRes.error) {
       window.$message?.error(cyRes.error.message || '加载 Cycles 失败');
@@ -155,6 +157,20 @@ async function onToggleEnabled(value: boolean) {
   window.$message?.success(value ? '已启用 Cycles' : '已关闭 Cycles');
   if (value) await loadCapacity();
   else capacity.value = null;
+}
+
+async function onToggleGitHooks(value: boolean) {
+  if (!workspace.value || !isOwner.value) return;
+  const { data, error } = await fetchUpdateWorkspace(workspace.value.id, {
+    gitStatusHooksEnabled: value
+  });
+  if (error || !data) {
+    window.$message?.error(error?.message || '更新 Git 钩子失败');
+    return;
+  }
+  workspace.value = data;
+  settingsForm.gitStatusHooksEnabled = Boolean(data.gitStatusHooksEnabled);
+  window.$message?.success(value ? '已开启：从 PR 自动更新 Issue 状态' : '已关闭 PR 状态钩子');
 }
 
 async function saveSettings() {
@@ -375,6 +391,20 @@ onMounted(load);
             <p class="text-12px text-gray-400">2–6 位大写字母或数字；仅影响新建 Issue</p>
           </div>
         </NCard>
+
+        <NCard title="Git / PR" size="small" class="mb-16px">
+          <div class="flex-y-center gap-12px flex-wrap">
+            <span>从 PR 自动更新 Issue 状态</span>
+            <NSwitch
+              :value="settingsForm.gitStatusHooksEnabled"
+              :disabled="!isOwner"
+              @update:value="onToggleGitHooks"
+            />
+            <p class="text-12px text-gray-400 w-full">
+              默认关闭。开启后：PR open → in_progress（仅自 open）；merged → resolved；未合并 close 不改 Issue。
+            </p>
+          </div>
+        </NCard>
         <NCard>
           <NEmpty description="尚未启用 Cycles">
             <template #extra>
@@ -391,6 +421,15 @@ onMounted(load);
             <div class="flex-y-center gap-12px">
               <span>启用 Cycles</span>
               <NSwitch :value="enabled" :disabled="!isOwner" @update:value="onToggleEnabled" />
+            </div>
+            <div class="flex-y-center gap-12px flex-wrap">
+              <span>从 PR 自动更新 Issue 状态</span>
+              <NSwitch
+                :value="settingsForm.gitStatusHooksEnabled"
+                :disabled="!isOwner"
+                @update:value="onToggleGitHooks"
+              />
+              <span class="text-12px text-gray-400">默认关；open→in_progress，merged→resolved</span>
             </div>
             <div class="flex-y-center flex-wrap gap-12px">
               <div class="flex-y-center gap-8px">

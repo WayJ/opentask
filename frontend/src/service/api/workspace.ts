@@ -13,6 +13,9 @@ export interface WorkspaceItem {
   cycleRolloverPolicy?: CycleRolloverPolicy | string;
   cycleCapacityLookback?: number;
   issueKey?: string;
+  gitStatusHooksEnabled?: boolean;
+  gitHookOnPrOpen?: string;
+  gitHookOnPrMerged?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -39,6 +42,9 @@ export function fetchUpdateWorkspace(
     cycleRolloverPolicy?: CycleRolloverPolicy;
     cycleCapacityLookback?: number;
     issueKey?: string;
+    gitStatusHooksEnabled?: boolean;
+    gitHookOnPrOpen?: string;
+    gitHookOnPrMerged?: string;
   }
 ) {
   return request<WorkspaceItem>({ url: `/api/workspaces/${id}`, method: 'patch', data });
