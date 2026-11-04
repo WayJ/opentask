@@ -65,6 +65,7 @@ from opentask.models.automation import AutomationRule, AutomationPendingAction
 from opentask.models.workspace_webhook import WorkspaceWebhook, WebhookDeliveryLog
 from opentask.models.issue_form import IssueForm
 from opentask.models.issue_recurrence import IssueRecurrence
+from opentask.models.due_reminder_delivery import DueReminderDelivery
 from opentask.models.access_token import AccessToken
 from opentask.models.oauth2 import (
     OAuthAccessToken,
@@ -144,6 +145,7 @@ __all__ = [
     "WebhookDeliveryLog",
     "IssueForm",
     "IssueRecurrence",
+    "DueReminderDelivery",
     "CommentReaction",
     "NotificationPreference",
     "AccessToken",

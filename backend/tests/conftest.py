@@ -101,6 +101,7 @@ from opentask.models.workspace_webhook import WorkspaceWebhook, WebhookDeliveryL
 from opentask.models.issue_form import IssueForm  # noqa: F401 — E31
 from opentask.models.issue_recurrence import IssueRecurrence  # noqa: F401 — E35
 from opentask.models.notification_preference import NotificationPreference  # noqa: F401 — E27
+from opentask.models.due_reminder_delivery import DueReminderDelivery  # noqa: F401 — E39
 from opentask.models.issue.model import CommentReaction  # noqa: F401 — E27
 from opentask.jwt_utils import create_access_token
 
@@ -208,6 +209,14 @@ async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
             await conn.execute(_sql_text(
                 "ALTER TABLE IF EXISTS notification_preferences "
                 "ADD COLUMN IF NOT EXISTS email_enabled BOOLEAN NOT NULL DEFAULT FALSE"
+            ))
+            await conn.execute(_sql_text(
+                "ALTER TABLE IF EXISTS notification_preferences "
+                "ADD COLUMN IF NOT EXISTS due_reminder BOOLEAN NOT NULL DEFAULT TRUE"
+            ))
+            await conn.execute(_sql_text(
+                "ALTER TABLE IF EXISTS notification_preferences "
+                "ADD COLUMN IF NOT EXISTS due_reminder_digest BOOLEAN NOT NULL DEFAULT FALSE"
             ))
             print(f"[OK] Test database ({TEST_DB_NAME}) tables created")
     except Exception as e:

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import Iterable, Optional
 
 from sqlalchemy import and_, func, or_, select, update
@@ -10,6 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from opentask.models.issue.model import Issue
 from opentask.models.notification.model import Notification
+from opentask.models.due_reminder_delivery.model import (
+    DueReminderDelivery,
+    make_dedupe_key,
+)
+from opentask.models.issue_watcher.model import IssueWatcher
+from opentask.models.issue.enums import IssueStatus
 from opentask.models.notification_preference.model import (
     PREF_KEYS,
     TYPE_TO_PREF_KEY,
@@ -87,6 +93,7 @@ class NotificationService:
             "userId": user_id,
             "workspaceId": workspace_id,
             **base,
+            "due_reminder_digest": False,
             "email_enabled": False,
             "email_configured": email_configured(),
         }
@@ -94,6 +101,7 @@ class NotificationService:
             return out
         for k in PREF_KEYS:
             out[k] = bool(getattr(row, k))
+        out["due_reminder_digest"] = bool(getattr(row, "due_reminder_digest", False))
         out["email_enabled"] = bool(getattr(row, "email_enabled", False))
         return out
 
@@ -125,6 +133,8 @@ class NotificationService:
         for k in PREF_KEYS:
             if k in updates and updates[k] is not None:
                 setattr(row, k, bool(updates[k]))
+        if "due_reminder_digest" in updates and updates["due_reminder_digest"] is not None:
+            row.due_reminder_digest = bool(updates["due_reminder_digest"])
         if "email_enabled" in updates and updates["email_enabled"] is not None:
             row.email_enabled = bool(updates["email_enabled"])
         row.updated_at = datetime.utcnow()
@@ -561,6 +571,298 @@ class NotificationService:
             logging.getLogger(__name__).exception(
                 "email hook failed notif=%s", getattr(row, "id", None)
             )
+
+
+    LEAD_DAYS = 3
+    CLOSED_STATUSES = {
+        IssueStatus.CLOSED.value,
+        IssueStatus.RESOLVED.value,
+        IssueStatus.REJECTED.value,
+    }
+
+    def _as_date(self, value) -> Optional[date]:
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value.date()
+        if isinstance(value, date):
+            return value
+        return None
+
+    async def _watcher_ids(self, issue_id: str) -> list[str]:
+        q = await self.db.execute(
+            select(IssueWatcher.user_id).where(IssueWatcher.issue_id == issue_id)
+        )
+        return [str(uid) for uid in q.scalars().all()]
+
+    def _recipients_for_issue(self, issue: Issue, watcher_ids: list[str]) -> list[str]:
+        ids: set[str] = set()
+        if issue.assignee_id:
+            ids.add(str(issue.assignee_id))
+        for uid in watcher_ids:
+            ids.add(str(uid))
+        return sorted(ids)
+
+    async def _delivery_exists(self, *, workspace_id: str, dedupe_key: str) -> bool:
+        q = await self.db.execute(
+            select(DueReminderDelivery.id).where(
+                DueReminderDelivery.workspace_id == workspace_id,
+                DueReminderDelivery.dedupe_key == dedupe_key,
+            )
+        )
+        return q.scalar_one_or_none() is not None
+
+    async def _insert_delivery(
+        self,
+        *,
+        workspace_id: str,
+        issue_id: Optional[str],
+        user_id: str,
+        kind: str,
+        bucket_date: date,
+        due_date_bucket: Optional[date],
+        notification_id: Optional[str],
+    ) -> DueReminderDelivery:
+        key = make_dedupe_key(
+            kind=kind,
+            user_id=str(user_id),
+            issue_id=issue_id,
+            bucket_date=bucket_date,
+            due_date_bucket=due_date_bucket,
+        )
+        row = DueReminderDelivery(
+            workspace_id=workspace_id,
+            issue_id=issue_id,
+            user_id=str(user_id),
+            kind=kind,
+            bucket_date=bucket_date,
+            due_date_bucket=due_date_bucket,
+            dedupe_key=key,
+            notification_id=notification_id,
+        )
+        self.db.add(row)
+        try:
+            await self.db.flush()
+        except Exception:
+            await self.db.rollback()
+            raise
+        return row
+
+    def _format_due_title(self, issue: Issue, kind: str) -> str:
+        code = issue.issue_code or issue.id
+        if kind == "overdue":
+            return f"已逾期：{code} {issue.title}"
+        return f"即将到期：{code} {issue.title}"
+
+    def _format_due_body(self, issue: Issue, kind: str, due_d: date) -> str:
+        label = "逾期" if kind == "overdue" else "到期"
+        return f"{label}日 {due_d.isoformat()} · Issue {issue.issue_code or issue.id}"
+
+    def _format_digest_body(self, items: list[tuple[str, Issue, date]]) -> str:
+        soon_lines = []
+        overdue_lines = []
+        for kind, issue, due_d in items:
+            line = f"- {issue.issue_code or issue.id} {issue.title} (due {due_d.isoformat()})"
+            if kind == "overdue":
+                overdue_lines.append(line)
+            else:
+                soon_lines.append(line)
+        parts = []
+        if overdue_lines:
+            parts.append("已逾期:\n" + "\n".join(overdue_lines))
+        if soon_lines:
+            parts.append("即将到期:\n" + "\n".join(soon_lines))
+        return "\n\n".join(parts) if parts else ""
+
+    async def run_due_reminders(
+        self,
+        *,
+        workspace_id: str,
+        actor_user_id: Optional[str] = None,
+        today: Optional[date] = None,
+    ) -> dict:
+        """External tick: soon/overdue Inbox (+ optional digest). No in-process cron."""
+        today = today or datetime.utcnow().date()
+        lead_end = today + timedelta(days=self.LEAD_DAYS)
+
+        q = await self.db.execute(
+            select(Issue).where(
+                Issue.workspace_id == workspace_id,
+                Issue.due_date.isnot(None),
+                Issue.status.notin_(list(self.CLOSED_STATUSES)),
+            )
+        )
+        issues = list(q.scalars().all())
+
+        processed = 0
+        reminders_created = 0
+        digests_created = 0
+        skipped = 0
+        errors: list[dict] = []
+        # user_id -> list[(kind, issue, due_d)]
+        buffers: dict[str, list[tuple[str, Issue, date]]] = {}
+
+        for issue in issues:
+            due_d = self._as_date(issue.due_date)
+            if due_d is None:
+                continue
+            if due_d < today:
+                kind = "overdue"
+            elif today <= due_d <= lead_end:
+                kind = "soon"
+            else:
+                continue
+            processed += 1
+            watchers = await self._watcher_ids(issue.id)
+            recipients = self._recipients_for_issue(issue, watchers)
+            if not recipients:
+                skipped += 1
+                continue
+
+            for user_id in recipients:
+                try:
+                    prefs_row = await self.get_prefs(
+                        user_id=user_id, workspace_id=workspace_id
+                    )
+                    due_on = True if prefs_row is None else bool(
+                        getattr(prefs_row, "due_reminder", True)
+                    )
+                    digest_on = False if prefs_row is None else bool(
+                        getattr(prefs_row, "due_reminder_digest", False)
+                    )
+                    if not due_on:
+                        skipped += 1
+                        continue
+                    if digest_on:
+                        buffers.setdefault(user_id, []).append((kind, issue, due_d))
+                        continue
+
+                    dedupe = make_dedupe_key(
+                        kind=kind,
+                        user_id=user_id,
+                        issue_id=issue.id,
+                        bucket_date=today,
+                        due_date_bucket=due_d if kind == "soon" else None,
+                    )
+                    if await self._delivery_exists(
+                        workspace_id=workspace_id, dedupe_key=dedupe
+                    ):
+                        skipped += 1
+                        continue
+
+                    n = await self.create(
+                        workspace_id=workspace_id,
+                        recipient_user_id=user_id,
+                        actor_user_id=None,  # system tick — never self-skip
+                        type="due_reminder",
+                        resource_type="issue",
+                        resource_id=issue.id,
+                        title=self._format_due_title(issue, kind),
+                        body=self._format_due_body(issue, kind, due_d),
+                    )
+                    if n is None:
+                        skipped += 1
+                        continue
+                    await self._insert_delivery(
+                        workspace_id=workspace_id,
+                        issue_id=issue.id,
+                        user_id=user_id,
+                        kind=kind,
+                        bucket_date=today,
+                        due_date_bucket=due_d if kind == "soon" else None,
+                        notification_id=getattr(n, "id", None),
+                    )
+                    reminders_created += 1
+                except Exception as e:
+                    errors.append(
+                        {
+                            "issueId": issue.id,
+                            "userId": user_id,
+                            "kind": kind,
+                            "message": str(e)[:500],
+                        }
+                    )
+
+        for user_id, items in buffers.items():
+            try:
+                digest_key = make_dedupe_key(
+                    kind="digest",
+                    user_id=user_id,
+                    issue_id=None,
+                    bucket_date=today,
+                    due_date_bucket=None,
+                )
+                if await self._delivery_exists(
+                    workspace_id=workspace_id, dedupe_key=digest_key
+                ):
+                    skipped += 1
+                    continue
+                body = self._format_digest_body(items)
+                title = f"今日到期提醒 ({len(items)})"
+                n = await self.create(
+                    workspace_id=workspace_id,
+                    recipient_user_id=user_id,
+                    actor_user_id=None,
+                    type="due_reminder_digest",
+                    resource_type="workspace",
+                    resource_id=workspace_id,
+                    title=title,
+                    body=body,
+                )
+                if n is None:
+                    skipped += 1
+                    continue
+                await self._insert_delivery(
+                    workspace_id=workspace_id,
+                    issue_id=None,
+                    user_id=user_id,
+                    kind="digest",
+                    bucket_date=today,
+                    due_date_bucket=None,
+                    notification_id=getattr(n, "id", None),
+                )
+                digests_created += 1
+            except Exception as e:
+                errors.append(
+                    {
+                        "issueId": None,
+                        "userId": user_id,
+                        "kind": "digest",
+                        "message": str(e)[:500],
+                    }
+                )
+
+        try:
+            await self.db.commit()
+        except Exception:
+            await self.db.rollback()
+            raise
+
+        return {
+            "processedIssues": processed,
+            "remindersCreated": reminders_created,
+            "digestsCreated": digests_created,
+            "skipped": skipped,
+            "errors": errors,
+        }
+
+    async def list_due_reminder_deliveries(
+        self,
+        *,
+        workspace_id: str,
+        bucket_date: Optional[date] = None,
+        limit: int = 100,
+    ) -> list[DueReminderDelivery]:
+        limit = max(1, min(int(limit or 100), 100))
+        stmt = select(DueReminderDelivery).where(
+            DueReminderDelivery.workspace_id == workspace_id
+        )
+        if bucket_date is not None:
+            stmt = stmt.where(DueReminderDelivery.bucket_date == bucket_date)
+        stmt = stmt.order_by(DueReminderDelivery.created_at.desc()).limit(limit)
+        q = await self.db.execute(stmt)
+        return list(q.scalars().all())
+
 
 
 def serialize_notification(n: Notification) -> dict:
