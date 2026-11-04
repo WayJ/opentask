@@ -29,6 +29,39 @@ export interface ConditionalFormatRule {
   target: ConditionalTarget;
 }
 
+/** E49 */
+export type ColorPalette =
+  | 'blue_red'
+  | 'green_red'
+  | 'mono'
+  | 'yellow_blue'
+  | 'purple_green';
+
+export type DisplayIcon =
+  | 'arrow_up'
+  | 'arrow_down'
+  | 'arrow_flat'
+  | 'flag'
+  | 'dot_red'
+  | 'dot_yellow'
+  | 'dot_green'
+  | 'check'
+  | 'warn';
+
+export interface ColorScaleRule {
+  id: string;
+  field: string;
+  domain: { min: number; max: number };
+  palette: ColorPalette;
+  target: ConditionalTarget;
+}
+
+export interface IconSetRule {
+  id: string;
+  field: string;
+  rules: Array<{ op: ConditionalOp; value: unknown; icon: DisplayIcon }>;
+}
+
 export interface IssueDisplayState {
   viewMode: 'list' | 'board';
   groupBy: GroupByKey;
@@ -39,6 +72,10 @@ export interface IssueDisplayState {
   customFieldKeys: string[];
   /** E46：条件格式（≤10；客户端求值） */
   conditionalFormats: ConditionalFormatRule[];
+  /** E49：连续色阶（≤5） */
+  colorScales: ColorScaleRule[];
+  /** E49：图标集（≤5） */
+  iconSets: IconSetRule[];
 }
 
 export const DISPLAY_FIELD_KEYS: DisplayFieldKey[] = [
@@ -99,6 +136,114 @@ const CFMT_TARGETS = new Set(['row', 'cell']);
 const CFMT_FIELD_RE = /^(?:cf:[a-z][a-z0-9_-]{0,63}|priority|status|due_date|estimate_points)$/;
 const CFMT_MAX = 10;
 
+const SCALE_MAX = 5;
+const SCALE_PALETTES = new Set([
+  'blue_red',
+  'green_red',
+  'mono',
+  'yellow_blue',
+  'purple_green'
+]);
+const SCALE_FIELD_RE = /^(?:cf:[a-z][a-z0-9_-]{0,63}|due_date|estimate_points)$/;
+const ICON_SET_MAX = 5;
+const ICON_RULES_MAX = 8;
+const ICON_VOCAB = new Set([
+  'arrow_up',
+  'arrow_down',
+  'arrow_flat',
+  'flag',
+  'dot_red',
+  'dot_yellow',
+  'dot_green',
+  'check',
+  'warn'
+]);
+
+const PALETTE_ENDS: Record<ColorPalette, [string, string]> = {
+  blue_red: ['#2080f0', '#d03050'],
+  green_red: ['#18a058', '#d03050'],
+  mono: ['#e8e8e8', '#4a4a4a'],
+  yellow_blue: ['#f0a020', '#2080f0'],
+  purple_green: ['#8a2be2', '#18a058']
+};
+
+function parseDomainBound(raw: unknown): number | null {
+  if (raw === null || raw === undefined || typeof raw === 'boolean') return null;
+  if (typeof raw === 'number') {
+    if (!Number.isFinite(raw)) return null;
+    return raw;
+  }
+  const s = String(raw).trim();
+  if (!s) return null;
+  const asNum = Number(s);
+  if (!Number.isNaN(asNum) && Number.isFinite(asNum)) return asNum;
+  if (s.length >= 10 && s[4] === '-' && s[7] === '-') {
+    const digits = s.slice(0, 10).replace(/-/g, '');
+    if (/^\d{8}$/.test(digits)) return Number(digits);
+  }
+  return null;
+}
+
+function normalizeColorScales(raw: unknown): ColorScaleRule[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ColorScaleRule[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const obj = item as Record<string, unknown>;
+    const field = String(obj.field || '').trim();
+    if (!SCALE_FIELD_RE.test(field)) continue;
+    const palette = String(obj.palette || '').trim().toLowerCase();
+    if (!SCALE_PALETTES.has(palette)) continue;
+    const target = String(obj.target || 'row').trim().toLowerCase();
+    if (!CFMT_TARGETS.has(target)) continue;
+    const domain = obj.domain;
+    if (!domain || typeof domain !== 'object') continue;
+    const d = domain as Record<string, unknown>;
+    const dmin = parseDomainBound(d.min);
+    const dmax = parseDomainBound(d.max);
+    if (dmin === null || dmax === null) continue;
+    const id = String(obj.id || '').trim() || `cscale_${out.length + 1}`;
+    out.push({
+      id,
+      field,
+      domain: { min: dmin, max: dmax },
+      palette: palette as ColorPalette,
+      target: target as ConditionalTarget
+    });
+    if (out.length >= SCALE_MAX) break;
+  }
+  return out;
+}
+
+function normalizeIconSets(raw: unknown): IconSetRule[] {
+  if (!Array.isArray(raw)) return [];
+  const out: IconSetRule[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const obj = item as Record<string, unknown>;
+    const field = String(obj.field || '').trim();
+    if (!CFMT_FIELD_RE.test(field)) continue;
+    const rulesIn = obj.rules;
+    if (!Array.isArray(rulesIn)) continue;
+    const rules: IconSetRule['rules'] = [];
+    for (const rule of rulesIn) {
+      if (!rule || typeof rule !== 'object') continue;
+      const r = rule as Record<string, unknown>;
+      const op = String(r.op || '').trim().toLowerCase();
+      if (!CFMT_OPS.has(op)) continue;
+      const icon = String(r.icon || '').trim().toLowerCase();
+      if (!ICON_VOCAB.has(icon)) continue;
+      rules.push({ op: op as ConditionalOp, value: r.value, icon: icon as DisplayIcon });
+      if (rules.length >= ICON_RULES_MAX) break;
+    }
+    if (!rules.length) continue;
+    const id = String(obj.id || '').trim() || `iset_${out.length + 1}`;
+    out.push({ id, field, rules });
+    if (out.length >= ICON_SET_MAX) break;
+  }
+  return out;
+}
+
 function normalizeConditionalFormats(raw: unknown): ConditionalFormatRule[] {
   if (!Array.isArray(raw)) return [];
   const out: ConditionalFormatRule[] = [];
@@ -138,7 +283,9 @@ export function defaultIssueDisplay(): IssueDisplayState {
     hideEmptyLanes: false,
     fields: { ...DEFAULT_FIELDS },
     customFieldKeys: [],
-    conditionalFormats: []
+    conditionalFormats: [],
+    colorScales: [],
+    iconSets: []
   };
 }
 
@@ -177,6 +324,8 @@ export function normalizeIssueDisplay(raw: unknown): IssueDisplayState {
   out.conditionalFormats = normalizeConditionalFormats(
     obj.conditional_formats ?? obj.conditionalFormats
   );
+  out.colorScales = normalizeColorScales(obj.color_scales ?? obj.colorScales);
+  out.iconSets = normalizeIconSets(obj.icon_sets ?? obj.iconSets);
 
   // 选中 cf:<key> 时并入 custom_field_keys（去重）
   for (const dim of [out.groupBy, out.swimlaneBy]) {
@@ -196,7 +345,9 @@ export function displayStateToJson(state: IssueDisplayState): Record<string, unk
     hide_empty_lanes: state.hideEmptyLanes,
     fields: { ...state.fields },
     custom_field_keys: [...(state.customFieldKeys || [])],
-    conditional_formats: [...(state.conditionalFormats || [])]
+    conditional_formats: [...(state.conditionalFormats || [])],
+    color_scales: [...(state.colorScales || [])],
+    icon_sets: [...(state.iconSets || [])]
   };
 }
 
@@ -209,6 +360,90 @@ export function resolveRowTint(
   for (const rule of rules) {
     if (rule.target !== 'row') continue;
     if (matchConditionalWhen(issue, rule.when)) return rule.style.rowTint;
+  }
+  return null;
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace('#', '');
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
+  return (
+    '#' +
+    [clamp(r), clamp(g), clamp(b)]
+      .map(x => x.toString(16).padStart(2, '0'))
+      .join('')
+  );
+}
+
+/** E49：线性插值 palette；t clamp 到 [0,1] */
+export function interpolateScaleColor(palette: ColorPalette, t: number): string {
+  const ends = PALETTE_ENDS[palette] || PALETTE_ENDS.mono;
+  const tt = Number.isFinite(t) ? Math.max(0, Math.min(1, t)) : 0;
+  const [a, b] = [hexToRgb(ends[0]), hexToRgb(ends[1])];
+  return rgbToHex(
+    a[0] + (b[0] - a[0]) * tt,
+    a[1] + (b[1] - a[1]) * tt,
+    a[2] + (b[2] - a[2]) * tt
+  );
+}
+
+function scaleTForValue(value: unknown, domain: { min: number; max: number }): number | null {
+  const n = parseDomainBound(value);
+  if (n === null) return null;
+  const { min, max } = domain;
+  if (min === max) return 0.5;
+  return (n - min) / (max - min);
+}
+
+/** E49：第一条 target=row 且可插值的 scale → hex；否则 null */
+export function resolveRowScale(
+  issue: Record<string, unknown>,
+  scales: ColorScaleRule[] | undefined | null
+): string | null {
+  if (!scales || !scales.length) return null;
+  for (const scale of scales) {
+    if (scale.target !== 'row') continue;
+    const actual = readIssueField(issue, scale.field);
+    const t = scaleTForValue(actual, scale.domain);
+    if (t === null) continue;
+    return interpolateScaleColor(scale.palette, t);
+  }
+  return null;
+}
+
+/** E49：tint > scale */
+export function resolveRowBackground(
+  issue: Record<string, unknown>,
+  opts: {
+    conditionalFormats?: ConditionalFormatRule[] | null;
+    colorScales?: ColorScaleRule[] | null;
+  }
+): { kind: 'tint' | 'scale'; value: string } | null {
+  const tint = resolveRowTint(issue, opts.conditionalFormats);
+  if (tint) return { kind: 'tint', value: tint };
+  const hex = resolveRowScale(issue, opts.colorScales);
+  if (hex) return { kind: 'scale', value: hex };
+  return null;
+}
+
+/** E49：按 sets 序、rules 序先匹配；可选 field 过滤到该列 */
+export function resolveCellIcon(
+  issue: Record<string, unknown>,
+  sets: IconSetRule[] | undefined | null,
+  field?: string
+): DisplayIcon | null {
+  if (!sets || !sets.length) return null;
+  for (const set of sets) {
+    if (field && set.field !== field) continue;
+    for (const rule of set.rules) {
+      if (matchConditionalWhen(issue, { field: set.field, op: rule.op, value: rule.value })) {
+        return rule.icon;
+      }
+    }
   }
   return null;
 }
