@@ -18,7 +18,7 @@ from fastapi import HTTPException, status as http_status
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from opentask.models.workspace.model import WorkspaceMember
+from opentask.models.workspace.model import Workspace, WorkspaceMember
 from opentask.models.workspace_webhook.model import (
     DELIVERY_LOG_LIMIT,
     WEBHOOK_EVENTS,
@@ -34,6 +34,15 @@ from opentask.services.workspace_webhook.stats import (
     aggregate_totals,
     parse_window,
     window_since,
+)
+from opentask.services.workspace_webhook.alert_settings import (
+    DEFAULT_ALERT_SETTINGS,
+    merge_alert_settings,
+    normalize_alert_settings,
+)
+from opentask.services.workspace_webhook.alerts import (
+    PAUSED_REASON_AUTO,
+    evaluate_webhook_alerts,
 )
 
 logger = logging.getLogger(__name__)
@@ -83,6 +92,8 @@ def serialize_webhook(
         "url": row.url,
         "events": list(row.events_json or []),
         "enabled": bool(row.enabled),
+        "alertSettings": getattr(row, "alert_settings", None),
+        "pausedReason": getattr(row, "paused_reason", None),
         "createdBy": row.created_by,
         "secretHint": _secret_hint(row.secret),
         "createdAt": row.created_at.isoformat() if row.created_at else None,
@@ -249,6 +260,8 @@ class WorkspaceWebhookService:
         name: Optional[str] = None,
         set_name: bool = False,
         enabled: Optional[bool] = None,
+        alert_settings: Any = None,
+        set_alert_settings: bool = False,
     ) -> WorkspaceWebhook:
         row = await self._get_or_404(workspace_id, webhook_id)
         if url is not None:
@@ -259,6 +272,22 @@ class WorkspaceWebhookService:
             row.name = (name or "").strip() or None
         if enabled is not None:
             row.enabled = bool(enabled)
+            # manual re-enable clears auto pause reason
+            if row.enabled:
+                row.paused_reason = None
+        if set_alert_settings:
+            if alert_settings is None:
+                row.alert_settings = None
+            else:
+                try:
+                    row.alert_settings = normalize_alert_settings(
+                        alert_settings, partial=True
+                    )
+                except ValueError as exc:
+                    raise HTTPException(
+                        status_code=http_status.HTTP_400_BAD_REQUEST,
+                        detail=str(exc),
+                    ) from exc
         row.updated_at = datetime.utcnow()
         await self.db.commit()
         await self.db.refresh(row)
@@ -500,6 +529,7 @@ class WorkspaceWebhookService:
         rows = list((await self.db.execute(stmt)).scalars().all())
         processed = succeeded = failed = dead = 0
         errors: list[dict[str, Any]] = []
+        newly_dead_hooks: set[str] = set()
         for log in rows:
             processed += 1
             try:
@@ -509,6 +539,7 @@ class WorkspaceWebhookService:
                     log.status = "dead"
                     await self.db.commit()
                     dead += 1
+                    newly_dead_hooks.add(log.webhook_id)
                     errors.append(
                         {"deliveryLogId": log.id, "error": "missing_payload"}
                     )
@@ -521,18 +552,30 @@ class WorkspaceWebhookService:
                 elif result.get("status") == "dead":
                     dead += 1
                     failed += 1
+                    newly_dead_hooks.add(log.webhook_id)
                 else:
                     failed += 1
             except Exception as exc:  # noqa: BLE001
                 logger.exception("run-due delivery %s failed", log.id)
                 failed += 1
                 errors.append({"deliveryLogId": log.id, "error": str(exc)[:300]})
+        alert_stats: list[dict[str, Any]] = []
+        for hid in newly_dead_hooks:
+            try:
+                alert_stats.append(
+                    await evaluate_webhook_alerts(
+                        self.db, workspace_id=workspace_id, webhook_id=hid
+                    )
+                )
+            except Exception:  # noqa: BLE001
+                logger.exception("alert eval after dead hook=%s", hid)
         return {
             "processed": processed,
             "succeeded": succeeded,
             "failed": failed,
             "dead": dead,
             "errors": errors,
+            "alertEvals": alert_stats,
         }
 
     async def retry_delivery(
@@ -712,6 +755,13 @@ class WorkspaceWebhookService:
             h = name_map.get(r.webhook_id)
             item["webhookName"] = h.name if h else None
             item["webhookUrl"] = h.url if h else None
+            pr = getattr(h, "paused_reason", None) if h else None
+            item["pausedReason"] = pr
+            item["autoDisabled"] = bool(
+                h is not None
+                and (not h.enabled)
+                and pr == PAUSED_REASON_AUTO
+            )
             payload.append(item)
         return {"rows": payload, "nextCursor": next_cursor, "total": len(payload)}
 
@@ -802,6 +852,150 @@ class WorkspaceWebhookService:
             "failed": failed,
         }
 
+
+
+    async def get_alert_settings(
+        self, *, workspace_id: str, webhook_id: Optional[str] = None
+    ) -> dict[str, Any]:
+        ws = (
+            await self.db.execute(select(Workspace).where(Workspace.id == workspace_id))
+        ).scalar_one_or_none()
+        if ws is None:
+            raise HTTPException(
+                status_code=http_status.HTTP_404_NOT_FOUND, detail="workspace_not_found"
+            )
+        ws_settings = normalize_alert_settings(
+            getattr(ws, "webhook_alert_settings", None), partial=False
+        ) or dict(DEFAULT_ALERT_SETTINGS)
+        if not webhook_id:
+            return {
+                "workspaceId": workspace_id,
+                "settings": ws_settings,
+                "webhookId": None,
+                "overlay": None,
+                "effective": ws_settings,
+            }
+        hook = await self._get_or_404(workspace_id, webhook_id)
+        overlay = getattr(hook, "alert_settings", None)
+        effective = merge_alert_settings(ws_settings, overlay)
+        return {
+            "workspaceId": workspace_id,
+            "settings": ws_settings,
+            "webhookId": webhook_id,
+            "overlay": overlay,
+            "effective": effective,
+        }
+
+    async def set_alert_settings(
+        self,
+        *,
+        workspace_id: str,
+        settings: Any,
+        webhook_id: Optional[str] = None,
+    ) -> dict[str, Any]:
+        if webhook_id:
+            try:
+                normalized = normalize_alert_settings(settings, partial=True)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=http_status.HTTP_400_BAD_REQUEST, detail=str(exc)
+                ) from exc
+            hook = await self._get_or_404(workspace_id, webhook_id)
+            hook.alert_settings = normalized
+            hook.updated_at = datetime.utcnow()
+            await self.db.commit()
+            return await self.get_alert_settings(
+                workspace_id=workspace_id, webhook_id=webhook_id
+            )
+        try:
+            normalized = normalize_alert_settings(settings, partial=False)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST, detail=str(exc)
+            ) from exc
+        ws = (
+            await self.db.execute(select(Workspace).where(Workspace.id == workspace_id))
+        ).scalar_one_or_none()
+        if ws is None:
+            raise HTTPException(
+                status_code=http_status.HTTP_404_NOT_FOUND, detail="workspace_not_found"
+            )
+        ws.webhook_alert_settings = normalized
+        ws.updated_at = datetime.utcnow()
+        await self.db.commit()
+        return await self.get_alert_settings(workspace_id=workspace_id)
+
+    async def mute_alerts(
+        self,
+        *,
+        workspace_id: str,
+        until: str,
+        webhook_id: Optional[str] = None,
+    ) -> dict[str, Any]:
+        try:
+            patch = normalize_alert_settings({"muteUntil": until}, partial=True) or {}
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST, detail=str(exc)
+            ) from exc
+        if webhook_id:
+            hook = await self._get_or_404(workspace_id, webhook_id)
+            base = dict(hook.alert_settings or {})
+            base["muteUntil"] = patch.get("muteUntil")
+            hook.alert_settings = normalize_alert_settings(base, partial=True)
+            hook.updated_at = datetime.utcnow()
+            await self.db.commit()
+            return await self.get_alert_settings(
+                workspace_id=workspace_id, webhook_id=webhook_id
+            )
+        ws = (
+            await self.db.execute(select(Workspace).where(Workspace.id == workspace_id))
+        ).scalar_one_or_none()
+        if ws is None:
+            raise HTTPException(
+                status_code=http_status.HTTP_404_NOT_FOUND, detail="workspace_not_found"
+            )
+        current = normalize_alert_settings(
+            getattr(ws, "webhook_alert_settings", None), partial=False
+        ) or dict(DEFAULT_ALERT_SETTINGS)
+        current["muteUntil"] = patch.get("muteUntil")
+        ws.webhook_alert_settings = current
+        ws.updated_at = datetime.utcnow()
+        await self.db.commit()
+        return await self.get_alert_settings(workspace_id=workspace_id)
+
+    async def unmute_alerts(
+        self, *, workspace_id: str, webhook_id: Optional[str] = None
+    ) -> dict[str, Any]:
+        if webhook_id:
+            hook = await self._get_or_404(workspace_id, webhook_id)
+            base = dict(hook.alert_settings or {})
+            base["muteUntil"] = None
+            # if only muteUntil was set, keep partial overlay
+            hook.alert_settings = normalize_alert_settings(base, partial=True)
+            hook.updated_at = datetime.utcnow()
+            await self.db.commit()
+            return await self.get_alert_settings(
+                workspace_id=workspace_id, webhook_id=webhook_id
+            )
+        ws = (
+            await self.db.execute(select(Workspace).where(Workspace.id == workspace_id))
+        ).scalar_one_or_none()
+        if ws is None:
+            raise HTTPException(
+                status_code=http_status.HTTP_404_NOT_FOUND, detail="workspace_not_found"
+            )
+        current = normalize_alert_settings(
+            getattr(ws, "webhook_alert_settings", None), partial=False
+        ) or dict(DEFAULT_ALERT_SETTINGS)
+        current["muteUntil"] = None
+        ws.webhook_alert_settings = current
+        ws.updated_at = datetime.utcnow()
+        await self.db.commit()
+        return await self.get_alert_settings(workspace_id=workspace_id)
+
+    async def run_alert_eval(self, *, workspace_id: str) -> dict[str, Any]:
+        return await evaluate_webhook_alerts(self.db, workspace_id=workspace_id)
 
     async def _get_or_404(self, workspace_id: str, webhook_id: str) -> WorkspaceWebhook:
         stmt = select(WorkspaceWebhook).where(

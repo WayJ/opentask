@@ -103,6 +103,7 @@ from opentask.models.issue_form import IssueForm  # noqa: F401 — E31
 from opentask.models.issue_recurrence import IssueRecurrence  # noqa: F401 — E35
 from opentask.models.notification_preference import NotificationPreference  # noqa: F401 — E27
 from opentask.models.due_reminder_delivery import DueReminderDelivery  # noqa: F401 — E39
+from opentask.models.webhook_alert_delivery import WebhookAlertDelivery  # noqa: F401 — E57
 from opentask.models.sla import SlaPolicy, IssueSlaClock  # noqa: F401 — E42
 from opentask.models.issue.model import CommentReaction  # noqa: F401 — E27
 from opentask.jwt_utils import create_access_token
@@ -259,6 +260,14 @@ async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
             await conn.execute(_sql_text(
                 "ALTER TABLE IF EXISTS sla_policies ADD COLUMN IF NOT EXISTS calendar JSON"
             ))
+            # E57 webhook dead-letter alerts
+            for _stmt in (
+                "ALTER TABLE IF EXISTS workspaces ADD COLUMN IF NOT EXISTS webhook_alert_settings JSON",
+                "ALTER TABLE IF EXISTS workspace_webhooks ADD COLUMN IF NOT EXISTS alert_settings JSON",
+                "ALTER TABLE IF EXISTS workspace_webhooks ADD COLUMN IF NOT EXISTS paused_reason VARCHAR(64)",
+                "ALTER TABLE IF EXISTS notification_preferences ADD COLUMN IF NOT EXISTS webhook_delivery_alert BOOLEAN NOT NULL DEFAULT TRUE",
+            ):
+                await conn.execute(_sql_text(_stmt))
             # E48 timeline_action enum values (no alembic per Q6a)
             for _val in ("sla_paused", "sla_resumed"):
                 await conn.execute(

@@ -36,10 +36,22 @@ class WebhookUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=200)
     setName: bool = False
     enabled: Optional[bool] = None
+    alertSettings: Optional[dict] = None
+    setAlertSettings: bool = False
 
 
 class DeadLetterRetryBody(BaseModel):
     deliveryLogIds: list[str] = Field(..., min_length=1)
+
+
+class AlertSettingsBody(BaseModel):
+    settings: Optional[dict] = None
+    webhookId: Optional[str] = None
+
+
+class AlertMuteBody(BaseModel):
+    until: str = Field(..., min_length=1)
+    webhookId: Optional[str] = None
 
 
 @router.get("")
@@ -141,6 +153,81 @@ async def bulk_retry_dead_letter(
     return success_response(data=data, message="已批量重试")
 
 
+
+@router.get("/alerts")
+async def get_alert_settings(
+    webhook_id: Optional[str] = None,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    """E57: WS (or per-hook overlay) alert settings. member+ read."""
+    ws, member, _user = ctx
+    require_reader(member)
+    data = await WorkspaceWebhookService(session).get_alert_settings(
+        workspace_id=ws.id, webhook_id=webhook_id
+    )
+    return success_response(data=data)
+
+
+@router.patch("/alerts")
+async def set_alert_settings(
+    body: AlertSettingsBody,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    """E57: set WS or per-hook alert settings. owner write."""
+    ws, member, _user = ctx
+    require_owner(member)
+    data = await WorkspaceWebhookService(session).set_alert_settings(
+        workspace_id=ws.id,
+        settings=body.settings if body.settings is not None else {},
+        webhook_id=body.webhookId,
+    )
+    return success_response(data=data, message="已更新告警设置")
+
+
+@router.post("/alerts/mute")
+async def mute_alerts(
+    body: AlertMuteBody,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    """E57: mute alerts until ISO datetime."""
+    ws, member, _user = ctx
+    require_owner(member)
+    data = await WorkspaceWebhookService(session).mute_alerts(
+        workspace_id=ws.id, until=body.until, webhook_id=body.webhookId
+    )
+    return success_response(data=data, message="已静音")
+
+
+@router.post("/alerts/unmute")
+async def unmute_alerts(
+    webhook_id: Optional[str] = None,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    """E57: clear muteUntil."""
+    ws, member, _user = ctx
+    require_owner(member)
+    data = await WorkspaceWebhookService(session).unmute_alerts(
+        workspace_id=ws.id, webhook_id=webhook_id
+    )
+    return success_response(data=data, message="已取消静音")
+
+
+@router.post("/run-alert-eval")
+async def run_alert_eval(
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    """E57: external tick fallback to evaluate dead-letter alerts. member+."""
+    ws, member, _user = ctx
+    require_reader(member)
+    data = await WorkspaceWebhookService(session).run_alert_eval(workspace_id=ws.id)
+    return success_response(data=data, message="已评估")
+
+
 @router.get("/{webhook_id}/stats")
 async def webhook_stats_one(
     webhook_id: str,
@@ -192,6 +279,8 @@ async def update_webhook(
         name=body.name,
         set_name=body.setName or body.name is not None,
         enabled=body.enabled,
+        alert_settings=body.alertSettings,
+        set_alert_settings=body.setAlertSettings or body.alertSettings is not None,
     )
     return success_response(data=serialize_webhook(row), message="已更新")
 
