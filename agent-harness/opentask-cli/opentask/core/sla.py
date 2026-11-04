@@ -13,9 +13,10 @@ from ..utils.config import Config
 
 @click.group(name="sla")
 def sla_cli():
-    """SLA 策略 / Issue 时钟 / run-due tick。
+    """SLA 策略 / Issue 时钟 / run-due / business-hours（E50）。
 
 示例: opentask sla policy create --name FR --start in_progress --metric first_response --minutes 60
+营业时: opentask sla business-hours show | set --timezone Asia/Shanghai --enabled
 """
     pass
 
@@ -255,5 +256,75 @@ def sla_run_due(obj, as_json):
         )
         for err in data.get("errors") or []:
             obj.skin.warn(f"  error {err.get('clockId')}: {err.get('message')}")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@sla_cli.group(name="business-hours")
+def business_hours_cli():
+    """工作区营业时段（E50，挂在 Workspace）。"""
+    pass
+
+
+@business_hours_cli.command(name="show")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def business_hours_show(obj, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.get_workspace(config.active_workspace_id))
+        payload = {
+            "timezone": (data or {}).get("timezone"),
+            "businessHours": (data or {}).get("businessHours") or {"enabled": False, "windows": {}},
+        }
+        if json_mode:
+            echo_json(True, data=payload)
+            return
+        bh = payload["businessHours"] or {}
+        obj.skin.section("SLA business hours")
+        obj.skin.status_block({
+            "Timezone": payload.get("timezone") or "—",
+            "Enabled": "on" if bh.get("enabled") else "off",
+            "Windows": json.dumps(bh.get("windows") or {}, ensure_ascii=False),
+        })
+        obj.skin.hint("run-due 仍比 UTC deadline_at；启用营业时后 deadline 按营业分钟写出")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@business_hours_cli.command(name="set")
+@click.option("--timezone", default=None, help="IANA timezone")
+@click.option("--enabled/--disabled", "enabled", default=None)
+@click.option("--windows-json", default=None, help="windows JSON object mon..sun")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def business_hours_set(obj, timezone, enabled, windows_json, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    body = {}
+    if timezone is not None:
+        body["timezone"] = timezone
+    if enabled is not None or windows_json is not None:
+        bh = {"enabled": bool(enabled) if enabled is not None else False}
+        if windows_json:
+            bh["windows"] = json.loads(windows_json)
+        if enabled is not None:
+            bh["enabled"] = bool(enabled)
+        body["businessHours"] = bh
+    if not body:
+        raise click.ClickException("请提供 --timezone / --enabled / --windows-json")
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.update_workspace(config.active_workspace_id, **body))
+        if json_mode:
+            echo_json(True, data=data)
+            return
+        obj.skin.success("business hours 已更新")
     except APIError as e:
         handle_api_error(e, json_mode)
