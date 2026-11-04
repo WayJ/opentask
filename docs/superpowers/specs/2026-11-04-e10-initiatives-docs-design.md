@@ -2,7 +2,7 @@
 
 日期：2026-11-04  
 Epic：E10  
-状态：designed（Phase 1；**无**产品实现）  
+状态：implemented（E10 Epic local-complete；S1–S3）  
 基线：`sprint/E9-S3` @ `f06dc9f`；worktree `/workspace/opentask-worktrees/E10-S1`（分支 `sprint/E10-S1`）  
 北星：OpenTask Linear PRD §E10  
 Alembic head：`f2a3b4c5d6e8`（`notifications.snoozed_until`）
@@ -189,4 +189,4 @@ ACL：`X-Workspace-Id` + member；viewer GET；跨 WS id → 404。
 - [x] roadmap `docs/superpowers/roadmaps/2026-11-04-opentask-initiatives-docs.md`
 - [x] 本 design（含 Yuri 禁双轴）
 - [x] S1 stub `docs/superpowers/sprints/2026-11-04-E10-S1-plan.md`
-- [ ] **产品实现** → 待后续 Phase（TDD plan + impl）；本 Phase **停止**
+- [x] **产品实现** → S1 CRUD；S2 health/nav；S3 entity_documents + KB 深链
