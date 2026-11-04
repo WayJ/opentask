@@ -45,7 +45,7 @@ date: 2026-11-04
 
 | sprint | state | note |
 |---|---|---|
-| S1 ✅ | planned | Initiative 表/API + 多 Project 关联 + 列表/详情 FE 骨架 |
+| S1 ✅ | **done** | Initiative 表/API + 多 Project 关联 + 列表/详情 FE 骨架 |
 | S2 | planned | 健康汇总 + 侧栏/⌘K + Favorites 可钉 Initiative（可选） |
 | S3 | planned | Docs（附属 MD 或 KB 深链）+ 打磨 + Epic local-complete |
 
