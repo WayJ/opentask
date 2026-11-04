@@ -17,6 +17,9 @@ EVENTS = [
     "comment.created",
     "issue.custom_field_changed",
     "issue.sla_breached",
+    "issue.assignee_changed",
+    "issue.label_added",
+    "issue.label_removed",
 ]
 
 
@@ -177,5 +180,104 @@ def webhook_test(obj, webhook_id, as_json):
             )
         else:
             obj.skin.error(f"测试失败: {data.get('error') or data}")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@webhook_cli.command(name="deliveries")
+@click.argument("webhook_id")
+@click.option(
+    "--status",
+    default=None,
+    help="过滤 status：pending_retry|dead|success|success_after_retry",
+)
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def webhook_deliveries(obj, webhook_id, status, as_json):
+    """列出投递账本（含 status / replayable）。"""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.get_webhook(webhook_id))
+        rows = (data or {}).get("deliveries") or []
+        if status:
+            rows = [r for r in rows if (r.get("status") or "") == status]
+        if json_mode:
+            echo_json(True, data={"rows": rows, "total": len(rows)})
+            return
+        if not rows:
+            obj.skin.info("无投递记录")
+            return
+        obj.skin.table(
+            ["Status", "Event", "Attempt", "HTTP", "Replay", "Id"],
+            [
+                [
+                    r.get("status") or ("ok" if r.get("success") else "fail"),
+                    (r.get("eventType") or "")[:28],
+                    r.get("attempt"),
+                    r.get("statusCode") or "",
+                    "yes" if r.get("replayable") else "no",
+                    (r.get("id") or "")[:8],
+                ]
+                for r in rows
+            ],
+        )
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@webhook_cli.command(name="retry")
+@click.argument("webhook_id")
+@click.argument("delivery_log_id")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def webhook_retry(obj, webhook_id, delivery_log_id, as_json):
+    """立即重试一条失败/死信投递。"""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.retry_webhook_delivery(webhook_id, delivery_log_id))
+        if json_mode:
+            echo_json(True, data=data, message="retried")
+            return
+        if (data or {}).get("success"):
+            obj.skin.success(
+                f"重试成功 HTTP {data.get('statusCode')} attempt={data.get('attempt')}"
+            )
+        else:
+            obj.skin.error(f"重试失败: {data.get('error') or data}")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@webhook_cli.command(name="run-due")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def webhook_run_due(obj, as_json):
+    """执行到期 pending_retry 投递（外部 tick）。"""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.run_due_webhook_deliveries())
+        if json_mode:
+            echo_json(True, data=data, message="run-due")
+            return
+        obj.skin.success(
+            "processed={processed} succeeded={succeeded} failed={failed} dead={dead}".format(
+                processed=(data or {}).get("processed"),
+                succeeded=(data or {}).get("succeeded"),
+                failed=(data or {}).get("failed"),
+                dead=(data or {}).get("dead"),
+            )
+        )
     except APIError as e:
         handle_api_error(e, json_mode)

@@ -936,6 +936,17 @@ class OpenTaskClient:
     async def test_webhook(self, webhook_id: str) -> dict:
         return await self.post(f"/api/webhooks/{webhook_id}/test")
 
+    async def get_webhook(self, webhook_id: str) -> dict:
+        return await self.get(f"/api/webhooks/{webhook_id}")
+
+    async def retry_webhook_delivery(self, webhook_id: str, delivery_log_id: str) -> dict:
+        return await self.post(
+            f"/api/webhooks/{webhook_id}/deliveries/{delivery_log_id}/retry"
+        )
+
+    async def run_due_webhook_deliveries(self) -> dict:
+        return await self.post("/api/webhooks/run-due-deliveries")
+
 
     # ========================================================================
     # Issue Forms (E31)

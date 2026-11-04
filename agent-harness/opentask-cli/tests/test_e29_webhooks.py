@@ -1,4 +1,4 @@
-"""E29 CLI: webhook list|create|update|delete|test + version 1.27.0."""
+"""E29 CLI: webhook list|create|update|delete|test + version 1.28.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli
@@ -8,7 +8,7 @@ def test_version_1_13_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.27.0" in result.output
+    assert "1.28.0" in result.output
 
 
 def test_webhook_help():
@@ -20,6 +20,8 @@ def test_webhook_help():
     assert "update" in result.output
     assert "delete" in result.output
     assert "test" in result.output
+    assert "deliveries" in result.output
+    assert "run-due" in result.output
 
 
 def test_webhook_create_help():

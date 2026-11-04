@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { h, onMounted, reactive, ref } from 'vue';
+import { computed, h, onMounted, reactive, ref } from 'vue';
 import {
   type DataTableColumns,
   NButton,
@@ -9,20 +9,26 @@ import {
   NDataTable,
   NInput,
   NModal,
+  NRadioButton,
+  NRadioGroup,
   NSpace,
   NSwitch,
   NTag,
   NText
 } from 'naive-ui';
 import {
+  type WebhookDelivery,
   type WebhookRow,
   WEBHOOK_EVENTS,
   WEBHOOK_EVENT_LABELS,
   fetchCreateWebhook,
   fetchDeleteWebhook,
+  fetchRetryWebhookDelivery,
   fetchTestWebhook,
   fetchUpdateWebhook,
-  fetchWebhooks
+  fetchWebhook,
+  fetchWebhooks,
+  isDeliveryReplayable
 } from '@/service/api/webhooks';
 
 defineOptions({ name: 'SettingsWebhooksPage' });
@@ -32,6 +38,10 @@ const rows = ref<WebhookRow[]>([]);
 const creating = ref(false);
 const secretModal = ref(false);
 const oneTimeSecret = ref('');
+const detailOpen = ref(false);
+const detailLoading = ref(false);
+const detail = ref<WebhookRow | null>(null);
+const statusFilter = ref<'all' | 'fail'>('all');
 const form = reactive({
   name: '',
   url: '',
@@ -39,6 +49,17 @@ const form = reactive({
 });
 
 const eventOptions = WEBHOOK_EVENTS.map(e => ({ label: WEBHOOK_EVENT_LABELS[e] || e, value: e }));
+
+const filteredDeliveries = computed(() => {
+  const list = detail.value?.deliveries || [];
+  if (statusFilter.value === 'fail') {
+    return list.filter(d => {
+      const st = d.status || (d.success ? 'success' : 'pending_retry');
+      return st === 'pending_retry' || st === 'dead' || !d.success;
+    });
+  }
+  return list;
+});
 
 const columns: DataTableColumns<WebhookRow> = [
   {
@@ -85,10 +106,15 @@ const columns: DataTableColumns<WebhookRow> = [
   {
     title: '操作',
     key: 'actions',
-    width: 160,
+    width: 220,
     render: row =>
       h(NSpace, { size: 4 }, {
         default: () => [
+          h(
+            NButton,
+            { size: 'tiny', tertiary: true, onClick: () => openDetail(row.id) },
+            { default: () => '投递' }
+          ),
           h(
             NButton,
             { size: 'tiny', tertiary: true, onClick: () => testHook(row.id) },
@@ -104,6 +130,68 @@ const columns: DataTableColumns<WebhookRow> = [
   }
 ];
 
+const deliveryColumns: DataTableColumns<WebhookDelivery> = [
+  {
+    title: '事件',
+    key: 'eventType',
+    ellipsis: { tooltip: true }
+  },
+  {
+    title: '状态',
+    key: 'status',
+    width: 140,
+    render: row => {
+      const st = row.status || (row.success ? 'success' : 'pending_retry');
+      const type = st === 'dead' ? 'error' : st === 'pending_retry' ? 'warning' : 'success';
+      return h(
+        NTag,
+        {
+          size: 'small',
+          type,
+          bordered: false,
+          style: st === 'dead' ? 'font-weight:600' : undefined
+        },
+        { default: () => st }
+      );
+    }
+  },
+  {
+    title: 'HTTP',
+    key: 'statusCode',
+    width: 70,
+    render: row => row.statusCode ?? '—'
+  },
+  {
+    title: '次',
+    key: 'attempt',
+    width: 50
+  },
+  {
+    title: '时间',
+    key: 'createdAt',
+    width: 170,
+    render: row => (row.createdAt || '').replace('T', ' ').slice(0, 19) || '—'
+  },
+  {
+    title: '操作',
+    key: 'actions',
+    width: 90,
+    render: row => {
+      if (!detail.value || !isDeliveryReplayable(row)) return '—';
+      return h(
+        NButton,
+        {
+          size: 'tiny',
+          type: 'primary',
+          tertiary: true,
+          onClick: () => retryDelivery(detail.value!.id, row.id)
+        },
+        { default: () => '重试' }
+      );
+    }
+  }
+];
+
 async function load() {
   loading.value = true;
   try {
@@ -116,6 +204,37 @@ async function load() {
   } finally {
     loading.value = false;
   }
+}
+
+async function openDetail(id: string) {
+  detailOpen.value = true;
+  detailLoading.value = true;
+  statusFilter.value = 'all';
+  try {
+    const { data, error } = await fetchWebhook(id);
+    if (error) {
+      window.$message?.error?.(error.message || '加载失败');
+      detail.value = null;
+      return;
+    }
+    detail.value = data || null;
+  } finally {
+    detailLoading.value = false;
+  }
+}
+
+async function retryDelivery(webhookId: string, deliveryLogId: string) {
+  const { data, error } = await fetchRetryWebhookDelivery(webhookId, deliveryLogId);
+  if (error) {
+    window.$message?.error?.(error.message || '重试失败');
+    return;
+  }
+  if (data?.success) {
+    window.$message?.success?.('重试成功');
+  } else {
+    window.$message?.warning?.(data?.error || '重试未成功');
+  }
+  await openDetail(webhookId);
 }
 
 async function createHook() {
@@ -221,5 +340,33 @@ onMounted(load);
         <NButton type="primary" @click="secretModal = false">我已保存</NButton>
       </template>
     </NModal>
+
+    <NModal
+      v-model:show="detailOpen"
+      preset="card"
+      :title="detail?.name || detail?.url || '投递记录'"
+      style="width: 820px"
+    >
+      <NSpace vertical>
+        <NRadioGroup v-model:value="statusFilter" size="small">
+          <NRadioButton value="all">全部</NRadioButton>
+          <NRadioButton value="fail">失败/死信</NRadioButton>
+        </NRadioGroup>
+        <NDataTable
+          :columns="deliveryColumns"
+          :data="filteredDeliveries"
+          :loading="detailLoading"
+          :bordered="false"
+          size="small"
+          :row-class-name="(row: WebhookDelivery) => ((row.status || '') === 'dead' ? 'e44-dead-row' : '')"
+        />
+      </NSpace>
+    </NModal>
   </div>
 </template>
+
+<style scoped>
+:deep(.e44-dead-row td) {
+  background: rgba(239, 68, 68, 0.08);
+}
+</style>

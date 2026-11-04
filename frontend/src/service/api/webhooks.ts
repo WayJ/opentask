@@ -6,7 +6,10 @@ export const WEBHOOK_EVENTS = [
   'issue.status_changed',
   'comment.created',
   'issue.custom_field_changed',
-  'issue.sla_breached'
+  'issue.sla_breached',
+  'issue.assignee_changed',
+  'issue.label_added',
+  'issue.label_removed'
 ] as const;
 
 export const WEBHOOK_EVENT_LABELS: Record<(typeof WEBHOOK_EVENTS)[number], string> = {
@@ -15,7 +18,10 @@ export const WEBHOOK_EVENT_LABELS: Record<(typeof WEBHOOK_EVENTS)[number], strin
   'issue.status_changed': 'Issue 状态变更',
   'comment.created': '评论创建',
   'issue.custom_field_changed': '自定义字段变更',
-  'issue.sla_breached': 'SLA 违约'
+  'issue.sla_breached': 'SLA 违约',
+  'issue.assignee_changed': '经办人变更',
+  'issue.label_added': '添加标签',
+  'issue.label_removed': '移除标签'
 };
 
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
@@ -30,6 +36,11 @@ export interface WebhookDelivery {
   latencyMs?: number | null;
   error?: string | null;
   createdAt?: string | null;
+  status?: string | null;
+  nextAttemptAt?: string | null;
+  deliveryId?: string | null;
+  replayable?: boolean;
+  maxAttempts?: number;
 }
 
 export interface WebhookRow {
@@ -50,6 +61,12 @@ export interface WebhookRow {
 export interface WebhookListResult {
   rows: WebhookRow[];
   total: number;
+}
+
+export function isDeliveryReplayable(d: WebhookDelivery): boolean {
+  if (typeof d.replayable === 'boolean') return d.replayable;
+  const st = d.status || (d.success ? 'success' : 'pending_retry');
+  return st === 'pending_retry' || st === 'dead';
 }
 
 export function fetchWebhooks() {
@@ -93,6 +110,19 @@ export function fetchTestWebhook(id: string) {
     attempt?: number;
     error?: string | null;
   }>({ url: `/api/webhooks/${id}/test`, method: 'post' });
+}
+
+export function fetchRetryWebhookDelivery(webhookId: string, deliveryLogId: string) {
+  return request<{
+    success: boolean;
+    statusCode?: number | null;
+    attempt?: number;
+    error?: string | null;
+    status?: string;
+  }>({
+    url: `/api/webhooks/${webhookId}/deliveries/${deliveryLogId}/retry`,
+    method: 'post'
+  });
 }
 
 /** Parse comma / whitespace separated events; dedupe; validate against known set. */
