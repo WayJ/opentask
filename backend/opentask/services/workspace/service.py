@@ -219,3 +219,42 @@ class WorkspaceService:
             select(WorkspaceMember.workspace_id).where(WorkspaceMember.user_id == user_id)
         )
         return [row[0] for row in result.all()]
+
+    async def update_member_role(
+        self, workspace_id: str, actor_id: str, target_user_id: str, role: str
+    ) -> WorkspaceMember:
+        await self.require_owner(workspace_id, actor_id)
+        if role not in ("owner", "member", "viewer"):
+            raise HTTPException(status_code=400, detail="无效角色")
+        member = await self.get_membership(workspace_id, target_user_id)
+        if member is None:
+            raise HTTPException(status_code=404, detail="成员不存在")
+        if member.role == "owner" and role != "owner":
+            owners = await self.session.execute(
+                select(WorkspaceMember).where(
+                    WorkspaceMember.workspace_id == workspace_id,
+                    WorkspaceMember.role == "owner",
+                )
+            )
+            if len(list(owners.scalars().all())) <= 1:
+                raise HTTPException(status_code=400, detail="不能降级唯一的 owner")
+        member.role = role
+        await self.session.commit()
+        await self.session.refresh(member)
+        return member
+
+    async def leave(self, workspace_id: str, user_id: str) -> None:
+        member = await self.get_membership(workspace_id, user_id)
+        if member is None:
+            raise HTTPException(status_code=404, detail="不是该工作区成员")
+        if member.role == "owner":
+            owners = await self.session.execute(
+                select(WorkspaceMember).where(
+                    WorkspaceMember.workspace_id == workspace_id,
+                    WorkspaceMember.role == "owner",
+                )
+            )
+            if len(list(owners.scalars().all())) <= 1:
+                raise HTTPException(status_code=400, detail="唯一 owner 不能离开，请先转让")
+        await self.session.delete(member)
+        await self.session.commit()

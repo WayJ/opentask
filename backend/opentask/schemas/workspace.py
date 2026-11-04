@@ -48,3 +48,13 @@ class WorkspaceOut(BaseModel):
     issueKey: str = "OT"
     createdAt: datetime
     updatedAt: datetime
+
+
+class WorkspaceMemberRoleUpdate(BaseModel):
+    role: str = Field(..., pattern="^(owner|member|viewer)$")
+
+
+class WorkspaceInviteCreate(BaseModel):
+    email: Optional[str] = Field(None, max_length=255)
+    role: str = Field(default="member", pattern="^(member|viewer)$")
+    expiresInDays: Optional[int] = Field(14, ge=1, le=90)

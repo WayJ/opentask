@@ -204,6 +204,7 @@ class AuthService:
         user_agent: str | None = None,
         ip: str | None = None,
         create_default_workspace: bool = True,
+        invite_token: str | None = None,
     ) -> tuple:
         """开放注册：建本地用户（+ 可选默认工作区）并签发 token 对。
 
@@ -272,6 +273,13 @@ class AuthService:
 
         await self.session.commit()
         await self.session.refresh(user)
+
+        if invite_token:
+            from opentask.services.workspace.invite_service import InviteService
+
+            await InviteService(self.session).accept_during_register(
+                invite_token, str(user.id)
+            )
 
         pair = await self.token_service.issue_tokens(
             user, user_agent=user_agent, ip=ip

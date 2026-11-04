@@ -59,6 +59,7 @@ class RegisterBody(BaseModel):
     userName: str = Field(..., min_length=2, max_length=50)
     password: str
     name: Optional[str] = None
+    inviteToken: Optional[str] = None
 
 
 class DingTalkCallbackBody(BaseModel):
@@ -480,6 +481,7 @@ async def register(
         name=body.name,
         user_agent=user_agent,
         ip=client_ip,
+        invite_token=body.inviteToken,
     )
     return success_response({
         **pair,

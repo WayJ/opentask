@@ -10,8 +10,12 @@ from opentask.repositories.base import get_session
 from opentask.schemas.workspace import (
     WorkspaceCreate,
     WorkspaceMemberAdd,
+    WorkspaceMemberRoleUpdate,
+    WorkspaceInviteCreate,
     WorkspaceUpdate,
 )
+from opentask.services.workspace.invite_service import InviteService
+
 from opentask.services.workspace.service import WorkspaceService
 from opentask.utils.response import success_response
 
@@ -126,3 +130,73 @@ async def remove_member(
 ):
     await WorkspaceService(session).remove_member(workspace_id, str(current_user.id), user_id)
     return success_response(message="成员已移除")
+
+
+@router.patch("/{workspace_id}/members/{user_id}")
+async def update_member_role(
+    workspace_id: str,
+    user_id: str,
+    body: WorkspaceMemberRoleUpdate,
+    current_user: UserModel = Depends(authenticate),
+    session: AsyncSession = Depends(get_session),
+):
+    member = await WorkspaceService(session).update_member_role(
+        workspace_id, str(current_user.id), user_id, body.role
+    )
+    return success_response(
+        data={
+            "id": member.id,
+            "userId": member.user_id,
+            "role": member.role,
+            "createdAt": member.created_at,
+        },
+        message="成员角色已更新",
+    )
+
+
+@router.post("/{workspace_id}/leave")
+async def leave_workspace(
+    workspace_id: str,
+    current_user: UserModel = Depends(authenticate),
+    session: AsyncSession = Depends(get_session),
+):
+    await WorkspaceService(session).leave(workspace_id, str(current_user.id))
+    return success_response(message="已离开工作区")
+
+
+@router.post("/{workspace_id}/invites")
+async def create_invite(
+    workspace_id: str,
+    body: WorkspaceInviteCreate,
+    current_user: UserModel = Depends(authenticate),
+    session: AsyncSession = Depends(get_session),
+):
+    data = await InviteService(session).create(
+        workspace_id,
+        str(current_user.id),
+        role=body.role,
+        email=body.email,
+        expires_in_days=body.expiresInDays or 14,
+    )
+    return success_response(data=data, message="邀请已创建")
+
+
+@router.get("/{workspace_id}/invites")
+async def list_invites(
+    workspace_id: str,
+    current_user: UserModel = Depends(authenticate),
+    session: AsyncSession = Depends(get_session),
+):
+    rows = await InviteService(session).list_for_workspace(workspace_id, str(current_user.id))
+    return success_response(data=rows)
+
+
+@router.delete("/{workspace_id}/invites/{invite_id}")
+async def revoke_invite(
+    workspace_id: str,
+    invite_id: str,
+    current_user: UserModel = Depends(authenticate),
+    session: AsyncSession = Depends(get_session),
+):
+    await InviteService(session).revoke(workspace_id, invite_id, str(current_user.id))
+    return success_response(message="邀请已撤销")

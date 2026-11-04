@@ -175,7 +175,7 @@ async def test_expired_invite_cannot_accept(
     data = created.json()["data"]
     token = data["token"]
     invite_id = data.get("id") or data.get("inviteId")
-    past = (datetime.utcnow() - timedelta(days=1)).isoformat()
+    past = datetime.utcnow() - timedelta(days=1)
     async with test_engine.begin() as conn:
         await conn.execute(
             text("UPDATE workspace_invites SET expires_at = :e WHERE id = :id"),
