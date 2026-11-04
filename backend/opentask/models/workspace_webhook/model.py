@@ -30,6 +30,11 @@ WEBHOOK_EVENTS = (
     "issue.assignee_changed",  # E44
     "issue.label_added",  # E44
     "issue.label_removed",  # E44
+    "issue.cycle_changed",  # E51
+    "issue.estimate_changed",  # E51
+    "issue.project_changed",  # E51
+    "issue.sla_paused",  # E51
+    "issue.sla_resumed",  # E51
 )
 
 DELIVERY_LOG_LIMIT = 50

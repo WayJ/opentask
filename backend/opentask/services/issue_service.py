@@ -807,6 +807,10 @@ class IssueService:
                     )
 
         # E41：cycle / estimate / project 变更 → timeline（同事务）
+        # E51：捕获实际变更供专用 webhook（与 issue.updated 并存）
+        cycle_changed_pair = None  # (from, to)
+        estimate_changed_pair = None
+        project_changed_pair = None
         if "cycle_id" in update_data:
             old_cycle_q = await self.db.execute(
                 select(Issue.cycle_id).where(Issue.id == issue_id)
@@ -814,6 +818,7 @@ class IssueService:
             old_cycle = old_cycle_q.scalar_one_or_none()
             new_cycle = update_data.get("cycle_id")
             if old_cycle != new_cycle:
+                cycle_changed_pair = (old_cycle, new_cycle)
                 await self._add_timeline(
                     issue_id=issue_id,
                     action_type=TimelineAction.CYCLE_CHANGED,
@@ -838,6 +843,7 @@ class IssueService:
 
             old_n, new_n = _est_num(old_est), _est_num(new_est)
             if old_n != new_n:
+                estimate_changed_pair = (old_n, new_n)
                 await self._add_timeline(
                     issue_id=issue_id,
                     action_type=TimelineAction.ESTIMATE_CHANGED,
@@ -852,6 +858,7 @@ class IssueService:
             old_proj = old_proj_q.scalar_one_or_none()
             new_proj = update_data.get("project_id")
             if old_proj != new_proj:
+                project_changed_pair = (old_proj, new_proj)
                 await self._add_timeline(
                     issue_id=issue_id,
                     action_type=TimelineAction.PROJECT_CHANGED,
@@ -996,6 +1003,52 @@ class IssueService:
                         "title": issue.title,
                         "from": assignee_changed_from,
                         "to": assignee_changed_to,
+                        "actorUserId": user_id,
+                    },
+                )
+            # E51: dedicated cycle/estimate/project webhooks (coexist with issue.updated)
+            if cycle_changed_pair is not None:
+                old_c, new_c = cycle_changed_pair
+                await fire_webhooks(
+                    self.db,
+                    workspace_id=issue.workspace_id,
+                    event_type="issue.cycle_changed",
+                    data={
+                        "id": str(issue.id),
+                        "issueCode": issue.issue_code,
+                        "title": issue.title,
+                        "from": old_c,
+                        "to": new_c,
+                        "actorUserId": user_id,
+                    },
+                )
+            if estimate_changed_pair is not None:
+                old_e, new_e = estimate_changed_pair
+                await fire_webhooks(
+                    self.db,
+                    workspace_id=issue.workspace_id,
+                    event_type="issue.estimate_changed",
+                    data={
+                        "id": str(issue.id),
+                        "issueCode": issue.issue_code,
+                        "title": issue.title,
+                        "from": old_e,
+                        "to": new_e,
+                        "actorUserId": user_id,
+                    },
+                )
+            if project_changed_pair is not None:
+                old_p, new_p = project_changed_pair
+                await fire_webhooks(
+                    self.db,
+                    workspace_id=issue.workspace_id,
+                    event_type="issue.project_changed",
+                    data={
+                        "id": str(issue.id),
+                        "issueCode": issue.issue_code,
+                        "title": issue.title,
+                        "from": old_p,
+                        "to": new_p,
                         "actorUserId": user_id,
                     },
                 )

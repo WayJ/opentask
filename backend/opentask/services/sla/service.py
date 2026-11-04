@@ -352,7 +352,7 @@ class SlaService:
                 active.status = "paused"
                 active.paused_at = now
                 # Q3: keep old deadline_at
-                # E48: pause timeline only — no webhook/automation (Q3a)
+                # E48: pause timeline; E51: dedicated webhook (still no automation)
                 self.db.add(
                     IssueTimeline(
                         issue_id=issue.id,
@@ -370,6 +370,28 @@ class SlaService:
                         },
                     )
                 )
+                try:
+                    await fire_webhooks(
+                        self.db,
+                        workspace_id=issue.workspace_id,
+                        event_type="issue.sla_paused",
+                        data={
+                            "id": str(issue.id),
+                            "issueCode": issue.issue_code,
+                            "title": issue.title,
+                            "policyId": policy.id,
+                            "policyName": policy.name,
+                            "metric": policy.metric,
+                            "fromStatus": old_s,
+                            "toStatus": new_s,
+                            "elapsedBeforePauseMinutes": int(
+                                active.elapsed_before_pause_minutes or 0
+                            ),
+                            "actorUserId": None,
+                        },
+                    )
+                except Exception:  # noqa: BLE001
+                    logger.exception("sla_paused webhook failed issue=%s", issue.id)
                 continue
 
             # 3) paused → resume (not stop, not still in pause)
@@ -402,6 +424,29 @@ class SlaService:
                         },
                     )
                 )
+                try:
+                    await fire_webhooks(
+                        self.db,
+                        workspace_id=issue.workspace_id,
+                        event_type="issue.sla_resumed",
+                        data={
+                            "id": str(issue.id),
+                            "issueCode": issue.issue_code,
+                            "title": issue.title,
+                            "policyId": policy.id,
+                            "policyName": policy.name,
+                            "metric": policy.metric,
+                            "fromStatus": old_s,
+                            "toStatus": new_s,
+                            "remainingMinutes": remaining,
+                            "newDeadlineAt": active.deadline_at.isoformat()
+                            if active.deadline_at
+                            else None,
+                            "actorUserId": None,
+                        },
+                    )
+                except Exception:  # noqa: BLE001
+                    logger.exception("sla_resumed webhook failed issue=%s", issue.id)
                 continue
 
             # 4) start new running if no active clock
