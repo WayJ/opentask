@@ -14,6 +14,7 @@ from opentask.repositories.base import get_session
 from opentask.services.automation.service import (
     AutomationService,
     require_writer,
+    serialize_pending,
     serialize_rule,
 )
 from opentask.utils.response import success_response
@@ -78,6 +79,37 @@ async def create_automation(
         position=body.position,
     )
     return success_response(data=serialize_rule(row), message="已创建")
+
+
+@router.post("/run-due")
+async def run_due_automations(
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    """Execute due delayed automation actions (UTC). External tick — no in-process cron."""
+    ws, member, user = ctx
+    require_writer(member)
+    result = await AutomationService(session).run_due(
+        workspace_id=ws.id,
+        actor_user_id=str(user.id),
+    )
+    return success_response(data=result, message="已执行")
+
+
+@router.get("/pending")
+async def list_automation_pending(
+    status: str = "pending",
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    """List pending (or other status) delayed actions — limit 100."""
+    ws, member, _user = ctx
+    require_writer(member)
+    rows = await AutomationService(session).list_pending(
+        workspace_id=ws.id, status=status or "pending", limit=100
+    )
+    payload = [serialize_pending(r) for r in rows]
+    return success_response(data={"rows": payload, "total": len(payload)})
 
 
 @router.get("/{rule_id}")

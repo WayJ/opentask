@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import contextvars
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Optional
 
 from fastapi import HTTPException, status as http_status
@@ -13,7 +13,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from opentask.models.automation.model import (
     ACTION_TYPES,
     CF_CONDITION_OPS,
+    MAX_DELAY_MINUTES,
     TRIGGER_TYPES,
+    AutomationPendingAction,
     AutomationRule,
 )
 from opentask.models.custom_field.model import CustomField, IssueCustomFieldValue
@@ -58,6 +60,23 @@ def serialize_rule(row: AutomationRule) -> dict:
     }
 
 
+def serialize_pending(row: AutomationPendingAction) -> dict:
+    return {
+        "id": row.id,
+        "workspaceId": row.workspace_id,
+        "ruleId": row.rule_id,
+        "issueId": row.issue_id,
+        "actionType": row.action_type,
+        "actionConfig": row.action_config_json or {},
+        "runAt": row.run_at.isoformat() if row.run_at else None,
+        "status": row.status,
+        "actorUserId": row.actor_user_id,
+        "errorMessage": row.error_message,
+        "createdAt": row.created_at.isoformat() if row.created_at else None,
+        "executedAt": row.executed_at.isoformat() if row.executed_at else None,
+    }
+
+
 def _enum_val(v: Any) -> Any:
     return getattr(v, "value", v)
 
@@ -94,6 +113,7 @@ class AutomationService:
     ) -> AutomationRule:
         self._validate_enums(trigger_type, action_type)
         self._validate_condition(condition)
+        self._validate_action_config(action_config)
         if position is None:
             q = await self.db.execute(
                 select(func.coalesce(func.max(AutomationRule.position), -1)).where(
@@ -152,6 +172,7 @@ class AutomationService:
                 raise HTTPException(status_code=400, detail=f"非法 action: {action_type}")
             row.action_type = action_type
         if set_action_config:
+            self._validate_action_config(action_config)
             row.action_config_json = dict(action_config or {})
         if enabled is not None:
             row.enabled = bool(enabled)
@@ -160,6 +181,8 @@ class AutomationService:
         row.updated_at = datetime.utcnow()
         await self.db.commit()
         await self.db.refresh(row)
+        if enabled is not None and not enabled:
+            await self.cancel_pending_for_rule(workspace_id=workspace_id, rule_id=rule_id)
         return row
 
     async def set_enabled(
@@ -209,6 +232,46 @@ class AutomationService:
                 detail=f"customFields 最多 {MAX_CUSTOM_FIELD_CONDITIONS} 条",
             )
 
+    @staticmethod
+    def parse_delay_minutes(cfg: Optional[dict]) -> int:
+        """Return delay minutes; 0 = immediate. Raises 400 if invalid."""
+        if not cfg or not isinstance(cfg, dict):
+            return 0
+        raw = cfg.get("delay_minutes")
+        if raw is None:
+            raw = cfg.get("delayMinutes")
+        if raw is None:
+            return 0
+        if isinstance(raw, bool):
+            raise HTTPException(status_code=400, detail="delay_minutes 非法")
+        if isinstance(raw, float):
+            if not raw.is_integer():
+                raise HTTPException(status_code=400, detail="delay_minutes 非法")
+            raw = int(raw)
+        if not isinstance(raw, int):
+            raise HTTPException(status_code=400, detail="delay_minutes 非法")
+        if raw < 0 or raw > MAX_DELAY_MINUTES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"delay_minutes 须在 0…{MAX_DELAY_MINUTES}",
+            )
+        return raw
+
+    @staticmethod
+    def strip_delay(cfg: Optional[dict]) -> dict:
+        out = dict(cfg or {})
+        out.pop("delay_minutes", None)
+        out.pop("delayMinutes", None)
+        return out
+
+    @classmethod
+    def _validate_action_config(cls, action_config: Optional[dict]) -> None:
+        if action_config is None:
+            return
+        if not isinstance(action_config, dict):
+            raise HTTPException(status_code=400, detail="actionConfig 须为对象")
+        cls.parse_delay_minutes(action_config)
+
     # ── match / execute ──────────────────────────────────────────────
 
     async def run_for_event(
@@ -247,8 +310,11 @@ class AutomationService:
                     continue
                 if not await self._match_condition(rule, issue):
                     continue
-                await self._execute_action(
-                    rule, issue=issue, actor_user_id=actor_user_id or rule.created_by
+                await self._enqueue_or_execute(
+                    rule,
+                    issue=issue,
+                    workspace_id=workspace_id,
+                    actor_user_id=actor_user_id or rule.created_by,
                 )
             except Exception:
                 logger.exception(
@@ -459,6 +525,8 @@ class AutomationService:
         *,
         issue: Issue,
         actor_user_id: Optional[str],
+        config_override: Optional[dict] = None,
+        action_type_override: Optional[str] = None,
     ) -> None:
         token = _automation_depth.set(_automation_depth.get() + 1)
         try:
@@ -467,8 +535,11 @@ class AutomationService:
             if not fresh or getattr(fresh, "is_deleted", False):
                 return
             issue = fresh
-            action = rule.action_type
-            cfg = rule.action_config_json or {}
+            action = action_type_override or rule.action_type
+            if config_override is not None:
+                cfg = dict(config_override)
+            else:
+                cfg = self.strip_delay(rule.action_config_json or {})
             actor = actor_user_id or rule.created_by or issue.created_by
             if not actor:
                 logger.warning("automation: no actor for rule %s", rule.id)
@@ -572,6 +643,244 @@ class AutomationService:
                 raise ValueError(f"未知 action: {action}")
         finally:
             _automation_depth.reset(token)
+
+
+    async def _enqueue_or_execute(
+        self,
+        rule: AutomationRule,
+        *,
+        issue: Issue,
+        workspace_id: str,
+        actor_user_id: Optional[str],
+    ) -> None:
+        delay = self.parse_delay_minutes(rule.action_config_json)
+        cfg_exec = self.strip_delay(rule.action_config_json or {})
+        actor = actor_user_id or rule.created_by
+        if delay <= 0:
+            await self._execute_action(
+                rule,
+                issue=issue,
+                actor_user_id=actor,
+                config_override=cfg_exec,
+            )
+            return
+        existing = (
+            await self.db.execute(
+                select(AutomationPendingAction).where(
+                    AutomationPendingAction.rule_id == rule.id,
+                    AutomationPendingAction.issue_id == issue.id,
+                    AutomationPendingAction.status == "pending",
+                )
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            logger.debug(
+                "automation: skip enqueue dedupe rule=%s issue=%s",
+                rule.id,
+                issue.id,
+            )
+            return
+        row = AutomationPendingAction(
+            workspace_id=workspace_id,
+            rule_id=rule.id,
+            issue_id=issue.id,
+            action_type=rule.action_type,
+            action_config_json=cfg_exec,
+            run_at=datetime.utcnow() + timedelta(minutes=delay),
+            status="pending",
+            actor_user_id=actor,
+        )
+        self.db.add(row)
+        await self.db.commit()
+
+    async def cancel_pending_for_rule(self, *, workspace_id: str, rule_id: str) -> int:
+        stmt = select(AutomationPendingAction).where(
+            AutomationPendingAction.workspace_id == workspace_id,
+            AutomationPendingAction.rule_id == rule_id,
+            AutomationPendingAction.status == "pending",
+        )
+        rows = list((await self.db.execute(stmt)).scalars().all())
+        for row in rows:
+            row.status = "cancelled"
+            row.executed_at = datetime.utcnow()
+        if rows:
+            await self.db.commit()
+        return len(rows)
+
+    async def list_pending(
+        self,
+        *,
+        workspace_id: str,
+        status: str = "pending",
+        limit: int = 100,
+    ) -> list[AutomationPendingAction]:
+        stmt = (
+            select(AutomationPendingAction)
+            .where(
+                AutomationPendingAction.workspace_id == workspace_id,
+                AutomationPendingAction.status == status,
+            )
+            .order_by(
+                AutomationPendingAction.run_at.asc(),
+                AutomationPendingAction.created_at.asc(),
+            )
+            .limit(min(max(limit, 1), 100))
+        )
+        return list((await self.db.execute(stmt)).scalars().all())
+
+    async def run_due(
+        self,
+        *,
+        workspace_id: str,
+        actor_user_id: str,
+        now: datetime | None = None,
+    ) -> dict[str, Any]:
+        now = now or datetime.utcnow()
+        stmt = (
+            select(AutomationPendingAction)
+            .where(
+                AutomationPendingAction.workspace_id == workspace_id,
+                AutomationPendingAction.status == "pending",
+                AutomationPendingAction.run_at <= now,
+            )
+            .order_by(
+                AutomationPendingAction.run_at.asc(),
+                AutomationPendingAction.created_at.asc(),
+            )
+        )
+        rows = list((await self.db.execute(stmt)).scalars().all())
+        processed = 0
+        executed = 0
+        cancelled = 0
+        failed = 0
+        errors: list[dict[str, str]] = []
+
+        for row in rows:
+            pending_id = row.id
+            rule_id = row.rule_id
+            issue_id = row.issue_id
+            processed += 1
+            try:
+                outcome = await self._process_pending_one(
+                    row, workspace_id=workspace_id, tick_actor_user_id=actor_user_id
+                )
+                if outcome == "executed":
+                    executed += 1
+                elif outcome == "cancelled":
+                    cancelled += 1
+                elif outcome == "failed":
+                    failed += 1
+            except Exception as exc:  # noqa: BLE001 — per-row isolation
+                await self.db.rollback()
+                msg = str(exc)
+                logger.exception("automation pending %s failed: %s", pending_id, msg)
+                try:
+                    fresh = await self.db.get(AutomationPendingAction, pending_id)
+                    if fresh and fresh.status == "pending":
+                        fresh.status = "failed"
+                        fresh.error_message = msg[:1000]
+                        fresh.executed_at = datetime.utcnow()
+                        await self.db.commit()
+                except Exception:  # noqa: BLE001
+                    await self.db.rollback()
+                    logger.exception("failed to mark pending %s failed", pending_id)
+                failed += 1
+                errors.append(
+                    {
+                        "pendingId": pending_id,
+                        "ruleId": rule_id,
+                        "issueId": issue_id,
+                        "message": msg,
+                    }
+                )
+
+        return {
+            "processed": processed,
+            "executed": executed,
+            "cancelled": cancelled,
+            "failed": failed,
+            "errors": errors,
+        }
+
+    async def _process_pending_one(
+        self,
+        row: AutomationPendingAction,
+        *,
+        workspace_id: str,
+        tick_actor_user_id: str,
+    ) -> str:
+        """Process one due pending. Returns executed|cancelled|failed."""
+        pending_id = row.id
+        rule_id = row.rule_id
+        issue_id = row.issue_id
+        row_ws = row.workspace_id
+        action_type = row.action_type
+        action_cfg = dict(row.action_config_json or {})
+        actor_snap = row.actor_user_id
+
+        rule = (
+            await self.db.execute(
+                select(AutomationRule).where(AutomationRule.id == rule_id)
+            )
+        ).scalar_one_or_none()
+        if rule is None or not rule.enabled:
+            fresh = await self.db.get(AutomationPendingAction, pending_id)
+            if fresh is not None:
+                fresh.status = "cancelled"
+                fresh.executed_at = datetime.utcnow()
+                await self.db.commit()
+            return "cancelled"
+
+        issue = await self.db.get(Issue, issue_id)
+        if (
+            issue is None
+            or getattr(issue, "is_deleted", False)
+            or issue.workspace_id != workspace_id
+            or issue.workspace_id != row_ws
+        ):
+            fresh = await self.db.get(AutomationPendingAction, pending_id)
+            if fresh is not None:
+                fresh.status = "cancelled"
+                fresh.executed_at = datetime.utcnow()
+                await self.db.commit()
+            return "cancelled"
+
+        if not await self._match_condition(rule, issue):
+            fresh = await self.db.get(AutomationPendingAction, pending_id)
+            if fresh is not None:
+                fresh.status = "cancelled"
+                fresh.executed_at = datetime.utcnow()
+                await self.db.commit()
+            return "cancelled"
+
+        actor = actor_snap or rule.created_by or tick_actor_user_id
+        try:
+            await self._execute_action(
+                rule,
+                issue=issue,
+                actor_user_id=actor,
+                config_override=action_cfg,
+                action_type_override=action_type,
+            )
+            fresh = await self.db.get(AutomationPendingAction, pending_id)
+            if fresh is None:
+                return "executed"
+            fresh.status = "done"
+            fresh.executed_at = datetime.utcnow()
+            fresh.error_message = None
+            await self.db.commit()
+            return "executed"
+        except Exception as exc:  # noqa: BLE001
+            await self.db.rollback()
+            msg = str(exc)
+            fresh = await self.db.get(AutomationPendingAction, pending_id)
+            if fresh is not None:
+                fresh.status = "failed"
+                fresh.error_message = msg[:1000]
+                fresh.executed_at = datetime.utcnow()
+                await self.db.commit()
+            return "failed"
+
 
 
 async def fire_automations(

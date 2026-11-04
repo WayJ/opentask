@@ -61,7 +61,7 @@ from opentask.models.issue_watcher import IssueWatcher
 from opentask.models.favorite import Favorite
 from opentask.models.customer import Customer, CustomerRequest, CustomerRequestIssue
 from opentask.models.custom_field import CustomField, IssueCustomFieldValue
-from opentask.models.automation import AutomationRule
+from opentask.models.automation import AutomationRule, AutomationPendingAction
 from opentask.models.workspace_webhook import WorkspaceWebhook, WebhookDeliveryLog
 from opentask.models.issue_form import IssueForm
 from opentask.models.issue_recurrence import IssueRecurrence
@@ -139,6 +139,7 @@ __all__ = [
     "CustomField",
     "IssueCustomFieldValue",
     "AutomationRule",
+    "AutomationPendingAction",
     "WorkspaceWebhook",
     "WebhookDeliveryLog",
     "IssueForm",

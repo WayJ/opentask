@@ -93,3 +93,52 @@ class AutomationRule(DBModel):
         Index("idx_automation_rules_ws_trigger", "workspace_id", "trigger_type"),
         Index("idx_automation_rules_ws_position", "workspace_id", "position"),
     )
+
+
+PENDING_STATUSES = ("pending", "done", "cancelled", "failed")
+MAX_DELAY_MINUTES = 10080
+
+
+class AutomationPendingAction(DBModel):
+    """Delayed automation action queue (E38)."""
+
+    __tablename__ = "automation_pending_actions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, insert_default=_uuid)
+    workspace_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    rule_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("automation_rules.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    issue_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("issues.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    action_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    action_config_json: Mapped[dict[str, Any]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"),
+        nullable=False,
+        insert_default=dict,
+    )
+    run_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, insert_default="pending")
+    actor_user_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    error_message: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, insert_default=datetime.utcnow
+    )
+    executed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    __table_args__ = (
+        Index("idx_auto_pending_ws_status_run", "workspace_id", "status", "run_at"),
+        Index("idx_auto_pending_rule_issue_status", "rule_id", "issue_id", "status"),
+    )

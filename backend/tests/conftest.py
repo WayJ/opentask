@@ -96,6 +96,7 @@ from opentask.models.cycle import Cycle  # noqa: F401 — metadata 注册
 from opentask.models.customer import Customer, CustomerRequest, CustomerRequestIssue  # noqa: F401 — E22
 from opentask.models.custom_field import CustomField, IssueCustomFieldValue  # noqa: F401 — E25
 from opentask.models.automation import AutomationRule  # noqa: F401 — E26
+from opentask.models.automation import AutomationPendingAction  # noqa: F401 — E38
 from opentask.models.workspace_webhook import WorkspaceWebhook, WebhookDeliveryLog  # noqa: F401 — E29
 from opentask.models.issue_form import IssueForm  # noqa: F401 — E31
 from opentask.models.issue_recurrence import IssueRecurrence  # noqa: F401 — E35
