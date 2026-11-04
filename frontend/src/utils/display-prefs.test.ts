@@ -57,3 +57,23 @@ describe('normalizeIssueDisplay', () => {
     expect(normalizeIssueDisplay(json).customFieldKeys).toEqual(['severity', 'shipped']);
   });
 });
+
+describe('E37 cf: swimlane/groupBy normalize', () => {
+  it('accepts cf:severity for swimlane and groupBy', () => {
+    const d = normalizeIssueDisplay({
+      swimlane_by: 'cf:severity',
+      group_by: 'cf:area'
+    });
+    expect(d.swimlaneBy).toBe('cf:severity');
+    expect(d.groupBy).toBe('cf:area');
+  });
+
+  it('rejects malformed cf: and falls back to none', () => {
+    const d = normalizeIssueDisplay({
+      swimlane_by: 'cf:BadKey',
+      group_by: 'cf:'
+    });
+    expect(d.swimlaneBy).toBe('none');
+    expect(d.groupBy).toBe('none');
+  });
+});

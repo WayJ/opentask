@@ -1,9 +1,17 @@
 /**
  * E7-S3：Issue 列表/看板 Display 契约（个人 prefs 与 Saved View display_json 共用键）。
+ * E37：swimlane_by / group_by 支持 cf:<field_key>。
  */
-import { type GroupByKey, isGroupByKey } from './groupIssuesBy';
+import {
+  type GroupByKey,
+  isCfDim,
+  isGroupByKey,
+  isGroupingCfType,
+  parseCfDim
+} from './groupIssuesBy';
 
-export type SwimlaneBy = 'none' | 'assignee' | 'priority' | 'type' | 'label';
+export type SystemSwimlaneBy = 'none' | 'assignee' | 'priority' | 'type' | 'label';
+export type SwimlaneBy = SystemSwimlaneBy | `cf:${string}`;
 
 export type DisplayFieldKey =
   'assignee' | 'priority' | 'labels' | 'estimate_points' | 'due_date' | 'project' | 'cycle' | 'issue_code' | 'type';
@@ -64,8 +72,12 @@ const DEFAULT_FIELDS: IssueDisplayFields = {
   type: false
 };
 
-function isSwimlaneBy(value: unknown): value is SwimlaneBy {
+function isSystemSwimlaneBy(value: unknown): value is SystemSwimlaneBy {
   return value === 'none' || value === 'assignee' || value === 'priority' || value === 'type' || value === 'label';
+}
+
+function isSwimlaneBy(value: unknown): value is SwimlaneBy {
+  return isSystemSwimlaneBy(value) || isCfDim(value);
 }
 
 export function defaultIssueDisplay(): IssueDisplayState {
@@ -111,6 +123,14 @@ export function normalizeIssueDisplay(raw: unknown): IssueDisplayState {
       .map(k => String(k || '').trim().toLowerCase())
       .filter(Boolean);
   }
+
+  // 选中 cf:<key> 时并入 custom_field_keys（去重）
+  for (const dim of [out.groupBy, out.swimlaneBy]) {
+    const key = parseCfDim(dim);
+    if (key && !out.customFieldKeys.includes(key)) {
+      out.customFieldKeys = [...out.customFieldKeys, key];
+    }
+  }
   return out;
 }
 
@@ -135,3 +155,14 @@ export function formatCustomFieldCellValue(value: unknown): string {
 export function isSwimlaneByKey(value: unknown): value is SwimlaneBy {
   return isSwimlaneBy(value);
 }
+
+export function buildSwimlaneOptions(
+  customFields?: Array<{ key: string; name: string; type: string }>
+): { label: string; value: SwimlaneBy }[] {
+  const extras = (customFields || [])
+    .filter(f => f && f.key && isGroupingCfType(f.type))
+    .map(f => ({ label: f.name || f.key, value: `cf:${f.key}` as SwimlaneBy }));
+  return [...SWIMLANE_OPTIONS, ...extras];
+}
+
+export { isGroupingCfType, parseCfDim, isCfDim };

@@ -119,3 +119,77 @@ describe('groupIssuesBy', () => {
     expect(isGroupByKey('foo')).toBe(false);
   });
 });
+
+describe('groupIssuesBy cf:<key> (E37)', () => {
+  function withCf(partial: Parameters<typeof makeIssue>[0], fields: any[]) {
+    return makeIssue({ ...partial, customFields: fields } as any);
+  }
+
+  it('isGroupByKey accepts cf:severity', () => {
+    expect(isGroupByKey('cf:severity')).toBe(true);
+    expect(isGroupByKey('cf:Bad')).toBe(false);
+    expect(isGroupByKey('cf:')).toBe(false);
+  });
+
+  it('groups single_select by option value with label', () => {
+    const issues = [
+      withCf(
+        { id: '1', title: 'A', status: 'open' as any },
+        [
+          {
+            key: 'severity',
+            type: 'single_select',
+            value: 's1',
+            options: [
+              { value: 's1', label: 'S1' },
+              { value: 's2', label: 'S2' }
+            ]
+          }
+        ]
+      ),
+      withCf(
+        { id: '2', title: 'B', status: 'open' as any },
+        [
+          {
+            key: 'severity',
+            type: 'single_select',
+            value: 's2',
+            options: [
+              { value: 's1', label: 'S1' },
+              { value: 's2', label: 'S2' }
+            ]
+          }
+        ]
+      ),
+      withCf({ id: '3', title: 'C', status: 'open' as any }, [])
+    ];
+    const buckets = groupIssuesBy(issues, 'cf:severity');
+    expect(buckets.find(b => b.key === 's1')?.label).toBe('S1');
+    expect(buckets.find(b => b.key === 's1')?.issues.map(i => i.id)).toEqual(['1']);
+    expect(buckets.find(b => b.key === 's2')?.issues.map(i => i.id)).toEqual(['2']);
+    expect(buckets.find(b => b.key === '__empty__')?.issues.map(i => i.id)).toEqual(['3']);
+  });
+
+  it('groups boolean true/false/empty', () => {
+    const issues = [
+      withCf({ id: '1', title: 'A' }, [{ key: 'shipped', type: 'boolean', value: true }]),
+      withCf({ id: '2', title: 'B' }, [{ key: 'shipped', type: 'boolean', value: false }]),
+      withCf({ id: '3', title: 'C' }, [{ key: 'shipped', type: 'boolean', value: null }])
+    ];
+    const buckets = groupIssuesBy(issues, 'cf:shipped');
+    expect(buckets.find(b => b.key === 'true')?.label).toBe('是');
+    expect(buckets.find(b => b.key === 'false')?.label).toBe('否');
+    expect(buckets.find(b => b.key === '__empty__')?.issues.map(i => i.id)).toEqual(['3']);
+  });
+
+  it('groups text/number/date by normalized string', () => {
+    const issues = [
+      withCf({ id: '1', title: 'A' }, [{ key: 'area', type: 'text', value: 'API' }]),
+      withCf({ id: '2', title: 'B' }, [{ key: 'area', type: 'text', value: 'API' }]),
+      withCf({ id: '3', title: 'C' }, [{ key: 'area', type: 'text', value: '' }])
+    ];
+    const buckets = groupIssuesBy(issues, 'cf:area');
+    expect(buckets.find(b => b.key === 'API')?.issues).toHaveLength(2);
+    expect(buckets.find(b => b.key === '__empty__')?.issues.map(i => i.id)).toEqual(['3']);
+  });
+});

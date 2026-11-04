@@ -53,13 +53,19 @@ import { debounceFn, subscribeWorkspaceRealtime } from '@/composables/use-worksp
 import { localStg } from '@/utils/storage';
 import { buildSavedViewDropdownOptions, canWriteSavedView } from '@/utils/saved-view-sections';
 import { deriveListStateFromSavedView } from '@/utils/apply-saved-view';
-import { GROUP_BY_OPTIONS, type GroupByKey } from '@/utils/groupIssuesBy';
+import {
+  GROUP_BY_OPTIONS,
+  buildGroupByOptions,
+  parseCfDim,
+  type GroupByKey
+} from '@/utils/groupIssuesBy';
 import {
   type IssueDisplayFields,
   type SwimlaneBy,
   defaultIssueDisplay,
   displayStateToJson,
   formatCustomFieldCellValue,
+  isGroupingCfType,
   normalizeIssueDisplay
 } from '@/utils/display-prefs';
 import { nestIssuesDepth1 } from '@/utils/nestIssuesDepth1';
@@ -118,7 +124,11 @@ const filteredIssues = ref<Api.Issue.Issue[]>([]);
 
 /** E4-S2：列表分组依据（本地状态；可写入 Saved View display.group_by） */
 const groupBy = ref<GroupByKey>('none');
-const groupByOptions = GROUP_BY_OPTIONS;
+const groupByOptions = computed(() =>
+  buildGroupByOptions(
+    customFieldDefs.value.map(f => ({ key: f.key, name: f.name, type: f.type }))
+  )
+);
 
 const isGroupedList = computed(() => groupBy.value !== 'none');
 const activeGroupBy = computed(() => groupBy.value as Exclude<GroupByKey, 'none'>);
@@ -131,6 +141,22 @@ const swimlaneBy = ref<SwimlaneBy>('none');
 const hideEmptyLanes = ref(false);
 const displayPrefsSaving = ref(false);
 const displayPopoverShow = ref(false);
+
+function sanitizeCfDim<T extends string>(dim: T, kind: 'group' | 'swimlane'): T | 'none' {
+  const key = parseCfDim(dim);
+  if (!key) return dim;
+  const def = customFieldDefs.value.find(f => f.key === key);
+  if (!def) return dim; // BE already validated on write; missing local def → keep, empty buckets
+  if (!isGroupingCfType(def.type)) {
+    window.$message?.warning(
+      kind === 'group'
+        ? '已保存的分组自定义字段类型不受支持，已回退为不分组'
+        : '已保存的泳道自定义字段类型不受支持，已回退为无泳道'
+    );
+    return 'none' as T | 'none';
+  }
+  return dim;
+}
 
 function currentDisplayJson() {
   return displayStateToJson({
@@ -152,8 +178,8 @@ function applyDisplayState(partial: {
   customFieldKeys?: string[];
 }) {
   if (partial.viewMode) viewMode.value = partial.viewMode;
-  if (partial.groupBy) groupBy.value = partial.groupBy;
-  if (partial.swimlaneBy) swimlaneBy.value = partial.swimlaneBy;
+  if (partial.groupBy) groupBy.value = sanitizeCfDim(partial.groupBy, 'group');
+  if (partial.swimlaneBy) swimlaneBy.value = sanitizeCfDim(partial.swimlaneBy, 'swimlane');
   if (typeof partial.hideEmptyLanes === 'boolean') hideEmptyLanes.value = partial.hideEmptyLanes;
   if (partial.fields) displayFields.value = { ...partial.fields };
   if (partial.customFieldKeys) customFieldKeys.value = [...partial.customFieldKeys];
@@ -390,8 +416,8 @@ async function applySavedView(view: SavedView) {
   if (state.viewMode) {
     viewMode.value = state.viewMode;
   }
-  groupBy.value = state.groupBy;
-  swimlaneBy.value = state.swimlaneBy;
+  groupBy.value = sanitizeCfDim(state.groupBy, 'group');
+  swimlaneBy.value = sanitizeCfDim(state.swimlaneBy, 'swimlane');
   hideEmptyLanes.value = state.hideEmptyLanes;
   displayFields.value = { ...state.fields };
   customFieldKeys.value = [...(state.customFieldKeys || [])];
@@ -559,7 +585,10 @@ async function loadIssues() {
     while (hasMore) {
       const cfParams = customFieldsToCfParams(filters.custom_fields);
       const needCf =
-        Boolean(customFieldKeys.value.length) || Boolean(filters.custom_fields?.length);
+        Boolean(customFieldKeys.value.length) ||
+        Boolean(filters.custom_fields?.length) ||
+        Boolean(parseCfDim(groupBy.value)) ||
+        Boolean(parseCfDim(swimlaneBy.value));
       const response = await issueApi.getIssues({
         page,
         page_size: 100,
@@ -1006,7 +1035,23 @@ function handlePageSizeChange(pageSize: number) {
 }
 
 async function handleGroupByChange(value: GroupByKey | null) {
-  groupBy.value = value || 'none';
+  const next = value || 'none';
+  const cfKey = parseCfDim(next);
+  if (cfKey) {
+    const def = customFieldDefs.value.find(f => f.key === cfKey);
+    if (def && !isGroupingCfType(def.type)) {
+      window.$message?.warning('该自定义字段类型不支持分组，已回退为不分组');
+      groupBy.value = 'none';
+    } else {
+      groupBy.value = next;
+      if (cfKey && !customFieldKeys.value.includes(cfKey)) {
+        customFieldKeys.value = [...customFieldKeys.value, cfKey];
+      }
+    }
+  } else {
+    groupBy.value = next;
+  }
+  loadIssues();
   const id = activeSavedViewId.value;
   if (!id || !canWriteActiveSavedView.value) return;
   try {
@@ -1042,7 +1087,21 @@ function onCustomFieldKeysUpdate(next: string[]) {
 }
 
 function onSwimlaneByUpdate(next: SwimlaneBy) {
+  const cfKey = parseCfDim(next);
+  if (cfKey) {
+    const def = customFieldDefs.value.find(f => f.key === cfKey);
+    if (def && !isGroupingCfType(def.type)) {
+      window.$message?.warning('该自定义字段类型不支持泳道，已回退为无泳道');
+      swimlaneBy.value = 'none';
+      syncActiveViewDisplay();
+      return;
+    }
+    if (!customFieldKeys.value.includes(cfKey)) {
+      customFieldKeys.value = [...customFieldKeys.value, cfKey];
+    }
+  }
   swimlaneBy.value = next;
+  loadIssues();
   syncActiveViewDisplay();
 }
 
@@ -1544,7 +1603,7 @@ onUnmounted(() => {
                 :swimlane-by="swimlaneBy"
                 :hide-empty-lanes="hideEmptyLanes"
                 :saving="displayPrefsSaving"
-                :custom-field-options="customFieldDefs.map(f => ({ key: f.key, name: f.name }))"
+                :custom-field-options="customFieldDefs.map(f => ({ key: f.key, name: f.name, type: f.type }))"
                 :custom-field-keys="customFieldKeys"
                 @update:fields="onDisplayFieldsUpdate"
                 @update:swimlane-by="onSwimlaneByUpdate"
@@ -1561,7 +1620,7 @@ onUnmounted(() => {
                 :value="groupBy"
                 :options="groupByOptions"
                 size="small"
-                style="width: 120px"
+                style="width: 160px"
                 @update:value="handleGroupByChange"
               />
             </div>

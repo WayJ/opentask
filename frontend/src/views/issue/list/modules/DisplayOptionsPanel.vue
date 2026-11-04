@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { NButton, NCheckbox, NSelect, NSpace, NSwitch, NText } from 'naive-ui';
 import {
   DISPLAY_FIELD_KEYS,
@@ -6,7 +7,8 @@ import {
   type DisplayFieldKey,
   type IssueDisplayFields,
   SWIMLANE_OPTIONS,
-  type SwimlaneBy
+  type SwimlaneBy,
+  buildSwimlaneOptions
 } from '@/utils/display-prefs';
 
 defineOptions({ name: 'DisplayOptionsPanel' });
@@ -17,7 +19,7 @@ const props = defineProps<{
   hideEmptyLanes: boolean;
   saving?: boolean;
   /** E32：可选自定义字段 */
-  customFieldOptions?: { key: string; name: string }[];
+  customFieldOptions?: { key: string; name: string; type?: string }[];
   customFieldKeys?: string[];
 }>();
 
@@ -29,6 +31,16 @@ const emit = defineEmits<{
   'set-personal-default': [];
   reset: [];
 }>();
+
+const swimlaneOptions = computed(() =>
+  buildSwimlaneOptions(
+    (props.customFieldOptions || []).map(o => ({
+      key: o.key,
+      name: o.name,
+      type: o.type || 'text'
+    }))
+  )
+);
 
 function toggleField(key: DisplayFieldKey, checked: boolean) {
   emit('update:fields', { ...props.fields, [key]: checked });
@@ -76,7 +88,7 @@ function toggleCustomField(key: string, checked: boolean) {
       <NText depth="3" class="section-title">看板泳道</NText>
       <NSelect
         :value="swimlaneBy"
-        :options="SWIMLANE_OPTIONS"
+        :options="swimlaneOptions.length ? swimlaneOptions : SWIMLANE_OPTIONS"
         size="small"
         @update:value="(v: SwimlaneBy) => emit('update:swimlaneBy', v)"
       />
