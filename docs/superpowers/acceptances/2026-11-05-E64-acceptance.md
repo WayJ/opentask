@@ -30,7 +30,7 @@ D1–D7 / Q1a–Q6a 按 design 落地。
 ## Tip
 
 - 分支：`sprint/E64-S1`
-- tip：（本 acceptance 提交后更新）
+- tip：`c53a0f6`（全文 `c53a0f660ecc0869b0da54582aacc47e6402e5e8`）
 - **未 push / 未开 PR / 未开 E65**
 
 ## Receipt
