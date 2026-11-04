@@ -3,7 +3,7 @@
 日期：2026-11-04（Asia/Shanghai）  
 分支：`sprint/E38-S1`  
 基线：`9e8ce90`（E37 tip + E38 design）  
-tip：（c9cbadd35e1e25089239ae0a0c534b0e674413e7 = ）
+tip：（b975cf25dff7d174cf4dee6e4a1df9b38261c0e7 = ）
 
 ## 范围对照
 
