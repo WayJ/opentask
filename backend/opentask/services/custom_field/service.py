@@ -16,6 +16,15 @@ from opentask.models.custom_field.model import (
     IssueCustomFieldValue,
 )
 from opentask.models.workspace.model import WorkspaceMember
+from opentask.services.custom_field.formula import (
+    MAX_FORMULA_DEPTH,
+    RESULT_TYPES,
+    FormulaError,
+    days_until_due_value,
+    eval_parsed,
+    issue_field_value,
+    parse_formula,
+)
 
 _SLUG_RE = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -63,6 +72,8 @@ def normalize_options(options: list[Any] | None, field_type: str) -> list[dict]:
 
 def validate_value(field: CustomField, value: Any) -> Any:
     """Normalize + validate value_json for field.type. None means clear."""
+    if field.type == "formula":
+        raise HTTPException(status_code=400, detail="公式字段只读")
     if value is None:
         return None
     t = field.type
@@ -113,6 +124,7 @@ def validate_value(field: CustomField, value: Any) -> Any:
 
 
 def serialize_field(row: CustomField) -> dict:
+    is_formula = row.type == "formula"
     return {
         "id": row.id,
         "workspaceId": row.workspace_id,
@@ -125,11 +137,18 @@ def serialize_field(row: CustomField) -> dict:
         "createdBy": row.created_by,
         "createdAt": row.created_at.isoformat() if row.created_at else None,
         "updatedAt": row.updated_at.isoformat() if row.updated_at else None,
+        "formulaExpr": row.formula_expr if is_formula else None,
+        "formulaResultType": row.formula_result_type if is_formula else None,
     }
 
 
 def serialize_issue_field(
-    field: CustomField, value: Any | None, *, include_options: bool = True
+    field: CustomField,
+    value: Any | None,
+    *,
+    include_options: bool = True,
+    computed: bool | None = None,
+    error: str | None = None,
 ) -> dict:
     data = {
         "fieldId": field.id,
@@ -141,6 +160,14 @@ def serialize_issue_field(
     }
     if include_options and field.type in ("single_select", "multi_select"):
         data["options"] = list(field.options_json or [])
+    if computed is not None:
+        data["computed"] = computed
+    elif field.type == "formula":
+        data["computed"] = True
+    if error:
+        data["error"] = error
+    if field.type == "formula":
+        data["formulaResultType"] = field.formula_result_type or "number"
     return data
 
 
@@ -204,6 +231,8 @@ class CustomFieldService:
         key: str | None = None,
         options: list[Any] | None = None,
         position: int | None = None,
+        formula_expr: str | None = None,
+        formula_result_type: str | None = None,
     ) -> CustomField:
         if field_type not in FIELD_TYPES:
             raise HTTPException(
@@ -220,7 +249,17 @@ class CustomFieldService:
                 status_code=400,
                 detail="key 须匹配 ^[a-z][a-z0-9_-]{0,63}$",
             )
+        f_expr, f_rtype = await self._normalize_formula_payload(
+            workspace_id=workspace_id,
+            field_type=field_type,
+            formula_expr=formula_expr,
+            formula_result_type=formula_result_type,
+            self_key=raw_key,
+            self_id=None,
+        )
         opts = normalize_options(options, field_type)
+        if field_type == "formula":
+            opts = []
         if field_type in ("single_select", "multi_select") and not opts:
             raise HTTPException(status_code=400, detail="select 类型需要 options")
         pos = position if position is not None else await self._next_position(workspace_id)
@@ -232,6 +271,8 @@ class CustomFieldService:
             options_json=opts,
             position=pos,
             created_by=user_id,
+            formula_expr=f_expr,
+            formula_result_type=f_rtype,
         )
         self.db.add(row)
         try:
@@ -255,6 +296,9 @@ class CustomFieldService:
         set_options: bool = False,
         position: int | None = None,
         archive: bool | None = None,
+        formula_expr: str | None = None,
+        formula_result_type: str | None = None,
+        set_formula: bool = False,
     ) -> CustomField:
         row = await self.get(workspace_id=workspace_id, field_id=field_id)
         # type/key 不可变（避免历史值语义漂移）
@@ -270,6 +314,26 @@ class CustomFieldService:
             if not opts:
                 raise HTTPException(status_code=400, detail="select 类型需要 options")
             row.options_json = opts
+        if set_formula or formula_expr is not None or formula_result_type is not None:
+            if row.type != "formula":
+                raise HTTPException(status_code=400, detail="仅 formula 可改表达式")
+            new_expr = formula_expr if formula_expr is not None else row.formula_expr
+            new_rt = (
+                formula_result_type
+                if formula_result_type is not None
+                else (row.formula_result_type or "number")
+            )
+            f_expr, f_rtype = await self._normalize_formula_payload(
+                workspace_id=workspace_id,
+                field_type="formula",
+                formula_expr=new_expr,
+                formula_result_type=new_rt,
+                self_key=row.key,
+                self_id=row.id,
+            )
+            row.formula_expr = f_expr
+            row.formula_result_type = f_rtype
+            row.options_json = []
         if position is not None:
             row.position = position
         if archive is True:
@@ -318,6 +382,169 @@ class CustomFieldService:
         await self.db.commit()
         return await self.list(workspace_id=workspace_id, include_archived=False)
 
+    async def _normalize_formula_payload(
+        self,
+        *,
+        workspace_id: str,
+        field_type: str,
+        formula_expr: str | None,
+        formula_result_type: str | None,
+        self_key: str,
+        self_id: str | None,
+    ) -> tuple[str | None, str | None]:
+        """Validate formula fields for create/update. Returns (expr, result_type)."""
+        if field_type != "formula":
+            if formula_expr is not None or formula_result_type is not None:
+                raise HTTPException(
+                    status_code=400, detail="非 formula 类型禁止带 formulaExpr"
+                )
+            return None, None
+        if formula_expr is None or not str(formula_expr).strip():
+            raise HTTPException(status_code=400, detail="formula 需要 formulaExpr")
+        expr = str(formula_expr).strip()
+        rtype = (formula_result_type or "number").strip()
+        if rtype not in RESULT_TYPES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"formulaResultType 必须是 {', '.join(RESULT_TYPES)}",
+            )
+        try:
+            parsed = parse_formula(expr)
+        except FormulaError as e:
+            raise HTTPException(status_code=400, detail=f"公式无效: {e}") from e
+        await self._assert_formula_deps_and_dag(
+            workspace_id=workspace_id,
+            cf_keys=parsed.cf_keys,
+            self_key=self_key,
+            self_id=self_id,
+            self_expr_deps=parsed.cf_keys,
+        )
+        return expr, rtype
+
+    async def _assert_formula_deps_and_dag(
+        self,
+        *,
+        workspace_id: str,
+        cf_keys: list[str],
+        self_key: str,
+        self_id: str | None,
+        self_expr_deps: list[str],
+    ) -> None:
+        fields = await self.list(workspace_id=workspace_id, include_archived=True)
+        by_key = {f.key: f for f in fields}
+        for key in cf_keys:
+            dep = by_key.get(key)
+            if dep is None:
+                raise HTTPException(
+                    status_code=400, detail=f"依赖字段不存在: cf.{key}"
+                )
+            if dep.archived_at is not None:
+                raise HTTPException(
+                    status_code=400, detail=f"依赖字段已归档: cf.{key}"
+                )
+            if self_id and dep.id == self_id:
+                raise HTTPException(status_code=400, detail="公式不能依赖自身")
+
+        graph: dict[str, list[str]] = {}
+        for f in fields:
+            if f.type != "formula":
+                continue
+            if self_id and f.id == self_id:
+                continue
+            try:
+                parsed = parse_formula(f.formula_expr or "")
+            except FormulaError:
+                continue
+            graph[f.key] = [
+                k for k in parsed.cf_keys if by_key.get(k) and by_key[k].type == "formula"
+            ]
+        graph[self_key] = [
+            k
+            for k in self_expr_deps
+            if (k == self_key)
+            or (by_key.get(k) and by_key[k].type == "formula")
+        ]
+
+        WHITE, GRAY, BLACK = 0, 1, 2
+        color = {k: WHITE for k in graph}
+
+        def dfs(node: str) -> None:
+            color[node] = GRAY
+            for nxt in graph.get(node, []):
+                if nxt not in color:
+                    color[nxt] = WHITE
+                c = color.get(nxt, WHITE)
+                if c == GRAY:
+                    raise HTTPException(status_code=400, detail="公式存在循环依赖")
+                if c == WHITE:
+                    dfs(nxt)
+            color[node] = BLACK
+
+        for k in list(graph.keys()):
+            if color.get(k, WHITE) == WHITE:
+                dfs(k)
+
+        memo: dict[str, int] = {}
+
+        def depth_of(node: str, stack: set[str]) -> int:
+            if node in memo:
+                return memo[node]
+            if node in stack:
+                raise HTTPException(status_code=400, detail="公式存在循环依赖")
+            stack.add(node)
+            deps = graph.get(node, [])
+            if not deps:
+                d = 0
+            else:
+                d = 1 + max(depth_of(x, stack) for x in deps)
+            stack.remove(node)
+            memo[node] = d
+            return d
+
+        d = depth_of(self_key, set())
+        if d > MAX_FORMULA_DEPTH:
+            raise HTTPException(
+                status_code=400,
+                detail=f"公式依赖深度超过 {MAX_FORMULA_DEPTH}",
+            )
+
+    async def validate_formula_expr(
+        self,
+        *,
+        workspace_id: str,
+        formula_expr: str,
+        formula_result_type: str | None = None,
+    ) -> dict:
+        try:
+            parsed = parse_formula(formula_expr or "")
+        except FormulaError as e:
+            return {"ok": False, "dependencies": [], "error": str(e) or e.code}
+        rtype = (formula_result_type or "number").strip()
+        if formula_result_type is not None and rtype not in RESULT_TYPES:
+            return {
+                "ok": False,
+                "dependencies": parsed.dependencies,
+                "error": f"formulaResultType 必须是 {', '.join(RESULT_TYPES)}",
+            }
+        fields = await self.list(workspace_id=workspace_id, include_archived=False)
+        by_key = {f.key: f for f in fields}
+        for key in parsed.cf_keys:
+            dep = by_key.get(key)
+            if dep is None:
+                return {
+                    "ok": False,
+                    "dependencies": parsed.dependencies,
+                    "error": f"依赖字段不存在: cf.{key}",
+                }
+            if dep.archived_at is not None:
+                return {
+                    "ok": False,
+                    "dependencies": parsed.dependencies,
+                    "error": f"依赖字段已归档: cf.{key}",
+                }
+        return {"ok": True, "dependencies": parsed.dependencies}
+
+
     # ---- issue values ----
 
     async def values_for_issues(
@@ -329,6 +556,7 @@ class CustomFieldService:
         if not fields:
             return {iid: [] for iid in issue_ids}
         field_by_id = {f.id: f for f in fields}
+        field_by_key = {f.key: f for f in fields}
         result = await self.db.execute(
             select(IssueCustomFieldValue).where(
                 IssueCustomFieldValue.issue_id.in_(issue_ids),
@@ -340,24 +568,91 @@ class CustomFieldService:
         for vr in value_rows:
             by_issue.setdefault(vr.issue_id, {})[vr.field_id] = vr.value_json
 
-        # Active fields first by position; then archived that have a value
+        has_formula = any(f.type == "formula" and f.archived_at is None for f in fields)
+        issues_by_id: dict[str, Any] = {}
+        if has_formula:
+            from opentask.models.issue.model import Issue
+
+            ires = await self.db.execute(
+                select(Issue).where(
+                    Issue.id.in_(issue_ids),
+                    Issue.workspace_id == workspace_id,
+                )
+            )
+            for iss in ires.scalars().all():
+                issues_by_id[iss.id] = iss
+
         active = [f for f in fields if f.archived_at is None]
         out: dict[str, list[dict]] = {}
         for iid in issue_ids:
+            stored = by_issue.get(iid, {})
+            cache: dict[str, tuple[Any, str | None]] = {}
+            stack: set[str] = set()
+
+            def eval_one(field: CustomField) -> tuple[Any, str | None]:
+                if field.id in cache:
+                    return cache[field.id]
+                if field.type != "formula":
+                    return stored.get(field.id), None
+                if field.id in stack:
+                    cache[field.id] = (None, "dep_error")
+                    return cache[field.id]
+                stack.add(field.id)
+                issue = issues_by_id.get(iid)
+                if issue is None:
+                    cache[field.id] = (None, "dep_error")
+                    stack.discard(field.id)
+                    return cache[field.id]
+                try:
+                    parsed = parse_formula(field.formula_expr or "")
+                except FormulaError:
+                    cache[field.id] = (None, "parse_error")
+                    stack.discard(field.id)
+                    return cache[field.id]
+
+                def cf_get(key: str) -> Any:
+                    dep = field_by_key.get(key)
+                    if dep is None or dep.archived_at is not None:
+                        raise FormulaError("dep_error")
+                    if dep.type == "formula":
+                        val, err = eval_one(dep)
+                        if err:
+                            raise FormulaError("dep_error")
+                        return val
+                    return stored.get(dep.id)
+
+                def issue_get(name: str) -> Any:
+                    return issue_field_value(issue, name)
+
+                value, err = eval_parsed(
+                    parsed,
+                    cf_get=cf_get,
+                    issue_get=issue_get,
+                    days_until_due=days_until_due_value(issue),
+                    result_type=field.formula_result_type or "number",
+                )
+                cache[field.id] = (value, err)
+                stack.discard(field.id)
+                return cache[field.id]
+
             items: list[dict] = []
             seen_ids: set[str] = set()
             for f in active:
-                items.append(
-                    serialize_issue_field(f, by_issue.get(iid, {}).get(f.id))
-                )
+                if f.type == "formula":
+                    val, err = eval_one(f)
+                    items.append(
+                        serialize_issue_field(
+                            f, val, computed=True, error=err
+                        )
+                    )
+                else:
+                    items.append(serialize_issue_field(f, stored.get(f.id)))
                 seen_ids.add(f.id)
             for f in fields:
                 if f.id in seen_ids:
                     continue
-                if f.id in by_issue.get(iid, {}):
-                    items.append(
-                        serialize_issue_field(f, by_issue[iid][f.id])
-                    )
+                if f.id in stored:
+                    items.append(serialize_issue_field(f, stored[f.id]))
             out[iid] = items
         return out
 
@@ -394,6 +689,8 @@ class CustomFieldService:
                 raise HTTPException(
                     status_code=400, detail=f"字段 {field.key} 已归档，不可写入"
                 )
+            if field.type == "formula":
+                raise HTTPException(status_code=400, detail="公式字段只读")
             raw_value = entry.get("value", entry.get("value_json"))
             # Allow explicit clear via null / missing with clear=True
             if "value" not in entry and "value_json" not in entry and entry.get("clear"):
@@ -607,6 +904,8 @@ def coerce_cf_filter_value(field: CustomField, raw: str) -> Any | None:
         return s
     if t in ("single_select", "multi_select"):
         return s
+    if t == "formula":
+        return None
     return None
 
 

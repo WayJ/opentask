@@ -218,6 +218,14 @@ async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
                 "ALTER TABLE IF EXISTS notification_preferences "
                 "ADD COLUMN IF NOT EXISTS due_reminder_digest BOOLEAN NOT NULL DEFAULT FALSE"
             ))
+            await conn.execute(_sql_text(
+                "ALTER TABLE IF EXISTS custom_fields "
+                "ADD COLUMN IF NOT EXISTS formula_expr TEXT"
+            ))
+            await conn.execute(_sql_text(
+                "ALTER TABLE IF EXISTS custom_fields "
+                "ADD COLUMN IF NOT EXISTS formula_result_type VARCHAR(32)"
+            ))
             print(f"[OK] Test database ({TEST_DB_NAME}) tables created")
     except Exception as e:
         import logging

@@ -1,4 +1,4 @@
-"""Custom Fields API (E25)."""
+"""Custom Fields API (E25 + E40 formula)."""
 from __future__ import annotations
 
 from typing import Any, Optional
@@ -23,10 +23,15 @@ router = APIRouter(prefix="/api/custom-fields", tags=["Custom Fields"])
 
 class CustomFieldCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=120)
-    type: str = Field(..., description="text|number|single_select|multi_select|date|boolean")
+    type: str = Field(
+        ...,
+        description="text|number|single_select|multi_select|date|boolean|formula",
+    )
     key: Optional[str] = Field(None, max_length=64)
     options: Optional[list[Any]] = None
     position: Optional[int] = None
+    formulaExpr: Optional[str] = Field(None, max_length=500)
+    formulaResultType: Optional[str] = Field(None, max_length=32)
 
 
 class CustomFieldUpdate(BaseModel):
@@ -35,10 +40,17 @@ class CustomFieldUpdate(BaseModel):
     setOptions: bool = False
     position: Optional[int] = None
     archive: Optional[bool] = None
+    formulaExpr: Optional[str] = Field(None, max_length=500)
+    formulaResultType: Optional[str] = Field(None, max_length=32)
 
 
 class CustomFieldReorder(BaseModel):
     orderedIds: list[str] = Field(..., min_length=1)
+
+
+class ValidateFormulaBody(BaseModel):
+    formulaExpr: str = Field(..., min_length=1, max_length=500)
+    formulaResultType: Optional[str] = Field(None, max_length=32)
 
 
 @router.get("")
@@ -71,6 +83,8 @@ async def create_custom_field(
         key=body.key,
         options=body.options,
         position=body.position,
+        formula_expr=body.formulaExpr,
+        formula_result_type=body.formulaResultType,
     )
     return success_response(data=serialize_field(row), message="已创建")
 
@@ -88,6 +102,23 @@ async def reorder_custom_fields(
     )
     payload = [serialize_field(r) for r in rows]
     return success_response(data={"rows": payload, "total": len(payload)}, message="已排序")
+
+
+@router.post("/validate-formula")
+async def validate_formula(
+    body: ValidateFormulaBody,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    ws, member, _user = ctx
+    require_writer(member)
+    result = await CustomFieldService(session).validate_formula_expr(
+        workspace_id=ws.id,
+        formula_expr=body.formulaExpr,
+        formula_result_type=body.formulaResultType,
+    )
+    return success_response(data=result)
+
 
 @router.get("/{field_id}")
 async def get_custom_field(
@@ -109,6 +140,7 @@ async def update_custom_field(
 ):
     ws, member, _user = ctx
     require_writer(member)
+    set_formula = body.formulaExpr is not None or body.formulaResultType is not None
     row = await CustomFieldService(session).update(
         workspace_id=ws.id,
         field_id=field_id,
@@ -117,6 +149,9 @@ async def update_custom_field(
         set_options=body.setOptions or body.options is not None,
         position=body.position,
         archive=body.archive,
+        formula_expr=body.formulaExpr,
+        formula_result_type=body.formulaResultType,
+        set_formula=set_formula,
     )
     return success_response(data=serialize_field(row), message="已更新")
 
@@ -131,5 +166,3 @@ async def delete_custom_field(
     require_writer(member)
     await CustomFieldService(session).delete(workspace_id=ws.id, field_id=field_id)
     return success_response(data={"id": field_id}, message="已删除")
-
-

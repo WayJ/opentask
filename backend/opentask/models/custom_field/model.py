@@ -11,6 +11,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -26,6 +27,7 @@ FIELD_TYPES = (
     "multi_select",
     "date",
     "boolean",
+    "formula",
 )
 
 
@@ -62,6 +64,9 @@ class CustomField(DBModel):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, insert_default=datetime.utcnow, onupdate=datetime.utcnow
     )
+    # E40 formula
+    formula_expr: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    formula_result_type: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
 
     __table_args__ = (
         UniqueConstraint("workspace_id", "key", name="uq_custom_fields_ws_key"),
