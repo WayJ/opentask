@@ -1,4 +1,6 @@
-"""E4-S1：个人 Saved Views（筛选/排序配置）"""
+"""Saved Views：个人 + E7-S2 工作区共享权限矩阵"""
+from __future__ import annotations
+
 import uuid
 
 import pytest
@@ -30,13 +32,19 @@ def _auth(token: str, workspace_id: str | None = None) -> dict:
     return headers
 
 
-async def _add_member(client: AsyncClient, owner: dict, member: dict):
+async def _add_member(
+    client: AsyncClient, owner: dict, member: dict, role: str = "member"
+):
     resp = await client.post(
         f"/api/workspaces/{owner['workspaceId']}/members",
         headers=_auth(owner["token"]),
-        json={"userId": member["userId"], "role": "member"},
+        json={"userId": member["userId"], "role": role},
     )
     assert resp.status_code == 200, resp.text
+
+
+def _ids(rows: list[dict]) -> set[str]:
+    return {r["id"] for r in rows}
 
 
 @pytest.mark.asyncio
@@ -57,6 +65,7 @@ async def test_create_and_list_saved_views(test_client: AsyncClient):
     body = create.json()["data"]
     assert body["name"] == "我的开放缺陷"
     assert body["isFavorite"] is True
+    assert body.get("isShared") is False
     assert body["filter"]["type"] == "bug"
     assert body["sort"]["sort_by"] == "created_at"
     assert body["ownerUserId"] == user["userId"]
@@ -68,8 +77,10 @@ async def test_create_and_list_saved_views(test_client: AsyncClient):
         headers=_auth(user["token"], user["workspaceId"]),
     )
     assert listed.status_code == 200, listed.text
-    rows = listed.json()["data"]["rows"]
-    assert any(r["id"] == view_id for r in rows)
+    data = listed.json()["data"]
+    assert any(r["id"] == view_id for r in data["rows"])
+    assert any(r["id"] == view_id for r in data["personal"])
+    assert view_id not in _ids(data["shared"])
 
     one = await test_client.get(
         f"/api/saved-views/{view_id}",
@@ -98,8 +109,10 @@ async def test_saved_views_isolation_between_users(test_client: AsyncClient):
         headers=_auth(b["token"], a["workspaceId"]),
     )
     assert b_list.status_code == 200, b_list.text
-    b_ids = {r["id"] for r in b_list.json()["data"]["rows"]}
-    assert a_id not in b_ids
+    data = b_list.json()["data"]
+    assert a_id not in _ids(data["rows"])
+    assert a_id not in _ids(data["personal"])
+    assert a_id not in _ids(data["shared"])
 
     b_get = await test_client.get(
         f"/api/saved-views/{a_id}",
@@ -165,7 +178,7 @@ async def test_delete_saved_view(test_client: AsyncClient):
         "/api/saved-views",
         headers=_auth(user["token"], user["workspaceId"]),
     )
-    ids = {r["id"] for r in listed.json()["data"]["rows"]}
+    ids = _ids(listed.json()["data"]["rows"])
     assert view_id not in ids
 
     gone = await test_client.get(
@@ -218,3 +231,339 @@ async def test_saved_view_display_group_by(test_client: AsyncClient):
     assert patched.status_code == 200, patched.text
     assert patched.json()["data"]["display"]["group_by"] == "assignee"
 
+
+# ----- E7-S2 shared views -----
+
+
+@pytest.mark.asyncio
+async def test_create_shared_view_listed_for_other_member(test_client: AsyncClient):
+    a = await _register(test_client, "sv_sh_a")
+    b = await _register(test_client, "sv_sh_b")
+    await _add_member(test_client, a, b)
+
+    created = await test_client.post(
+        "/api/saved-views",
+        headers=_auth(a["token"], a["workspaceId"]),
+        json={
+            "name": "团队开放",
+            "filter": {"status": "open"},
+            "is_shared": True,
+            "display": {"view_mode": "list", "group_by": "label"},
+        },
+    )
+    assert created.status_code == 200, created.text
+    body = created.json()["data"]
+    assert body["isShared"] is True
+    assert body["isFavorite"] is False
+    view_id = body["id"]
+
+    a_list = await test_client.get(
+        "/api/saved-views",
+        headers=_auth(a["token"], a["workspaceId"]),
+    )
+    assert a_list.status_code == 200, a_list.text
+    a_data = a_list.json()["data"]
+    assert view_id in _ids(a_data["shared"])
+    assert view_id not in _ids(a_data["personal"])
+    assert view_id in _ids(a_data["rows"])
+
+    b_list = await test_client.get(
+        "/api/saved-views",
+        headers=_auth(b["token"], a["workspaceId"]),
+    )
+    assert b_list.status_code == 200, b_list.text
+    b_data = b_list.json()["data"]
+    assert view_id in _ids(b_data["shared"])
+    assert view_id not in _ids(b_data["personal"])
+
+    b_get = await test_client.get(
+        f"/api/saved-views/{view_id}",
+        headers=_auth(b["token"], a["workspaceId"]),
+    )
+    assert b_get.status_code == 200, b_get.text
+    assert b_get.json()["data"]["isShared"] is True
+
+
+@pytest.mark.asyncio
+async def test_list_personal_shared_isolation(test_client: AsyncClient):
+    a = await _register(test_client, "sv_iso_a")
+    b = await _register(test_client, "sv_iso_b")
+    await _add_member(test_client, a, b)
+
+    personal = await test_client.post(
+        "/api/saved-views",
+        headers=_auth(a["token"], a["workspaceId"]),
+        json={"name": "A-personal", "filter": {"type": "bug"}, "is_shared": False},
+    )
+    shared = await test_client.post(
+        "/api/saved-views",
+        headers=_auth(a["token"], a["workspaceId"]),
+        json={"name": "A-shared", "filter": {"type": "feature"}, "is_shared": True},
+    )
+    b_personal = await test_client.post(
+        "/api/saved-views",
+        headers=_auth(b["token"], a["workspaceId"]),
+        json={"name": "B-personal", "filter": {"priority": "high"}},
+    )
+    assert personal.status_code == 200 and shared.status_code == 200
+    assert b_personal.status_code == 200
+    p_id = personal.json()["data"]["id"]
+    s_id = shared.json()["data"]["id"]
+    bp_id = b_personal.json()["data"]["id"]
+
+    b_list = await test_client.get(
+        "/api/saved-views",
+        headers=_auth(b["token"], a["workspaceId"]),
+    )
+    data = b_list.json()["data"]
+    assert p_id not in _ids(data["personal"]) and p_id not in _ids(data["shared"])
+    assert s_id in _ids(data["shared"]) and s_id not in _ids(data["personal"])
+    assert bp_id in _ids(data["personal"]) and bp_id not in _ids(data["shared"])
+
+
+@pytest.mark.asyncio
+async def test_member_cannot_patch_others_personal(test_client: AsyncClient):
+    a = await _register(test_client, "sv_op_a")
+    b = await _register(test_client, "sv_op_b")
+    await _add_member(test_client, a, b)
+
+    created = await test_client.post(
+        "/api/saved-views",
+        headers=_auth(a["token"], a["workspaceId"]),
+        json={"name": "secret", "filter": {}},
+    )
+    view_id = created.json()["data"]["id"]
+
+    patched = await test_client.patch(
+        f"/api/saved-views/{view_id}",
+        headers=_auth(b["token"], a["workspaceId"]),
+        json={"name": "hacked"},
+    )
+    assert patched.status_code == 404
+
+    deleted = await test_client.delete(
+        f"/api/saved-views/{view_id}",
+        headers=_auth(b["token"], a["workspaceId"]),
+    )
+    assert deleted.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_member_cannot_patch_shared_unless_creator(test_client: AsyncClient):
+    a = await _register(test_client, "sv_cr_a")
+    b = await _register(test_client, "sv_cr_b")
+    await _add_member(test_client, a, b)
+
+    created = await test_client.post(
+        "/api/saved-views",
+        headers=_auth(a["token"], a["workspaceId"]),
+        json={"name": "shared-by-a", "filter": {"tab": "open"}, "is_shared": True},
+    )
+    view_id = created.json()["data"]["id"]
+
+    denied = await test_client.patch(
+        f"/api/saved-views/{view_id}",
+        headers=_auth(b["token"], a["workspaceId"]),
+        json={"name": "nope"},
+    )
+    assert denied.status_code == 403
+
+    ok = await test_client.patch(
+        f"/api/saved-views/{view_id}",
+        headers=_auth(a["token"], a["workspaceId"]),
+        json={"name": "shared-renamed", "filter": {"tab": "all"}},
+    )
+    assert ok.status_code == 200, ok.text
+    assert ok.json()["data"]["name"] == "shared-renamed"
+
+
+@pytest.mark.asyncio
+async def test_workspace_owner_can_patch_shared_created_by_member(
+    test_client: AsyncClient,
+):
+    owner = await _register(test_client, "sv_own")
+    member = await _register(test_client, "sv_mem")
+    await _add_member(test_client, owner, member, role="member")
+
+    created = await test_client.post(
+        "/api/saved-views",
+        headers=_auth(member["token"], owner["workspaceId"]),
+        json={"name": "member-shared", "filter": {"status": "open"}, "is_shared": True},
+    )
+    assert created.status_code == 200, created.text
+    view_id = created.json()["data"]["id"]
+
+    patched = await test_client.patch(
+        f"/api/saved-views/{view_id}",
+        headers=_auth(owner["token"], owner["workspaceId"]),
+        json={"name": "owner-fixed"},
+    )
+    assert patched.status_code == 200, patched.text
+    assert patched.json()["data"]["name"] == "owner-fixed"
+
+
+@pytest.mark.asyncio
+async def test_save_as_shared_creates_personal_copy(test_client: AsyncClient):
+    a = await _register(test_client, "sv_sa_a")
+    b = await _register(test_client, "sv_sa_b")
+    await _add_member(test_client, a, b)
+
+    created = await test_client.post(
+        "/api/saved-views",
+        headers=_auth(a["token"], a["workspaceId"]),
+        json={
+            "name": "Team Bugs",
+            "filter": {"type": "bug", "priority": "high"},
+            "sort": {"sort_by": "priority", "sort_order": "desc"},
+            "display": {"view_mode": "board", "group_by": "status"},
+            "is_shared": True,
+        },
+    )
+    assert created.status_code == 200, created.text
+    src = created.json()["data"]
+    view_id = src["id"]
+
+    save_as = await test_client.post(
+        f"/api/saved-views/{view_id}/save-as",
+        headers=_auth(b["token"], a["workspaceId"]),
+        json={"name": "My copy of Team Bugs"},
+    )
+    assert save_as.status_code == 200, save_as.text
+    copy = save_as.json()["data"]
+    assert copy["id"] != view_id
+    assert copy["isShared"] is False
+    assert copy["ownerUserId"] == b["userId"]
+    assert copy["name"] == "My copy of Team Bugs"
+    assert copy["filter"] == src["filter"]
+    assert copy["sort"] == src["sort"]
+    assert copy["display"] == src["display"]
+    assert copy["isFavorite"] is False
+
+    # original unchanged
+    still = await test_client.get(
+        f"/api/saved-views/{view_id}",
+        headers=_auth(a["token"], a["workspaceId"]),
+    )
+    assert still.json()["data"]["isShared"] is True
+    assert still.json()["data"]["name"] == "Team Bugs"
+
+    b_list = await test_client.get(
+        "/api/saved-views",
+        headers=_auth(b["token"], a["workspaceId"]),
+    )
+    data = b_list.json()["data"]
+    assert copy["id"] in _ids(data["personal"])
+    assert copy["id"] not in _ids(data["shared"])
+
+
+@pytest.mark.asyncio
+async def test_viewer_can_get_shared_cannot_create_or_save_as(test_client: AsyncClient):
+    owner = await _register(test_client, "sv_v_own")
+    viewer = await _register(test_client, "sv_v_view")
+    await _add_member(test_client, owner, viewer, role="viewer")
+
+    created = await test_client.post(
+        "/api/saved-views",
+        headers=_auth(owner["token"], owner["workspaceId"]),
+        json={"name": "visible", "filter": {}, "is_shared": True},
+    )
+    assert created.status_code == 200, created.text
+    view_id = created.json()["data"]["id"]
+
+    listed = await test_client.get(
+        "/api/saved-views",
+        headers=_auth(viewer["token"], owner["workspaceId"]),
+    )
+    assert listed.status_code == 200, listed.text
+    assert view_id in _ids(listed.json()["data"]["shared"])
+
+    got = await test_client.get(
+        f"/api/saved-views/{view_id}",
+        headers=_auth(viewer["token"], owner["workspaceId"]),
+    )
+    assert got.status_code == 200
+
+    denied_create = await test_client.post(
+        "/api/saved-views",
+        headers=_auth(viewer["token"], owner["workspaceId"]),
+        json={"name": "nope", "filter": {}, "is_shared": True},
+    )
+    assert denied_create.status_code == 403
+
+    denied_save = await test_client.post(
+        f"/api/saved-views/{view_id}/save-as",
+        headers=_auth(viewer["token"], owner["workspaceId"]),
+        json={},
+    )
+    assert denied_save.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_favorite_rejected_on_shared_view(test_client: AsyncClient):
+    user = await _register(test_client, "sv_fav")
+    created = await test_client.post(
+        "/api/saved-views",
+        headers=_auth(user["token"], user["workspaceId"]),
+        json={"name": "shared-no-star", "filter": {}, "is_shared": True},
+    )
+    assert created.status_code == 200, created.text
+    view_id = created.json()["data"]["id"]
+    assert created.json()["data"]["isFavorite"] is False
+
+    fav = await test_client.post(
+        f"/api/saved-views/{view_id}/favorite",
+        headers=_auth(user["token"], user["workspaceId"]),
+        json={"is_favorite": True},
+    )
+    assert fav.status_code == 403
+
+    # personal still works
+    personal = await test_client.post(
+        "/api/saved-views",
+        headers=_auth(user["token"], user["workspaceId"]),
+        json={"name": "mine", "filter": {}, "is_shared": False},
+    )
+    pid = personal.json()["data"]["id"]
+    ok = await test_client.post(
+        f"/api/saved-views/{pid}/favorite",
+        headers=_auth(user["token"], user["workspaceId"]),
+        json={"is_favorite": True},
+    )
+    assert ok.status_code == 200, ok.text
+    assert ok.json()["data"]["isFavorite"] is True
+
+
+@pytest.mark.asyncio
+async def test_shared_cross_workspace_invisible(test_client: AsyncClient):
+    a = await _register(test_client, "sv_x_a")
+    b = await _register(test_client, "sv_x_b")
+
+    created = await test_client.post(
+        "/api/saved-views",
+        headers=_auth(a["token"], a["workspaceId"]),
+        json={"name": "ws-a-shared", "filter": {}, "is_shared": True},
+    )
+    assert created.status_code == 200, created.text
+    view_id = created.json()["data"]["id"]
+
+    # B not a member of A's workspace
+    forbidden_list = await test_client.get(
+        "/api/saved-views",
+        headers=_auth(b["token"], a["workspaceId"]),
+    )
+    assert forbidden_list.status_code == 403
+
+    # B's own workspace must not see A's view
+    b_list = await test_client.get(
+        "/api/saved-views",
+        headers=_auth(b["token"], b["workspaceId"]),
+    )
+    assert b_list.status_code == 200, b_list.text
+    assert view_id not in _ids(b_list.json()["data"]["rows"])
+    assert view_id not in _ids(b_list.json()["data"]["shared"])
+
+    missing = await test_client.get(
+        f"/api/saved-views/{view_id}",
+        headers=_auth(b["token"], b["workspaceId"]),
+    )
+    assert missing.status_code == 404
