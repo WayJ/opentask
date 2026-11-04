@@ -33,8 +33,8 @@
 
 ### Task 1: Docs
 
-- [ ] Write this plan + S3 sprint stub
-- [ ] Commit `docs(E9-S3): TDD plan for Inbox snooze`
+- [x] Write this plan + S3 sprint stub
+- [x] Commit `docs(E9-S3): TDD plan for Inbox snooze`
 
 ### Task 2: Pytest RED
 
@@ -54,8 +54,8 @@
 
 Helper: create notif via assign like `test_inbox.py`.
 
-- [ ] Write failing tests; run → FAIL (404 / no field)
-- [ ] Commit RED
+- [x] Write failing tests; run → FAIL (404 / no field)
+- [x] Commit RED
 
 ### Task 3: Model + Alembic GREEN
 
@@ -66,15 +66,15 @@ snoozed_until: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=Tru
 
 Migration `f2a3b4c5d6e8` adds column if missing.
 
-- [ ] Model + migration
-- [ ] Commit
+- [x] Model + migration
+- [x] Commit
 
 ### Task 4: Service + API GREEN
 
 - `list_for_user(..., include_snoozed: bool = False)`: if not include, add `(snoozed_until.is_(None) | snoozed_until <= utcnow())` to list + unread_count filters
 - `snooze(id, user_id, until: datetime)` / `unsnooze(...)`
 - Router: query `include_snoozed`; POST snooze body Pydantic `until: datetime`; serialize `snoozedUntil`
-- [ ] Implement; pytest file PASS; commit
+- [x] Implement; pytest file PASS; commit
 
 ### Task 5: FE
 
@@ -86,15 +86,15 @@ Migration `f2a3b4c5d6e8` adds column if missing.
 - Subtitle under title clarifying notifications vs Triage
 - eslint + build if feasible
 
-- [ ] Commit FE
+- [x] Commit FE
 
 ### Task 6: Gates + Epic local-complete
 
-- [ ] Full pytest; note new count + any pre-existing fails
-- [ ] Acceptance `docs/superpowers/acceptances/2026-11-04-E9-S3-acceptance.md`
-- [ ] Sprint stub closed; roadmap S3 closed + DoD checkboxes + **Epic tip SHA** for Yuri
-- [ ] Optional `docs/superpowers/acceptances/2026-11-04-E9-epic-local-complete.md` or fold into S3 acceptance (E12 folded into S3)
-- [ ] **No push**; **do not** start E10
+- [x] Full pytest; note new count + any pre-existing fails
+- [x] Acceptance `docs/superpowers/acceptances/2026-11-04-E9-S3-acceptance.md`
+- [x] Sprint stub closed; roadmap S3 closed + DoD checkboxes + **Epic tip SHA** for Yuri
+- [x] Optional `docs/superpowers/acceptances/2026-11-04-E9-epic-local-complete.md` or fold into S3 acceptance (E12 folded into S3)
+- [x] **No push**; **do not** start E10
 
 ## Acceptance criteria
 

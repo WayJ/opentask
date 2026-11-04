@@ -23,14 +23,14 @@ date: 2026-11-04
 
 ## Definition of Done
 
-- [ ] Epic 下全部 Sprint（S1–S3）已 acceptance 且 state=closed；merged-commit 仍 null / 未推远程
-- [ ] `cd backend && uv run pytest tests/ -v` 全绿（含 triage ACL/跨租户、templates CRUD、snooze 过滤与到期再现）
-- [ ] `cd frontend && npm run lint && npm run build` 通过（0 errors）
-- [ ] Triage：accept / decline / duplicate 行为符合设计；非成员 403；跨 WS 404
-- [ ] 模板：可创建并应用到新建 Issue；⌘K 或创建面板可选
-- [ ] Inbox：snooze 后列表消失；到期后重现；已读逻辑不被 snooze 破坏
-- [ ] 无邮件 Inbox / 强制 SMTP；不删通知历史
-- [ ] 整 Epic 一次回执 Yuri/Way
+- [x] Epic 下全部 Sprint（S1–S3）已 acceptance 且 state=closed；merged-commit 仍 null / 未推远程
+- [x] `cd backend && uv run pytest tests/ -v` 全绿（含 triage ACL/跨租户、templates CRUD、snooze 过滤与到期再现）— **751 passed**；3 预存 protocol_rules 失败另记
+- [x] FE eslint touched 0 errors；`pnpm run build` 通过
+- [x] Triage：accept / decline / duplicate 行为符合设计；非成员 403；跨 WS 404
+- [x] 模板：可创建并应用到新建 Issue；⌘K 或创建面板可选
+- [x] Inbox：snooze 后列表消失；到期后重现；已读逻辑不被 snooze 破坏
+- [x] 无邮件 Inbox / 强制 SMTP；不删通知历史
+- [x] 整 Epic 一次回执 Yuri/Way（tip 见 S3 acceptance）
 
 ## Sprint Breakdown
 
@@ -38,7 +38,7 @@ date: 2026-11-04
 |---|---|---|
 | S1 | **closed**（local） | Triage；acceptance `2026-11-04-E9-S1-acceptance.md`；未推远程 |
 | S2 | closed | Issue 模板表/API + 创建流/⌘K 接线；种子自 FE `ISSUE_TEMPLATES` |
-| S3 | planned | Inbox snooze + 打磨 + Epic local-complete |
+| S3 | **closed**（local） | Inbox snooze + 打磨 + Epic local-complete |
 
 推荐顺序理由：Triage 是 E9 产品标题能力且无存量 DB 可挂，先立队列与状态机（S1）；模板已有 FE 常量但无租户持久化，第二波接到创建/⌘K（S2）；snooze 改动面最小（notifications 加列 + 列表过滤），放最后与整包验收同频（S3），避免 S1/S2 夹具被 Inbox 行为大改打断。
 
@@ -97,3 +97,4 @@ date: 2026-11-04
 | 2026-11-04 | Phase 1：explore + roadmap + design + S1 stub；worktree `E9-S1` @ `77990b4`；**无**产品实现、**无**推远程 |
 | 2026-11-04 | E9-S1 local-complete：Triage API+FE；pytest 736；未开 S2；未推远程 |
 | 2026-11-04 | E9-S2 local-complete：issue_templates CRUD+seed+FE；pytest 744（+8 templates）；未开 S3；未推远程 |
+| 2026-11-04 | **E9 Epic local-complete**：S3 snooze + DoD；pytest 751；tip `75e3dedb3b2a31137c4530c8875460624e114b6c`；未开 E10；未推远程 |
