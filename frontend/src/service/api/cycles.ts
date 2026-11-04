@@ -20,6 +20,28 @@ export interface CycleListResult {
   total: number;
 }
 
+export interface CycleCompleteResult {
+  cycle: CycleItem;
+  rolledCount: number;
+  nextCycleId?: string | null;
+  policy?: string;
+}
+
+export interface CapacityHintSample {
+  cycleId: string;
+  name: string;
+  completedIssueCount: number;
+  completedPoints?: number | null;
+}
+
+export interface CapacityHint {
+  basis: 'history' | 'members';
+  suggestedCapacity: number;
+  lookbackN: number;
+  samples: CapacityHintSample[];
+  cycleId?: string | null;
+}
+
 export function fetchCycles(params?: { status?: CycleStatus }) {
   return request<CycleListResult>({
     url: '/api/cycles',
@@ -61,6 +83,28 @@ export function fetchDeleteCycle(id: string) {
 export function fetchActivateCycle(id: string) {
   return request<CycleItem>({
     url: `/api/cycles/${id}/activate`,
+    method: 'post'
+  });
+}
+
+export function fetchCompleteCycle(id: string) {
+  return request<CycleCompleteResult>({
+    url: `/api/cycles/${id}/complete`,
+    method: 'post'
+  });
+}
+
+export function fetchCapacityHint(params?: { cycle_id?: string }) {
+  return request<CapacityHint>({
+    url: '/api/cycles/capacity-hint',
+    method: 'get',
+    params
+  });
+}
+
+export function fetchGenerateUpcoming() {
+  return request<CycleItem>({
+    url: '/api/cycles/generate-upcoming',
     method: 'post'
   });
 }
