@@ -60,3 +60,40 @@ describe('useCommandPalette', () => {
     expect(p.activeIndex.value).toBe(1);
   });
 });
+
+describe('useCommandPalette entity sources', () => {
+  it('includes entity groups for non-empty query and clears on empty query via setEntitySources', () => {
+    const p = useCommandPalette();
+    p.setGroupLabels({
+      actions: 'Actions',
+      menus: 'Menus',
+      issues: 'Issues',
+      projects: 'Projects',
+      views: 'Views'
+    });
+    p.setSources({
+      actions: [{ id: 'nav.issues', kind: 'action', title: 'Issues', run: () => undefined }],
+      menus: []
+    });
+    p.setEntitySources({
+      issues: [{ id: 'issue.1', kind: 'issue', title: 'Fix login', run: () => undefined }],
+      projects: [{ id: 'project.1', kind: 'project', title: 'Alpha', run: () => undefined }],
+      savedViews: [{ id: 'view.1', kind: 'saved_view', title: 'Mine', run: () => undefined }]
+    });
+    p.setQuery('fix');
+    expect(p.groups.value.map(g => g.id)).toEqual(['issues', 'projects', 'views']);
+    expect(p.flatItems.value.map(i => i.id)).toEqual(['issue.1', 'project.1', 'view.1']);
+    p.moveDown();
+    expect(p.activeIndex.value).toBe(1);
+    p.setQuery('');
+    p.setEntitySources({ issues: [], projects: [], savedViews: [] });
+    expect(p.groups.value.map(g => g.id)).toEqual(['actions']);
+  });
+
+  it('exposes entityLoading flag', () => {
+    const p = useCommandPalette();
+    expect(p.entityLoading.value).toBe(false);
+    p.setEntityLoading(true);
+    expect(p.entityLoading.value).toBe(true);
+  });
+});

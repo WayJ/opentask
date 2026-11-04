@@ -9,6 +9,13 @@ function cleanParams(params: Record<string, any>): Record<string, any> {
   return Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== '' && v !== null && v !== undefined));
 }
 
+
+/** Build query params for issue detail; used by getIssue and unit-tested. */
+export function buildIssueDetailParams(opts?: { byCode?: boolean }): { by_code: true } | undefined {
+  if (opts?.byCode) return { by_code: true };
+  return undefined;
+}
+
 export const issueApi = {
   /**
    * 获取 Issue 列表
@@ -26,11 +33,13 @@ export const issueApi = {
 
   /**
    * 获取 Issue 详情
+   * @param opts.byCode 为 true 时按 issue_code 查询（?by_code=true）
    */
-  getIssue: (id: string) => {
+  getIssue: (id: string, opts?: { byCode?: boolean }) => {
     return request<Api.Issue.Issue>({
       url: `/api/issues/${id}`,
-      method: 'GET'
+      method: 'GET',
+      params: buildIssueDetailParams(opts)
     });
   },
 

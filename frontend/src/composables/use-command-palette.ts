@@ -12,7 +12,17 @@ const query = ref('');
 const activeIndex = ref(0);
 const actionSource = ref<PaletteItem[]>([]);
 const menuSource = ref<PaletteItem[]>([]);
-const groupLabels = ref({ actions: 'Actions', menus: 'Menus' });
+const issueSource = ref<PaletteItem[]>([]);
+const projectSource = ref<PaletteItem[]>([]);
+const viewSource = ref<PaletteItem[]>([]);
+const entityLoading = ref(false);
+const groupLabels = ref({
+  actions: 'Actions',
+  menus: 'Menus',
+  issues: 'Issues',
+  projects: 'Projects',
+  views: 'Views'
+});
 
 /** Test-only reset of module singleton state. */
 export function resetCommandPaletteForTests() {
@@ -21,7 +31,17 @@ export function resetCommandPaletteForTests() {
   activeIndex.value = 0;
   actionSource.value = [];
   menuSource.value = [];
-  groupLabels.value = { actions: 'Actions', menus: 'Menus' };
+  issueSource.value = [];
+  projectSource.value = [];
+  viewSource.value = [];
+  entityLoading.value = false;
+  groupLabels.value = {
+    actions: 'Actions',
+    menus: 'Menus',
+    issues: 'Issues',
+    projects: 'Projects',
+    views: 'Views'
+  };
 }
 
 /** Shared command palette state (singleton across BaseLayout host + header button). */
@@ -31,7 +51,10 @@ export function useCommandPalette() {
       actions: actionSource.value,
       menus: menuSource.value,
       query: query.value,
-      groupLabels: groupLabels.value
+      groupLabels: groupLabels.value,
+      issues: issueSource.value,
+      projects: projectSource.value,
+      savedViews: viewSource.value
     })
   );
 
@@ -46,6 +69,10 @@ export function useCommandPalette() {
     isOpen.value = false;
     query.value = '';
     activeIndex.value = 0;
+    issueSource.value = [];
+    projectSource.value = [];
+    viewSource.value = [];
+    entityLoading.value = false;
   }
 
   function toggle() {
@@ -66,14 +93,44 @@ export function useCommandPalette() {
         actions: opts.actions,
         menus: opts.menus,
         query: query.value,
-        groupLabels: groupLabels.value
+        groupLabels: groupLabels.value,
+        issues: issueSource.value,
+        projects: projectSource.value,
+        savedViews: viewSource.value
       })
     ).length;
     activeIndex.value = clampActiveIndex(activeIndex.value, len);
   }
 
-  function setGroupLabels(labels: { actions: string; menus: string }) {
-    groupLabels.value = labels;
+  function setEntitySources(opts: {
+    issues: PaletteItem[];
+    projects: PaletteItem[];
+    savedViews: PaletteItem[];
+  }) {
+    issueSource.value = opts.issues;
+    projectSource.value = opts.projects;
+    viewSource.value = opts.savedViews;
+    activeIndex.value = clampActiveIndex(activeIndex.value, flatItems.value.length);
+  }
+
+  function setEntityLoading(loading: boolean) {
+    entityLoading.value = loading;
+  }
+
+  function setGroupLabels(labels: {
+    actions: string;
+    menus: string;
+    issues?: string;
+    projects?: string;
+    views?: string;
+  }) {
+    groupLabels.value = {
+      actions: labels.actions,
+      menus: labels.menus,
+      issues: labels.issues ?? groupLabels.value.issues,
+      projects: labels.projects ?? groupLabels.value.projects,
+      views: labels.views ?? groupLabels.value.views
+    };
   }
 
   function moveDown() {
@@ -106,11 +163,14 @@ export function useCommandPalette() {
     groups,
     flatItems,
     activeItem,
+    entityLoading,
     open,
     close,
     toggle,
     setQuery,
     setSources,
+    setEntitySources,
+    setEntityLoading,
     setGroupLabels,
     moveUp,
     moveDown,
