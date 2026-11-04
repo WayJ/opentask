@@ -32,6 +32,7 @@ from opentask.models.cycle.model import Cycle
 from opentask.models.milestone.model import Milestone
 from opentask.services.user_center.rbac_service import RbacService
 from opentask.services.notification.service import NotificationService
+from opentask.services.automation.service import fire_automations
 from opentask.services.workspace_realtime import (
     publish_comment_created,
     publish_issue_created,
@@ -470,6 +471,13 @@ class IssueService:
         await self.db.commit()
         await self.db.refresh(issue)
         await publish_issue_created(issue, actor_user_id=user_id)
+        await fire_automations(
+            self.db,
+            workspace_id=issue.workspace_id,
+            trigger_type="issue.created",
+            issue=issue,
+            actor_user_id=user_id,
+        )
         return issue
 
     async def update_issue(
@@ -586,10 +594,12 @@ class IssueService:
 
         # 记录分配变更
         assignee_changed_to = None
+        assignee_did_change = False
         if "assignee_id" in update_data:
             old_assignee = await self._get_issue_assignee(issue_id)
             if old_assignee != update_data["assignee_id"]:
                 assignee_changed_to = update_data["assignee_id"]
+                assignee_did_change = True
                 # 获取用户信息对象
                 old_assignee_info = await self._get_user_info_dict(old_assignee)
                 new_assignee_info = await self._get_user_info_dict(update_data["assignee_id"])
@@ -653,6 +663,28 @@ class IssueService:
             await publish_issue_updated(
                 issue, actor_user_id=user_id, changed=changed
             )
+            if status_changed:
+                old_s, new_s = status_changed
+                await fire_automations(
+                    self.db,
+                    workspace_id=issue.workspace_id,
+                    trigger_type="issue.status_changed",
+                    issue=issue,
+                    actor_user_id=user_id,
+                    event={
+                        "from": str(getattr(old_s, "value", old_s)) if old_s is not None else None,
+                        "to": str(getattr(new_s, "value", new_s)),
+                    },
+                )
+            if assignee_did_change:
+                await fire_automations(
+                    self.db,
+                    workspace_id=issue.workspace_id,
+                    trigger_type="issue.assignee_changed",
+                    issue=issue,
+                    actor_user_id=user_id,
+                    event={"to": assignee_changed_to},
+                )
         return issue
 
     async def move_issue_on_board(

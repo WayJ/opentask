@@ -59,6 +59,7 @@ from opentask.models.issue_watcher import IssueWatcher
 from opentask.models.favorite import Favorite
 from opentask.models.customer import Customer, CustomerRequest, CustomerRequestIssue
 from opentask.models.custom_field import CustomField, IssueCustomFieldValue
+from opentask.models.automation import AutomationRule
 from opentask.models.access_token import AccessToken
 from opentask.models.oauth2 import (
     OAuthAccessToken,
@@ -132,6 +133,7 @@ __all__ = [
     "CustomerRequestIssue",
     "CustomField",
     "IssueCustomFieldValue",
+    "AutomationRule",
     "AccessToken",
     "OAuthClient",
     "OAuthAuthorizationCode",

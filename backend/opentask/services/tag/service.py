@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from opentask.models.issue.model import Issue, IssueTag, IssueTimeline
 from opentask.models.tag.model import Tag, TagGroup
+from opentask.services.automation.service import fire_automations
 from opentask.models.workspace.model import WorkspaceMember
 
 DEFAULT_COLOR = "#3b82f6"
@@ -284,6 +285,14 @@ class TagService:
             )
         )
         await self.db.commit()
+        await fire_automations(
+            self.db,
+            workspace_id=workspace_id,
+            trigger_type="label_added",
+            issue=issue,
+            actor_user_id=user_id,
+            event={"tagId": tag_id, "label": tag.name},
+        )
         return tag
 
     async def detach_tag(
@@ -392,6 +401,16 @@ class TagService:
                 )
             )
         await self.db.commit()
+        for tid in to_add:
+            tag = by_id.get(tid)
+            await fire_automations(
+                self.db,
+                workspace_id=workspace_id,
+                trigger_type="label_added",
+                issue=issue,
+                actor_user_id=user_id,
+                event={"tagId": tid, "label": tag.name if tag else None},
+            )
         return await self.list_issue_tags(issue_id, workspace_id=workspace_id)
 
     async def _get_issue(self, issue_id: str, *, workspace_id: str) -> Optional[Issue]:
