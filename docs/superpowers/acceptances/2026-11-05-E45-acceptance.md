@@ -3,7 +3,7 @@
 日期：2026-11-05（Asia/Shanghai）  
 分支：`sprint/E45-S1`  
 基线：`f6683d2`  
-tip：`cef9ff1`
+tip：`20a021b`
 
 ## 范围（已交付）
 - **A** `sla_policies.pause_statuses` JSON 默认 `[]`；CRUD/serialize `pauseStatuses`；非法 IssueStatus → 400；空=关闭暂停
