@@ -62,7 +62,7 @@ async def create_project(
     current_user: UserModel = Depends(authenticate),
     ws_ctx=Depends(get_optional_workspace_context),
 ):
-    """创建项目（可选 X-Workspace-Id：写入 workspace_id）"""
+    """创建项目（可选 X-Workspace-Id：写入 workspace_id）；有工作区时创建者自动 watch"""
     workspace, _member, user = ws_ctx
     # 部门归属快照：取创建人主部门写入（无归属则保持 NULL）
     dept_id = await RbacService(service.db).get_primary_dept_id(user)
@@ -71,6 +71,14 @@ async def create_project(
         dept_id=dept_id,
         workspace_id=workspace.id if workspace else None,
     )
+    if workspace is not None:
+        from opentask.services.project_watcher.service import ProjectWatcherService
+
+        await ProjectWatcherService(service.db).watch(
+            project_id=project.id,
+            workspace_id=workspace.id,
+            user_id=str(user.id),
+        )
     return success_response(data=service.to_response(project), message="项目创建成功")
 
 
@@ -403,7 +411,132 @@ async def delete_milestone(
     return success_response(message="里程碑已删除")
 
 
+
+# ============================================================================
+# Health / Watchers / Timeline (E8-S2)
+# ============================================================================
+
+health_router = APIRouter(prefix="/{project_id}/health", tags=["Project Health"])
+watchers_router = APIRouter(prefix="/{project_id}/watchers", tags=["Project Watchers"])
+
+
+class HealthUpdateBody(BaseModel):
+    status: str
+    note: str | None = None
+
+
+@health_router.post("")
+async def post_project_health(
+    project_id: str,
+    body: HealthUpdateBody,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    from opentask.services.project_health.service import (
+        ProjectHealthService,
+        require_writer as health_require_writer,
+        serialize_health_update,
+    )
+
+    ws, member, user = ctx
+    health_require_writer(member)
+    row = await ProjectHealthService(db).post_update(
+        project_id=project_id,
+        workspace_id=ws.id,
+        actor_user_id=str(user.id),
+        status_value=body.status,
+        note=body.note,
+    )
+    return success_response(data=serialize_health_update(row), message="健康状态已更新")
+
+
+@health_router.get("")
+async def get_project_health(
+    project_id: str,
+    history: bool = Query(False, description="是否返回历史"),
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    from opentask.services.project_health.service import ProjectHealthService
+
+    ws, _member, _user = ctx
+    data = await ProjectHealthService(db).get_health(
+        project_id=project_id,
+        workspace_id=ws.id,
+        include_history=history,
+    )
+    return success_response(data=data)
+
+
+@watchers_router.get("")
+async def list_project_watchers(
+    project_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    from opentask.services.project_watcher.service import (
+        ProjectWatcherService,
+        serialize_watcher,
+    )
+
+    ws, _member, _user = ctx
+    rows = await ProjectWatcherService(db).list(
+        project_id=project_id, workspace_id=ws.id
+    )
+    return success_response(data=[serialize_watcher(r) for r in rows])
+
+
+@watchers_router.post("")
+async def watch_project(
+    project_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    from opentask.services.project_watcher.service import (
+        ProjectWatcherService,
+        serialize_watcher,
+    )
+
+    ws, _member, user = ctx
+    row = await ProjectWatcherService(db).watch(
+        project_id=project_id, workspace_id=ws.id, user_id=str(user.id)
+    )
+    return success_response(data=serialize_watcher(row), message="已订阅")
+
+
+@watchers_router.delete("")
+async def unwatch_project(
+    project_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    from opentask.services.project_watcher.service import ProjectWatcherService
+
+    ws, _member, user = ctx
+    await ProjectWatcherService(db).unwatch(
+        project_id=project_id, workspace_id=ws.id, user_id=str(user.id)
+    )
+    return success_response(message="已取消订阅")
+
+
+@router.get("/{project_id}/timeline")
+async def get_project_timeline(
+    project_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    from opentask.services.project_health.service import ProjectHealthService
+
+    ws, _member, _user = ctx
+    data = await ProjectHealthService(db).timeline(
+        project_id=project_id, workspace_id=ws.id
+    )
+    return success_response(data=data)
+
+
 # 将子路由器添加到主路由器
 router.include_router(repo_router)
 router.include_router(milestones_router)
+router.include_router(health_router)
+router.include_router(watchers_router)
 router.include_router(requirement_repo_router)

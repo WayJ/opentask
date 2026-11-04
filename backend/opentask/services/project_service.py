@@ -165,6 +165,10 @@ class ProjectService:
             updated_at=project.updated_at,
             starts_at=getattr(project, "starts_at", None),
             target_date=getattr(project, "target_date", None),
+            health_status=getattr(project, "health_status", None),
+            health_note=getattr(project, "health_note", None),
+            health_updated_at=getattr(project, "health_updated_at", None),
+            health_updated_by=getattr(project, "health_updated_by", None),
         )
 
 

@@ -124,6 +124,14 @@ class Project(Base):
         DateTime, nullable=True, comment="项目目标日期"
     )
 
+    # 健康缓存（E8-S2）
+    health_status: Mapped[str | None] = mapped_column(
+        String(20), nullable=True, comment="on_track|at_risk|off_track"
+    )
+    health_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    health_updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    health_updated_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
     # 关联
     requirements = relationship("Requirement", back_populates="project", cascade="all, delete-orphan")
     repos = relationship("RepoConfig", back_populates="project", cascade="all, delete-orphan")

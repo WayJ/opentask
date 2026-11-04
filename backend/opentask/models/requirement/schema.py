@@ -137,6 +137,10 @@ class ProjectResponse(ProjectBase):
     updated_at: datetime
     starts_at: datetime | None = None
     target_date: datetime | None = None
+    health_status: str | None = None
+    health_note: str | None = None
+    health_updated_at: datetime | None = None
+    health_updated_by: str | None = None
 
     class Config:
         from_attributes = True
