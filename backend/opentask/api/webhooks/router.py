@@ -72,6 +72,18 @@ async def create_webhook(
     )
 
 
+@router.post("/run-due-deliveries")
+async def run_due_deliveries(
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    """External tick: retry pending_retry deliveries that are due (member+)."""
+    ws, member, _user = ctx
+    require_reader(member)
+    result = await WorkspaceWebhookService(session).run_due_deliveries(workspace_id=ws.id)
+    return success_response(data=result, message="已执行")
+
+
 @router.get("/{webhook_id}")
 async def get_webhook(
     webhook_id: str,
@@ -137,3 +149,21 @@ async def test_webhook(
         workspace_id=ws.id, webhook_id=webhook_id
     )
     return success_response(data=result, message="已发送测试事件")
+
+
+@router.post("/{webhook_id}/deliveries/{delivery_log_id}/retry")
+async def retry_delivery(
+    webhook_id: str,
+    delivery_log_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    """Owner: immediate replay of a failed/dead delivery (same delivery_id)."""
+    ws, member, _user = ctx
+    require_owner(member)
+    result = await WorkspaceWebhookService(session).retry_delivery(
+        workspace_id=ws.id,
+        webhook_id=webhook_id,
+        delivery_log_id=delivery_log_id,
+    )
+    return success_response(data=result, message="已重试")

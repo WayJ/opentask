@@ -74,7 +74,7 @@ class WorkspaceWebhook(DBModel):
 
 
 class WebhookDeliveryLog(DBModel):
-    """Recent delivery attempts for a webhook."""
+    """Delivery ledger for a webhook (one row per logical delivery_id)."""
 
     __tablename__ = "webhook_delivery_logs"
 
@@ -92,10 +92,24 @@ class WebhookDeliveryLog(DBModel):
     attempt: Mapped[int] = mapped_column(Integer, nullable=False, insert_default=1)
     latency_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # E44 reliability
+    delivery_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
+    payload_json: Mapped[Optional[Any]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"), nullable=True
+    )
+    status: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    next_attempt_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, insert_default=5)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, insert_default=datetime.utcnow
     )
 
     __table_args__ = (
         Index("idx_webhook_delivery_logs_hook_created", "webhook_id", "created_at"),
+        Index(
+            "idx_webhook_delivery_logs_ws_status_next",
+            "workspace_id",
+            "status",
+            "next_attempt_at",
+        ),
     )

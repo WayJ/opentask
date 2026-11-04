@@ -9,7 +9,7 @@ import logging
 import secrets
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Optional
 from urllib.parse import urlparse
 
@@ -30,7 +30,10 @@ logger = logging.getLogger(__name__)
 
 DELIVERY_TIMEOUT_S = 5.0
 RETRY_DELAY_S = 0.3
-MAX_ATTEMPTS = 2
+MAX_ATTEMPTS = 2  # sync short retries (E29)
+WEBHOOK_DELIVERY_MAX_ATTEMPTS = 5  # includes first sync (E44)
+RETRY_BACKOFF_MINUTES = [1, 5, 25, 120]
+RUN_DUE_CAP = 100
 
 
 def require_owner(member: WorkspaceMember) -> None:
@@ -83,6 +86,12 @@ def serialize_webhook(
 
 
 def serialize_delivery(row: WebhookDeliveryLog) -> dict:
+    status = row.status
+    if not status:
+        status = "success" if row.success else "pending_retry"
+    replayable = (
+        status in ("pending_retry", "dead") and row.payload_json is not None
+    )
     return {
         "id": row.id,
         "webhookId": row.webhook_id,
@@ -93,7 +102,18 @@ def serialize_delivery(row: WebhookDeliveryLog) -> dict:
         "latencyMs": row.latency_ms,
         "error": row.error,
         "createdAt": row.created_at.isoformat() if row.created_at else None,
+        "status": status,
+        "nextAttemptAt": row.next_attempt_at.isoformat() if row.next_attempt_at else None,
+        "deliveryId": row.delivery_id,
+        "replayable": replayable,
+        "maxAttempts": row.max_attempts if row.max_attempts is not None else WEBHOOK_DELIVERY_MAX_ATTEMPTS,
     }
+
+
+def _backoff_minutes(attempt: int) -> int:
+    """attempt is the just-completed attempt count (1-based)."""
+    idx = max(0, min(attempt - 1, len(RETRY_BACKOFF_MINUTES) - 1))
+    return RETRY_BACKOFF_MINUTES[idx]
 
 
 def sign_body(secret: str, body: bytes) -> str:
@@ -286,7 +306,19 @@ class WorkspaceWebhookService:
         envelope: dict[str, Any],
         *,
         force: bool,
+        log_row: Optional[WebhookDeliveryLog] = None,
+        sync_attempts: int = MAX_ATTEMPTS,
     ) -> dict[str, Any]:
+        """Deliver envelope; upsert one ledger row per delivery_id.
+
+        sync_attempts: short HTTP retries in this call (E29 default 2).
+        On final failure: pending_retry (+payload) or dead when attempt>=max.
+        """
+        _ = force
+        delivery_id = str(envelope.get("id") or f"evt_{uuid.uuid4().hex}")
+        envelope = dict(envelope)
+        envelope["id"] = delivery_id
+
         body = json.dumps(envelope, ensure_ascii=False, separators=(",", ":")).encode(
             "utf-8"
         )
@@ -296,31 +328,94 @@ class WorkspaceWebhookService:
             "User-Agent": "OpenTask-Webhook/1.0",
             "X-OpenTask-Event": str(envelope.get("type") or ""),
             "X-OpenTask-Signature": signature,
-            "X-OpenTask-Delivery": str(envelope.get("id") or ""),
+            "X-OpenTask-Delivery": delivery_id,
         }
+
+        log = log_row
+        if log is None:
+            log = await self._get_log_by_delivery(hook.id, delivery_id)
+        if log is None:
+            log = WebhookDeliveryLog(
+                webhook_id=hook.id,
+                workspace_id=hook.workspace_id,
+                event_type=str(envelope.get("type") or ""),
+                success=False,
+                attempt=0,
+                delivery_id=delivery_id,
+                status="pending_retry",
+                max_attempts=WEBHOOK_DELIVERY_MAX_ATTEMPTS,
+            )
+            self.db.add(log)
+            await self.db.flush()
+
+        starting = int(log.attempt or 0)
+        max_att = int(log.max_attempts or WEBHOOK_DELIVERY_MAX_ATTEMPTS)
         last: dict[str, Any] = {
             "success": False,
             "statusCode": None,
-            "attempt": 0,
+            "attempt": starting,
             "latencyMs": None,
             "error": None,
+            "eventId": delivery_id,
+            "eventType": envelope.get("type"),
         }
-        for attempt in range(1, MAX_ATTEMPTS + 1):
-            if attempt > 1:
-                await asyncio.sleep(RETRY_DELAY_S)
-            last = await self._one_attempt(
-                hook, envelope, body, headers, attempt=attempt
-            )
-            if last.get("success"):
-                break
-        # force unused except documenting test path; always deliver
-        _ = force
-        return last
 
-    async def _one_attempt(
+        bursts = max(1, int(sync_attempts))
+        for i in range(bursts):
+            attempt = starting + i + 1
+            if attempt > max_att:
+                break
+            if i > 0:
+                await asyncio.sleep(RETRY_DELAY_S)
+            last = await self._one_http(hook, body, headers, attempt=attempt)
+            log.attempt = attempt
+            log.status_code = last.get("statusCode")
+            log.latency_ms = last.get("latencyMs")
+            log.error = last.get("error")
+            log.event_type = str(envelope.get("type") or log.event_type)
+            log.delivery_id = delivery_id
+            if last.get("success"):
+                log.success = True
+                log.status = (
+                    "success_after_retry" if starting > 0 else "success"
+                )
+                log.payload_json = None
+                log.next_attempt_at = None
+                await self._prune_logs(hook.id)
+                await self.db.commit()
+                return {
+                    **last,
+                    "eventId": delivery_id,
+                    "eventType": envelope.get("type"),
+                    "status": log.status,
+                }
+
+        # failed this call
+        log.success = False
+        attempt_now = int(log.attempt or starting)
+        if attempt_now >= max_att:
+            log.status = "dead"
+            log.next_attempt_at = None
+            # keep payload for manual replay
+            log.payload_json = envelope
+        else:
+            log.status = "pending_retry"
+            log.payload_json = envelope
+            log.next_attempt_at = datetime.utcnow() + timedelta(
+                minutes=_backoff_minutes(attempt_now)
+            )
+        await self._prune_logs(hook.id)
+        await self.db.commit()
+        return {
+            **last,
+            "eventId": delivery_id,
+            "eventType": envelope.get("type"),
+            "status": log.status,
+        }
+
+    async def _one_http(
         self,
         hook: WorkspaceWebhook,
-        envelope: dict[str, Any],
         body: bytes,
         headers: dict[str, str],
         *,
@@ -341,69 +436,132 @@ class WorkspaceWebhookService:
             error = str(exc)[:500]
             success = False
         latency_ms = int((time.monotonic() - t0) * 1000)
-        await self._record_delivery(
-            hook=hook,
-            event_type=str(envelope.get("type") or ""),
-            success=success,
-            status_code=status_code,
-            attempt=attempt,
-            latency_ms=latency_ms,
-            error=error,
-        )
         return {
             "success": success,
             "statusCode": status_code,
             "attempt": attempt,
             "latencyMs": latency_ms,
             "error": error,
-            "eventId": envelope.get("id"),
-            "eventType": envelope.get("type"),
         }
 
-    async def _record_delivery(
-        self,
-        *,
-        hook: WorkspaceWebhook,
-        event_type: str,
-        success: bool,
-        status_code: Optional[int],
-        attempt: int,
-        latency_ms: Optional[int],
-        error: Optional[str],
-    ) -> None:
-        log = WebhookDeliveryLog(
-            webhook_id=hook.id,
-            workspace_id=hook.workspace_id,
-            event_type=event_type,
-            success=success,
-            status_code=status_code,
-            attempt=attempt,
-            latency_ms=latency_ms,
-            error=error,
+    async def _get_log_by_delivery(
+        self, webhook_id: str, delivery_id: str
+    ) -> Optional[WebhookDeliveryLog]:
+        stmt = select(WebhookDeliveryLog).where(
+            WebhookDeliveryLog.webhook_id == webhook_id,
+            WebhookDeliveryLog.delivery_id == delivery_id,
         )
-        self.db.add(log)
-        await self.db.flush()
-        # prune old logs beyond limit
+        return (await self.db.execute(stmt)).scalar_one_or_none()
+
+    async def _prune_logs(self, webhook_id: str) -> None:
         count_q = await self.db.execute(
             select(func.count())
             .select_from(WebhookDeliveryLog)
-            .where(WebhookDeliveryLog.webhook_id == hook.id)
+            .where(WebhookDeliveryLog.webhook_id == webhook_id)
         )
         total = int(count_q.scalar_one() or 0)
-        if total > DELIVERY_LOG_LIMIT:
-            # delete oldest extras
-            sub = (
-                select(WebhookDeliveryLog.id)
-                .where(WebhookDeliveryLog.webhook_id == hook.id)
-                .order_by(WebhookDeliveryLog.created_at.asc())
-                .limit(total - DELIVERY_LOG_LIMIT)
+        if total <= DELIVERY_LOG_LIMIT:
+            return
+        sub = (
+            select(WebhookDeliveryLog.id)
+            .where(WebhookDeliveryLog.webhook_id == webhook_id)
+            .order_by(WebhookDeliveryLog.created_at.asc())
+            .limit(total - DELIVERY_LOG_LIMIT)
+        )
+        ids = list((await self.db.execute(sub)).scalars().all())
+        if ids:
+            await self.db.execute(
+                delete(WebhookDeliveryLog).where(WebhookDeliveryLog.id.in_(ids))
             )
-            ids = list((await self.db.execute(sub)).scalars().all())
-            if ids:
-                await self.db.execute(
-                    delete(WebhookDeliveryLog).where(WebhookDeliveryLog.id.in_(ids))
+
+    async def run_due_deliveries(self, *, workspace_id: str) -> dict[str, Any]:
+        now = datetime.utcnow()
+        stmt = (
+            select(WebhookDeliveryLog)
+            .where(
+                WebhookDeliveryLog.workspace_id == workspace_id,
+                WebhookDeliveryLog.status == "pending_retry",
+                WebhookDeliveryLog.next_attempt_at.is_not(None),
+                WebhookDeliveryLog.next_attempt_at <= now,
+            )
+            .order_by(WebhookDeliveryLog.next_attempt_at.asc())
+            .limit(RUN_DUE_CAP)
+        )
+        rows = list((await self.db.execute(stmt)).scalars().all())
+        processed = succeeded = failed = dead = 0
+        errors: list[dict[str, Any]] = []
+        for log in rows:
+            processed += 1
+            try:
+                hook = await self._get_or_404(workspace_id, log.webhook_id)
+                envelope = log.payload_json
+                if not isinstance(envelope, dict):
+                    log.status = "dead"
+                    await self.db.commit()
+                    dead += 1
+                    errors.append(
+                        {"deliveryLogId": log.id, "error": "missing_payload"}
+                    )
+                    continue
+                result = await self._deliver(
+                    hook, dict(envelope), force=True, log_row=log, sync_attempts=1
                 )
-        await self.db.commit()
+                if result.get("success"):
+                    succeeded += 1
+                elif result.get("status") == "dead":
+                    dead += 1
+                    failed += 1
+                else:
+                    failed += 1
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("run-due delivery %s failed", log.id)
+                failed += 1
+                errors.append({"deliveryLogId": log.id, "error": str(exc)[:300]})
+        return {
+            "processed": processed,
+            "succeeded": succeeded,
+            "failed": failed,
+            "dead": dead,
+            "errors": errors,
+        }
+
+    async def retry_delivery(
+        self,
+        *,
+        workspace_id: str,
+        webhook_id: str,
+        delivery_log_id: str,
+    ) -> dict[str, Any]:
+        hook = await self._get_or_404(workspace_id, webhook_id)
+        stmt = select(WebhookDeliveryLog).where(
+            WebhookDeliveryLog.id == delivery_log_id,
+            WebhookDeliveryLog.webhook_id == webhook_id,
+            WebhookDeliveryLog.workspace_id == workspace_id,
+        )
+        log = (await self.db.execute(stmt)).scalar_one_or_none()
+        if not log:
+            raise HTTPException(
+                status_code=http_status.HTTP_404_NOT_FOUND,
+                detail="投递记录不存在",
+            )
+        if not isinstance(log.payload_json, dict):
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail="delivery_not_replayable",
+            )
+        # continue same delivery_id; allow beyond previous dead by bumping max if needed
+        if (log.attempt or 0) >= (log.max_attempts or WEBHOOK_DELIVERY_MAX_ATTEMPTS):
+            log.max_attempts = int(log.attempt or 0) + 1
+        log.status = "pending_retry"
+        log.next_attempt_at = None
+        await self.db.flush()
+        return await self._deliver(
+            hook,
+            dict(log.payload_json),
+            force=True,
+            log_row=log,
+            sync_attempts=1,
+        )
 
     async def _get_or_404(self, workspace_id: str, webhook_id: str) -> WorkspaceWebhook:
         stmt = select(WorkspaceWebhook).where(
