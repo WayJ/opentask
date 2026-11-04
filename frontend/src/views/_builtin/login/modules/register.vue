@@ -45,12 +45,10 @@ const rules = computed<Record<keyof FormModel, App.Global.FormRule[]>>(() => {
 
 async function handleSubmit() {
   await validate();
-  const { data, error } = await fetchRegister(
-    model.userName,
-    model.password,
-    model.userName,
-    inviteToken.value
-  );
+  const { data, error } = await fetchRegister(model.userName, model.password, {
+    name: model.userName,
+    inviteToken: inviteToken.value
+  });
   if (error) {
     window.$message?.error(error.message || $t('common.error'));
     return;

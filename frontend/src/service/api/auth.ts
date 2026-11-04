@@ -109,10 +109,11 @@ export function fetchDingtalkCallback(authCode: string) {
 export async function fetchRegister(
   userName: string,
   password: string,
-  name?: string,
-  inviteToken?: string
+  options?: { name?: string; inviteToken?: string }
 ) {
   const encryptedPassword = await encryptLoginPassword(password);
+  const name = options?.name;
+  const inviteToken = options?.inviteToken;
   return request<Api.Auth.LoginToken & { defaultWorkspaceId?: string }>({
     url: '/api/auth/register',
     method: 'post',

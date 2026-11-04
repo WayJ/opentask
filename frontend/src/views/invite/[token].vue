@@ -2,12 +2,12 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { NButton, NCard, NSpace, NSpin, NTag } from 'naive-ui';
-import { localStg } from '@/utils/storage';
 import {
   type WorkspaceInviteItem,
   fetchAcceptInvite,
   fetchPreviewInvite
 } from '@/service/api/workspace';
+import { localStg } from '@/utils/storage';
 
 defineOptions({ name: 'InviteLandingPage' });
 

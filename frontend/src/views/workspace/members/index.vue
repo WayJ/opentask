@@ -10,8 +10,6 @@ import {
   NSpace,
   NTag
 } from 'naive-ui';
-import { useAuthStore } from '@/store/modules/auth';
-import { localStg } from '@/utils/storage';
 import {
   type WorkspaceInviteItem,
   type WorkspaceMemberItem,
@@ -25,6 +23,8 @@ import {
   fetchWorkspaceList,
   fetchWorkspaceMembers
 } from '@/service/api/workspace';
+import { useAuthStore } from '@/store/modules/auth';
+import { localStg } from '@/utils/storage';
 
 defineOptions({ name: 'WorkspaceMembersPage' });
 
