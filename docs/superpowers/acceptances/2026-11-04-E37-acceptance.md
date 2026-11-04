@@ -37,7 +37,7 @@
 - multi_select 泳道 / 拖拽改 CF / 公式字段 / 服务端预聚合矩阵 / E38
 
 ## tip
-- SHA：`8d6bb51`（`git rev-parse HEAD` = `8d6bb51499de98d48ee96e589e95aecf2dad76e5`）
+- SHA：`840a3dc`
 - 未 push / 未开 PR
 - **不自开 E38** · **STOP 待命**
 
