@@ -12,6 +12,7 @@ from opentask.models.issue.model import Issue
 from opentask.models.notification.model import Notification
 from opentask.models.user.model import UserModel
 from opentask.models.workspace.model import WorkspaceMember
+from opentask.services.workspace_realtime import publish_inbox_created
 
 # @username 或 @uuid；捕获 token（不含 @）
 _MENTION_RE = re.compile(r"@([A-Za-z0-9_.-]{1,64})")
@@ -49,6 +50,12 @@ class NotificationService:
             body=body,
         )
         self.db.add(row)
+        try:
+            await self.db.flush()
+        except Exception:
+            # flush 失败则交给调用方事务；不阻塞主路径
+            return row
+        await publish_inbox_created(row, actor_user_id=actor_user_id)
         return row
 
     async def notify_assigned(

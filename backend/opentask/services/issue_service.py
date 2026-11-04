@@ -32,6 +32,12 @@ from opentask.models.cycle.model import Cycle
 from opentask.models.milestone.model import Milestone
 from opentask.services.user_center.rbac_service import RbacService
 from opentask.services.notification.service import NotificationService
+from opentask.services.workspace_realtime import (
+    publish_comment_created,
+    publish_issue_created,
+    publish_issue_deleted,
+    publish_issue_updated,
+)
 
 from opentask.models.workspace.model import Workspace
 
@@ -463,6 +469,7 @@ class IssueService:
 
         await self.db.commit()
         await self.db.refresh(issue)
+        await publish_issue_created(issue, actor_user_id=user_id)
         return issue
 
     async def update_issue(
@@ -636,6 +643,16 @@ class IssueService:
                 old_due=old_d,
                 new_due=new_d,
             )
+        if issue:
+            # exclude internal bookkeeping keys from changed summary
+            changed = [
+                k
+                for k in update_data.keys()
+                if k not in {"updated_by", "updated_at"}
+            ]
+            await publish_issue_updated(
+                issue, actor_user_id=user_id, changed=changed
+            )
         return issue
 
     async def move_issue_on_board(
@@ -701,6 +718,7 @@ class IssueService:
 
     async def delete_issue(self, issue_id: str, user_id: str) -> bool:
         """删除 Issue（软删除）"""
+        issue = await self.get_issue(issue_id)
         query = (
             update(Issue)
             .where(Issue.id == issue_id)
@@ -712,7 +730,10 @@ class IssueService:
         )
         result = await self.db.execute(query)
         await self.db.commit()
-        return result.rowcount > 0
+        ok = result.rowcount > 0
+        if ok and issue:
+            await publish_issue_deleted(issue, actor_user_id=user_id)
+        return ok
 
     # ========================================================================
     # 批量操作
@@ -893,6 +914,13 @@ class IssueService:
                 actor_user_id=user_id,
                 comment_content=content,
                 comment_id=comment.id,
+            )
+            await publish_comment_created(
+                workspace_id=issue.workspace_id,
+                issue_id=issue_id,
+                comment_id=str(comment.id),
+                issue_code=issue.issue_code,
+                actor_user_id=user_id,
             )
         return comment
 
