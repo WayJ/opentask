@@ -3,7 +3,7 @@
 日期：2026-11-05（Asia/Shanghai）  
 分支：`sprint/E51-S1`  
 基线：`38bd9c6`  
-**tip：** `9f7d1db`（全文 `9f7d1db05a2f597c03a81c2984ef7da2e1dab082`）
+**tip：** `ef82d13`（全文 `ef82d131047cc0c1ecd8abf6ec248501dcb1a8dd`）
 
 ## 范围落地
 
