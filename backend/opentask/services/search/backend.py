@@ -1,4 +1,4 @@
-"""E60: dialect-aware search backends (PG tsvector / SQLite FTS5 / ILIKE fallback)."""
+"""E60/E62: dialect-aware search backends (PG tsvector / SQLite FTS5 / ILIKE fallback)."""
 from __future__ import annotations
 
 import re
@@ -8,7 +8,8 @@ from sqlalchemy import or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opentask.models.entity_document.model import EntityDocument
-from opentask.models.issue.model import Issue
+from opentask.models.issue.enums import CommentType
+from opentask.models.issue.model import Issue, IssueComment
 from opentask.models.requirement.model import Project
 
 INDEX_BODY_MAX = 16000
@@ -37,6 +38,10 @@ class SearchBackend(Protocol):
     ) -> list[dict[str, Any]]: ...
 
     async def search_docs(
+        self, workspace_id: str, q: str, limit: int
+    ) -> list[dict[str, Any]]: ...
+
+    async def search_comments(
         self, workspace_id: str, q: str, limit: int
     ) -> list[dict[str, Any]]: ...
 
@@ -90,6 +95,33 @@ def _doc_payload(d: EntityDocument, *, rank: float | None = None, snippet: str |
     }
     if rank is not None:
         out["rank"] = float(rank)
+    return out
+
+
+def _comment_payload(
+    *,
+    comment_id: str,
+    issue_id: str,
+    issue_code: str,
+    content: str | None,
+    author_user_id: str | None = None,
+    created_at: Any = None,
+    rank: float | None = None,
+) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "id": comment_id,
+        "issueId": issue_id,
+        "issueCode": issue_code,
+        "snippet": _clip(content),
+    }
+    if rank is not None:
+        out["rank"] = float(rank)
+    if author_user_id is not None:
+        out["authorUserId"] = author_user_id
+    if created_at is not None:
+        out["createdAt"] = (
+            created_at.isoformat() if hasattr(created_at, "isoformat") else str(created_at)
+        )
     return out
 
 
@@ -163,6 +195,38 @@ class ILikeSearchBackend:
             _doc_payload(d, rank=0.0)
             for d in result.scalars().all()
         ]
+
+    async def search_comments(
+        self, workspace_id: str, q: str, limit: int
+    ) -> list[dict[str, Any]]:
+        pattern = f"%{q}%"
+        result = await self.session.execute(
+            select(IssueComment, Issue)
+            .join(Issue, Issue.id == IssueComment.issue_id)
+            .where(
+                Issue.workspace_id == workspace_id,
+                Issue.is_deleted == False,  # noqa: E712
+                IssueComment.is_deleted == False,  # noqa: E712
+                IssueComment.comment_type == CommentType.COMMENT,
+                IssueComment.content.ilike(pattern),
+            )
+            .order_by(IssueComment.created_at.desc())
+            .limit(limit)
+        )
+        out: list[dict[str, Any]] = []
+        for comment, issue in result.all():
+            out.append(
+                _comment_payload(
+                    comment_id=comment.id,
+                    issue_id=issue.id,
+                    issue_code=issue.issue_code,
+                    content=comment.content,
+                    author_user_id=comment.user_id,
+                    created_at=comment.created_at,
+                    rank=0.0,
+                )
+            )
+        return out
 
 
 class PostgresFTSBackend:
@@ -277,6 +341,47 @@ class PostgresFTSBackend:
                 "snippet": _clip(r["body_md"]),
                 "rank": float(r["rank"] or 0),
             }
+            for r in rows
+        ]
+
+    async def search_comments(
+        self, workspace_id: str, q: str, limit: int
+    ) -> list[dict[str, Any]]:
+        sql = text(
+            """
+            SELECT c.id, c.issue_id, i.issue_code, c.content, c.user_id, c.created_at,
+                   ts_rank(c.search_tsv, plainto_tsquery('simple', :q)) AS rank
+            FROM issue_comments c
+            JOIN issues i ON i.id = c.issue_id
+            WHERE i.workspace_id = :ws
+              AND i.is_deleted = false
+              AND c.is_deleted = false
+              AND c.comment_type = 'comment'
+              AND c.search_tsv @@ plainto_tsquery('simple', :q)
+            ORDER BY rank DESC, c.created_at DESC
+            LIMIT :lim
+            """
+        )
+        try:
+            async with self.session.begin_nested():
+                result = await self.session.execute(
+                    sql, {"q": q, "ws": workspace_id, "lim": limit}
+                )
+                rows = list(result.mappings().all())
+        except Exception:
+            return await ILikeSearchBackend(self.session).search_comments(
+                workspace_id, q, limit
+            )
+        return [
+            _comment_payload(
+                comment_id=r["id"],
+                issue_id=r["issue_id"],
+                issue_code=r["issue_code"],
+                content=r["content"],
+                author_user_id=r["user_id"],
+                created_at=r["created_at"],
+                rank=float(r["rank"] or 0),
+            )
             for r in rows
         ]
 
@@ -402,3 +507,46 @@ class SQLiteFTSBackend:
             }
             for r in rows
         ]
+
+    async def search_comments(
+        self, workspace_id: str, q: str, limit: int
+    ) -> list[dict[str, Any]]:
+        sql = text(
+            """
+            SELECT c.id, c.issue_id, i.issue_code, c.content, c.user_id, c.created_at,
+                   bm25(issue_comments_fts) AS rank
+            FROM issue_comments_fts
+            JOIN issue_comments c ON c.id = issue_comments_fts.id
+            JOIN issues i ON i.id = c.issue_id
+            WHERE issue_comments_fts MATCH :q
+              AND i.workspace_id = :ws
+              AND i.is_deleted = 0
+              AND c.is_deleted = 0
+              AND c.comment_type = 'comment'
+            ORDER BY rank ASC, c.created_at DESC
+            LIMIT :lim
+            """
+        )
+        try:
+            async with self.session.begin_nested():
+                result = await self.session.execute(
+                    sql, {"q": q, "ws": workspace_id, "lim": limit}
+                )
+                rows = list(result.mappings().all())
+        except Exception:
+            return await ILikeSearchBackend(self.session).search_comments(
+                workspace_id, q, limit
+            )
+        return [
+            _comment_payload(
+                comment_id=r["id"],
+                issue_id=r["issue_id"],
+                issue_code=r["issue_code"],
+                content=r["content"],
+                author_user_id=r["user_id"],
+                created_at=r["created_at"],
+                rank=-float(r["rank"] or 0),
+            )
+            for r in rows
+        ]
+

@@ -292,6 +292,11 @@ async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
                     "to_tsvector('simple', coalesce(title,'') || ' ' || left(coalesce(body_md,''), 16000))",
                     "ix_entity_documents_search_tsv",
                 ),
+                (
+                    "issue_comments",
+                    "to_tsvector('simple', left(coalesce(content,''), 16000))",
+                    "ix_issue_comments_search_tsv",
+                ),
             ):
                 await conn.execute(_sql_text(
                     f"ALTER TABLE IF EXISTS {_tbl} ADD COLUMN IF NOT EXISTS search_tsv tsvector "

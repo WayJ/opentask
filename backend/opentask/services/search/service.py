@@ -1,4 +1,4 @@
-"""E17/E60: workspace-scoped global search aggregation."""
+"""E17/E60/E62: workspace-scoped global search aggregation."""
 from __future__ import annotations
 
 from typing import Any
@@ -29,13 +29,14 @@ class SearchService:
         if limit > 50:
             limit = 50
         if not query:
-            return {"issues": [], "projects": [], "docs": [], "members": []}
+            return {"issues": [], "projects": [], "docs": [], "members": [], "comments": []}
 
         return {
             "issues": await self._search_issues(workspace_id, query, limit),
             "projects": await self.backend.search_projects(workspace_id, query, limit),
             "docs": await self.backend.search_docs(workspace_id, query, limit),
             "members": await self._search_members(workspace_id, query, limit),
+            "comments": await self.backend.search_comments(workspace_id, query, limit),
         }
 
     async def _search_issues(

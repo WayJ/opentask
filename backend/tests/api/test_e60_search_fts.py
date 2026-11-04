@@ -193,4 +193,4 @@ async def test_e60_search_empty_query_still_empty(test_client: AsyncClient):
     )
     assert resp.status_code == 200, resp.text
     data = resp.json()["data"]
-    assert data == {"issues": [], "projects": [], "docs": [], "members": []}
+    assert data == {"issues": [], "projects": [], "docs": [], "members": [], "comments": []}
