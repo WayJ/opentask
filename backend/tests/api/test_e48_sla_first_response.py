@@ -141,7 +141,8 @@ async def test_create_first_response_policy_and_reject_bad_metric(test_client: A
 
 
 @pytest.mark.asyncio
-async def test_pause_resume_writes_timeline_without_webhook_automation(test_client: AsyncClient):
+async def test_pause_resume_writes_timeline_webhook_no_automation(test_client: AsyncClient):
+    """E48 timeline + E51 dedicated webhooks; still no automation on pause/resume."""
     user = await _register(test_client)
     await _create_policy(
         test_client,
@@ -164,7 +165,9 @@ async def test_pause_resume_writes_timeline_without_webhook_automation(test_clie
         ) as auto,
     ):
         await _patch_status(test_client, user, issue["id"], "feedback")
-        assert wh.await_count == 0
+        assert wh.await_count >= 1
+        pause_types = [c.kwargs.get("event_type") for c in wh.await_args_list]
+        assert "issue.sla_paused" in pause_types
         assert auto.await_count == 0
 
         rows = await _timeline(test_client, user, issue["id"])
@@ -175,8 +178,10 @@ async def test_pause_resume_writes_timeline_without_webhook_automation(test_clie
         assert ad.get("policyId")
         assert "elapsedBeforePauseMinutes" in ad
 
+        wh.reset_mock()
         await _patch_status(test_client, user, issue["id"], "in_progress")
-        assert wh.await_count == 0
+        resume_types = [c.kwargs.get("event_type") for c in wh.await_args_list]
+        assert "issue.sla_resumed" in resume_types
         assert auto.await_count == 0
         rows2 = await _timeline(test_client, user, issue["id"])
         resumed = [r for r in rows2 if (r.get("action_type") or r.get("actionType")) == "sla_resumed"]
