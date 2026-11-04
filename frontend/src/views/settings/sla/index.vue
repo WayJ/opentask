@@ -27,6 +27,7 @@ import {
   type HolidayPackMergeResult,
   slaMetricLabel
 } from '@/service/api/sla';
+import { filterHolidayPackRows } from '@/utils/holidayPacks';
 import {
   type WorkspaceItem,
   fetchUpdateWorkspace,
@@ -109,6 +110,20 @@ const packTarget = ref<'workspace' | 'policy'>('workspace');
 const packPolicyId = ref<string | null>(null);
 const packPreview = ref<HolidayPackMergeResult | null>(null);
 const packSourceNote = ref('');
+const packFilterRegion = ref<string | null>(null);
+const packFilterYear = ref<number | null>(null);
+const packRegionFilterOptions = [
+  { label: '全部地区', value: null as string | null },
+  { label: 'CN', value: 'CN' },
+  { label: 'US', value: 'US' },
+  { label: 'EU', value: 'EU' },
+  { label: 'UK', value: 'UK' }
+];
+const packYearFilterOptions = [
+  { label: '全部年份', value: null as number | null },
+  { label: '2026', value: 2026 },
+  { label: '2027', value: 2027 }
+];
 const packOptions = computed(() =>
   packRows.value.map(r => ({
     label: `${r.region} ${r.year} · ${r.name} (${r.count})`,
@@ -132,9 +147,18 @@ const policyOptions = computed(() =>
 async function loadHolidayPacks() {
   packLoading.value = true;
   try {
-    const { data, error } = await fetchHolidayPacks();
+    const params: { region?: string; year?: number } = {};
+    if (packFilterRegion.value) params.region = packFilterRegion.value;
+    if (packFilterYear.value != null) params.year = packFilterYear.value;
+    const { data, error } = await fetchHolidayPacks(
+      Object.keys(params).length ? params : undefined
+    );
     if (error || !data) return;
-    packRows.value = data.rows || [];
+    // client-side filter keeps UI consistent if API ignores unknown params
+    packRows.value = filterHolidayPackRows(data.rows || [], {
+      region: packFilterRegion.value || undefined,
+      year: packFilterYear.value
+    });
     const meta = packRows.value.find(x => x.region === packRegion.value && x.year === packYear.value);
     packSourceNote.value = meta?.sourceNote || packRows.value[0]?.sourceNote || '';
     if (!meta && packRows.value[0]) {
@@ -146,6 +170,11 @@ async function loadHolidayPacks() {
   } finally {
     packLoading.value = false;
   }
+}
+
+async function onPackFilterChange() {
+  packPreview.value = null;
+  await loadHolidayPacks();
 }
 
 async function previewHolidayPack() {
@@ -652,10 +681,24 @@ onMounted(async () => {
       </div>
       <template v-if="packOpen">
         <NText depth="3" style="display:block;margin-bottom:12px;font-size:12px">
-          精选静态包（CN/US）；预览后应用到本工作区营业例外或某 policy 日历覆盖。同日以包为准覆盖；包外例外保留。无外网同步。
+          精选静态包（CN/US/EU/UK · 2026/2027）；预览后应用到本工作区营业例外或某 policy 日历覆盖。同日以包为准覆盖；包外例外保留。无外网同步。
         </NText>
         <NSpace vertical>
           <NSpace align="center">
+            <NSelect
+              :value="packFilterRegion"
+              @update:value="(v: string | null) => { packFilterRegion = v; onPackFilterChange(); }"
+              :options="packRegionFilterOptions"
+              style="width:120px"
+              placeholder="地区"
+            />
+            <NSelect
+              :value="packFilterYear"
+              @update:value="(v: number | null) => { packFilterYear = v; onPackFilterChange(); }"
+              :options="packYearFilterOptions"
+              style="width:120px"
+              placeholder="年份"
+            />
             <NSelect :value="packKey" @update:value="onPackKeyUpdate" :options="packOptions" style="width:360px" :loading="packLoading" />
             <NSelect
               v-model:value="packTarget"

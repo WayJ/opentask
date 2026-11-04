@@ -201,10 +201,11 @@ export interface HolidayPackMergeResult {
   recompute?: { recomputed: number; scanned: number; capped: boolean };
 }
 
-export function fetchHolidayPacks() {
+export function fetchHolidayPacks(params?: { region?: string; year?: number }) {
   return request<{ rows: HolidayPackSummary[]; total: number }>({
     url: '/api/sla/holiday-packs',
-    method: 'get'
+    method: 'get',
+    params
   });
 }
 
