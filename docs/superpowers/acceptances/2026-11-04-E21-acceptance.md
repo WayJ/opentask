@@ -3,7 +3,7 @@
 状态：齐套  
 分支：sprint/E21-S1  
 基线：db9c87b  
-tip：（见收口 commit）
+tip：46b0dbad43a5ee549dbc99d03f029e6fb0d67c9d
 
 ## Checklist
 - [x] A SmartSearch → list API/filters（assignee:@me / is: / label: / priority: / type: / cycle: / project: / KEY-N）；URL `q` 深链；清空恢复；无 skip
