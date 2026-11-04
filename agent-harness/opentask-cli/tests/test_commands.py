@@ -169,7 +169,7 @@ def test_command_verbose_output():
 
     # --version 不需要 --verbose
     assert result.exit_code == 0
-    assert 'v1.20.0' in result.output
+    assert 'v1.21.0' in result.output
 
 
 # ============================================================================
@@ -229,7 +229,7 @@ def test_command_logging():
 
     # 验证命令正常执行
     assert result.exit_code == 0
-    assert 'v1.20.0' in result.output
+    assert 'v1.21.0' in result.output
 
 
 # ============================================================================

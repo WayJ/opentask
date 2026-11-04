@@ -1,4 +1,5 @@
 """Issue management commands for OpenTask CLI."""
+import re
 import asyncio
 import json
 import sys
@@ -300,9 +301,15 @@ def _resolve_user_id(skin: ReplSkin, client: OpenTaskClient, assignee_input: str
 @click.option("--sort-by", default="created_at", help="Sort field")
 @click.option("--sort-order", default="desc", help="Sort order (asc/desc)")
 @click.option("--cf", multiple=True, help="E32: custom field filter key=value (repeatable)")
+@click.option(
+    "--group-by",
+    "group_by",
+    default=None,
+    help="E37: client group key — none|status|assignee|priority|type|label|cf:<key>",
+)
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.pass_obj
-def list_issues(obj: "Context", status, issue_type, priority, project_id, assignee_id, mine, watching, due_soon, cycle_id, search, open_only, recent, updated_today, overdue, unassigned, page, page_size, sort_by, sort_order, cf, as_json):
+def list_issues(obj: "Context", status, issue_type, priority, project_id, assignee_id, mine, watching, due_soon, cycle_id, search, open_only, recent, updated_today, overdue, unassigned, page, page_size, sort_by, sort_order, cf, group_by, as_json):
     """List issues with filtering and pagination.
 
     Advanced filters:
@@ -332,6 +339,9 @@ def list_issues(obj: "Context", status, issue_type, priority, project_id, assign
 
         # Show unassigned bug reports
         issue list --unassigned --type bug
+
+        # E37: group by custom field (client-side hint; loads custom_fields)
+        issue list --group-by cf:severity
     """
     config: Config = obj.config
     client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
@@ -357,6 +367,20 @@ def list_issues(obj: "Context", status, issue_type, priority, project_id, assign
     if assignee_id and assignee_id != "me":
         resolved_assignee_id = _resolve_user_id(skin, client, assignee_id)
 
+    # E37: validate --group-by (system enum or cf:<slug>)
+    _GROUP_BY_OK = {"none", "status", "assignee", "priority", "type", "label"}
+    _CF_GROUP_RE = re.compile(r"^cf:([a-z][a-z0-9_-]{0,63})$")
+    if group_by is not None:
+        gb = str(group_by).strip()
+        if gb not in _GROUP_BY_OK and not _CF_GROUP_RE.match(gb):
+            skin.error(
+                "Invalid --group-by; use none|status|assignee|priority|type|label|cf:<key>"
+            )
+            return
+        group_by = gb
+
+    need_cf = bool(cf) or (isinstance(group_by, str) and group_by.startswith("cf:"))
+
     try:
         result = asyncio.run(client.list_issues(
             page=page,
@@ -377,14 +401,19 @@ def list_issues(obj: "Context", status, issue_type, priority, project_id, assign
             due_soon=due_soon,
             cycle_id=cycle_id,
             cf=list(cf) if cf else None,
-            include="custom_fields" if cf else None,
+            include="custom_fields" if need_cf else None,
         ))
 
         if json_mode:
+            msg = f"Found {result.get('total', 0)} issue(s)"
+            if group_by:
+                msg = f"{msg}; group_by={group_by}"
+                if isinstance(result, dict):
+                    result = {**result, "group_by": group_by}
             click.echo(_format_json_response(
                 success=True,
                 data=result,
-                message=f"Found {result.get('total', 0)} issue(s)"
+                message=msg
             ))
             return
 
@@ -395,7 +424,10 @@ def list_issues(obj: "Context", status, issue_type, priority, project_id, assign
             skin.info("No issues found")
             return
 
-        skin.section(f"Issues ({total} total, Page {page})")
+        title = f"Issues ({total} total, Page {page})"
+        if group_by:
+            title = f"{title} · group_by={group_by}"
+        skin.section(title)
 
         headers = ["Code", "Title", "Type", "Priority", "Status", "Pts", "Created"]
         table_rows = []
