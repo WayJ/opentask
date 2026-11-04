@@ -3,8 +3,12 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   type CustomerRequestRow,
+  buildPublicStatusPath,
   fetchCustomerRequest,
+  fetchEnableRequestStatusLink,
   fetchLinkRequestIssue,
+  fetchRevokeRequestStatusLink,
+  fetchRotateRequestStatusLink,
   fetchUnlinkRequestIssue,
   fetchUpdateCustomerRequest
 } from '@/service/api';
@@ -16,6 +20,7 @@ const router = useRouter();
 const loading = ref(false);
 const saving = ref(false);
 const linking = ref(false);
+const statusBusy = ref(false);
 const row = ref<CustomerRequestRow | null>(null);
 const linkIssueId = ref('');
 const form = reactive({
@@ -98,6 +103,92 @@ async function onUnlink(issueId: string) {
   await load();
 }
 
+const statusEnabled = computed(() => Boolean(row.value?.statusLink?.enabled));
+const publicRepliesOn = computed(() => Boolean(row.value?.statusLink?.publicRepliesEnabled));
+const statusUrl = computed(() => {
+  const link = row.value?.statusLink;
+  if (!link?.enabled) return '';
+  const path = link.url || (row.value?.token ? buildPublicStatusPath(row.value.token) : '');
+  if (!path) return '';
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}${path}`;
+  }
+  return path;
+});
+
+async function onTogglePublicReplies(v: boolean) {
+  if (!requestId.value) return;
+  const { error } = await fetchUpdateCustomerRequest(requestId.value, {
+    publicRepliesEnabled: v
+  });
+  if (error) {
+    window.$message?.error(error.message || '更新失败');
+    return;
+  }
+  await load();
+}
+
+async function onEnableStatusLink() {
+  if (!requestId.value) return;
+  statusBusy.value = true;
+  try {
+    const { error } = await fetchEnableRequestStatusLink(requestId.value, {
+      publicRepliesEnabled: publicRepliesOn.value
+    });
+    if (error) {
+      window.$message?.error(error.message || '启用失败');
+      return;
+    }
+    window.$message?.success('已启用公开状态链接');
+    await load();
+  } finally {
+    statusBusy.value = false;
+  }
+}
+
+async function onRotateStatusLink() {
+  if (!requestId.value) return;
+  statusBusy.value = true;
+  try {
+    const { error } = await fetchRotateRequestStatusLink(requestId.value);
+    if (error) {
+      window.$message?.error(error.message || '轮换失败');
+      return;
+    }
+    window.$message?.success('已轮换链接');
+    await load();
+  } finally {
+    statusBusy.value = false;
+  }
+}
+
+async function onRevokeStatusLink() {
+  if (!requestId.value) return;
+  statusBusy.value = true;
+  try {
+    const { error } = await fetchRevokeRequestStatusLink(requestId.value);
+    if (error) {
+      window.$message?.error(error.message || '撤销失败');
+      return;
+    }
+    window.$message?.success('已撤销公开链接');
+    await load();
+  } finally {
+    statusBusy.value = false;
+  }
+}
+
+async function onCopyStatusLink() {
+  const url = statusUrl.value;
+  if (!url) return;
+  try {
+    await navigator.clipboard.writeText(url);
+    window.$message?.success('已复制公开链接');
+  } catch {
+    window.$message?.error('复制失败');
+  }
+}
+
 watch(requestId, load);
 onMounted(load);
 </script>
@@ -151,6 +242,34 @@ onMounted(load);
           </NFormItem>
           <NButton type="primary" :loading="saving" @click="onSave">保存</NButton>
         </NForm>
+      </NCard>
+
+      <NCard title="公开状态链接" :bordered="false" class="mt-16px">
+        <NSpace vertical>
+          <div class="flex flex-wrap items-center gap-8px">
+            <NTag :type="statusEnabled ? 'success' : 'default'">
+              {{ statusEnabled ? '已启用' : '未启用' }}
+            </NTag>
+            <NButton size="small" type="primary" :loading="statusBusy" :disabled="statusEnabled" @click="onEnableStatusLink">
+              启用
+            </NButton>
+            <NButton size="small" :disabled="!statusEnabled" :loading="statusBusy" @click="onRotateStatusLink">
+              轮换
+            </NButton>
+            <NButton size="small" type="error" secondary :disabled="!statusEnabled" :loading="statusBusy" @click="onRevokeStatusLink">
+              撤销
+            </NButton>
+            <NButton size="small" :disabled="!statusEnabled" @click="onCopyStatusLink">复制链接</NButton>
+          </div>
+          <NInput v-if="statusUrl" :value="statusUrl" readonly />
+          <NCheckbox
+            :checked="publicRepliesOn"
+            :disabled="!statusEnabled"
+            @update:checked="onTogglePublicReplies"
+          >
+            允许公开回复
+          </NCheckbox>
+        </NSpace>
       </NCard>
 
       <NCard title="关联 Issue" :bordered="false" class="mt-16px">

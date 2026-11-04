@@ -418,6 +418,18 @@ const customRoutes: CustomRoute[] = [
       hideInMenu: true
     },
     props: true
+  },
+  {
+    name: 'public-request-status',
+    path: '/r/:token',
+    component: 'layout.blank$view.r',
+    meta: {
+      title: 'public-request-status',
+      i18nKey: 'route.public-request-status',
+      constant: true,
+      hideInMenu: true
+    },
+    props: true
   }
 ];
 

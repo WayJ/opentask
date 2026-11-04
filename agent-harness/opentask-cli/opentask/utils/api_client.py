@@ -832,6 +832,30 @@ class OpenTaskClient:
             data={"issueId": issue_id},
         )
 
+    async def get_customer_request(self, request_id: str, *, include_token: bool = False) -> dict:
+        params = {"include_token": "1"} if include_token else None
+        return await self.get(f"/api/customer-requests/{request_id}", params=params)
+
+    async def enable_customer_request_status_link(
+        self, request_id: str, *, public_replies_enabled: bool | None = None
+    ) -> dict:
+        body = {}
+        if public_replies_enabled is not None:
+            body["publicRepliesEnabled"] = public_replies_enabled
+        return await self.post(
+            f"/api/customer-requests/{request_id}/status-link/enable",
+            data=body,
+        )
+
+    async def rotate_customer_request_status_link(self, request_id: str) -> dict:
+        return await self.post(f"/api/customer-requests/{request_id}/status-link/rotate")
+
+    async def revoke_customer_request_status_link(self, request_id: str) -> dict:
+        return await self.post(f"/api/customer-requests/{request_id}/status-link/revoke")
+
+    async def public_customer_request_status(self, token: str) -> dict:
+        return await self.get(f"/api/public/customer-requests/{token}")
+
 
     # ========================================================================
     # Custom Fields (E25)
