@@ -3,7 +3,7 @@
 状态：齐套  
 分支：sprint/E24-S1  
 基线：89242cf  
-tip：a5ad03ad9cdab0a981503d64b1f6c09e16a600a0
+tip：ede3db8d91778ec3972513b2e966361658837233
 
 ## Checklist
 - [x] A `GET /api/insights/summary` 五块聚合 + 跨租户/缺头负例；SQL aggregate
