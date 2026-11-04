@@ -18,8 +18,8 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-04-e36-automatio
 ---
 
 ### Task 1 — Docs
-- [ ] plan 入库（本文件）
-- [ ] acceptance 骨架；收口补 tip/测数
+- [x] plan 入库（本文件）
+- [x] acceptance 骨架；收口补 tip/测数
 
 ### Task 2 — BE：trigger + emit + 多条件（TDD）
 **Files:**
@@ -29,34 +29,34 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-04-e36-automatio
 - Modify: `backend/opentask/api/issue/router.py`（传 actor）
 - Test: `backend/tests/api/test_e36_automation_cf_changed.py`
 
-- [ ] **Step 1: 红测** — 写 `test_e36_automation_cf_changed.py`：
+- [x] **Step 1: 红测** — 写 `test_e36_automation_cf_changed.py`：
   - 改 CF → 匹配规则执行（`set_priority` / `add_comment`）
   - `field_key` / `field_id` 过滤；`from`/`to` 过滤
   - `customFields` 多条件 AND；>5 → 400
   - `set_custom_field` 动作不二次触发 `custom_field_changed`
   - 跨租户 / viewer 403（create 规则）
-- [ ] **Step 2: 跑测确认红**（缺 trigger / 无 emit → FAIL）
-- [ ] **Step 3: 最小实现绿**
+- [x] **Step 2: 跑测确认红**（缺 trigger / 无 emit → FAIL）
+- [x] **Step 3: 最小实现绿**
   - `TRIGGER_TYPES` 加 `custom_field_changed`
   - `_match_trigger`: field_key|field_id|key；from/to（缺省不限）；值用 `==` JSON 语义
   - upsert：提交前记录 old；commit 后对实际变更逐字段 `fire_automations(..., event={field_key,field_id,from:old,to:new})`
   - `_match_condition`: `customFields`/`custom_fields` 列表全部 AND；单 `customField` 兼容；create/update 列表长度 >5 → 400
-- [ ] **Step 4: BE 相关测绿并 commit**
+- [x] **Step 4: BE 相关测绿并 commit**
 
 ### Task 3 — FE
 **Files:** `frontend/src/service/api/automations.ts`、`automations.test.ts`、`frontend/src/views/workspace/automations/index.vue`
-- [ ] trigger 选项 + 类型加 `custom_field_changed`
-- [ ] 触发表单：字段下拉 + 可选 from/to → 写入 `triggerConfig`
-- [ ] 多 CF 条件：`withCustomFieldConditions` / `getCustomFieldConditions`（≤5）；列表 summarize
-- [ ] vitest 覆盖 helpers
+- [x] trigger 选项 + 类型加 `custom_field_changed`
+- [x] 触发表单：字段下拉 + 可选 from/to → 写入 `triggerConfig`
+- [x] 多 CF 条件：`withCustomFieldConditions` / `getCustomFieldConditions`（≤5）；列表 summarize
+- [x] vitest 覆盖 helpers
 
 ### Task 4 — CLI 1.20.0
 **Files:** `agent-harness/opentask-cli/opentask/core/automation.py`、`__init__.py`、`opentask_cli.py`、`setup.py`、`pyproject.toml`、全仓 version 断言、`tests/test_e36_automation_cf_changed.py`
-- [ ] TRIGGERS += `custom_field_changed`；help 示例
-- [ ] version → **1.20.0**（含历史 e2x 测里的版本串）
+- [x] TRIGGERS += `custom_field_changed`；help 示例
+- [x] version → **1.20.0**（含历史 e2x 测里的版本串）
 
 ### Task 5 — 门禁
-- [ ] BE/CLI/FE 全量或定向证据；acceptance 写 tip+测数；`superpowers: … = ok`；STOP
+- [x] BE/CLI/FE 全量或定向证据；acceptance 写 tip+测数；`superpowers: … = ok`；STOP
 
 ## ADR（实现对齐 design）
 | ID | 决定 |
