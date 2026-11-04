@@ -3,7 +3,7 @@
 日期：2026-11-04  
 Epic：E5  
 状态：local-complete（S1–S3 closed；未推远程；merged-commit null）  
-基线：`sprint/E5-S3` @ tip（基 E5-S2 `f5c70d1`）；worktree `/workspace/opentask-worktrees/E5-S3`
+基线：`sprint/E5-S3` @ `e37d5f8`（基 E5-S2 `f5c70d1`）；worktree `/workspace/opentask-worktrees/E5-S3`
 
 ## 1. 目标
 
