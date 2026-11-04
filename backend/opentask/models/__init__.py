@@ -43,7 +43,7 @@ from opentask.models.issue import (
     IssueReaction,
 )
 from opentask.models.issue_collection import IssueCollection
-from opentask.models.workspace import Workspace, WorkspaceMember
+from opentask.models.workspace import Workspace, WorkspaceMember, WorkspaceInvite
 from opentask.models.notification import Notification
 from opentask.models.issue_saved_view import IssueSavedView
 from opentask.models.issue_display_prefs import IssueDisplayPrefs
@@ -109,6 +109,7 @@ __all__ = [
     "IssueCollection",
     "Workspace",
     "WorkspaceMember",
+    "WorkspaceInvite",
     "Notification",
     "IssueSavedView",
     "IssueDisplayPrefs",
