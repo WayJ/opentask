@@ -106,6 +106,6 @@ def test_elapsed_empty_day_zero():
 
 def test_normalize_business_hours_defaults_and_preset():
     bh = normalize_business_hours(None)
-    assert bh == {"enabled": False, "windows": {k: [] for k in WEEKDAY_KEYS}}
+    assert bh == {"enabled": False, "windows": {k: [] for k in WEEKDAY_KEYS}, "exceptions": []}
     assert WEEKDAY_PRESET_09_18["mon"] == [{"start": "09:00", "end": "18:00"}]
     assert WEEKDAY_PRESET_09_18["sat"] == []
