@@ -32,7 +32,7 @@ date: 2026-11-04
 |---|---|---|
 | S1 | closed | **个人 Saved Views**：模型 + API + Issue 列表工具栏保存/应用/收藏。evidence: `docs/superpowers/sprints/2026-11-04-E4-S1-plan.md` / `docs/superpowers/acceptances/2026-11-04-E4-S1-acceptance.md` |
 | S2 | closed | Issue 列表分组泳道（客户端 none/status/assignee/priority/type；display.group_by）。evidence: `docs/superpowers/sprints/2026-11-04-E4-S2-plan.md` / `docs/superpowers/acceptances/2026-11-04-E4-S2-acceptance.md` |
-| S3 | planned | 一等公民子 Issue：`parent_issue_id` + 嵌套列表；非 IssueRelation。 |
+| S3 | active | 一等公民子 Issue：`parent_issue_id` + 嵌套列表；非 IssueRelation。worktree `/workspace/opentask-worktrees/E4-S3`；分支 `sprint/E4-S3`（基 E4-S2 tip `1e79a91`）。 |
 
 推荐顺序理由：Saved Views 先固化筛选/排序配置契约，S2 分组与 S3 嵌套可挂在同一列表呈现层；个人作用域不阻塞后续共享视图另开 Epic。
 
@@ -144,3 +144,4 @@ date: 2026-11-04
 - 2026-11-04（UTC+8）：E4-S1 closed；acceptance `docs/superpowers/acceptances/2026-11-04-E4-S1-acceptance.md`；分支 `sprint/E4-S1` 未推远程。下一步 S2（列表分组泳道）。
 - 2026-11-04（UTC+8）：E4-S2 started；分支 `sprint/E4-S2`（基 E4-S1 tip `cf748eb`）；worktree `/workspace/opentask-worktrees/E4-S2`；客户端 groupBy；不推远程。
 - 2026-11-04（UTC+8）：E4-S2 closed；acceptance `docs/superpowers/acceptances/2026-11-04-E4-S2-acceptance.md`；分支 `sprint/E4-S2` 未推远程。下一步 S3（一等公民子 Issue）。
+- 2026-11-04（UTC+8）：E4-S3 started；分支 `sprint/E4-S3`（基 E4-S2 tip `1e79a91`）；worktree `/workspace/opentask-worktrees/E4-S3`；`parent_issue_id` 一等公民；不推远程。

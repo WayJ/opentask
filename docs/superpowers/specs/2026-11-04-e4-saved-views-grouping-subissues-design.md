@@ -2,7 +2,7 @@
 
 日期：2026-11-04  
 Epic：E4  
-状态：active（S2 实现中；S1 closed）
+状态：active（S3 实现中；S1/S2 closed）
 
 ## 1. 目标
 
@@ -108,12 +108,17 @@ Epic：E4
 - 列表泳道 **展示-only**：跨泳道拖拽改字段不在范围；看板 status 拖拽保持 IssueBoard 既有行为
 - 不做共享视图、不做复杂自定义字段分组、不做 S3 `parent_issue_id`
 
-## 4. S3 — 一等公民子 Issue（素描）
+## 4. S3 — 一等公民子 Issue
 
-- Issue 增加可空 `parent_issue_id` FK → `issues.id`（同 workspace）
-- API：创建/更新可设 parent；列表可返回 `children` 摘要或嵌套
-- UI：详情/列表缩进嵌套；禁止跨工作区父子
+- Issue 增加可空 `parent_issue_id` FK → `issues.id`（同 workspace；服务层强制）
+- 拒：自指、父不存在、跨工作区、环（祖先链含自身）
+- API：
+  - Create/Update 接受 `parent_issue_id`（`null` 清空）
+  - List/Get 恒含 `parent_issue_id`
+  - Get 另含 `children` 轻量摘要 `{id, issue_code, title, status}`；另 `GET /api/issues/{id}/children`
+- UI：详情显示父链接 + 子列表 + 添加子 Issue；列表对当前筛选结果 **depth-1** 客户端嵌套缩进（父不在结果集则子顶层展示）
 - **不用** `IssueRelation` 表达父子（Relation 保留 blocks/related 等）
+- Alembic 接在 saved_views `d0e1f2a3b4c5` 之后
 
 ## 5. 风险与约束
 
