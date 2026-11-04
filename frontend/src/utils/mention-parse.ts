@@ -3,9 +3,7 @@ export const USER_MENTION_RE = /@([A-Za-z0-9_.-]{1,64})/g;
 export const ISSUE_CODE_RE = /#?([A-Z][A-Z0-9]*-\d+)/g;
 
 export type MentionToken =
-  | { type: 'text'; value: string }
-  | { type: 'user'; username: string }
-  | { type: 'issue'; issueCode: string };
+  { type: 'text'; value: string } | { type: 'user'; username: string } | { type: 'issue'; issueCode: string };
 
 /** 将纯文本切成 text / @user / Issue code token（不重叠，从左到右）。 */
 export function tokenizeMentions(input: string): MentionToken[] {

@@ -24,7 +24,6 @@ import {
 } from '@/service/api';
 import { useAuthStore } from '@/store/modules/auth';
 import { useProjectStore } from '@/store/modules/project';
-import EntityDocsPanel from '@/components/entity-docs/EntityDocsPanel.vue';
 import {
   HEALTH_LABELS,
   HEALTH_TAG_TYPE,
@@ -35,6 +34,7 @@ import {
   offsetDays,
   timelineDayWidth
 } from '@/utils/project-timeline';
+import EntityDocsPanel from '@/components/entity-docs/EntityDocsPanel.vue';
 
 defineOptions({
   name: 'ProjectDetail'
@@ -762,11 +762,7 @@ onMounted(() => {
                 <div v-for="issue in timelineData?.issues || []" :key="issue.id" class="timeline-row">
                   <div class="timeline-label">{{ issue.issue_code || issue.title }}</div>
                   <div class="timeline-track">
-                    <div
-                      class="timeline-dot"
-                      :style="{ left: leftFor(issue.due_date) + 'px' }"
-                      :title="issue.title"
-                    />
+                    <div class="timeline-dot" :style="{ left: leftFor(issue.due_date) + 'px' }" :title="issue.title" />
                   </div>
                 </div>
               </div>
@@ -927,7 +923,6 @@ onMounted(() => {
         </NSpace>
       </template>
     </NModal>
-
   </div>
 </template>
 

@@ -229,13 +229,7 @@ async function applyLabels() {
       </template>
       <template v-else-if="activePicker === 'estimate'">
         <NSpace vertical>
-          <NButton
-            v-for="pts in estimateOptions"
-            :key="pts"
-            block
-            secondary
-            @click="applyEstimate(pts)"
-          >
+          <NButton v-for="pts in estimateOptions" :key="pts" block secondary @click="applyEstimate(pts)">
             {{ pts }} 点
           </NButton>
           <NButton block quaternary @click="applyEstimate(null)">清除估点</NButton>

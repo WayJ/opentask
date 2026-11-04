@@ -3,7 +3,12 @@ import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { NCard, NEmpty, NTag, NText, useMessage } from 'naive-ui';
 import { VueDraggable } from 'vue-draggable-plus';
-import { getIssuePriorityLabel, getIssuePriorityTagType, getIssueStatusTagType, getIssueTypeTagType } from '@/constants/issue';
+import {
+  getIssuePriorityLabel,
+  getIssuePriorityTagType,
+  getIssueStatusTagType,
+  getIssueTypeTagType
+} from '@/constants/issue';
 import { issueApi } from '@/service/api/issue';
 import { useIssueFocus } from '@/composables/use-issue-focus';
 import { useIssueSelection } from '@/composables/use-issue-selection';

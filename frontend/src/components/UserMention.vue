@@ -17,14 +17,7 @@ const label = computed(() => `@${(props.username || '').replace(/^@/, '')}`);
 </script>
 
 <template>
-  <NTag
-    class="user-mention"
-    :size="size"
-    round
-    :bordered="false"
-    type="info"
-    :data-user-id="userId || undefined"
-  >
+  <NTag class="user-mention" :size="size" round :bordered="false" type="info" :data-user-id="userId || undefined">
     {{ label }}
   </NTag>
 </template>

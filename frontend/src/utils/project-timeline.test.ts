@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  computeTimelineRange,
-  isTimelineEmpty,
-  offsetDays,
-  timelineDayWidth
-} from './project-timeline';
+import { computeTimelineRange, isTimelineEmpty, offsetDays, timelineDayWidth } from './project-timeline';
 
 describe('isTimelineEmpty', () => {
   it('true when no dates milestones or issues', () => {

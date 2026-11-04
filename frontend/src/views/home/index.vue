@@ -84,12 +84,7 @@ async function load() {
     const list = workspaces || [];
     workspace.value = list.find(w => w.id === wsId) || list[0] || null;
     if (!workspace.value?.id) return;
-    await Promise.all([
-      loadIssueTotal(),
-      loadInboxUnread(),
-      loadActiveCycle(workspace.value),
-      loadMySections()
-    ]);
+    await Promise.all([loadIssueTotal(), loadInboxUnread(), loadActiveCycle(workspace.value), loadMySections()]);
   } finally {
     loading.value = false;
   }
@@ -154,25 +149,25 @@ onMounted(load);
       <NCard size="small" class="mt-16px" title="我的">
         <NGrid :x-gap="12" :y-gap="12" cols="1 s:2 m:4" responsive="screen">
           <NGi>
-            <NCard size="small" hoverable class="cursor-pointer my-section" @click="goIssues('assigned')">
+            <NCard size="small" hoverable class="my-section cursor-pointer" @click="goIssues('assigned')">
               <div class="text-12px opacity-60">指派给我</div>
               <div class="mt-4px text-22px font-medium">{{ assignedCount }}</div>
             </NCard>
           </NGi>
           <NGi>
-            <NCard size="small" hoverable class="cursor-pointer my-section" @click="goIssues('created')">
+            <NCard size="small" hoverable class="my-section cursor-pointer" @click="goIssues('created')">
               <div class="text-12px opacity-60">我创建的</div>
               <div class="mt-4px text-22px font-medium">{{ createdCount }}</div>
             </NCard>
           </NGi>
           <NGi>
-            <NCard size="small" hoverable class="cursor-pointer my-section" @click="goIssues('watching')">
+            <NCard size="small" hoverable class="my-section cursor-pointer" @click="goIssues('watching')">
               <div class="text-12px opacity-60">我关注的</div>
               <div class="mt-4px text-22px font-medium">{{ watchingCount }}</div>
             </NCard>
           </NGi>
           <NGi>
-            <NCard size="small" hoverable class="cursor-pointer my-section" @click="goIssues('due_soon')">
+            <NCard size="small" hoverable class="my-section cursor-pointer" @click="goIssues('due_soon')">
               <div class="text-12px opacity-60">即将到期</div>
               <div class="mt-4px text-22px font-medium">{{ dueSoonCount }}</div>
               <div class="mt-4px text-11px opacity-50">今日起 3 日内</div>

@@ -3,8 +3,8 @@ import { computed, onMounted, ref } from 'vue';
 import { NButton, NSelect, NSpace, NText } from 'naive-ui';
 import { issuePriorityOptions, issueStatusOptions } from '@/constants/issue';
 import { issueApi } from '@/service/api/issue';
-import { fetchCycles, type CycleItem } from '@/service/api/cycles';
-import { tagApi, type TagItem } from '@/service/api/tag';
+import { type CycleItem, fetchCycles } from '@/service/api/cycles';
+import { type TagItem, tagApi } from '@/service/api/tag';
 import { fetchWorkspaceMembers } from '@/service/api/workspace';
 import { useIssueSelection } from '@/composables/use-issue-selection';
 import { localStg } from '@/utils/storage';
@@ -38,10 +38,12 @@ onMounted(async () => {
     if (wsId) {
       const mRes = await fetchWorkspaceMembers(wsId);
       const rows = (mRes.data || []) as Array<{ userId?: string; user_id?: string; name?: string; username?: string }>;
-      users.value = rows.map(m => ({
-        label: m.name || m.username || m.userId || m.user_id || 'user',
-        value: String(m.userId || m.user_id || '')
-      })).filter(u => u.value);
+      users.value = rows
+        .map(m => ({
+          label: m.name || m.username || m.userId || m.user_id || 'user',
+          value: String(m.userId || m.user_id || '')
+        }))
+        .filter(u => u.value);
     }
   } catch {
     /* non-blocking */

@@ -21,6 +21,8 @@ declare module "@elegant-router/types" {
     "404": "/404";
     "500": "/500";
     "agents": "/agents";
+    "customers": "/customers";
+    "customers_detail": "/customers/detail";
     "dashboard": "/dashboard";
     "home": "/home";
     "iframe-page": "/iframe-page/:url";
@@ -57,6 +59,8 @@ declare module "@elegant-router/types" {
     "profile": "/profile";
     "profile_access-tokens": "/profile/access-tokens";
     "profile_userinfo": "/profile/userinfo";
+    "requests": "/requests";
+    "requests_detail": "/requests/detail";
     "search": "/search";
     "triage": "/triage";
     "work-management": "/work-management";
@@ -120,6 +124,7 @@ declare module "@elegant-router/types" {
     | "404"
     | "500"
     | "agents"
+    | "customers"
     | "dashboard"
     | "home"
     | "iframe-page"
@@ -132,6 +137,7 @@ declare module "@elegant-router/types" {
     | "manage"
     | "oauth2"
     | "profile"
+    | "requests"
     | "search"
     | "triage"
     | "work-management"
@@ -159,6 +165,8 @@ declare module "@elegant-router/types" {
     | "iframe-page"
     | "login"
     | "agents"
+    | "customers_detail"
+    | "customers"
     | "dashboard"
     | "home"
     | "inbox"
@@ -187,6 +195,8 @@ declare module "@elegant-router/types" {
     | "oauth2"
     | "profile_access-tokens"
     | "profile_userinfo"
+    | "requests_detail"
+    | "requests"
     | "search"
     | "triage"
     | "work-management_cost-projects_create"

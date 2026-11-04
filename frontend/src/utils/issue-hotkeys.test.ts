@@ -86,21 +86,15 @@ describe('resolveIssueHotkeyAction', () => {
       type: 'range_select'
     });
     expect(resolveIssueHotkeyAction({ ...base, key: 'x', editable: true })).toBeNull();
-    expect(
-      resolveIssueHotkeyAction({ ...base, key: 'x', onIssueListRoute: false })
-    ).toBeNull();
+    expect(resolveIssueHotkeyAction({ ...base, key: 'x', onIssueListRoute: false })).toBeNull();
   });
 
   it('E20: Escape clears selection when present', () => {
-    expect(
-      resolveIssueHotkeyAction({ ...base, key: 'Escape', hasSelection: true })
-    ).toEqual({ type: 'clear_selection' });
-    expect(
-      resolveIssueHotkeyAction({ ...base, key: 'Escape', hasSelection: false })
-    ).toBeNull();
-    expect(
-      resolveIssueHotkeyAction({ ...base, key: 'Escape', hasSelection: true, editable: true })
-    ).toBeNull();
+    expect(resolveIssueHotkeyAction({ ...base, key: 'Escape', hasSelection: true })).toEqual({
+      type: 'clear_selection'
+    });
+    expect(resolveIssueHotkeyAction({ ...base, key: 'Escape', hasSelection: false })).toBeNull();
+    expect(resolveIssueHotkeyAction({ ...base, key: 'Escape', hasSelection: true, editable: true })).toBeNull();
   });
 
   it('returns create_from_template for Alt+C', () => {
@@ -110,4 +104,3 @@ describe('resolveIssueHotkeyAction', () => {
     expect(resolveIssueHotkeyAction({ ...base, key: 'c', altKey: true, editable: true })).toBeNull();
   });
 });
-

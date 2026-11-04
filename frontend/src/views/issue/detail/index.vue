@@ -26,9 +26,9 @@ import {
 import { fetchProjectMilestones, projectApi } from '@/service/api/project';
 import { type CycleItem, fetchCycles } from '@/service/api/cycles';
 import { type TagItem, tagApi } from '@/service/api/tag';
-import { issueApi } from '@/service/api/issue';
+import { fetchIssueWatchers, issueApi, unwatchIssue, watchIssue } from '@/service/api/issue';
 import { fetchAddFavorite, fetchFavorites, fetchRemoveFavorite } from '@/service/api/favorites';
-import { fetchIssueWatchers, unwatchIssue, watchIssue } from '@/service/api/issue';
+import { type CustomerRequestRow, fetchCustomerRequests } from '@/service/api/customer-requests';
 import { fetchIssueBranchName } from '@/service/api/issue-vcs';
 import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
@@ -61,6 +61,7 @@ const loading = ref(false);
 const pinnedFavoriteId = ref<string | null>(null);
 const pinLoading = ref(false);
 const watching = ref(false);
+const linkedCustomerRequests = ref<CustomerRequestRow[]>([]);
 const watchLoading = ref(false);
 const watchers = ref<Array<{ user_id: string; username?: string; name?: string }>>([]);
 const copyBranchLoading = ref(false);
@@ -228,7 +229,8 @@ async function loadIssue() {
       loadAvailableTags(),
       loadReactions(),
       loadAttachments(),
-      loadParentAndChildren()
+      loadParentAndChildren(),
+      loadLinkedCustomerRequests()
     ]);
   } finally {
     loading.value = false;
@@ -558,11 +560,7 @@ async function handleAddRelation() {
       }
       targetId = data.id;
     }
-    await issueStore.addRelation(
-      issueId.value,
-      targetId,
-      pendingRelationType.value
-    );
+    await issueStore.addRelation(issueId.value, targetId, pendingRelationType.value);
     pendingRelationTarget.value = '';
     showAddRelation.value = false;
     await loadRelations();
@@ -1106,7 +1104,6 @@ watch(
   }
 );
 
-
 async function loadPinState() {
   const id = issueId.value;
   if (!id) {
@@ -1122,7 +1119,6 @@ async function loadPinState() {
     pinnedFavoriteId.value = null;
   }
 }
-
 
 async function copyGitBranchName() {
   if (!issue.value?.id) return;
@@ -1141,7 +1137,6 @@ async function copyGitBranchName() {
     copyBranchLoading.value = false;
   }
 }
-
 
 async function loadWatchState() {
   const id = issueId.value;
@@ -1188,7 +1183,6 @@ async function toggleWatch() {
 }
 
 async function toggleSidebarPin() {
-
   const id = issueId.value;
   if (!id) return;
   pinLoading.value = true;
@@ -1210,10 +1204,29 @@ async function toggleSidebarPin() {
   }
 }
 
+async function loadLinkedCustomerRequests() {
+  const id = issueId.value;
+  if (!id) {
+    linkedCustomerRequests.value = [];
+    return;
+  }
+  try {
+    const { data, error } = await fetchCustomerRequests({ issueId: id });
+    if (error || !data) {
+      linkedCustomerRequests.value = [];
+      return;
+    }
+    linkedCustomerRequests.value = data.rows || [];
+  } catch {
+    linkedCustomerRequests.value = [];
+  }
+}
+
 onMounted(() => {
   loadIssue();
   loadPinState();
   loadWatchState();
+  loadLinkedCustomerRequests();
   loadProjects();
   loadCycles();
 });
@@ -1658,8 +1671,29 @@ onMounted(() => {
               </div>
             </div>
 
+            <!-- Customer requests (E22) — only when linked -->
+            <div v-if="linkedCustomerRequests.length" id="issue-customer-requests" class="sidebar-section">
+              <div class="sidebar-section-title">
+                <span>客户需求</span>
+                <NTag size="tiny" :bordered="false">{{ linkedCustomerRequests.length }}</NTag>
+              </div>
+              <NSpace vertical :size="4">
+                <div v-for="req in linkedCustomerRequests" :key="req.id" class="linked-issue">
+                  <NButton
+                    text
+                    size="tiny"
+                    type="primary"
+                    @click="router.push({ name: 'requests_detail', query: { id: req.id } })"
+                  >
+                    {{ req.title }}
+                  </NButton>
+                  <NText depth="3" style="font-size: 11px">{{ req.customerName || '' }}</NText>
+                </div>
+              </NSpace>
+            </div>
+
             <!-- Linked Issues / Relations CRUD (E20) -->
-            <div class="sidebar-section" id="issue-relations">
+            <div id="issue-relations" class="sidebar-section">
               <div class="sidebar-section-title">
                 <span>关联 Issue</span>
                 <NButton text size="tiny" @click="showAddRelation = !showAddRelation">+ 添加</NButton>
@@ -1716,12 +1750,7 @@ onMounted(() => {
                   placeholder="目标 Issue ID 或 KEY-N"
                   class="mb-2"
                 />
-                <NSelect
-                  v-model:value="pendingRelationType"
-                  :options="relationTypeOptions"
-                  size="small"
-                  class="mb-2"
-                />
+                <NSelect v-model:value="pendingRelationType" :options="relationTypeOptions" size="small" class="mb-2" />
                 <NButton
                   size="tiny"
                   type="primary"
@@ -2358,9 +2387,5 @@ onMounted(() => {
 }
 </style>
 
-/* E11-S4: 属性栏标签不换行（避免「负责/人」） */
-:deep(.editable-field__label),
-:deep(.field-label),
-:deep(.n-form-item-label) {
-  white-space: nowrap;
-}
+/* E11-S4: 属性栏标签不换行（避免「负责/人」） */ :deep(.editable-field__label), :deep(.field-label),
+:deep(.n-form-item-label) { white-space: nowrap; }

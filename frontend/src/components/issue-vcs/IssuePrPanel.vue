@@ -1,12 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { NButton, NCard, NEmpty, NInput, NSpace, NSpin, NTag, NText } from 'naive-ui';
-import {
-  type IssueVcsLink,
-  createIssueVcsLink,
-  deleteIssueVcsLink,
-  fetchIssueVcsLinks
-} from '@/service/api/issue-vcs';
+import { type IssueVcsLink, createIssueVcsLink, deleteIssueVcsLink, fetchIssueVcsLinks } from '@/service/api/issue-vcs';
 
 const props = defineProps<{
   issueId: string;
@@ -115,13 +110,7 @@ onMounted(load);
             <NTag size="small" :type="statusType(row.status)" class="pr-status">
               {{ row.status }}
             </NTag>
-            <a
-              v-if="row.prUrl"
-              :href="row.prUrl"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="pr-link"
-            >
+            <a v-if="row.prUrl" :href="row.prUrl" target="_blank" rel="noopener noreferrer" class="pr-link">
               {{ row.title || row.prUrl }}
             </a>
             <NText v-else depth="3">{{ row.title || row.externalId || row.id }}</NText>

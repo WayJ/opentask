@@ -46,9 +46,7 @@ function snoozePresets(): { key: string; label: string; until: Date }[] {
   let daysUntilMon = 8 - day;
   if (day === 0) daysUntilMon = 1;
   else if (day === 1) daysUntilMon = 7;
-  const nextMon = startOfLocalDay(
-    new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntilMon)
-  );
+  const nextMon = startOfLocalDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntilMon));
   return [
     { key: '1h', label: '1 小时后', until: in1h },
     { key: '3h', label: '3 小时后', until: in3h },
@@ -134,7 +132,6 @@ async function onSnoozeSelect(key: string | number, row: InboxNotification) {
   await load();
 }
 
-
 onMounted(load);
 </script>
 
@@ -152,9 +149,7 @@ onMounted(load);
         <NCheckbox v-model:checked="unreadOnly" @update:checked="load">仅未读</NCheckbox>
         <NCheckbox v-model:checked="includeSnoozed" @update:checked="load">显示已延后</NCheckbox>
         <NButton size="small" @click="load">刷新</NButton>
-        <NButton size="small" type="primary" secondary :disabled="unreadCount === 0" @click="markAll">
-          全部已读
-        </NButton>
+        <NButton size="small" type="primary" secondary :disabled="unreadCount === 0" @click="markAll">全部已读</NButton>
       </div>
     </div>
 
@@ -175,7 +170,7 @@ onMounted(load);
                 {{ row.body }}
               </div>
             </div>
-            <div class="shrink-0 flex-y-center gap-8px" @click.stop>
+            <div class="flex-y-center shrink-0 gap-8px" @click.stop>
               <NDropdown
                 trigger="click"
                 :options="snoozeOptions(row)"

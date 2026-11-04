@@ -7,6 +7,13 @@ import type { VueWrapper } from '@vue/test-utils';
 import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ISSUE_TEMPLATES } from '@/constants/issueTemplates';
+import { generateSearchSuggestions, parseSearchString } from '@/utils/issueSearchParser';
+import IssueSmartSearch from '@/components/IssueSmartSearch.vue';
+import IssueTemplateSelector from '@/components/IssueTemplateSelector.vue';
+import IssueReactions from '@/components/IssueReactions.vue';
+import UserMention from '@/components/UserMention.vue';
+import IssueReference from '@/components/IssueReference.vue';
 
 vi.mock('vue-router', async importOriginal => {
   const actual = await importOriginal<typeof import('vue-router')>();
@@ -15,13 +22,6 @@ vi.mock('vue-router', async importOriginal => {
     useRouter: () => ({ push: vi.fn() })
   };
 });
-import { ISSUE_TEMPLATES } from '@/constants/issueTemplates';
-import { generateSearchSuggestions, parseSearchString } from '@/utils/issueSearchParser';
-import IssueSmartSearch from '@/components/IssueSmartSearch.vue';
-import IssueTemplateSelector from '@/components/IssueTemplateSelector.vue';
-import IssueReactions from '@/components/IssueReactions.vue';
-import UserMention from '@/components/UserMention.vue';
-import IssueReference from '@/components/IssueReference.vue';
 
 // Mock Naive UI 组件
 vi.mock('naive-ui', () => ({
@@ -128,7 +128,11 @@ describe('IssueSmartSearch Component', () => {
       },
       global: {
         plugins: [pinia],
-        stubs: { 'icon-mdi-emoticon-happy-outline': true, 'icon-mdi-account-multiple-outline': true, 'icon-mdi-close': true }
+        stubs: {
+          'icon-mdi-emoticon-happy-outline': true,
+          'icon-mdi-account-multiple-outline': true,
+          'icon-mdi-close': true
+        }
       }
     });
 

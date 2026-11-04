@@ -2,13 +2,8 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useDebounceFn } from '@vueuse/core';
-import { fetchGlobalSearch, type GlobalSearchResult } from '@/service/api/search';
-import {
-  flattenSearchResults,
-  moveActiveIndex,
-  type SearchFlatItem,
-  type SearchGroupId
-} from '@/utils/global-search';
+import { type GlobalSearchResult, fetchGlobalSearch } from '@/service/api/search';
+import { type SearchFlatItem, type SearchGroupId, flattenSearchResults, moveActiveIndex } from '@/utils/global-search';
 import { $t } from '@/locales';
 
 defineOptions({ name: 'GlobalSearchPage' });
@@ -149,7 +144,7 @@ function flatIndexOf(item: SearchFlatItem): number {
 
     <div class="flex-1 overflow-auto">
       <div v-for="g in grouped" :key="g.id" class="mb-16px max-w-720px">
-        <div class="mb-8px text-12px font-medium uppercase tracking-wide text-gray-500">
+        <div class="mb-8px text-12px text-gray-500 font-medium tracking-wide uppercase">
           {{ g.label }}
         </div>
         <NList bordered clickable hoverable>
@@ -162,7 +157,7 @@ function flatIndexOf(item: SearchFlatItem): number {
           >
             <div class="flex-col gap-2px">
               <div class="text-14px font-medium">{{ item.title }}</div>
-              <div v-if="item.subtitle" class="text-12px text-gray-500 truncate">{{ item.subtitle }}</div>
+              <div v-if="item.subtitle" class="truncate text-12px text-gray-500">{{ item.subtitle }}</div>
             </div>
           </NListItem>
         </NList>

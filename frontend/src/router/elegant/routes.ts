@@ -50,6 +50,29 @@ export const generatedRoutes: GeneratedRoute[] = [
     }
   },
   {
+    name: 'customers',
+    path: '/customers',
+    component: 'layout.base',
+    meta: {
+      title: 'customers',
+      i18nKey: 'route.customers',
+      icon: 'mdi:account-group-outline',
+      order: 3.5,
+      hideInMenu: true
+    },
+    children: [
+      {
+        name: 'customers_detail',
+        path: '/customers/detail',
+        component: 'view.customers_detail',
+        meta: {
+          title: 'customers_detail',
+          i18nKey: 'route.customers_detail'
+        }
+      }
+    ]
+  },
+  {
     name: 'dashboard',
     path: '/dashboard',
     component: 'layout.base$view.dashboard',
@@ -438,6 +461,29 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'profile_userinfo',
           i18nKey: 'route.profile_userinfo',
           hideInMenu: true
+        }
+      }
+    ]
+  },
+  {
+    name: 'requests',
+    path: '/requests',
+    component: 'layout.base',
+    meta: {
+      title: 'requests',
+      i18nKey: 'route.requests',
+      icon: 'mdi:message-text-outline',
+      order: 3.6,
+      hideInMenu: true
+    },
+    children: [
+      {
+        name: 'requests_detail',
+        path: '/requests/detail',
+        component: 'view.requests_detail',
+        meta: {
+          title: 'requests_detail',
+          i18nKey: 'route.requests_detail'
         }
       }
     ]

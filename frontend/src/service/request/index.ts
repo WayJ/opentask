@@ -123,8 +123,7 @@ export const request = createFlatRequest(
       let message = error.message;
       let backendErrorCode = '';
       const respData = error.response?.data as
-        | { message?: string; detail?: unknown; code?: string | number }
-        | undefined;
+        { message?: string; detail?: unknown; code?: string | number } | undefined;
 
       // get backend error message and code
       if (error.code === BACKEND_ERROR_CODE) {

@@ -125,7 +125,6 @@ declare namespace Api {
       }>;
     }
 
-
     /** Repo config model */
     interface RepoConfig {
       id: number;

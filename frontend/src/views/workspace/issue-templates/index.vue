@@ -97,16 +97,20 @@ const columns: DataTableColumns<IssueTemplateRow> = [
     key: 'actions',
     width: 160,
     render: row =>
-      h(NSpace, { size: 8 }, {
-        default: () => [
-          h(NButton, { size: 'tiny', tertiary: true, onClick: () => openEdit(row) }, { default: () => '编辑' }),
-          h(
-            NButton,
-            { size: 'tiny', tertiary: true, type: 'error', onClick: () => removeRow(row.id) },
-            { default: () => '删除' }
-          )
-        ]
-      })
+      h(
+        NSpace,
+        { size: 8 },
+        {
+          default: () => [
+            h(NButton, { size: 'tiny', tertiary: true, onClick: () => openEdit(row) }, { default: () => '编辑' }),
+            h(
+              NButton,
+              { size: 'tiny', tertiary: true, type: 'error', onClick: () => removeRow(row.id) },
+              { default: () => '删除' }
+            )
+          ]
+        }
+      )
   }
 ];
 

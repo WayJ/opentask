@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  isIssueCodeToken,
-  parseSearchString,
-  parsedQueryToFilters
-} from './issueSearchParser';
+import { isIssueCodeToken, parseSearchString, parsedQueryToFilters } from './issueSearchParser';
 
 describe('parseSearchString E21', () => {
   it('parses assignee:@me and assignee:me as me', () => {

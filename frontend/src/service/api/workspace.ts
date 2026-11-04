@@ -79,10 +79,7 @@ export function fetchWorkspaceMembers(workspaceId: string) {
   });
 }
 
-export function fetchAddWorkspaceMember(
-  workspaceId: string,
-  data: { userId: string; role?: string }
-) {
+export function fetchAddWorkspaceMember(workspaceId: string, data: { userId: string; role?: string }) {
   return request<WorkspaceMemberItem>({
     url: `/api/workspaces/${workspaceId}/members`,
     method: 'post',
@@ -90,11 +87,7 @@ export function fetchAddWorkspaceMember(
   });
 }
 
-export function fetchUpdateWorkspaceMemberRole(
-  workspaceId: string,
-  userId: string,
-  role: string
-) {
+export function fetchUpdateWorkspaceMemberRole(workspaceId: string, userId: string, role: string) {
   return request<WorkspaceMemberItem>({
     url: `/api/workspaces/${workspaceId}/members/${userId}`,
     method: 'patch',

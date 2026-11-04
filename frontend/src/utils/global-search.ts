@@ -17,7 +17,6 @@ export interface SearchGroupsInput {
   members: Array<{ userId: string; name?: string | null; username?: string | null; role: string }>;
 }
 
-
 /** Deep-link a short EntityDocument to its parent page + open doc query. */
 export function buildDocHref(
   parentType: string,

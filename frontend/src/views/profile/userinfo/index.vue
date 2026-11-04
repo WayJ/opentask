@@ -156,10 +156,7 @@ onMounted(() => {
             </NDescriptionsItem>
             <NDescriptionsItem :label="$t('profile.role')">
               <NSpace v-if="userInfo?.workspaceRole || userInfo?.role" :size="8">
-                <NTag
-                  v-if="userInfo?.workspaceRole"
-                  :type="getRoleTagType(userInfo.workspaceRole)"
-                >
+                <NTag v-if="userInfo?.workspaceRole" :type="getRoleTagType(userInfo.workspaceRole)">
                   工作区 · {{ getRoleLabel(userInfo.workspaceRole) }}
                 </NTag>
                 <NTag v-if="userInfo?.role" :type="getRoleTagType(userInfo.role)" :bordered="false">

@@ -48,6 +48,7 @@ import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
 import { useIssueFocus } from '@/composables/use-issue-focus';
 import { useIssueListViewMode } from '@/composables/use-issue-list-view-mode';
+import { useIssueSelection } from '@/composables/use-issue-selection';
 import { localStg } from '@/utils/storage';
 import { buildSavedViewDropdownOptions, canWriteSavedView } from '@/utils/saved-view-sections';
 import { deriveListStateFromSavedView } from '@/utils/apply-saved-view';
@@ -60,12 +61,11 @@ import {
   normalizeIssueDisplay
 } from '@/utils/display-prefs';
 import { nestIssuesDepth1 } from '@/utils/nestIssuesDepth1';
-import { parseSearchString, parsedQueryToFilters, type ParsedQuery } from '@/utils/issueSearchParser';
+import { type ParsedQuery, parseSearchString, parsedQueryToFilters } from '@/utils/issueSearchParser';
 import IssueSmartSearch from '@/components/IssueSmartSearch.vue';
 import type { Api } from '@/typings/api';
-import IssueBoard from './modules/IssueBoard.vue';
 import IssueBulkBar from '@/components/IssueBulkBar.vue';
-import { useIssueSelection } from '@/composables/use-issue-selection';
+import IssueBoard from './modules/IssueBoard.vue';
 import IssueListGrouped from './modules/IssueListGrouped.vue';
 import DisplayOptionsPanel from './modules/DisplayOptionsPanel.vue';
 
@@ -796,9 +796,7 @@ watch(
 function issueRowProps(row: Api.Issue.Issue) {
   const focused = issueFocus.focusedIssueId.value === row.id;
   const selected = issueSelection.isSelected(row.id);
-  const classes = [focused ? 'issue-row-focused' : '', selected ? 'issue-row-selected' : '']
-    .filter(Boolean)
-    .join(' ');
+  const classes = [focused ? 'issue-row-focused' : '', selected ? 'issue-row-selected' : ''].filter(Boolean).join(' ');
   return {
     class: classes || undefined,
     style: focused

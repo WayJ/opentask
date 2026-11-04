@@ -22,7 +22,10 @@ describe('flattenSearchResults', () => {
   });
 
   it('buildDocHref covers parent types', () => {
-    expect(buildDocHref('project', 'p', 'd')).toEqual({ path: '/workflow/project-detail', query: { id: 'p', doc: 'd' } });
+    expect(buildDocHref('project', 'p', 'd')).toEqual({
+      path: '/workflow/project-detail',
+      query: { id: 'p', doc: 'd' }
+    });
     expect(buildDocHref('issue', 'i', 'd')).toEqual({ path: '/issue/detail', query: { id: 'i', doc: 'd' } });
     expect(buildDocHref('initiative', 'n', 'd')).toEqual({ path: '/initiatives/detail', query: { id: 'n', doc: 'd' } });
   });

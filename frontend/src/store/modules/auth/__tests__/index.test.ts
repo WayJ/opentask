@@ -6,8 +6,8 @@
  * 1) 验证模块可解析 + store 工厂存在
  * 2) 在充分 mock 路由/依赖后断言初始 isLogin / token / loginLoading
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestingPinia } from '@pinia/testing';
 
 vi.mock('vue-router', () => ({
