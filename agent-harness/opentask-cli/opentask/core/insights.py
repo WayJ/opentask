@@ -1,4 +1,4 @@
-"""Insights commands (E24 + E55 + E59 reports/digest)."""
+"""Insights commands (E24 + E55 + E59 + E61 shared reports)."""
 from __future__ import annotations
 
 import asyncio
@@ -124,14 +124,17 @@ def insights_export(obj, cycle_id, project_id, label_id, label_ids, out_path):
 
 @insights_cli.group(name="reports")
 def insights_reports_cli():
-    """我的 Insights 报表（personal）。"""
+    """Insights 报表（personal + workspace shared）。"""
     pass
 
 
 @insights_reports_cli.command(name="list")
+@click.option("--mine", "scope", flag_value="mine", help="仅本人报表")
+@click.option("--shared", "scope", flag_value="shared", help="仅他人共享")
+@click.option("--all", "scope", flag_value="all", default=True, help="本人∪共享（默认）")
 @click.option("--json", "as_json", is_flag=True)
 @click.pass_obj
-def insights_reports_list(obj, as_json):
+def insights_reports_list(obj, scope, as_json):
     config: Config = obj.config
     json_mode = as_json or obj.json_mode
     if not require_workspace_id(config, json_mode):
@@ -139,16 +142,29 @@ def insights_reports_list(obj, as_json):
     client = make_client(config)
     try:
         data = asyncio.run(client.insights_reports_list())
+        rows = list((data or {}).get("rows") or [])
+        # Client-side scope filter (API returns mine∪shared)
+        if scope == "mine":
+            rows = [r for r in rows if r.get("canEdit") is True]
+        elif scope == "shared":
+            rows = [
+                r
+                for r in rows
+                if (r.get("visibility") or "personal") == "workspace"
+                and r.get("canEdit") is not True
+            ]
+        data = {**(data or {}), "rows": rows}
         if json_mode:
             echo_json(True, data=data)
             return
-        rows = (data or {}).get("rows") or []
         if not rows:
             obj.skin.info("(no reports)")
             return
         for r in rows:
             flag = " ★" if r.get("isDefault") else ""
-            obj.skin.info(f"{r.get('id')}  {r.get('name')}{flag}")
+            vis = r.get("visibility") or "personal"
+            edit = "rw" if r.get("canEdit") else "ro"
+            obj.skin.info(f"{r.get('id')}  {r.get('name')}{flag}  [{vis}/{edit}]")
     except APIError as e:
         handle_api_error(e, json_mode)
 
@@ -157,9 +173,16 @@ def insights_reports_list(obj, as_json):
 @click.option("--name", required=True, help="报表名称")
 @click.option("--filters-json", "filters_json", default="{}", help="filters JSON")
 @click.option("--default", "is_default", is_flag=True, help="设为 digest 默认")
+@click.option(
+    "--visibility",
+    type=click.Choice(["personal", "workspace"], case_sensitive=False),
+    default="personal",
+    show_default=True,
+    help="personal 或 workspace",
+)
 @click.option("--json", "as_json", is_flag=True)
 @click.pass_obj
-def insights_reports_create(obj, name, filters_json, is_default, as_json):
+def insights_reports_create(obj, name, filters_json, is_default, visibility, as_json):
     config: Config = obj.config
     json_mode = as_json or obj.json_mode
     if not require_workspace_id(config, json_mode):
@@ -172,13 +195,62 @@ def insights_reports_create(obj, name, filters_json, is_default, as_json):
     try:
         data = asyncio.run(
             client.insights_reports_create(
-                name=name, filters=filters, is_default=is_default
+                name=name,
+                filters=filters,
+                is_default=is_default,
+                visibility=visibility,
             )
         )
         if json_mode:
             echo_json(True, data=data)
             return
-        obj.skin.success(f"Created {data.get('id')} {data.get('name')}")
+        obj.skin.success(
+            f"Created {data.get('id')} {data.get('name')} [{data.get('visibility')}]"
+        )
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@insights_reports_cli.command(name="set-visibility")
+@click.argument("report_id")
+@click.argument("visibility", type=click.Choice(["personal", "workspace"], case_sensitive=False))
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def insights_reports_set_visibility(obj, report_id, visibility, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(
+            client.insights_reports_set_visibility(report_id, visibility)
+        )
+        if json_mode:
+            echo_json(True, data=data)
+            return
+        obj.skin.success(f"{report_id} → {data.get('visibility')}")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@insights_reports_cli.command(name="fork")
+@click.argument("report_id")
+@click.option("--name", default=None, help="副本名称")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def insights_reports_fork(obj, report_id, name, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.insights_reports_fork(report_id, name=name))
+        if json_mode:
+            echo_json(True, data=data)
+            return
+        obj.skin.success(f"Forked → {data.get('id')} {data.get('name')}")
     except APIError as e:
         handle_api_error(e, json_mode)
 

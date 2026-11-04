@@ -1141,11 +1141,27 @@ class OpenTaskClient:
         name: str,
         filters: dict | None = None,
         is_default: bool = False,
+        visibility: str = "personal",
     ) -> dict:
         return await self.post(
             "/api/insights/reports",
-            data={"name": name, "filters": filters or {}, "isDefault": bool(is_default)},
+            data={
+                "name": name,
+                "filters": filters or {},
+                "isDefault": bool(is_default),
+                "visibility": visibility or "personal",
+            },
         )
+
+    async def insights_reports_set_visibility(self, report_id: str, visibility: str) -> dict:
+        return await self.patch(
+            f"/api/insights/reports/{report_id}",
+            data={"visibility": visibility},
+        )
+
+    async def insights_reports_fork(self, report_id: str, *, name: str | None = None) -> dict:
+        body = {"name": name} if name else {}
+        return await self.post(f"/api/insights/reports/{report_id}/fork", data=body)
 
     async def insights_reports_delete(self, report_id: str) -> dict:
         return await self.delete(f"/api/insights/reports/{report_id}")
