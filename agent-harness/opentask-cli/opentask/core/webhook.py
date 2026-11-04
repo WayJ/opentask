@@ -16,6 +16,7 @@ EVENTS = [
     "issue.status_changed",
     "comment.created",
     "issue.custom_field_changed",
+    "issue.sla_breached",
 ]
 
 

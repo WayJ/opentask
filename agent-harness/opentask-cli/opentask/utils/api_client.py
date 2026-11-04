@@ -1036,6 +1036,25 @@ class OpenTaskClient:
     async def run_due_recurrences(self) -> dict:
         return await self.post("/api/recurrences/run-due")
 
+
+    async def list_sla_policies(self) -> dict:
+        return await self.get("/api/sla/policies")
+
+    async def create_sla_policy(self, body: dict) -> dict:
+        return await self.post("/api/sla/policies", data=body)
+
+    async def update_sla_policy(self, policy_id: str, body: dict) -> dict:
+        return await self.patch(f"/api/sla/policies/{policy_id}", data=body)
+
+    async def delete_sla_policy(self, policy_id: str) -> dict:
+        return await self.delete(f"/api/sla/policies/{policy_id}")
+
+    async def get_issue_sla(self, issue_id: str) -> dict:
+        return await self.get(f"/api/issues/{issue_id}/sla")
+
+    async def run_due_sla(self) -> dict:
+        return await self.post("/api/sla/run-due")
+
     # ============================================================================
     # Entity Documents API
     # ============================================================================

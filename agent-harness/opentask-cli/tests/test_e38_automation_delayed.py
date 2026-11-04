@@ -1,4 +1,4 @@
-"""E38 CLI: automation run-due|pending + delay_minutes help + version 1.25.0."""
+"""E38 CLI: automation run-due|pending + delay_minutes help + version 1.26.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli
@@ -8,7 +8,7 @@ def test_version_1_22_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.25.0" in result.output
+    assert "1.26.0" in result.output
 
 
 def test_automation_run_due_help():
