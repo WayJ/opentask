@@ -30,7 +30,7 @@ class Notification(DBModel):
     recipient_user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     actor_user_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
     type: Mapped[str] = mapped_column(
-        String(32), nullable=False, comment="assigned|commented|mentioned|project_health"
+        String(32), nullable=False, comment="assigned|commented|mentioned|project_health|status_changed|subscribed_update"
     )
     resource_type: Mapped[str] = mapped_column(
         String(32), nullable=False, insert_default="issue", comment="issue|project"

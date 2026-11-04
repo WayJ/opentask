@@ -1759,3 +1759,77 @@ async def handle_task_create_command(
             status_code=500,
             detail=f"任务创建失败: {str(e)}"
         )
+
+
+# ============================================================================
+# Issue Watchers (E18)
+# ============================================================================
+
+watchers_router = APIRouter(prefix="/{issue_id}/watchers", tags=["Issue Watchers"])
+
+
+@watchers_router.get("")
+async def list_issue_watchers(
+    issue_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    from opentask.services.issue_watcher.service import (
+        IssueWatcherService,
+        serialize_watcher,
+    )
+
+    ws, _member, _user = ctx
+    rows = await IssueWatcherService(db).list(issue_id=issue_id, workspace_id=ws.id)
+    return {
+        "code": 200,
+        "message": "success",
+        "data": [serialize_watcher(r) for r in rows],
+        "timestamp": 0,
+    }
+
+
+@watchers_router.post("")
+async def watch_issue(
+    issue_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    from opentask.services.issue_watcher.service import (
+        IssueWatcherService,
+        serialize_watcher,
+    )
+
+    ws, _member, user = ctx
+    row = await IssueWatcherService(db).watch(
+        issue_id=issue_id, workspace_id=ws.id, user_id=str(user.id)
+    )
+    return {
+        "code": 200,
+        "message": "已关注",
+        "data": serialize_watcher(row),
+        "timestamp": 0,
+    }
+
+
+@watchers_router.delete("")
+async def unwatch_issue(
+    issue_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    from opentask.services.issue_watcher.service import IssueWatcherService
+
+    ws, _member, user = ctx
+    await IssueWatcherService(db).unwatch(
+        issue_id=issue_id, workspace_id=ws.id, user_id=str(user.id)
+    )
+    return {
+        "code": 200,
+        "message": "已取消关注",
+        "data": None,
+        "timestamp": 0,
+    }
+
+
+router.include_router(watchers_router)

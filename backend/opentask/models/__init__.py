@@ -55,6 +55,7 @@ from opentask.models.cycle import Cycle
 from opentask.models.milestone import Milestone
 from opentask.models.project_health import ProjectHealthUpdate
 from opentask.models.project_watcher import ProjectWatcher
+from opentask.models.issue_watcher import IssueWatcher
 from opentask.models.favorite import Favorite
 from opentask.models.access_token import AccessToken
 from opentask.models.oauth2 import (
@@ -122,6 +123,7 @@ __all__ = [
     "Milestone",
     "ProjectHealthUpdate",
     "ProjectWatcher",
+    "IssueWatcher",
     "Favorite",
     "AccessToken",
     "OAuthClient",

@@ -58,23 +58,37 @@ class NotificationService:
         actor_user_id: str,
         new_assignee_id: Optional[str],
     ) -> Optional[Notification]:
-        if not new_assignee_id or not issue.workspace_id:
-            return None
-        title = f"你被指派到「{issue.title}」"
-        body = f"Issue {issue.issue_code or issue.id}"
-        n = await self.create(
-            workspace_id=issue.workspace_id,
-            recipient_user_id=new_assignee_id,
+        """指派：通知新负责人；并 fanout 给 watchers（subscribed_update）。"""
+        created: list[Notification] = []
+        if new_assignee_id and issue.workspace_id:
+            title = f"你被指派到「{issue.title}」"
+            body = f"Issue {issue.issue_code or issue.id}"
+            n = await self.create(
+                workspace_id=issue.workspace_id,
+                recipient_user_id=new_assignee_id,
+                actor_user_id=actor_user_id,
+                type="assigned",
+                resource_type="issue",
+                resource_id=issue.id,
+                title=title,
+                body=body,
+            )
+            if n:
+                created.append(n)
+
+        watcher_notes = await self.notify_watchers(
+            issue,
             actor_user_id=actor_user_id,
-            type="assigned",
-            resource_type="issue",
-            resource_id=issue.id,
-            title=title,
-            body=body,
+            type="subscribed_update",
+            title=f"「{issue.title}」负责人已更新",
+            body=f"Issue {issue.issue_code or issue.id}",
+            exclude_user_ids={str(new_assignee_id)} if new_assignee_id else set(),
+            commit=False,
         )
-        if n:
+        created.extend(watcher_notes)
+        if created:
             await self.db.commit()
-        return n
+        return created[0] if created else None
 
     async def notify_comment(
         self,
@@ -97,6 +111,11 @@ class NotificationService:
         for uid in (issue.assignee_id, issue.reporter_id):
             if uid and str(uid) != str(actor_user_id):
                 recipients[str(uid)] = "commented"
+
+        # E18：关注者也收评论（mention 优先）
+        for uid in await self._watcher_ids(issue.id):
+            if uid != str(actor_user_id):
+                recipients.setdefault(uid, "commented")
 
         mentioned = await self._resolve_mentions(
             issue.workspace_id, comment_content or "", actor_user_id=actor_user_id
@@ -127,6 +146,68 @@ class NotificationService:
         if created:
             await self.db.commit()
         return created
+
+
+    async def _watcher_ids(self, issue_id: str) -> list[str]:
+        from opentask.services.issue_watcher.service import IssueWatcherService
+
+        return await IssueWatcherService(self.db).user_ids(issue_id=issue_id)
+
+    async def notify_watchers(
+        self,
+        issue: Issue,
+        *,
+        actor_user_id: str,
+        type: str,
+        title: str,
+        body: Optional[str] = None,
+        exclude_user_ids: Optional[set[str]] = None,
+        commit: bool = True,
+    ) -> list[Notification]:
+        """Fanout to issue watchers; skips actor and exclude set."""
+        if not issue.workspace_id:
+            return []
+        exclude = {str(x) for x in (exclude_user_ids or set()) if x}
+        exclude.add(str(actor_user_id))
+        created: list[Notification] = []
+        for uid in await self._watcher_ids(issue.id):
+            if uid in exclude:
+                continue
+            n = await self.create(
+                workspace_id=issue.workspace_id,
+                recipient_user_id=uid,
+                actor_user_id=actor_user_id,
+                type=type,
+                resource_type="issue",
+                resource_id=issue.id,
+                title=title,
+                body=body,
+            )
+            if n:
+                created.append(n)
+        if created and commit:
+            await self.db.commit()
+        return created
+
+    async def notify_status_changed(
+        self,
+        issue: Issue,
+        *,
+        actor_user_id: str,
+        old_status: Optional[str],
+        new_status: str,
+    ) -> list[Notification]:
+        if not issue.workspace_id:
+            return []
+        body = f"{old_status or '?'} → {new_status}"
+        title = f"「{issue.title}」状态已更新"
+        return await self.notify_watchers(
+            issue,
+            actor_user_id=actor_user_id,
+            type="status_changed",
+            title=title,
+            body=body,
+        )
 
     async def _resolve_mentions(
         self, workspace_id: str, content: str, *, actor_user_id: str

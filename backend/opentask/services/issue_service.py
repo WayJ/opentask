@@ -462,9 +462,11 @@ class IssueService:
         update_data["updated_by"] = user_id
 
         # 记录状态变更
+        status_changed = None  # (old, new)
         if "status" in update_data:
             old_status = await self._get_issue_status(issue_id)
             if old_status != update_data["status"]:
+                status_changed = (old_status, update_data["status"])
                 await self._add_timeline(
                     issue_id=issue_id,
                     action_type=TimelineAction.STATUS_CHANGED,
@@ -538,6 +540,16 @@ class IssueService:
                 issue,
                 actor_user_id=user_id,
                 new_assignee_id=assignee_changed_to,
+            )
+        if issue and status_changed:
+            old_s, new_s = status_changed
+            new_s_val = getattr(new_s, "value", new_s)
+            old_s_val = getattr(old_s, "value", old_s) if old_s is not None else None
+            await NotificationService(self.db).notify_status_changed(
+                issue,
+                actor_user_id=user_id,
+                old_status=str(old_s_val) if old_s_val is not None else None,
+                new_status=str(new_s_val),
             )
         return issue
 
