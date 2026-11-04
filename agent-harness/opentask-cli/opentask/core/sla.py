@@ -16,7 +16,7 @@ def sla_cli():
     """SLA 策略 / Issue 时钟 / run-due / business-hours（E50）。
 
 示例: opentask sla policy create --name FR --start in_progress --metric first_response --minutes 60
-营业时: opentask sla business-hours show | set --timezone Asia/Shanghai --enabled
+营业时: opentask sla business-hours show | set | exceptions list|add|remove（E53）
 """
     pass
 
@@ -262,7 +262,7 @@ def sla_run_due(obj, as_json):
 
 @sla_cli.group(name="business-hours")
 def business_hours_cli():
-    """工作区营业时段（E50，挂在 Workspace）。"""
+    """工作区营业时段（E50）+ 例外日（E53），挂在 Workspace。"""
     pass
 
 
@@ -290,8 +290,9 @@ def business_hours_show(obj, as_json):
             "Timezone": payload.get("timezone") or "—",
             "Enabled": "on" if bh.get("enabled") else "off",
             "Windows": json.dumps(bh.get("windows") or {}, ensure_ascii=False),
+            "Exceptions": json.dumps(bh.get("exceptions") or [], ensure_ascii=False),
         })
-        obj.skin.hint("run-due 仍比 UTC deadline_at；启用营业时后 deadline 按营业分钟写出")
+        obj.skin.hint("run-due 仍比 UTC deadline_at；启用营业时后 deadline 按营业分钟写出；exceptions=closed|forced_open")
     except APIError as e:
         handle_api_error(e, json_mode)
 
@@ -300,9 +301,10 @@ def business_hours_show(obj, as_json):
 @click.option("--timezone", default=None, help="IANA timezone")
 @click.option("--enabled/--disabled", "enabled", default=None)
 @click.option("--windows-json", default=None, help="windows JSON object mon..sun")
+@click.option("--exceptions-json", default=None, help="exceptions JSON array (E53)")
 @click.option("--json", "as_json", is_flag=True)
 @click.pass_obj
-def business_hours_set(obj, timezone, enabled, windows_json, as_json):
+def business_hours_set(obj, timezone, enabled, windows_json, exceptions_json, as_json):
     config: Config = obj.config
     json_mode = as_json or obj.json_mode
     if not require_workspace_id(config, json_mode):
@@ -310,15 +312,24 @@ def business_hours_set(obj, timezone, enabled, windows_json, as_json):
     body = {}
     if timezone is not None:
         body["timezone"] = timezone
-    if enabled is not None or windows_json is not None:
-        bh = {"enabled": bool(enabled) if enabled is not None else False}
+    if enabled is not None or windows_json is not None or exceptions_json is not None:
+        client0 = make_client(config)
+        current = asyncio.run(client0.get_workspace(config.active_workspace_id)) or {}
+        cur_bh = current.get("businessHours") or {}
+        bh = {
+            "enabled": bool(enabled) if enabled is not None else bool(cur_bh.get("enabled")),
+            "windows": cur_bh.get("windows") or {},
+            "exceptions": cur_bh.get("exceptions") or [],
+        }
         if windows_json:
             bh["windows"] = json.loads(windows_json)
+        if exceptions_json is not None:
+            bh["exceptions"] = json.loads(exceptions_json)
         if enabled is not None:
             bh["enabled"] = bool(enabled)
         body["businessHours"] = bh
     if not body:
-        raise click.ClickException("请提供 --timezone / --enabled / --windows-json")
+        raise click.ClickException("请提供 --timezone / --enabled / --windows-json / --exceptions-json")
     client = make_client(config)
     try:
         data = asyncio.run(client.update_workspace(config.active_workspace_id, **body))
@@ -326,5 +337,125 @@ def business_hours_set(obj, timezone, enabled, windows_json, as_json):
             echo_json(True, data=data)
             return
         obj.skin.success("business hours 已更新")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@business_hours_cli.group(name="exceptions")
+def exceptions_cli():
+    """例外日 CRUD（E53：closed | forced_open）。"""
+    pass
+
+
+@exceptions_cli.command(name="list")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def exceptions_list(obj, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.get_workspace(config.active_workspace_id))
+        bh = (data or {}).get("businessHours") or {}
+        rows = bh.get("exceptions") or []
+        if json_mode:
+            echo_json(True, data={"exceptions": rows})
+            return
+        obj.skin.section(f"business-hours exceptions ({len(rows)})")
+        if not rows:
+            obj.skin.hint("暂无例外日")
+            return
+        table = []
+        for r in rows:
+            wins = r.get("windows") or []
+            win_s = ",".join(f"{w.get('start')}-{w.get('end')}" for w in wins) if wins else "—"
+            table.append([r.get("date") or "", r.get("kind") or "", win_s])
+        obj.skin.table(["Date", "Kind", "Windows"], table)
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@exceptions_cli.command(name="add")
+@click.option("--date", "date_s", required=True, help="YYYY-MM-DD local WS day")
+@click.option(
+    "--kind",
+    required=True,
+    type=click.Choice(["closed", "forced_open"]),
+    help="closed = 全日非营业; forced_open = 覆盖周窗",
+)
+@click.option("--windows-json", default=None, help='optional windows JSON e.g. [{"start":"09:00","end":"18:00"}]')
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def exceptions_add(obj, date_s, kind, windows_json, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.get_workspace(config.active_workspace_id)) or {}
+        bh = dict(data.get("businessHours") or {})
+        rows = list(bh.get("exceptions") or [])
+        entry = {"date": date_s, "kind": kind}
+        if windows_json:
+            entry["windows"] = json.loads(windows_json)
+        # replace same date if present
+        rows = [r for r in rows if r.get("date") != date_s]
+        rows.append(entry)
+        bh["exceptions"] = rows
+        if "windows" not in bh:
+            bh["windows"] = {}
+        if "enabled" not in bh:
+            bh["enabled"] = False
+        updated = asyncio.run(
+            client.update_workspace(
+                config.active_workspace_id,
+                businessHours=bh,
+                timezone=data.get("timezone"),
+            )
+        )
+        if json_mode:
+            echo_json(True, data=updated, message="exception added")
+            return
+        obj.skin.success(f"已添加例外 {date_s} ({kind})")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@exceptions_cli.command(name="remove")
+@click.option("--date", "date_s", required=True, help="YYYY-MM-DD to remove")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def exceptions_remove(obj, date_s, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.get_workspace(config.active_workspace_id)) or {}
+        bh = dict(data.get("businessHours") or {})
+        before = list(bh.get("exceptions") or [])
+        rows = [r for r in before if r.get("date") != date_s]
+        if len(rows) == len(before):
+            raise click.ClickException(f"未找到例外日: {date_s}")
+        bh["exceptions"] = rows
+        if "windows" not in bh:
+            bh["windows"] = {}
+        if "enabled" not in bh:
+            bh["enabled"] = False
+        updated = asyncio.run(
+            client.update_workspace(
+                config.active_workspace_id,
+                businessHours=bh,
+                timezone=data.get("timezone"),
+            )
+        )
+        if json_mode:
+            echo_json(True, data=updated, message="exception removed")
+            return
+        obj.skin.success(f"已删除例外 {date_s}")
     except APIError as e:
         handle_api_error(e, json_mode)

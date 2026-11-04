@@ -1,4 +1,4 @@
-"""E35 CLI: recurrence list|create|update|delete|run-due + version 1.36.0."""
+"""E35 CLI: recurrence list|create|update|delete|run-due + version 1.37.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli
@@ -8,7 +8,7 @@ def test_version_1_19_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.36.0" in result.output
+    assert "1.37.0" in result.output
 
 
 def test_recurrence_help():
