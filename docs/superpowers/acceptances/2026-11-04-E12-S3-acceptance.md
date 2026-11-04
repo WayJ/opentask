@@ -5,11 +5,11 @@
 **pass** — S3 范围交付：主菜单隐藏 `workflow_requirements`（深链保留）；CreatePGE 入口 tertiary「创建任务（遗留·已弃用）」；`.env.example` `VITE_ROUTE_HOME=issue_list`；i18n「需求（遗留）」；PGE `/api/tasks`（create/preview/prompt）`deprecated=True` + 响应头 `Deprecation: true`；`CodingWorker.md` 重写为 Issue/KEY-N 驱动（PGE 指南仅可选遗留）。**未** DROP `requirements`/PGE 相关表；事件溯源/CLI/Agent 能力保留。全量 pytest **726**；vitest de-pge-nav **3**。Epic E12 **local-complete**（S1–S3）。未推远程。`merged-commit: null`。**未**启动 E9。
 
 **Fingerprint (impl tip):** `998382035a9063ee57cdb2880f5de69f6a95b471`
-**Branch tip:** `e0b0d92c94ec7c6f8a11f785f59cc49e858ef670`
+**Branch tip:** `2a67a1d5369e616e1a72cb81c6810fe321b861f2`
 **Branch:** `sprint/E12-S3`
 **Worktree:** `/workspace/opentask-worktrees/E12-S3`
 **Plan:** `docs/superpowers/plans/2026-11-04-e12-s3-de-pge.md` @ `5f2daa7f5054f673716e55a3ccfc32a7a22f1ce1`
-**Epic tip (handoff for E9 / Yuri receipt):** `e0b0d92c94ec7c6f8a11f785f59cc49e858ef670`
+**Epic tip (handoff for E9 / Yuri receipt):** `2a67a1d5369e616e1a72cb81c6810fe321b861f2`
 **Time (Asia/Shanghai):** 2026-11-04 ~12:25 CST
 
 ```supervibe-acceptance-results
