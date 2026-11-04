@@ -62,3 +62,21 @@
 ### 第三步：结束
 
 全部完成或用户停止后输出「Worker 任务结束」，并在结束前做一次人工确认提问。
+
+---
+
+### Git / PR（E11）— 与 FE/CLI 同 HTTP 契约
+
+关联分支名或 PR **只**通过 OpenTask HTTP（或薄封装 CLI），**禁止**直写 DB / 私有 RPC。
+
+| 目的 | CLI | HTTP |
+|---|---|---|
+| 取建议分支名 | `opentask issue branch-name WAY-42` | `GET /api/issues/{id}/vcs/branch-name` |
+| 关联分支 | `opentask issue link-branch WAY-42 WAY-42-fix-login` | `POST .../vcs/links` `kind=branch` |
+| 关联 PR | `opentask issue link-pr WAY-42 https://github.com/org/repo/pull/12` | `POST .../vcs/links` `kind=pull_request` |
+| 列出链接 | `opentask issue vcs-links WAY-42` | `GET .../vcs/links` |
+
+可选：Workspace 开启「从 PR 自动更新 Issue 状态」后，mockable webhook `POST /api/webhooks/github/pull-request` 会按契约推进 Issue 状态（默认关）。完整字段见 [docs/superpowers/contracts/2026-11-04-e11-vcs-http-contract.md](./docs/superpowers/contracts/2026-11-04-e11-vcs-http-contract.md)。
+
+本地开发分支名建议使用 API 返回的 `branchName`（`{issue_code}-{slug}`），与 UI「复制分支名」一致。
+
