@@ -111,6 +111,7 @@ class IssueService:
         user_id: str | None = None,
         workspace_id: str | None = None,
         allowed_workspace_ids: list[str] | None = None,
+        custom_field_filters: list[tuple[str, str]] | None = None,
     ) -> Tuple[List[Issue], int]:
         """获取 Issue 列表
 
@@ -207,6 +208,17 @@ class IssueService:
                     Issue.workspace_id.is_(None),
                 )
             )
+
+        # E32：自定义字段过滤（须属当前 workspace）
+        if custom_field_filters and workspace_id is not None:
+            from opentask.services.custom_field.service import CustomFieldService
+
+            query = await CustomFieldService(self.db).apply_list_filters(
+                query, workspace_id=workspace_id, filters=custom_field_filters
+            )
+        elif custom_field_filters:
+            # 无 WS 上下文时忽略 cf 过滤（避免跨租户误匹配）
+            query = query.where(Issue.id.in_([]))
 
         # 数据范围过滤（visible_dept_ids=None 时 apply_data_scope 原样返回，旧调用零破坏）
         query = RbacService(session=None).apply_data_scope(

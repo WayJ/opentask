@@ -419,3 +419,113 @@ class CustomFieldService:
         return (await self.values_for_issues(
             workspace_id=workspace_id, issue_ids=[issue_id]
         )).get(issue_id, [])
+
+    async def get_by_key_optional(
+        self, *, workspace_id: str, key: str
+    ) -> CustomField | None:
+        result = await self.db.execute(
+            select(CustomField).where(
+                CustomField.workspace_id == workspace_id,
+                CustomField.key == key,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def apply_list_filters(self, query, *, workspace_id: str, filters: list[tuple[str, str]]):
+        """AND-combine custom field filters onto an Issue select. Unknown key → empty."""
+        from opentask.models.issue.model import Issue
+
+        if not filters:
+            return query
+        for key, raw in filters:
+            field = await self.get_by_key_optional(workspace_id=workspace_id, key=key)
+            if field is None:
+                return query.where(Issue.id.in_([]))
+            expected = coerce_cf_filter_value(field, raw)
+            if expected is None:
+                return query.where(Issue.id.in_([]))
+            match = cf_value_match_clause(field, expected)
+            subq = (
+                select(IssueCustomFieldValue.issue_id)
+                .where(
+                    IssueCustomFieldValue.field_id == field.id,
+                    match,
+                )
+            )
+            query = query.where(Issue.id.in_(subq))
+        return query
+
+
+# ---------------------------------------------------------------------------
+# E32 · list / SmartSearch filters
+# ---------------------------------------------------------------------------
+
+_CF_BOOL_TRUE = {"true", "1", "yes", "y", "on"}
+_CF_BOOL_FALSE = {"false", "0", "no", "n", "off"}
+
+
+def parse_cf_query_items(query_items: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """Parse request query into [(field_key, raw_value), ...].
+
+    Accepts:
+      - cf.<key>=value
+      - cf=key=value  (first '=' splits)
+    """
+    out: list[tuple[str, str]] = []
+    for name, value in query_items:
+        if name.startswith("cf.") and len(name) > 3:
+            key = name[3:].strip().lower()
+            if key:
+                out.append((key, value))
+            continue
+        if name == "cf":
+            raw = value or ""
+            if "=" not in raw:
+                continue
+            key, _, rest = raw.partition("=")
+            key = key.strip().lower()
+            if key:
+                out.append((key, rest))
+    return out
+
+
+def coerce_cf_filter_value(field: CustomField, raw: str) -> Any | None:
+    """Coerce query string to comparable JSON value. None = invalid → empty match."""
+    t = field.type
+    s = (raw if raw is not None else "").strip()
+    if t == "text":
+        return s
+    if t == "number":
+        try:
+            if s.isdigit() or (s.startswith("-") and s[1:].isdigit()):
+                return int(s)
+            return float(s)
+        except ValueError:
+            return None
+    if t == "boolean":
+        low = s.lower()
+        if low in _CF_BOOL_TRUE:
+            return True
+        if low in _CF_BOOL_FALSE:
+            return False
+        return None
+    if t == "date":
+        if not _DATE_RE.match(s):
+            return None
+        return s
+    if t in ("single_select", "multi_select"):
+        return s
+    return None
+
+
+def cf_value_match_clause(field: CustomField, expected: Any):
+    """SQLAlchemy WHERE fragment for IssueCustomFieldValue.value_json."""
+    import json
+    from sqlalchemy import cast, literal
+    from sqlalchemy.dialects.postgresql import JSONB
+
+    col = cast(IssueCustomFieldValue.value_json, JSONB)
+    rhs = cast(literal(json.dumps(expected if field.type != "multi_select" else [expected])), JSONB)
+    if field.type == "multi_select":
+        return col.op("@>")(rhs)
+    return col == rhs

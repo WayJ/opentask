@@ -55,7 +55,7 @@ from opentask.services.tag.service import (
     require_writer as require_tag_writer,
     serialize_tag_brief,
 )
-from opentask.services.custom_field.service import CustomFieldService, require_writer as require_cf_writer
+from opentask.services.custom_field.service import CustomFieldService, parse_cf_query_items, require_writer as require_cf_writer
 from opentask.services.issue_csv import IssueCsvService, require_writer as require_csv_writer, EXPORT_MAX_ROWS
 from opentask.api.workspace.deps import get_optional_workspace_context, require_workspace_context, ensure_entity_workspace_access
 from opentask.models.workspace.model import Workspace, WorkspaceMember
@@ -124,6 +124,7 @@ async def _require_comment_issue_access(
 
 @router.get("")
 async def get_issues(
+    request: Request,
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
     type: Optional[str] = Query(None, description="类型筛选"),
@@ -168,6 +169,9 @@ async def get_issues(
         sort_order=sort_order,
     )
 
+    # E32：cf.<key>=value 或 cf=key=value
+    cf_filters = parse_cf_query_items(list(request.query_params.multi_items()))
+
     ws_id = workspace.id if workspace is not None else None
     allowed = None
     if workspace is None:
@@ -182,6 +186,7 @@ async def get_issues(
         user_id=str(user.id),
         workspace_id=ws_id,
         allowed_workspace_ids=allowed,
+        custom_field_filters=cf_filters or None,
     )
 
     # 使用 IssueResponse 的 field_validator 自动处理用户信息转换
