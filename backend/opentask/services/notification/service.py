@@ -22,7 +22,8 @@ from opentask.models.notification_preference.model import (
     NotificationPreference,
 )
 from opentask.models.user.model import UserModel
-from opentask.models.workspace.model import WorkspaceMember
+from opentask.models.workspace.model import Workspace, WorkspaceMember
+from opentask.services.workspace_time import local_today
 from opentask.services.workspace_realtime import publish_inbox_created
 from opentask.services.email import (
     email_configured,
@@ -684,9 +685,20 @@ class NotificationService:
         workspace_id: str,
         actor_user_id: Optional[str] = None,
         today: Optional[date] = None,
+        now_utc: Optional[datetime] = None,
     ) -> dict:
-        """External tick: soon/overdue Inbox (+ optional digest). No in-process cron."""
-        today = today or datetime.utcnow().date()
+        """External tick: soon/overdue Inbox (+ optional digest). No in-process cron.
+
+        Calendar day is workspace-local (E67); empty/invalid TZ → UTC.
+        Injected ``today=`` still wins (tests / operators).
+        """
+        if today is None:
+            ws_row = (
+                await self.db.execute(
+                    select(Workspace).where(Workspace.id == workspace_id)
+                )
+            ).scalar_one_or_none()
+            today = local_today(ws_row, now_utc=now_utc)
         lead_end = today + timedelta(days=self.LEAD_DAYS)
 
         q = await self.db.execute(

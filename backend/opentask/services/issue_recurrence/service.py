@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import calendar
 import logging
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Optional
 
 from fastapi import HTTPException, status as http_status
@@ -16,7 +16,8 @@ from opentask.models.issue.model import IssueTag
 from opentask.models.issue.schema import IssueCreate
 from opentask.models.issue_recurrence.model import RECURRENCE_INTERVALS, IssueRecurrence
 from opentask.models.tag.model import Tag
-from opentask.models.workspace.model import WorkspaceMember
+from opentask.models.workspace.model import Workspace, WorkspaceMember
+from opentask.services.workspace_time import local_today
 from opentask.services.custom_field.service import CustomFieldService, validate_value
 from opentask.services.issue_service import IssueService
 
@@ -65,8 +66,11 @@ def _parse_dt(value: Any) -> datetime:
     raise HTTPException(status_code=400, detail="nextRunAt 无效")
 
 
-def expand_title(template: str, when: datetime) -> str:
-    date_s = when.strftime("%Y-%m-%d")
+def expand_title(
+    template: str, when: datetime, *, local_date: date | None = None
+) -> str:
+    d = local_date if local_date is not None else when.date()
+    date_s = d.strftime("%Y-%m-%d")
     return (
         (template or "")
         .replace("{yyyy-mm-dd}", date_s)
@@ -321,7 +325,16 @@ class IssueRecurrenceService:
         self, row: IssueRecurrence, *, actor_user_id: str, now: datetime
     ) -> dict[str, str]:
         actor = row.created_by or actor_user_id
-        title = expand_title(row.title_template, now)
+        ws_row = (
+            await self.db.execute(
+                select(Workspace).where(Workspace.id == row.workspace_id)
+            )
+        ).scalar_one_or_none()
+        title = expand_title(
+            row.title_template,
+            now,
+            local_date=local_today(ws_row, now_utc=now),
+        )
         priority = IssuePriority.MEDIUM
         if row.priority:
             self._validate_priority(row.priority)
