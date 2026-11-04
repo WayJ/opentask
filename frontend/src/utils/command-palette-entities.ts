@@ -1,4 +1,5 @@
 import type { SavedView } from '@/service/api/saved-views';
+import type { CycleItem } from '@/service/api/cycles';
 import type { PaletteItem } from './command-palette';
 
 const ISSUE_CODE_RE = /^[A-Za-z][A-Za-z0-9]*-\d+$/;
@@ -72,4 +73,15 @@ export function mergeIssuesById(...lists: Api.Issue.Issue[][]): Api.Issue.Issue[
     }
   }
   return out;
+}
+
+export function cyclesToPaletteItems(cycles: CycleItem[], navigate: NavigateTo): PaletteItem[] {
+  return cycles.map(c => ({
+    id: `cycle.${c.id}`,
+    kind: 'cycle' as const,
+    title: c.name,
+    subtitle: c.status,
+    keywords: [c.name, c.status, 'cycle'],
+    run: () => navigate({ path: '/issue/list', query: { cycle_id: c.id } })
+  }));
 }

@@ -56,11 +56,13 @@ const local: App.I18n.Schema = {
       groupMenus: 'Menus',
       groupIssues: 'Issues',
       groupProjects: 'Projects',
+      groupCycles: 'Cycles',
       groupViews: 'Views',
       searching: 'Searching…',
       navIssues: 'Issues',
       navCreateIssue: 'Create Issue',
       navProjects: 'Projects',
+      navCycles: 'Cycles settings',
       navInbox: 'Inbox'
     }
   },

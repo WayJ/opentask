@@ -15,13 +15,15 @@ const menuSource = ref<PaletteItem[]>([]);
 const issueSource = ref<PaletteItem[]>([]);
 const projectSource = ref<PaletteItem[]>([]);
 const viewSource = ref<PaletteItem[]>([]);
+const cycleSource = ref<PaletteItem[]>([]);
 const entityLoading = ref(false);
 const groupLabels = ref({
   actions: 'Actions',
   menus: 'Menus',
   issues: 'Issues',
   projects: 'Projects',
-  views: 'Views'
+  views: 'Views',
+  cycles: 'Cycles'
 });
 
 /** Test-only reset of module singleton state. */
@@ -34,13 +36,15 @@ export function resetCommandPaletteForTests() {
   issueSource.value = [];
   projectSource.value = [];
   viewSource.value = [];
+  cycleSource.value = [];
   entityLoading.value = false;
   groupLabels.value = {
     actions: 'Actions',
     menus: 'Menus',
     issues: 'Issues',
     projects: 'Projects',
-    views: 'Views'
+    views: 'Views',
+    cycles: 'Cycles'
   };
 }
 
@@ -54,7 +58,8 @@ export function useCommandPalette() {
       groupLabels: groupLabels.value,
       issues: issueSource.value,
       projects: projectSource.value,
-      savedViews: viewSource.value
+      savedViews: viewSource.value,
+      cycles: cycleSource.value
     })
   );
 
@@ -72,6 +77,7 @@ export function useCommandPalette() {
     issueSource.value = [];
     projectSource.value = [];
     viewSource.value = [];
+    cycleSource.value = [];
     entityLoading.value = false;
   }
 
@@ -96,16 +102,23 @@ export function useCommandPalette() {
         groupLabels: groupLabels.value,
         issues: issueSource.value,
         projects: projectSource.value,
-        savedViews: viewSource.value
+        savedViews: viewSource.value,
+        cycles: cycleSource.value
       })
     ).length;
     activeIndex.value = clampActiveIndex(activeIndex.value, len);
   }
 
-  function setEntitySources(opts: { issues: PaletteItem[]; projects: PaletteItem[]; savedViews: PaletteItem[] }) {
+  function setEntitySources(opts: {
+    issues: PaletteItem[];
+    projects: PaletteItem[];
+    savedViews: PaletteItem[];
+    cycles?: PaletteItem[];
+  }) {
     issueSource.value = opts.issues;
     projectSource.value = opts.projects;
     viewSource.value = opts.savedViews;
+    cycleSource.value = opts.cycles ?? [];
     activeIndex.value = clampActiveIndex(activeIndex.value, flatItems.value.length);
   }
 
@@ -119,13 +132,15 @@ export function useCommandPalette() {
     issues?: string;
     projects?: string;
     views?: string;
+    cycles?: string;
   }) {
     groupLabels.value = {
       actions: labels.actions,
       menus: labels.menus,
       issues: labels.issues ?? groupLabels.value.issues,
       projects: labels.projects ?? groupLabels.value.projects,
-      views: labels.views ?? groupLabels.value.views
+      views: labels.views ?? groupLabels.value.views,
+      cycles: labels.cycles ?? groupLabels.value.cycles
     };
   }
 

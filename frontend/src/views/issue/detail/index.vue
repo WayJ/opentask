@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { NAlert, NButton, NCard, NDatePicker, NEmpty, NInput, NModal, NSpace, NSpin, NTag, NText } from 'naive-ui';
+import { NAlert, NButton, NCard, NDatePicker, NEmpty, NInput, NModal, NSelect, NSpace, NSpin, NTag, NText } from 'naive-ui';
 import {
   getIssuePriorityTagType,
   getIssueStatusTagType,
@@ -11,6 +11,7 @@ import {
   issueTypeOptions
 } from '@/constants/issue';
 import { projectApi } from '@/service/api/project';
+import { type CycleItem, fetchCycles } from '@/service/api/cycles';
 import { issueApi } from '@/service/api/issue';
 import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
@@ -81,6 +82,7 @@ const reactions = ref<Record<string, string[]>>({});
 
 // Projects list for select
 const projects = ref<Api.Project.Project[]>([]);
+const cycles = ref<CycleItem[]>([]);
 
 // User map for timeline display (reserved for future use)
 // const userMap = ref<Map<string, { sso_name?: string; sso_account?: string; id: string }>>(new Map());
@@ -99,6 +101,20 @@ const projectOptions = computed(() => {
   return options;
 });
 
+const cycleOptions = computed(() => {
+  const opts: { label: string; value: string | null }[] = [{ label: '无 Cycle', value: null }];
+  for (const c of cycles.value) {
+    opts.push({ label: c.name, value: c.id });
+  }
+  return opts;
+});
+
+const cycleDisplayValue = computed(() => {
+  if (!issue.value?.cycle_id) return '未分配';
+  const found = cycles.value.find(c => c.id === issue.value?.cycle_id);
+  return found?.name || issue.value.cycle_id;
+});
+
 // Editing states - 为每个字段创建独立状态
 const editingStatus = ref(false);
 const editingPriority = ref(false);
@@ -107,6 +123,7 @@ const editingAssignee = ref(false);
 const editingReporter = ref(false);
 const editingDueDate = ref(false);
 const editingProject = ref(false);
+const editingCycle = ref(false);
 
 // 临时值
 const tempStatus = ref<string | null>(null);
@@ -116,6 +133,7 @@ const tempAssignee = ref<string | null>(null);
 const tempReporter = ref<string | null>(null);
 const tempDueDate = ref<number | null>(null);
 const tempProject = ref<string | null>(null);
+const tempCycle = ref<string | null>(null);
 
 // Constants for template
 const getTypeType = getIssueTypeTagType;
@@ -482,6 +500,15 @@ async function loadReactions() {
 }
 
 // Load projects
+async function loadCycles() {
+  try {
+    const response = await fetchCycles();
+    cycles.value = response.data?.rows || [];
+  } catch {
+    cycles.value = [];
+  }
+}
+
 async function loadProjects() {
   try {
     const response = await projectApi.getList();
@@ -671,6 +698,22 @@ function cancelProject() {
   editingProject.value = false;
 }
 
+async function saveCycle() {
+  if (!issueId.value) return;
+  try {
+    await issueStore.updateIssue(issueId.value, { cycle_id: tempCycle.value || null });
+    await loadIssue();
+    window.$message?.success('Cycle 更新成功');
+  } catch {
+    window.$message?.error('Cycle 更新失败');
+  }
+}
+
+function cancelCycle() {
+  tempCycle.value = null;
+  editingCycle.value = false;
+}
+
 // Add comment
 async function handleAddComment() {
   if (!newComment.value.trim() || !issueId.value) return;
@@ -853,6 +896,7 @@ watch(
 onMounted(() => {
   loadIssue();
   loadProjects();
+  loadCycles();
 });
 </script>
 
@@ -1084,6 +1128,31 @@ onMounted(() => {
             >
               <template #label-icon>
                 <icon-mdi-flag />
+              </template>
+            </EditableField>
+
+            <!-- Cycle -->
+            <EditableField
+              v-model="tempCycle"
+              v-model:editing="editingCycle"
+              label="Cycle"
+              :display-value="cycleDisplayValue"
+              placeholder="未分配"
+              @save="saveCycle"
+              @cancel="cancelCycle"
+              @start-edit="tempCycle = issue.cycle_id || null"
+            >
+              <template #label-icon>
+                <icon-mdi-repeat />
+              </template>
+              <template #editor>
+                <NSelect
+                  v-model:value="tempCycle"
+                  :options="cycleOptions"
+                  placeholder="选择 Cycle"
+                  size="small"
+                  clearable
+                />
               </template>
             </EditableField>
 

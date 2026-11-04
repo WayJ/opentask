@@ -1,4 +1,4 @@
-export type PaletteItemKind = 'action' | 'menu' | 'issue' | 'project' | 'saved_view';
+export type PaletteItemKind = 'action' | 'menu' | 'issue' | 'project' | 'saved_view' | 'cycle';
 
 export interface PaletteItem {
   id: string;
@@ -25,9 +25,9 @@ export function itemMatchesQuery(item: PaletteItem, query: string): boolean {
 
 export function buildNavActions(
   navigate: (path: string) => void,
-  titles: { issues: string; createIssue: string; projects: string; inbox: string }
+  titles: { issues: string; createIssue: string; projects: string; inbox: string; cycles?: string }
 ): PaletteItem[] {
-  return [
+  const items: PaletteItem[] = [
     {
       id: 'nav.issues',
       kind: 'action',
@@ -57,6 +57,16 @@ export function buildNavActions(
       run: () => navigate('/inbox')
     }
   ];
+  if (titles.cycles) {
+    items.push({
+      id: 'nav.cycles',
+      kind: 'action',
+      title: titles.cycles,
+      keywords: ['cycles', 'cycle', '冲刺'],
+      run: () => navigate('/workspace/cycles')
+    });
+  }
+  return items;
 }
 
 export function menusToPaletteItems(
@@ -83,10 +93,12 @@ export function buildPaletteGroups(opts: {
     issues?: string;
     projects?: string;
     views?: string;
+    cycles?: string;
   };
   issues?: PaletteItem[];
   projects?: PaletteItem[];
   savedViews?: PaletteItem[];
+  cycles?: PaletteItem[];
 }): PaletteGroup[] {
   const groups: PaletteGroup[] = [];
   const q = opts.query.trim();
@@ -122,6 +134,13 @@ export function buildPaletteGroups(opts: {
         id: 'views',
         label: opts.groupLabels.views ?? 'Views',
         items: opts.savedViews
+      });
+    }
+    if (opts.cycles?.length) {
+      groups.push({
+        id: 'cycles',
+        label: opts.groupLabels.cycles ?? 'Cycles',
+        items: opts.cycles
       });
     }
   }

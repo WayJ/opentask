@@ -107,13 +107,15 @@ describe('buildPaletteGroups entity sections', () => {
         menus: 'Menus',
         issues: 'Issues',
         projects: 'Projects',
-        views: 'Views'
+        views: 'Views',
+        cycles: 'Cycles'
       },
       issues: [{ id: 'issue.1', kind: 'issue', title: 'Fix', run: () => undefined }],
       projects: [{ id: 'project.1', kind: 'project', title: 'Alpha', run: () => undefined }],
-      savedViews: [{ id: 'view.1', kind: 'saved_view', title: 'Mine', run: () => undefined }]
+      savedViews: [{ id: 'view.1', kind: 'saved_view', title: 'Mine', run: () => undefined }],
+      cycles: [{ id: 'cycle.1', kind: 'cycle', title: 'Cycle 1', run: () => undefined }]
     });
-    expect(groups.map(g => g.id)).toEqual(['issues', 'projects', 'views']);
+    expect(groups.map(g => g.id)).toEqual(['issues', 'projects', 'views', 'cycles']);
   });
 
   it('hides entity groups when query empty even if sources present', () => {

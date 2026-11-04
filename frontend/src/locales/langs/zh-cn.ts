@@ -56,11 +56,13 @@ const local: App.I18n.Schema = {
       groupMenus: '菜单',
       groupIssues: 'Issue',
       groupProjects: '项目',
+      groupCycles: '冲刺',
       groupViews: '视图',
       searching: '搜索中…',
       navIssues: 'Issue 列表',
       navCreateIssue: '创建 Issue',
       navProjects: '项目',
+      navCycles: 'Cycles 设置',
       navInbox: '收件箱'
     }
   },

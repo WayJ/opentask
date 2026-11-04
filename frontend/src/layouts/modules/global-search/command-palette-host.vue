@@ -5,6 +5,7 @@ import { useDebounceFn } from '@vueuse/core';
 import { issueApi } from '@/service/api/issue';
 import { fetchProjectList } from '@/service/api/project';
 import { fetchSavedViews } from '@/service/api/saved-views';
+import { fetchCycles } from '@/service/api/cycles';
 import { useRouteStore } from '@/store/modules/route';
 import { useAppHotkeys } from '@/composables/use-app-hotkeys';
 import { useCommandPalette } from '@/composables/use-command-palette';
@@ -15,7 +16,8 @@ import {
   mergeIssuesById,
   projectsToPaletteItems,
   resolveIssueSearchPlan,
-  savedViewsToPaletteItems
+  savedViewsToPaletteItems,
+  cyclesToPaletteItems
 } from '@/utils/command-palette-entities';
 import { $t } from '@/locales';
 import SearchModal from './components/search-modal.vue';
@@ -39,14 +41,16 @@ watchEffect(() => {
     menus: $t('common.commandPalette.groupMenus'),
     issues: $t('common.commandPalette.groupIssues'),
     projects: $t('common.commandPalette.groupProjects'),
-    views: $t('common.commandPalette.groupViews')
+    views: $t('common.commandPalette.groupViews'),
+    cycles: $t('common.commandPalette.groupCycles')
   });
 
   const actions = buildNavActions(navigate, {
     issues: $t('common.commandPalette.navIssues'),
     createIssue: $t('common.commandPalette.navCreateIssue'),
     projects: $t('common.commandPalette.navProjects'),
-    inbox: $t('common.commandPalette.navInbox')
+    inbox: $t('common.commandPalette.navInbox'),
+    cycles: $t('common.commandPalette.navCycles')
   });
 
   const menus = menusToPaletteItems(
@@ -69,7 +73,7 @@ async function runEntitySearch(rawQuery: string) {
   searchSeq += 1;
   const seq = searchSeq;
   if (!q) {
-    palette.setEntitySources({ issues: [], projects: [], savedViews: [] });
+    palette.setEntitySources({ issues: [], projects: [], savedViews: [], cycles: [] });
     palette.setEntityLoading(false);
     return;
   }
@@ -78,13 +82,14 @@ async function runEntitySearch(rawQuery: string) {
   const plan = resolveIssueSearchPlan(q);
 
   try {
-    const [issuesRes, byCodeRes, projectsRes, viewsRes] = await Promise.all([
+    const [issuesRes, byCodeRes, projectsRes, viewsRes, cyclesRes] = await Promise.all([
       issueApi.getIssues({ search: plan.search, page: 1, page_size: 10 }).catch(() => ({ data: null })),
       plan.fetchByCode && plan.code
         ? issueApi.getIssue(plan.code, { byCode: true }).catch(() => ({ data: null }))
         : Promise.resolve({ data: null }),
       fetchProjectList().catch(() => ({ data: null })),
-      fetchSavedViews().catch(() => ({ data: null }))
+      fetchSavedViews().catch(() => ({ data: null })),
+      fetchCycles().catch(() => ({ data: null }))
     ]);
 
     if (seq !== searchSeq) return;
@@ -104,6 +109,12 @@ async function runEntitySearch(rawQuery: string) {
       q
     ).slice(0, 10);
 
+    const cycles = filterByNameQuery(
+      ((cyclesRes as { data?: { rows?: { id: string; name: string; status: string }[] } }).data?.rows ??
+        []) as import('@/service/api/cycles').CycleItem[],
+      q
+    ).slice(0, 10);
+
     const applyView = (id: string) => {
       router.push({ path: '/issue/list', query: { view: id } });
     };
@@ -111,7 +122,8 @@ async function runEntitySearch(rawQuery: string) {
     palette.setEntitySources({
       issues: issuesToPaletteItems(mergedIssues, navigate),
       projects: projectsToPaletteItems(projects, navigate),
-      savedViews: savedViewsToPaletteItems(views, applyView)
+      savedViews: savedViewsToPaletteItems(views, applyView),
+      cycles: cyclesToPaletteItems(cycles, navigate)
     });
   } finally {
     if (seq === searchSeq) palette.setEntityLoading(false);
@@ -125,7 +137,7 @@ watch(
   q => {
     if (!q.trim()) {
       searchSeq += 1;
-      palette.setEntitySources({ issues: [], projects: [], savedViews: [] });
+      palette.setEntitySources({ issues: [], projects: [], savedViews: [], cycles: [] });
       palette.setEntityLoading(false);
       return;
     }

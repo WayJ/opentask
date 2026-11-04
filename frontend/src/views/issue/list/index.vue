@@ -29,6 +29,7 @@ import {
   issueTypeOptions
 } from '@/constants/issue';
 import { fetchProjectList } from '@/service/api';
+import { type CycleItem, fetchCycles } from '@/service/api/cycles';
 import { issueApi } from '@/service/api/issue';
 import {
   type SavedView,
@@ -64,6 +65,8 @@ const allIssues = ref<Api.Issue.Issue[]>([]); // 保存所有 issue，用于 tab
 const loading = ref(false);
 const projects = ref<Api.Project.Project[]>([]);
 const projectsLoading = ref(false);
+const cycles = ref<CycleItem[]>([]);
+const cyclesLoading = ref(false);
 
 // 获取当前用户 ID
 const currentUserId = computed(() => authStore.userInfo?.userId || '');
@@ -108,6 +111,7 @@ const filters = reactive({
   priority: undefined as Api.Issue.IssuePriority | undefined,
   type: undefined as Api.Issue.IssueType | undefined,
   project_id: undefined as string | undefined,
+  cycle_id: undefined as string | undefined,
   search: ''
 });
 
@@ -140,6 +144,7 @@ function buildCurrentFilterPayload() {
   if (filters.type) filter.type = filters.type;
   if (filters.priority) filter.priority = filters.priority;
   if (filters.project_id) filter.project_id = filters.project_id;
+  if (filters.cycle_id) filter.cycle_id = filters.cycle_id;
   if (filters.search) filter.search = filters.search;
   filter.tab = activeTab.value;
   return filter;
@@ -181,6 +186,7 @@ async function applySavedView(view: SavedView) {
   filters.type = state.filters.type;
   filters.priority = state.filters.priority;
   filters.project_id = state.filters.project_id;
+  filters.cycle_id = state.filters.cycle_id;
   filters.status = state.filters.status;
   filters.search = state.filters.search;
   smartSearchValue.value = filters.search || '';
@@ -288,6 +294,7 @@ async function loadIssues() {
         priority: filters.priority,
         type: filters.type,
         project_id: filters.project_id,
+        cycle_id: filters.cycle_id,
         search: filters.search || undefined
       });
 
@@ -341,6 +348,13 @@ function applyTabAndFilters() {
   }
   if (filters.project_id) {
     filtered = filtered.filter(issue => issue.project_id === filters.project_id);
+  }
+  if (filters.cycle_id) {
+    if (filters.cycle_id === '__none__') {
+      filtered = filtered.filter(issue => !issue.cycle_id);
+    } else {
+      filtered = filtered.filter(issue => issue.cycle_id === filters.cycle_id);
+    }
   }
   if (filters.search) {
     const searchLower = filters.search.toLowerCase();
@@ -441,6 +455,26 @@ async function loadProjects() {
   }
 }
 
+async function loadCycles() {
+  cyclesLoading.value = true;
+  try {
+    const response = await fetchCycles();
+    cycles.value = response.data?.rows || [];
+  } catch {
+    cycles.value = [];
+  } finally {
+    cyclesLoading.value = false;
+  }
+}
+
+const cycleFilterOptions = computed(() => {
+  const opts: { label: string; value: string }[] = [{ label: '无 Cycle', value: '__none__' }];
+  for (const c of cycles.value) {
+    opts.push({ label: `${c.name}${c.status === 'active' ? ' (active)' : ''}`, value: c.id });
+  }
+  return opts;
+});
+
 // Tab 统计
 const tabCounts = computed(() => {
   const openStatuses: Api.Issue.IssueStatus[] = ['open', 'in_progress', 'feedback'];
@@ -456,6 +490,13 @@ const tabCounts = computed(() => {
   }
   if (filters.project_id) {
     base = base.filter(issue => issue.project_id === filters.project_id);
+  }
+  if (filters.cycle_id) {
+    if (filters.cycle_id === '__none__') {
+      base = base.filter(issue => !issue.cycle_id);
+    } else {
+      base = base.filter(issue => issue.cycle_id === filters.cycle_id);
+    }
   }
   if (filters.search) {
     const searchLower = filters.search.toLowerCase();
@@ -572,6 +613,7 @@ async function handleGroupByChange(value: GroupByKey | null) {
 // Clear all filters
 function clearFilters() {
   filters.project_id = undefined;
+  filters.cycle_id = undefined;
   filters.type = undefined;
   filters.status = undefined;
   filters.priority = undefined;
@@ -582,7 +624,9 @@ function clearFilters() {
 
 // Computed: Check if any filters are active
 const hasActiveFilters = computed(() => {
-  return Boolean(filters.project_id || filters.type || filters.status || filters.priority || filters.search);
+  return Boolean(
+    filters.project_id || filters.cycle_id || filters.type || filters.status || filters.priority || filters.search
+  );
 });
 
 // Get project name by id
@@ -747,10 +791,27 @@ watch(
   }
 );
 
+watch(
+  () => route.query.cycle_id,
+  cycleId => {
+    const next = typeof cycleId === 'string' && cycleId ? cycleId : undefined;
+    if (filters.cycle_id !== next) {
+      filters.cycle_id = next;
+      pagination.page = 1;
+      loadIssues();
+    }
+  }
+);
+
 onMounted(async () => {
   loadProjects();
+  loadCycles();
   await loadSavedViews();
   const viewId = route.query.view;
+  const cycleQ = route.query.cycle_id;
+  if (typeof cycleQ === 'string' && cycleQ) {
+    filters.cycle_id = cycleQ;
+  }
   if (typeof viewId === 'string' && viewId) {
     await applySavedViewById(viewId);
   } else {
@@ -932,6 +993,15 @@ onMounted(async () => {
               placeholder="项目"
               clearable
               :loading="projectsLoading"
+              size="small"
+              @update:value="handleFilterChange"
+            />
+            <NSelect
+              v-model:value="filters.cycle_id"
+              :options="cycleFilterOptions"
+              placeholder="Cycle"
+              clearable
+              :loading="cyclesLoading"
               size="small"
               @update:value="handleFilterChange"
             />

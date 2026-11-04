@@ -94,6 +94,8 @@ export namespace Api.Issue {
     estimated_hours?: number;
     actual_hours?: number;
     parent_issue_id?: string | null;
+    cycle_id?: string | null;
+    estimate_points?: number | null;
   }
 
   /** 创建 Issue */
@@ -115,6 +117,8 @@ export namespace Api.Issue {
     estimated_hours?: number;
     actual_hours?: number;
     parent_issue_id?: string | null;
+    cycle_id?: string | null;
+    estimate_points?: number | null;
   }
 
   /** Issue 响应 */
@@ -157,6 +161,7 @@ export namespace Api.Issue {
     assignee_id?: string;
     reporter_id?: string;
     search?: string;
+    cycle_id?: string;
     sort_by?: string;
     sort_order?: 'asc' | 'desc';
   }

@@ -6,7 +6,8 @@ import {
   looksLikeIssueCode,
   projectsToPaletteItems,
   resolveIssueSearchPlan,
-  savedViewsToPaletteItems
+  savedViewsToPaletteItems,
+  cyclesToPaletteItems
 } from './command-palette-entities';
 
 describe('looksLikeIssueCode', () => {
@@ -64,5 +65,16 @@ describe('entity mappers', () => {
   it('filterByNameQuery is case-insensitive includes; empty query yields none', () => {
     expect(filterByNameQuery([{ name: 'Alpha' }, { name: 'Beta' }], 'alp').map(x => x.name)).toEqual(['Alpha']);
     expect(filterByNameQuery([{ name: 'Alpha' }], '')).toEqual([]);
+  });
+
+  it('maps cycles to list filter navigation', () => {
+    const nav = vi.fn();
+    const items = cyclesToPaletteItems(
+      [{ id: 'c1', name: 'Cycle 12', status: 'active' } as import('@/service/api/cycles').CycleItem],
+      nav
+    );
+    expect(items[0]).toMatchObject({ id: 'cycle.c1', kind: 'cycle', title: 'Cycle 12', subtitle: 'active' });
+    items[0].run();
+    expect(nav).toHaveBeenCalledWith({ path: '/issue/list', query: { cycle_id: 'c1' } });
   });
 });

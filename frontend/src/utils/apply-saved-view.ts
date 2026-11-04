@@ -7,6 +7,7 @@ export interface DerivedListStateFromSavedView {
     type?: Api.Issue.IssueType;
     priority?: Api.Issue.IssuePriority;
     project_id?: string;
+    cycle_id?: string;
     search: string;
   };
   tab?: 'my_issues' | 'open' | 'closed' | 'all';
@@ -21,6 +22,7 @@ export function deriveListStateFromSavedView(view: SavedView): DerivedListStateF
     type: (f.type as Api.Issue.IssueType | undefined) || undefined,
     priority: (f.priority as Api.Issue.IssuePriority | undefined) || undefined,
     project_id: (f.project_id as string | undefined) || undefined,
+    cycle_id: (f.cycle_id as string | undefined) || undefined,
     status: (f.status as Api.Issue.IssueStatus | undefined) || undefined,
     search: (f.search as string | undefined) || ''
   };

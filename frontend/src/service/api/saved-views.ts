@@ -5,6 +5,7 @@ export interface SavedViewFilter {
   type?: string;
   priority?: string;
   project_id?: string;
+  cycle_id?: string;
   assignee_id?: string;
   reporter_id?: string;
   search?: string;

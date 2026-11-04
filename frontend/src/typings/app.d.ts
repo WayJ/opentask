@@ -368,11 +368,13 @@ declare namespace App {
           groupMenus: string;
           groupIssues: string;
           groupProjects: string;
+          groupCycles: string;
           groupViews: string;
           searching: string;
           navIssues: string;
           navCreateIssue: string;
           navProjects: string;
+          navCycles: string;
           navInbox: string;
         };
       };
