@@ -32,6 +32,7 @@ class PolicyCreate(BaseModel):
     notifyAssignee: bool = True
     notifyWatchers: bool = False
     enabled: bool = True
+    calendar: Optional[dict[str, Any]] = None
 
 
 class PolicyUpdate(BaseModel):
@@ -44,6 +45,7 @@ class PolicyUpdate(BaseModel):
     notifyAssignee: Optional[bool] = None
     notifyWatchers: Optional[bool] = None
     enabled: Optional[bool] = None
+    calendar: Optional[dict[str, Any]] = None
 
 
 @router.get("/policies")
@@ -53,7 +55,7 @@ async def list_policies(
 ):
     ws, _member, _user = ctx
     rows = await SlaService(session).list_policies(workspace_id=ws.id)
-    payload = [serialize_policy(r) for r in rows]
+    payload = [serialize_policy(r, ws) for r in rows]
     return success_response(data={"rows": payload, "total": len(payload)})
 
 
@@ -76,8 +78,9 @@ async def create_policy(
         notify_assignee=body.notifyAssignee,
         notify_watchers=body.notifyWatchers,
         enabled=body.enabled,
+        calendar=body.calendar,
     )
-    return success_response(data=serialize_policy(row), message="已创建")
+    return success_response(data=serialize_policy(row, ws), message="已创建")
 
 
 @router.patch("/policies/{policy_id}")
@@ -90,11 +93,11 @@ async def update_policy(
     ws, member, _user = ctx
     require_owner(member)
     updates = body.model_dump(exclude_unset=True)
-    # map camel keys already match service.update_policy
+    # map camel keys already match service.update_policy; calendar=null clears overlay
     row = await SlaService(session).update_policy(
         workspace_id=ws.id, policy_id=policy_id, updates=updates
     )
-    return success_response(data=serialize_policy(row), message="已更新")
+    return success_response(data=serialize_policy(row, ws), message="已更新")
 
 
 @router.delete("/policies/{policy_id}")

@@ -25,8 +25,8 @@ from opentask.models.workspace.model import Workspace, WorkspaceMember
 from opentask.services.sla.business_hours import (
     add_business_minutes,
     elapsed_business_minutes,
-    is_business_hours_enabled,
-    normalize_windows,
+    normalize_policy_calendar,
+    resolve_effective_calendar,
 )
 from opentask.services.notification.service import NotificationService
 from opentask.services.automation.service import fire_automations
@@ -45,24 +45,38 @@ def _wall_elapsed(start: datetime, end: datetime) -> int:
     return max(0, int((end - start).total_seconds() // 60))
 
 
-def compute_deadline(now: datetime, minutes: int, ws: Workspace | None) -> datetime:
-    if ws is not None and is_business_hours_enabled(ws.timezone, ws.business_hours):
-        bh = ws.business_hours or {}
-        windows = normalize_windows(bh.get("windows"))
-        exceptions = bh.get("exceptions") or []
+def compute_deadline(
+    now: datetime,
+    minutes: int,
+    ws: Workspace | None,
+    policy: SlaPolicy | None = None,
+) -> datetime:
+    eff = resolve_effective_calendar(ws, policy)
+    if eff is not None:
         return add_business_minutes(
-            now, int(minutes), str(ws.timezone), windows, exceptions=exceptions
+            now,
+            int(minutes),
+            str(eff["timezone"]),
+            eff["windows"],
+            exceptions=eff.get("exceptions") or [],
         )
     return _wall_deadline(now, minutes)
 
 
-def compute_elapsed(start: datetime, end: datetime, ws: Workspace | None) -> int:
-    if ws is not None and is_business_hours_enabled(ws.timezone, ws.business_hours):
-        bh = ws.business_hours or {}
-        windows = normalize_windows(bh.get("windows"))
-        exceptions = bh.get("exceptions") or []
+def compute_elapsed(
+    start: datetime,
+    end: datetime,
+    ws: Workspace | None,
+    policy: SlaPolicy | None = None,
+) -> int:
+    eff = resolve_effective_calendar(ws, policy)
+    if eff is not None:
         return elapsed_business_minutes(
-            start, end, str(ws.timezone), windows, exceptions=exceptions
+            start,
+            end,
+            str(eff["timezone"]),
+            eff["windows"],
+            exceptions=eff.get("exceptions") or [],
         )
     return _wall_elapsed(start, end)
 
@@ -90,8 +104,8 @@ def _status_str(v: Any) -> str:
     return str(getattr(v, "value", v))
 
 
-def serialize_policy(row: SlaPolicy) -> dict:
-    return {
+def serialize_policy(row: SlaPolicy, ws: Workspace | None = None) -> dict:
+    data = {
         "id": row.id,
         "workspaceId": row.workspace_id,
         "name": row.name,
@@ -103,9 +117,13 @@ def serialize_policy(row: SlaPolicy) -> dict:
         "targetMinutes": int(row.target_minutes),
         "notifyAssignee": bool(row.notify_assignee),
         "notifyWatchers": bool(row.notify_watchers),
+        "calendar": getattr(row, "calendar", None),
         "createdAt": row.created_at.isoformat() if row.created_at else None,
         "updatedAt": row.updated_at.isoformat() if row.updated_at else None,
     }
+    if ws is not None:
+        data["effectiveCalendar"] = resolve_effective_calendar(ws, row)
+    return data
 
 
 def serialize_clock(
@@ -199,6 +217,7 @@ class SlaService:
         notify_assignee: bool = True,
         notify_watchers: bool = False,
         enabled: bool = True,
+        calendar: Any = None,
     ) -> SlaPolicy:
         name = (name or "").strip()
         if not name or len(name) > 80:
@@ -209,6 +228,10 @@ class SlaService:
         stops = _validate_statuses(stop_statuses or [], field="stopStatuses", allow_empty=True)
         pauses = _validate_statuses(pause_statuses or [], field="pauseStatuses", allow_empty=True)
         minutes = _validate_target(target_minutes)
+        try:
+            cal = normalize_policy_calendar(calendar)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
         row = SlaPolicy(
             workspace_id=workspace_id,
             name=name,
@@ -220,6 +243,7 @@ class SlaService:
             target_minutes=minutes,
             notify_assignee=bool(notify_assignee),
             notify_watchers=bool(notify_watchers),
+            calendar=cal,
         )
         self.db.add(row)
         await self.db.commit()
@@ -263,7 +287,22 @@ class SlaService:
             row.notify_assignee = bool(updates["notifyAssignee"])
         if "notifyWatchers" in updates and updates["notifyWatchers"] is not None:
             row.notify_watchers = bool(updates["notifyWatchers"])
+        calendar_changed = False
+        if "calendar" in updates:
+            try:
+                new_cal = normalize_policy_calendar(updates["calendar"])
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e)) from e
+            old_cal = getattr(row, "calendar", None)
+            if new_cal != old_cal:
+                calendar_changed = True
+            row.calendar = new_cal
         row.updated_at = datetime.utcnow()
+        await self.db.flush()
+        if calendar_changed:
+            await self.recompute_deadlines_for_policy(
+                workspace_id=workspace_id, policy_id=row.id
+            )
         await self.db.commit()
         await self.db.refresh(row)
         return row
@@ -353,7 +392,7 @@ class SlaService:
             if active is not None and active.status == "running" and new_s in pauses:
                 seg = active.segment_started_at or active.started_at
                 if seg is not None:
-                    delta_min = compute_elapsed(seg, now, ws)
+                    delta_min = compute_elapsed(seg, now, ws, policy)
                     active.elapsed_before_pause_minutes = int(
                         active.elapsed_before_pause_minutes or 0
                     ) + delta_min
@@ -413,7 +452,7 @@ class SlaService:
                 active.status = "running"
                 active.paused_at = None
                 active.segment_started_at = now
-                active.deadline_at = compute_deadline(now, remaining, ws)
+                active.deadline_at = compute_deadline(now, remaining, ws, policy)
                 self.db.add(
                     IssueTimeline(
                         issue_id=issue.id,
@@ -465,7 +504,7 @@ class SlaService:
                     policy_id=policy.id,
                     status="running",
                     started_at=now,
-                    deadline_at=compute_deadline(now, int(policy.target_minutes), ws),
+                    deadline_at=compute_deadline(now, int(policy.target_minutes), ws, policy),
                     start_status=new_s,
                     elapsed_before_pause_minutes=0,
                     paused_at=None,
@@ -663,10 +702,68 @@ class SlaService:
             else:
                 seg = clock.segment_started_at or clock.started_at or now
                 elapsed = int(clock.elapsed_before_pause_minutes or 0) + compute_elapsed(
-                    seg, now, ws
+                    seg, now, ws, policy
                 )
             remaining = max(0, int(policy.target_minutes) - elapsed)
-            clock.deadline_at = compute_deadline(now, remaining, ws)
+            clock.deadline_at = compute_deadline(now, remaining, ws, policy)
+            recomputed += 1
+        return {"recomputed": recomputed, "scanned": recomputed, "capped": capped}
+
+    async def recompute_deadlines_for_policy(
+        self,
+        *,
+        workspace_id: str,
+        policy_id: str,
+        cap: int = RECOMPUTE_CAP,
+    ) -> dict:
+        """Batch-recompute running/paused clocks for one policy after calendar change."""
+        wq = await self.db.execute(select(Workspace).where(Workspace.id == workspace_id))
+        ws = wq.scalar_one_or_none()
+        if ws is None:
+            return {"recomputed": 0, "scanned": 0, "capped": False}
+
+        pq = await self.db.execute(
+            select(SlaPolicy).where(
+                SlaPolicy.id == policy_id,
+                SlaPolicy.workspace_id == workspace_id,
+            )
+        )
+        policy = pq.scalar_one_or_none()
+        if policy is None:
+            return {"recomputed": 0, "scanned": 0, "capped": False}
+
+        q = await self.db.execute(
+            select(IssueSlaClock)
+            .where(
+                IssueSlaClock.workspace_id == workspace_id,
+                IssueSlaClock.policy_id == policy_id,
+                IssueSlaClock.status.in_(("running", "paused")),
+            )
+            .order_by(IssueSlaClock.started_at.asc())
+            .limit(int(cap) + 1)
+        )
+        clocks = list(q.scalars().all())
+        capped = len(clocks) > cap
+        if capped:
+            logger.warning(
+                "sla policy-calendar recompute capped at %s for policy %s",
+                cap,
+                policy_id,
+            )
+            clocks = clocks[:cap]
+
+        now = datetime.utcnow()
+        recomputed = 0
+        for clock in clocks:
+            if clock.status == "paused":
+                elapsed = int(clock.elapsed_before_pause_minutes or 0)
+            else:
+                seg = clock.segment_started_at or clock.started_at or now
+                elapsed = int(clock.elapsed_before_pause_minutes or 0) + compute_elapsed(
+                    seg, now, ws, policy
+                )
+            remaining = max(0, int(policy.target_minutes) - elapsed)
+            clock.deadline_at = compute_deadline(now, remaining, ws, policy)
             recomputed += 1
         return {"recomputed": recomputed, "scanned": recomputed, "capped": capped}
 

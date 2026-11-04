@@ -255,6 +255,10 @@ async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
                 "ALTER TABLE IF EXISTS workspaces ADD COLUMN IF NOT EXISTS business_hours JSON",
             ):
                 await conn.execute(_sql_text(_stmt))
+            # E56 sla policy calendar overlay
+            await conn.execute(_sql_text(
+                "ALTER TABLE IF EXISTS sla_policies ADD COLUMN IF NOT EXISTS calendar JSON"
+            ))
             # E48 timeline_action enum values (no alembic per Q6a)
             for _val in ("sla_paused", "sla_resumed"):
                 await conn.execute(
