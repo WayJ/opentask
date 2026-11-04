@@ -84,7 +84,7 @@ onMounted(load);
 
     <NCard title="到期提醒" :bordered="false" class="mt-16px">
       <NText depth="3" class="mb-12px block">
-        按 UTC 日历日扫描；即将到期 = 今日起 3 日内；逾期每日至多一条。邮件仍受「启用出站邮件」与 SMTP 约束。外部调度
+        按工作区时区日历日扫描（未设时区则 UTC）；即将到期 = 今日起 3 日内；逾期每日至多一条。时区可在 SLA / 工作区设置中配置。邮件仍受「启用出站邮件」与 SMTP 约束。外部调度
         <code>POST /api/inbox/run-due-reminders</code>，无内置 cron。
       </NText>
       <NSpin :show="loading">

@@ -178,7 +178,7 @@ onMounted(load);
     <NCard title="周期建单 (Recurrences)" :bordered="false">
       <template #header-extra>
         <NSpace>
-          <NText depth="3">时区 UTC · 外部调度调 run-due</NText>
+          <NText depth="3">标题日期按工作区时区；next_run_at 存 UTC · 外部调度调 run-due</NText>
           <NButton size="small" :loading="running" @click="runDue">立即 run-due</NButton>
         </NSpace>
       </template>
