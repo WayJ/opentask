@@ -736,7 +736,7 @@ function issueRowProps(row: Api.Issue.Issue) {
     class: issueFocus.focusedIssueId.value === row.id ? 'issue-row-focused' : undefined,
     style:
       issueFocus.focusedIssueId.value === row.id
-        ? 'outline: 2px solid var(--primary-color, #18a058); outline-offset: -2px;'
+        ? 'outline: 2px solid var(--color-primary); outline-offset: -2px;'
         : undefined,
     onClick: () => focusIssueRow(row)
   };
@@ -1444,16 +1444,16 @@ onMounted(async () => {
 
 <style scoped>
 .issue-list-container {
-  padding: 16px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+  padding: 12px;
+  background: var(--color-canvas);
   min-height: 100vh;
 }
 
 /* Tabs and Filters 容器 */
 .tabs-and-filters {
   /* border-radius: 12px; */
-  background: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  background: var(--color-bg-primary);
+  box-shadow: none;
   overflow: hidden;
   margin-bottom: 0px;
 }
@@ -1461,7 +1461,7 @@ onMounted(async () => {
 /* Tabs 区域 */
 .tabs-section {
   padding: 0 16px;
-  border-bottom: 1px solid #e8eaed;
+  border-bottom: 1px solid var(--color-hairline);
 }
 
 .tabs-section :deep(.n-tabs-nav) {
@@ -1506,7 +1506,7 @@ onMounted(async () => {
   padding: 0 6px;
   font-size: 11px;
   font-weight: 600;
-  color: #909399;
+  color: var(--color-text-tertiary);
   background: var(--color-bg-tertiary);
   border-radius: 9px;
   transition: all 0.2s;
@@ -1514,7 +1514,7 @@ onMounted(async () => {
 
 .tab-count-active {
   color: white;
-  background: #18a058;
+  background: var(--color-primary);
 }
 
 /* 搜索行 */
@@ -1539,7 +1539,7 @@ onMounted(async () => {
   align-items: center;
   gap: 4px;
   padding: 6px 12px;
-  color: #606266;
+  color: var(--color-text-secondary);
   font-size: 13px;
   border-radius: 4px;
   transition: all 0.2s;
@@ -1547,7 +1547,7 @@ onMounted(async () => {
 }
 
 .action-btn:hover {
-  color: #18a058;
+  color: var(--color-primary);
   background: rgba(24, 160, 88, 0.08);
 }
 
@@ -1568,12 +1568,12 @@ onMounted(async () => {
 .syntax-help-panel {
   padding: 0 16px 16px;
   border-top: 1px solid var(--color-bg-tertiary);
-  background: #fafbfc;
+  background: var(--color-bg-secondary);
 }
 
 .syntax-help-card {
   border-radius: 8px;
-  border-color: #e8eaed;
+  border-color: var(--color-hairline);
 }
 
 .syntax-help-header {
@@ -1584,7 +1584,7 @@ onMounted(async () => {
 
 .syntax-icon {
   font-size: 16px;
-  color: #18a058;
+  color: var(--color-primary);
 }
 
 .syntax-examples {
@@ -1602,12 +1602,12 @@ onMounted(async () => {
 }
 
 .syntax-code {
-  background: #f5f5f5;
+  background: var(--color-bg-tertiary);
   padding: 3px 8px;
   border-radius: 4px;
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 12px;
-  color: #18a058;
+  color: var(--color-primary);
   min-width: 120px;
 }
 
@@ -1622,12 +1622,12 @@ onMounted(async () => {
   gap: 8px;
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid #e8eaed;
+  border-top: 1px solid var(--color-hairline);
 }
 
 .tip-icon {
   font-size: 14px;
-  color: #e6a23c;
+  color: var(--color-warning);
   flex-shrink: 0;
   margin-top: 2px;
 }
@@ -1637,7 +1637,7 @@ onMounted(async () => {
   transition: all 0.3s ease;
   overflow: hidden;
   padding: 12px 16px;
-  background: #fafbfc;
+  background: var(--color-bg-secondary);
   border-radius: 0 0 8px 8px;
 }
 
@@ -1649,26 +1649,26 @@ onMounted(async () => {
   position: relative;
   display: flex;
   align-items: center;
-  background: white;
-  border: 1px solid #dcdfe6;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-default);
   border-radius: 6px;
   transition: all 0.2s;
 }
 
 .search-wrapper:hover {
-  border-color: #c0c4cc;
+  border-color: var(--color-border-strong);
 }
 
 .search-wrapper:focus-within {
-  border-color: #18a058;
-  box-shadow: 0 0 0 2px rgba(24, 160, 88, 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 18%, transparent);
 }
 
 .search-icon {
   position: absolute;
   left: 12px;
   font-size: 16px;
-  color: #c0c4cc;
+  color: var(--color-text-tertiary);
   pointer-events: none;
   z-index: 2;
 }
@@ -1716,8 +1716,8 @@ onMounted(async () => {
 
 .filter-selectors :deep(.n-base-selection) {
   border-radius: 4px;
-  border-color: #dcdfe6;
-  background: white;
+  border-color: var(--color-border-default);
+  background: var(--color-bg-primary);
   height: 28px;
 }
 
@@ -1736,17 +1736,17 @@ onMounted(async () => {
 }
 
 .filter-selectors :deep(.n-base-selection:hover) {
-  border-color: #c0c4cc;
+  border-color: var(--color-border-strong);
 }
 
 .filter-selectors :deep(.n-base-selection--focus) {
-  border-color: #18a058;
-  box-shadow: 0 0 0 2px rgba(24, 160, 88, 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 18%, transparent);
 }
 
 /* 清除按钮 */
 .clear-btn {
-  color: #909399;
+  color: var(--color-text-tertiary);
   font-size: 12px;
   border-radius: 4px;
   padding: 4px 8px;
@@ -1755,7 +1755,7 @@ onMounted(async () => {
 }
 
 .clear-btn:hover {
-  color: #f56c6c;
+  color: var(--color-danger);
   background: rgba(245, 108, 108, 0.1);
 }
 
@@ -1766,22 +1766,22 @@ onMounted(async () => {
 
 .active-filters {
   padding: 8px 16px 12px;
-  background: #fafbfc;
+  background: var(--color-bg-secondary);
   border-top: 1px solid var(--color-bg-tertiary);
 }
 
 /* Card 样式优化 */
 .issue-list-container :deep(.n-card) {
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: none;
   border: none;
   overflow: hidden;
 }
 
 .issue-list-container :deep(.n-card__header) {
   padding: 16px 20px;
-  background: white;
-  border-bottom: 1px solid #e8eaed;
+  background: var(--color-bg-primary);
+  border-bottom: 1px solid var(--color-hairline);
 }
 
 .issue-list-container :deep(.n-card__content) {
@@ -1801,10 +1801,10 @@ onMounted(async () => {
 }
 
 .issue-list-container :deep(.n-data-table-th) {
-  background: #f8f9fa;
+  background: var(--color-bg-secondary);
   font-weight: 600;
-  color: #606266;
-  border-bottom: 1px solid #e8eaed;
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-hairline);
   padding: 12px 16px;
   font-size: 13px;
 }
@@ -1816,7 +1816,7 @@ onMounted(async () => {
 }
 
 .issue-list-container :deep(.n-data-table-tr:hover) {
-  background: #f8f9fa;
+  background: var(--color-bg-secondary);
 }
 
 /* 标签样式优化 */
@@ -1835,8 +1835,8 @@ onMounted(async () => {
   display: flex;
   justify-content: flex-end;
   padding: 16px 20px;
-  background: white;
-  border-top: 1px solid #e8eaed;
+  background: var(--color-bg-primary);
+  border-top: 1px solid var(--color-hairline);
 }
 
 .pagination-wrapper :deep(.n-pagination) {
@@ -1851,14 +1851,14 @@ onMounted(async () => {
 }
 
 .pagination-wrapper :deep(.n-pagination-item--active) {
-  background: #18a058;
-  border-color: #18a058;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
   color: white;
 }
 
 .pagination-wrapper :deep(.n-pagination-item:hover:not(.n-pagination-item--disabled)) {
-  border-color: #18a058;
-  color: #18a058;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 /* 标题样式优化 */
@@ -1880,6 +1880,6 @@ onMounted(async () => {
 }
 
 :deep(.issue-row-focused td) {
-  background: color-mix(in srgb, var(--primary-color, #18a058) 8%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
 }
 </style>

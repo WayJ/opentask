@@ -1666,14 +1666,15 @@ onMounted(() => {
   background: var(--color-bg-primary);
   border-radius: var(--radius-md);
   padding: var(--space-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
   margin-bottom: var(--space-md);
   border: 1px solid var(--color-border-subtle);
   transition: box-shadow 0.2s ease;
 }
 
 .issue-header:hover {
-  box-shadow: var(--shadow-md);
+  box-shadow: none;
+  border-color: var(--color-hairline-strong);
 }
 
 .issue-title-row {
@@ -1739,7 +1740,7 @@ onMounted(() => {
   border-radius: var(--radius-md);
   padding: var(--space-md);
   margin-bottom: var(--space-md);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
   transition: box-shadow 0.2s ease;
 }
 
@@ -1915,7 +1916,7 @@ onMounted(() => {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
   padding: var(--space-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
   margin-bottom: var(--space-lg);
   transition: box-shadow 0.2s ease;
 }

@@ -86,13 +86,13 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="home-summary p-16px">
+  <div class="home-summary">
     <NSpin :show="loading">
       <div class="mb-16px">
         <h2 class="m-0 text-20px font-medium">{{ greeting }}</h2>
-        <p class="mb-0 mt-4px text-13px text-gray-500">
+        <p class="mb-0 mt-4px text-13px opacity-60">
           {{ workspace?.name || '工作区' }}
-          <span v-if="workspace?.issueKey" class="ml-8px text-12px text-gray-400">
+          <span v-if="workspace?.issueKey" class="ml-8px text-12px opacity-50">
             Issue Key · {{ workspace.issueKey }}
           </span>
         </p>
@@ -101,21 +101,21 @@ onMounted(load);
       <NGrid :x-gap="16" :y-gap="16" cols="1 s:2 m:3" responsive="screen">
         <NGi>
           <NCard size="small" hoverable class="cursor-pointer" @click="goIssues">
-            <div class="text-12px text-gray-500">Issues</div>
+            <div class="text-12px opacity-60">Issues</div>
             <div class="mt-4px text-28px font-medium">{{ issueTotal }}</div>
             <div class="mt-8px text-12px text-primary">打开列表 →</div>
           </NCard>
         </NGi>
         <NGi>
           <NCard size="small" hoverable class="cursor-pointer" @click="goInbox">
-            <div class="text-12px text-gray-500">Inbox</div>
+            <div class="text-12px opacity-60">Inbox</div>
             <div class="mt-4px text-28px font-medium">{{ inboxUnread }}</div>
             <div class="mt-8px text-12px text-primary">查看收件箱 →</div>
           </NCard>
         </NGi>
         <NGi>
           <NCard size="small" hoverable class="cursor-pointer" @click="goCycles">
-            <div class="text-12px text-gray-500">Cycle</div>
+            <div class="text-12px opacity-60">Cycle</div>
             <div class="mt-8px truncate text-18px font-medium">
               {{ activeCycleName || (workspace?.cyclesEnabled ? '无 Active Cycle' : '未启用 Cycles') }}
             </div>
@@ -139,6 +139,11 @@ onMounted(load);
 <style scoped>
 .home-summary {
   max-width: 960px;
+  padding: 4px;
+}
+.home-summary :deep(.n-card) {
+  border: 1px solid var(--color-hairline);
+  background: var(--color-bg-primary);
 }
 .cursor-pointer {
   cursor: pointer;

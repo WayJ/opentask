@@ -267,7 +267,7 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="h-full flex-col-stretch gap-16px overflow-hidden lt-sm:overflow-auto">
+  <div class="h-full flex-col-stretch gap-12px overflow-hidden lt-sm:overflow-auto">
     <NCard title="成员 Members" :bordered="false" class="card-wrapper">
       <NSpace vertical :size="12">
         <NSpace v-if="myRole && myRole !== 'owner'">

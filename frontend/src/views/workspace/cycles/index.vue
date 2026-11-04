@@ -363,7 +363,7 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="h-full flex-col gap-16px overflow-auto p-16px">
+  <div class="h-full flex-col gap-12px overflow-auto p-12px">
     <div class="flex-y-center justify-between">
       <div>
         <h2 class="text-18px font-medium">Cycles</h2>

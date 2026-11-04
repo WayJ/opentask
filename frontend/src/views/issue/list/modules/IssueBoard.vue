@@ -291,7 +291,7 @@ function showField(key: keyof IssueDisplayFields): boolean {
   width: 260px;
   background: var(--color-bg-secondary, #f7f8fa);
   border: 1px solid var(--color-border-subtle, #e5e7eb);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 280px);
@@ -321,11 +321,11 @@ function showField(key: keyof IssueDisplayFields): boolean {
 
 .board-card {
   cursor: grab;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 
 .board-card.is-focused {
-  outline: 2px solid var(--primary-color, #18a058);
+  outline: 2px solid var(--color-primary);
   outline-offset: 1px;
 }
 

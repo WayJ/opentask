@@ -136,7 +136,7 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="h-full flex-col gap-16px overflow-hidden p-16px">
+  <div class="h-full flex-col gap-12px overflow-hidden">
     <div class="flex-y-center justify-between">
       <div class="flex-y-center gap-12px">
         <div>
@@ -168,7 +168,7 @@ onMounted(load);
                 <span class="truncate font-medium" :class="{ 'opacity-60': !!row.readAt }">{{ row.title }}</span>
                 <NTag v-if="row.snoozedUntil" size="tiny" type="warning" :bordered="false">已延后</NTag>
               </div>
-              <div v-if="row.body" class="mt-4px truncate text-13px text-gray-500 dark:text-gray-400">
+              <div v-if="row.body" class="mt-4px truncate text-13px opacity-60">
                 {{ row.body }}
               </div>
             </div>
@@ -189,3 +189,13 @@ onMounted(load);
   </div>
 </template>
 
+<style scoped>
+.n-list {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+}
+.n-list-item {
+  border-color: var(--color-hairline) !important;
+}
+</style>
