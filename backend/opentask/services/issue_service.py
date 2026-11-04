@@ -35,6 +35,7 @@ from opentask.services.user_center.rbac_service import RbacService
 from opentask.services.notification.service import NotificationService
 from opentask.services.automation.service import fire_automations
 from opentask.services.workspace_webhook.service import fire_webhooks
+from opentask.services.sla.service import SlaService
 from opentask.services.workspace_realtime import (
     publish_comment_created,
     publish_issue_created,
@@ -482,6 +483,13 @@ class IssueService:
             action_data={"title": issue.title, "type": (issue.type.value if hasattr(issue.type, "value") else issue.type), "issue_code": issue_code},
         )
 
+        # E42：create 时若 status∈start 也启钟（同事务）
+        await SlaService(self.db).sync_clocks(
+            issue=issue,
+            old_status=None,
+            new_status=getattr(issue.status, "value", issue.status),
+        )
+
         await self.db.commit()
         await self.db.refresh(issue)
         await publish_issue_created(issue, actor_user_id=user_id)
@@ -705,6 +713,18 @@ class IssueService:
             .values(**update_data)
         )
         await self.db.execute(query)
+
+        # E42：status 实际变更 → 同事务启停 SLA 时钟
+        if status_changed:
+            old_s, new_s = status_changed
+            issue_for_sla = await self.get_issue(issue_id)
+            if issue_for_sla:
+                await SlaService(self.db).sync_clocks(
+                    issue=issue_for_sla,
+                    old_status=str(getattr(old_s, "value", old_s)) if old_s is not None else None,
+                    new_status=str(getattr(new_s, "value", new_s)),
+                )
+
         await self.db.commit()
 
         issue = await self.get_issue(issue_id)

@@ -43,6 +43,7 @@ class PrefsBody(BaseModel):
     automation_comment: Optional[bool] = None
     due_reminder: Optional[bool] = None
     due_reminder_digest: Optional[bool] = None
+    sla_breached: Optional[bool] = None
     email_enabled: Optional[bool] = None
 
 

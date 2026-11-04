@@ -18,6 +18,7 @@ PREF_KEYS = (
     "issue_watch_event",
     "automation_comment",
     "due_reminder",
+    "sla_breached",
 )
 
 # Inbox Notification.type → preference column
@@ -31,6 +32,7 @@ TYPE_TO_PREF_KEY: dict[str, str] = {
     "automation_comment": "automation_comment",
     "due_reminder": "due_reminder",
     "due_reminder_digest": "due_reminder",
+    "sla_breached": "sla_breached",
 }
 
 
@@ -62,6 +64,8 @@ class NotificationPreference(DBModel):
     due_reminder: Mapped[bool] = mapped_column(Boolean, nullable=False, insert_default=True)
     # E39：日摘要模式（默认关；非 TYPE 门，类 email_enabled）
     due_reminder_digest: Mapped[bool] = mapped_column(Boolean, nullable=False, insert_default=False)
+    # E42：SLA 违约通知（默认开）
+    sla_breached: Mapped[bool] = mapped_column(Boolean, nullable=False, insert_default=True)
     # E30：邮件通道总开关（opt-in，默认关；不在 PREF_KEYS 类型映射内）
     email_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, insert_default=False)
     created_at: Mapped[datetime] = mapped_column(

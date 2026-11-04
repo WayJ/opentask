@@ -59,6 +59,8 @@ from opentask.services.custom_field.service import CustomFieldService, parse_cf_
 from opentask.services.issue_csv import IssueCsvService, require_writer as require_csv_writer, EXPORT_MAX_ROWS
 from opentask.services.issue_timeline_export import build_timeline_csv, EXPORT_DEFAULT_LIMIT, EXPORT_HARD_CAP
 from opentask.api.workspace.deps import get_optional_workspace_context, require_workspace_context, ensure_entity_workspace_access
+from opentask.services.sla.service import SlaService, serialize_clock
+from opentask.utils.response import success_response
 from opentask.models.workspace.model import Workspace, WorkspaceMember
 from pydantic import BaseModel, Field
 from opentask.services.user_center.rbac_service import RbacService
@@ -1561,6 +1563,27 @@ async def export_issue_timeline_csv(
         media_type="text/csv; charset=utf-8",
         headers=headers,
     )
+
+
+
+@router.get("/{issue_id}/sla")
+async def get_issue_sla(
+    issue_id: str,
+    service: IssueService = Depends(get_issue_service),
+    ctx: tuple = Depends(require_workspace_context),
+    current_user: UserModel = Depends(authenticate),
+):
+    """E42：Issue SLA 时钟列表（跨租户 404）。"""
+    workspace, _member, user = ctx
+    issue = await service.get_issue(issue_id)
+    if not issue or issue.workspace_id != workspace.id:
+        raise HTTPException(status_code=404, detail="Issue 不存在")
+    await ensure_entity_workspace_access(service.db, str(user.id), issue.workspace_id)
+    pairs = await SlaService(service.db).list_issue_clocks(
+        workspace_id=workspace.id, issue_id=issue.id
+    )
+    rows = [serialize_clock(c, policy_name=name) for c, name in pairs]
+    return success_response(data={"rows": rows, "total": len(rows)})
 
 
 @router.get("/{issue_id}/timeline")

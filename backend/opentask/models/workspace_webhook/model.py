@@ -26,6 +26,7 @@ WEBHOOK_EVENTS = (
     "issue.status_changed",
     "comment.created",
     "issue.custom_field_changed",  # E41
+    "issue.sla_breached",  # E42
 )
 
 DELIVERY_LOG_LIMIT = 50
