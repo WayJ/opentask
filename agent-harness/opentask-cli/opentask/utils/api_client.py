@@ -886,6 +886,9 @@ class OpenTaskClient:
     async def disable_automation(self, rule_id: str) -> dict:
         return await self.post(f"/api/automations/{rule_id}/disable")
 
+    async def update_automation(self, rule_id: str, payload: dict) -> dict:
+        return await self.patch(f"/api/automations/{rule_id}", data=payload)
+
 
     # ========================================================================
     # Outbound Webhooks (E29)

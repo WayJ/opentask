@@ -1,4 +1,4 @@
-"""Automation commands (E26)."""
+"""Automation commands (E26 + E33 CF)."""
 from __future__ import annotations
 
 import asyncio
@@ -22,6 +22,7 @@ ACTIONS = [
     "add_label",
     "set_priority",
     "add_comment",
+    "set_custom_field",
 ]
 
 
@@ -71,8 +72,12 @@ def automation_list(obj, as_json):
 @click.option("--trigger", "trigger_type", required=True, type=click.Choice(TRIGGERS, case_sensitive=False))
 @click.option("--action", "action_type", required=True, type=click.Choice(ACTIONS, case_sensitive=False))
 @click.option("--trigger-config", default="{}", help="JSON object")
-@click.option("--action-config", default="{}", help="JSON object")
-@click.option("--condition", default=None, help="JSON object；省略=无条件")
+@click.option("--action-config", default="{}", help="JSON object；set_custom_field 例 {\"key\":\"tier\",\"value\":\"pro\"}")
+@click.option(
+    "--condition",
+    default=None,
+    help='JSON object；CF 例 {"customField":{"key":"tier","op":"eq","value":"pro"}}',
+)
 @click.option("--disabled", is_flag=True, help="创建为禁用")
 @click.option("--json", "as_json", is_flag=True)
 @click.pass_obj
@@ -106,6 +111,79 @@ def automation_create(
             echo_json(True, data=data, message="created")
             return
         obj.skin.success(f"已创建规则: {data.get('name')} ({(data.get('id') or '')[:8]})")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@automation_cli.command(name="update")
+@click.argument("rule_id")
+@click.option("--name", "-n", default=None)
+@click.option("--trigger", "trigger_type", default=None, type=click.Choice(TRIGGERS, case_sensitive=False))
+@click.option("--action", "action_type", default=None, type=click.Choice(ACTIONS, case_sensitive=False))
+@click.option("--trigger-config", default=None, help="JSON object；提供则覆盖")
+@click.option("--action-config", default=None, help="JSON object；提供则覆盖")
+@click.option("--condition", default=None, help="JSON object；提供则覆盖；传空对象可清条件请用 {}")
+@click.option("--clear-condition", is_flag=True, help="清空条件")
+@click.option("--enable", "enable_flag", is_flag=True, help="启用规则")
+@click.option("--disable", "disable_flag", is_flag=True, help="禁用规则")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def automation_update(
+    obj,
+    rule_id,
+    name,
+    trigger_type,
+    action_type,
+    trigger_config,
+    action_config,
+    condition,
+    clear_condition,
+    enable_flag,
+    disable_flag,
+    as_json,
+):
+    """更新规则（含 CF condition / set_custom_field actionConfig）。"""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    payload: dict = {}
+    if name is not None:
+        payload["name"] = name
+    if trigger_type is not None:
+        payload["triggerType"] = trigger_type
+    if action_type is not None:
+        payload["actionType"] = action_type
+    try:
+        if trigger_config is not None:
+            payload["triggerConfig"] = json.loads(trigger_config or "{}")
+            payload["setTriggerConfig"] = True
+        if action_config is not None:
+            payload["actionConfig"] = json.loads(action_config or "{}")
+            payload["setActionConfig"] = True
+        if clear_condition:
+            payload["condition"] = None
+            payload["setCondition"] = True
+        elif condition is not None:
+            payload["condition"] = json.loads(condition)
+            payload["setCondition"] = True
+    except json.JSONDecodeError as e:
+        raise click.ClickException(f"JSON 无效: {e}") from e
+    if enable_flag and disable_flag:
+        raise click.ClickException("--enable 与 --disable 不能同时使用")
+    if enable_flag:
+        payload["enabled"] = True
+    elif disable_flag:
+        payload["enabled"] = False
+    if not payload:
+        raise click.ClickException("请至少提供一个更新字段")
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.update_automation(rule_id, payload))
+        if json_mode:
+            echo_json(True, data=data, message="updated")
+            return
+        obj.skin.success(f"已更新: {data.get('name') or rule_id} ({(data.get('id') or rule_id)[:8]})")
     except APIError as e:
         handle_api_error(e, json_mode)
 
