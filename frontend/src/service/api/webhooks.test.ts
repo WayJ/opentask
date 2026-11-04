@@ -16,5 +16,6 @@ describe('webhooks helpers', () => {
   it('WEBHOOK_EVENTS covers required set', () => {
     expect(WEBHOOK_EVENTS).toContain('issue.created');
     expect(WEBHOOK_EVENTS).toContain('comment.created');
+    expect(WEBHOOK_EVENTS).toContain('issue.custom_field_changed');
   });
 });

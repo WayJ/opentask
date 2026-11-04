@@ -17,6 +17,7 @@ import {
 import {
   type WebhookRow,
   WEBHOOK_EVENTS,
+  WEBHOOK_EVENT_LABELS,
   fetchCreateWebhook,
   fetchDeleteWebhook,
   fetchTestWebhook,
@@ -37,7 +38,7 @@ const form = reactive({
   events: [...WEBHOOK_EVENTS] as string[]
 });
 
-const eventOptions = WEBHOOK_EVENTS.map(e => ({ label: e, value: e }));
+const eventOptions = WEBHOOK_EVENTS.map(e => ({ label: WEBHOOK_EVENT_LABELS[e] || e, value: e }));
 
 const columns: DataTableColumns<WebhookRow> = [
   {

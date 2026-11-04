@@ -319,6 +319,16 @@ export const issueApi = {
     });
   },
 
+  /** E41：单 Issue timeline CSV */
+  exportTimelineCsv: (issueId: string, params?: Record<string, unknown>) => {
+    return downloadRequest<Blob>({
+      url: `/api/issues/${issueId}/timeline/export.csv`,
+      method: 'GET',
+      params,
+      responseType: 'blob'
+    });
+  },
+
   /**
    * 获取统计信息
    */

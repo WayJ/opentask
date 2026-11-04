@@ -44,6 +44,7 @@ import AttachmentList from '@/components/common/AttachmentList.vue';
 import EntityDocsPanel from '@/components/entity-docs/EntityDocsPanel.vue';
 import IssuePrPanel from '@/components/issue-vcs/IssuePrPanel.vue';
 import EditableField from '@/components/EditableField.vue';
+import { formatTimelineAction } from '@/utils/formatTimelineAction';
 import type { Api } from '@/typings/api';
 
 defineOptions({
@@ -267,6 +268,25 @@ async function loadTimeline() {
     timelineLoading.value = false;
   }
 }
+
+const timelineExportLoading = ref(false);
+async function exportTimelineCsv() {
+  if (!issueId.value) return;
+  timelineExportLoading.value = true;
+  try {
+    const blob = await issueApi.exportTimelineCsv(issueId.value);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const code = issue.value?.issue_code || issueId.value;
+    a.download = `issue-${code}-timeline.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } finally {
+    timelineExportLoading.value = false;
+  }
+}
+
 
 // Load attachments
 async function loadAttachments() {
@@ -1014,92 +1034,7 @@ function formatDateTime(dateStr: string): string {
   return new Date(dateStr).toLocaleString();
 }
 
-// Format timeline action text
-// 辅助函数：获取状态的中文标签
-function getStatusLabel(status: string) {
-  return statusOptions.find(s => s.value === status)?.label || status;
-}
-
-// 辅助函数：获取优先级的中文标签
-function getPriorityLabel(priority: string) {
-  return priorityOptions.find(p => p.value === priority)?.label || priority;
-}
-
-// 辅助函数：格式化用户信息
-function formatUserInfo(user: any) {
-  if (!user) return '未分配';
-  // 如果是对象（新格式）
-  if (typeof user === 'object') {
-    return user.sso_name || user.name || user.sso_account || user.id || '未分配';
-  }
-  // 如果是字符串（旧格式，用户ID）
-  return user;
-}
-
-// 辅助函数：格式化状态变更
-function formatStatusChange(actionData: any): string {
-  return `将状态从 "${getStatusLabel(actionData?.from || '')}" 改为 "${getStatusLabel(actionData?.to || '')}"`;
-}
-
-// 辅助函数：格式化负责人变更
-function formatAssignedChange(actionData: any): string {
-  return `将负责人从 "${formatUserInfo(actionData?.from)}" 改为 "${formatUserInfo(actionData?.to)}"`;
-}
-
-// 辅助函数：格式化优先级变更
-function formatPriorityChange(actionData: any): string {
-  return `将优先级从 "${getPriorityLabel(actionData?.from || '')}" 改为 "${getPriorityLabel(actionData?.to || '')}"`;
-}
-
-// 辅助函数：格式化反应动作
-function formatReactionAction(actionData: any, actionType: string): string {
-  const emoji = actionData?.emoji || '';
-  return actionType === 'reaction_added' ? `添加了反应 ${emoji}` : `移除了反应 ${emoji}`;
-}
-
-function formatTimelineAction(item: Api.Issue.IssueTimeline): string {
-  const { action_type, action_data } = item;
-
-  switch (action_type) {
-    case 'created':
-      return '创建了此 Issue';
-    case 'updated':
-      return '更新了 Issue';
-    case 'commented':
-      return '添加了评论';
-    case 'status_changed':
-      return formatStatusChange(action_data);
-    case 'assigned':
-      return formatAssignedChange(action_data);
-    case 'priority_changed':
-      return formatPriorityChange(action_data);
-    case 'due_date_changed':
-      return '修改了截止日期';
-    case 'relation_added':
-      return `添加了关联: ${action_data?.relation_type}`;
-    case 'relation_removed':
-      return '移除了关联';
-    case 'attachment_added':
-      return '添加了附件';
-    case 'attachment_removed':
-      return '移除了附件';
-    case 'label_added':
-      return '添加了标签';
-    case 'label_removed':
-      return '移除了标签';
-    case 'reaction_added':
-    case 'reaction_removed':
-      return formatReactionAction(action_data, action_type);
-    case 'resolved':
-      return '标记为已解决';
-    case 'closed':
-      return '关闭了此 Issue';
-    case 'reopened':
-      return '重新打开此 Issue';
-    default:
-      return action_type;
-  }
-}
+// Format timeline action text — see @/utils/formatTimelineAction (E41)
 
 // Go back to list
 function goBack() {
@@ -1393,8 +1328,17 @@ onUnmounted(() => {
 
           <!-- Comments & Timeline -->
           <div class="issue-activity">
-            <div class="section-header">
+            <div class="section-header" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
               <NText strong>活动 ({{ timeline.length }})</NText>
+              <NButton
+                size="tiny"
+                secondary
+                :loading="timelineExportLoading"
+                :disabled="!issueId"
+                @click="exportTimelineCsv"
+              >
+                导出 CSV
+              </NButton>
             </div>
 
             <!-- Combined Timeline (Comments + Activities) -->

@@ -66,7 +66,11 @@ export namespace Api.Issue {
     LABEL_REMOVED = 'label_removed',
     RESOLVED = 'resolved',
     CLOSED = 'closed',
-    REOPENED = 'reopened'
+    REOPENED = 'reopened',
+    CUSTOM_FIELD_CHANGED = 'custom_field_changed',
+    CYCLE_CHANGED = 'cycle_changed',
+    ESTIMATE_CHANGED = 'estimate_changed',
+    PROJECT_CHANGED = 'project_changed'
   }
 
   /** 用户信息 */
