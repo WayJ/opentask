@@ -3,7 +3,7 @@
 日期：2026-11-05（Asia/Shanghai）  
 分支：`sprint/E41-S1`  
 基线 design：`bf86c23`  
-tip：_(见本 commit)_  
+tip：`ac8cb67`  
 状态：**PASS（本地齐套；未 push）**
 
 ## 交付 A–D
