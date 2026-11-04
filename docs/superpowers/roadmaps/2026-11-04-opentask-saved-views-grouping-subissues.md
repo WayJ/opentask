@@ -31,7 +31,7 @@ date: 2026-11-04
 | sprint | state | note |
 |---|---|---|
 | S1 | closed | **个人 Saved Views**：模型 + API + Issue 列表工具栏保存/应用/收藏。evidence: `docs/superpowers/sprints/2026-11-04-E4-S1-plan.md` / `docs/superpowers/acceptances/2026-11-04-E4-S1-acceptance.md` |
-| S2 | planned | Issue 列表按属性分组泳道（assignee/priority/type）；可复用 `display_json.group_by`。 |
+| S2 | active | Issue 列表按属性分组泳道（assignee/priority/type/status）；客户端分组；`display_json.group_by`。evidence: `docs/superpowers/sprints/2026-11-04-E4-S2-plan.md` |
 | S3 | planned | 一等公民子 Issue：`parent_issue_id` + 嵌套列表；非 IssueRelation。 |
 
 推荐顺序理由：Saved Views 先固化筛选/排序配置契约，S2 分组与 S3 嵌套可挂在同一列表呈现层；个人作用域不阻塞后续共享视图另开 Epic。
@@ -73,7 +73,7 @@ date: 2026-11-04
 |---|---|---|---|
 | Q1 | Saved Views 是否工作区共享？ | closed | MVP 仅个人（D1） |
 | Q2 | 拆法？ | closed | 一 Epic E4，三 Sprint S1→S2→S3 |
-| Q3 | S2 groupBy 服务端还是客户端？ | deferred | S2 启动时定；可先客户端 |
+| Q3 | S2 groupBy 服务端还是客户端？ | closed | 客户端对 filteredIssues 分桶（E4-S2 D1） |
 
 ## Cross-cutting
 
@@ -142,3 +142,4 @@ date: 2026-11-04
 
 - 2026-11-04（UTC+8）：E4 启动；Way 拍板个人 Views + 三 Sprint；分支 `sprint/E4-S1`（基 E3-S3 tip `61d2f40`）；worktree `/workspace/opentask-worktrees/E4-S1`；不推远程。
 - 2026-11-04（UTC+8）：E4-S1 closed；acceptance `docs/superpowers/acceptances/2026-11-04-E4-S1-acceptance.md`；分支 `sprint/E4-S1` 未推远程。下一步 S2（列表分组泳道）。
+- 2026-11-04（UTC+8）：E4-S2 started；分支 `sprint/E4-S2`（基 E4-S1 tip `cf748eb`）；worktree `/workspace/opentask-worktrees/E4-S2`；客户端 groupBy；不推远程。
