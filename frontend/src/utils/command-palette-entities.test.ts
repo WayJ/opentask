@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { SavedView } from '@/service/api/saved-views';
 import {
   filterByNameQuery,
   issuesToPaletteItems,
@@ -7,7 +8,6 @@ import {
   resolveIssueSearchPlan,
   savedViewsToPaletteItems
 } from './command-palette-entities';
-import type { SavedView } from '@/service/api/saved-views';
 
 describe('looksLikeIssueCode', () => {
   it('matches CODE-123 and ISSUE2026-32', () => {
@@ -36,10 +36,7 @@ describe('resolveIssueSearchPlan', () => {
 describe('entity mappers', () => {
   it('maps issues with subtitle code and navigates detail', () => {
     const nav = vi.fn();
-    const items = issuesToPaletteItems(
-      [{ id: 'i1', title: 'Fix login', issue_code: 'OT-1' } as Api.Issue.Issue],
-      nav
-    );
+    const items = issuesToPaletteItems([{ id: 'i1', title: 'Fix login', issue_code: 'OT-1' } as Api.Issue.Issue], nav);
     expect(items[0]).toMatchObject({
       id: 'issue.i1',
       kind: 'issue',
@@ -58,10 +55,7 @@ describe('entity mappers', () => {
     projects[0].run();
     expect(nav).toHaveBeenCalledWith({ path: '/workflow/project-detail', query: { id: 'p1' } });
 
-    const views = savedViewsToPaletteItems(
-      [{ id: 'v1', name: 'My Open', isFavorite: true } as SavedView],
-      apply
-    );
+    const views = savedViewsToPaletteItems([{ id: 'v1', name: 'My Open', isFavorite: true } as SavedView], apply);
     expect(views[0].kind).toBe('saved_view');
     views[0].run();
     expect(apply).toHaveBeenCalledWith('v1');

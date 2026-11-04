@@ -716,7 +716,7 @@ watch(
   () => route.query.view,
   viewId => {
     if (typeof viewId === 'string' && viewId) {
-      void applySavedViewById(viewId);
+      applySavedViewById(viewId).catch(() => undefined);
     }
   }
 );

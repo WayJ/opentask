@@ -102,11 +102,7 @@ export function useCommandPalette() {
     activeIndex.value = clampActiveIndex(activeIndex.value, len);
   }
 
-  function setEntitySources(opts: {
-    issues: PaletteItem[];
-    projects: PaletteItem[];
-    savedViews: PaletteItem[];
-  }) {
+  function setEntitySources(opts: { issues: PaletteItem[]; projects: PaletteItem[]; savedViews: PaletteItem[] }) {
     issueSource.value = opts.issues;
     projectSource.value = opts.projects;
     viewSource.value = opts.savedViews;

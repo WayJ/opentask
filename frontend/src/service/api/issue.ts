@@ -9,7 +9,6 @@ function cleanParams(params: Record<string, any>): Record<string, any> {
   return Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== '' && v !== null && v !== undefined));
 }
 
-
 /** Build query params for issue detail; used by getIssue and unit-tested. */
 export function buildIssueDetailParams(opts?: { byCode?: boolean }): { by_code: true } | undefined {
   if (opts?.byCode) return { by_code: true };

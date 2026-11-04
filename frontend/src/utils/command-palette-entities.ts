@@ -65,9 +65,10 @@ export function mergeIssuesById(...lists: Api.Issue.Issue[][]): Api.Issue.Issue[
   const out: Api.Issue.Issue[] = [];
   for (const list of lists) {
     for (const issue of list) {
-      if (seen.has(issue.id)) continue;
-      seen.add(issue.id);
-      out.push(issue);
+      if (!seen.has(issue.id)) {
+        seen.add(issue.id);
+        out.push(issue);
+      }
     }
   }
   return out;

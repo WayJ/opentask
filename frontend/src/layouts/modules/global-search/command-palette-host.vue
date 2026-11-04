@@ -1,7 +1,10 @@
 <script lang="ts" setup>
 import { watch, watchEffect } from 'vue';
-import { useDebounceFn } from '@vueuse/core';
 import { useRouter } from 'vue-router';
+import { useDebounceFn } from '@vueuse/core';
+import { issueApi } from '@/service/api/issue';
+import { fetchProjectList } from '@/service/api/project';
+import { fetchSavedViews } from '@/service/api/saved-views';
 import { useRouteStore } from '@/store/modules/route';
 import { useAppHotkeys } from '@/composables/use-app-hotkeys';
 import { useCommandPalette } from '@/composables/use-command-palette';
@@ -14,9 +17,6 @@ import {
   resolveIssueSearchPlan,
   savedViewsToPaletteItems
 } from '@/utils/command-palette-entities';
-import { issueApi } from '@/service/api/issue';
-import { fetchProjectList } from '@/service/api/project';
-import { fetchSavedViews } from '@/service/api/saved-views';
 import { $t } from '@/locales';
 import SearchModal from './components/search-modal.vue';
 
@@ -65,7 +65,8 @@ let searchSeq = 0;
 
 async function runEntitySearch(rawQuery: string) {
   const q = rawQuery.trim();
-  const seq = ++searchSeq;
+  searchSeq += 1;
+  const seq = searchSeq;
   if (!q) {
     palette.setEntitySources({ issues: [], projects: [], savedViews: [] });
     palette.setEntityLoading(false);

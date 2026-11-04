@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { deriveListStateFromSavedView } from './apply-saved-view';
 import type { SavedView } from '@/service/api/saved-views';
+import { deriveListStateFromSavedView } from './apply-saved-view';
 
 describe('deriveListStateFromSavedView', () => {
   it('maps filter/tab/display', () => {
