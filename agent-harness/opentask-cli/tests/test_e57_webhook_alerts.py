@@ -1,17 +1,17 @@
-"""E57 CLI: webhook alerts|run-alert-eval + version 1.41.0."""
+"""E57 CLI: webhook alerts|run-alert-eval + version 1.42.0."""
 from click.testing import CliRunner
 
 from opentask import __version__
 from opentask.opentask_cli import VERSION, cli
 
 
-def test_version_1_41_0():
+def test_version_1_42_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.41.0" in result.output
-    assert VERSION == "1.41.0"
-    assert __version__ == "1.41.0"
+    assert "1.42.0" in result.output
+    assert VERSION == "1.42.0"
+    assert __version__ == "1.42.0"
 
 
 def test_webhook_alerts_group_help():

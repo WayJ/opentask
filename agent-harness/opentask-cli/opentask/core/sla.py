@@ -18,6 +18,7 @@ def sla_cli():
 示例: opentask sla policy create --name FR --start in_progress --metric first_response --minutes 60
 营业时: opentask sla business-hours show | set | exceptions list|add|remove（E53）
 日历覆盖: --calendar-json / --clear-calendar（E56）
+假日包: opentask sla holiday-packs list|show|preview|apply（E58）
 """
     pass
 
@@ -473,5 +474,124 @@ def exceptions_remove(obj, date_s, as_json):
             echo_json(True, data=updated, message="exception removed")
             return
         obj.skin.success(f"已删除例外 {date_s}")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@sla_cli.group(name="holiday-packs")
+def holiday_packs_cli():
+    """E58: 国家/地区假日包 list|show|preview|apply。"""
+
+
+@holiday_packs_cli.command(name="list")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def holiday_packs_list(obj, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.list_holiday_packs()) or {}
+        rows = data.get("rows") or []
+        if json_mode:
+            echo_json(True, data=data)
+            return
+        obj.skin.section(f"holiday packs ({len(rows)})")
+        for r in rows:
+            obj.skin.kv({
+                "Region": r.get("region"),
+                "Year": r.get("year"),
+                "Name": r.get("name"),
+                "Count": r.get("count"),
+                "Source": r.get("sourceNote"),
+            })
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@holiday_packs_cli.command(name="show")
+@click.option("--region", required=True)
+@click.option("--year", required=True, type=int)
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def holiday_packs_show(obj, region, year, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.get_holiday_pack(region, year)) or {}
+        if json_mode:
+            echo_json(True, data=data)
+            return
+        obj.skin.section(f"{data.get('region')} {data.get('year')} · {data.get('name')}")
+        obj.skin.hint(data.get("sourceNote") or "")
+        for h in data.get("holidays") or []:
+            obj.skin.kv({"Date": h.get("date"), "Kind": h.get("kind"), "Label": h.get("label") or "—"})
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@holiday_packs_cli.command(name="preview")
+@click.option("--region", required=True)
+@click.option("--year", required=True, type=int)
+@click.option("--policy-id", default=None, help="apply to policy calendar instead of WS")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def holiday_packs_preview(obj, region, year, policy_id, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    target = "policy" if policy_id else "workspace"
+    try:
+        data = asyncio.run(
+            client.preview_holiday_pack(region, year, target=target, policy_id=policy_id)
+        ) or {}
+        if json_mode:
+            echo_json(True, data=data)
+            return
+        obj.skin.section(f"preview {region} {year} → {target}")
+        obj.skin.kv({
+            "Added": len(data.get("added") or []),
+            "Replaced": len(data.get("replaced") or []),
+            "Unchanged": len(data.get("unchanged") or []),
+            "Before→After": f"{data.get('countBefore')} → {data.get('countAfter')}",
+        })
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@holiday_packs_cli.command(name="apply")
+@click.option("--region", required=True)
+@click.option("--year", required=True, type=int)
+@click.option("--policy-id", default=None, help="apply to policy calendar instead of WS")
+@click.option("--yes", is_flag=True, help="skip confirmation")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def holiday_packs_apply(obj, region, year, policy_id, yes, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    target = "policy" if policy_id else "workspace"
+    if not yes and not json_mode:
+        if not click.confirm(f"Apply {region} {year} to {target}?", default=False):
+            raise SystemExit(1)
+    try:
+        data = asyncio.run(
+            client.apply_holiday_pack(region, year, target=target, policy_id=policy_id)
+        ) or {}
+        if json_mode:
+            echo_json(True, data=data, message="holiday pack applied")
+            return
+        obj.skin.success(
+            f"已应用 {region} {year}：+{len(data.get('added') or [])} 覆盖{len(data.get('replaced') or [])}"
+        )
     except APIError as e:
         handle_api_error(e, json_mode)

@@ -1169,6 +1169,28 @@ class OpenTaskClient:
     async def run_due_sla(self) -> dict:
         return await self.post("/api/sla/run-due")
 
+    async def list_holiday_packs(self) -> dict:
+        return await self.get("/api/sla/holiday-packs")
+
+    async def get_holiday_pack(self, region: str, year: int) -> dict:
+        return await self.get(f"/api/sla/holiday-packs/{region}/{year}")
+
+    async def preview_holiday_pack(
+        self, region: str, year: int, *, target: str = "workspace", policy_id: str | None = None
+    ) -> dict:
+        body: dict = {"target": target}
+        if policy_id:
+            body["policyId"] = policy_id
+        return await self.post(f"/api/sla/holiday-packs/{region}/{year}/preview", data=body)
+
+    async def apply_holiday_pack(
+        self, region: str, year: int, *, target: str = "workspace", policy_id: str | None = None
+    ) -> dict:
+        body: dict = {"target": target}
+        if policy_id:
+            body["policyId"] = policy_id
+        return await self.post(f"/api/sla/holiday-packs/{region}/{year}/apply", data=body)
+
     # ============================================================================
     # Entity Documents API
     # ============================================================================

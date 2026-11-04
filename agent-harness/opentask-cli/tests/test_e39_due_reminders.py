@@ -1,4 +1,4 @@
-"""E39 CLI: notif run-due-reminders + prefs due_reminder keys + version 1.41.0."""
+"""E39 CLI: notif run-due-reminders + prefs due_reminder keys + version 1.42.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli
@@ -8,7 +8,7 @@ def test_version_1_23_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.41.0" in result.output
+    assert "1.42.0" in result.output
 
 
 def test_run_due_reminders_help():
