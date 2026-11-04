@@ -48,6 +48,8 @@ class IssueBase(BaseModel):
     estimated_hours: Optional[float] = Field(None, ge=0, description="预估工时")
     actual_hours: Optional[float] = Field(None, ge=0, description="实际工时")
     parent_issue_id: Optional[str] = Field(None, description="父 Issue ID（一等公民子 Issue）")
+    cycle_id: Optional[str] = Field(None, description="所属 Cycle ID")
+    estimate_points: Optional[float] = Field(None, ge=0, description="故事点估算（可选）")
 
 
 class IssueCreate(IssueBase):
@@ -72,6 +74,8 @@ class IssueUpdate(BaseModel):
     estimated_hours: Optional[float] = None
     actual_hours: Optional[float] = None
     parent_issue_id: Optional[str] = None
+    cycle_id: Optional[str] = None
+    estimate_points: Optional[float] = None
 
 
 class ProjectInfo(BaseModel):
@@ -254,6 +258,10 @@ class IssueQueryParams(BaseModel):
     assignee_id: Optional[str] = Field(None, description="负责人 ID")
     reporter_id: Optional[str] = Field(None, description="报告人 ID")
     search: Optional[str] = Field(None, description="搜索关键词")
+    cycle_id: Optional[str] = Field(
+        None,
+        description="Cycle ID 筛选；传 __none__ 表示无 Cycle",
+    )
     sort_by: str = Field("created_at", description="排序字段")
     sort_order: str = Field("desc", pattern="^(asc|desc)$", description="排序方向")
 

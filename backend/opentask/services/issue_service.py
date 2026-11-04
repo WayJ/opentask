@@ -28,6 +28,7 @@ from opentask.models.issue.enums import (
     TimelineAction,
     RelationType,
 )
+from opentask.models.cycle.model import Cycle
 from opentask.services.user_center.rbac_service import RbacService
 from opentask.services.notification.service import NotificationService
 
@@ -117,6 +118,11 @@ class IssueService:
             query = query.where(Issue.assignee_id == params.assignee_id)
         if params.reporter_id:
             query = query.where(Issue.reporter_id == params.reporter_id)
+        if params.cycle_id:
+            if params.cycle_id == "__none__":
+                query = query.where(Issue.cycle_id.is_(None))
+            else:
+                query = query.where(Issue.cycle_id == params.cycle_id)
         if params.search:
             search_pattern = f"%{params.search}%"
             query = query.where(
@@ -293,6 +299,23 @@ class IssueService:
                     break
                 cursor = await self.get_issue(cursor.parent_issue_id)
 
+
+    async def _validate_cycle_id(
+        self,
+        *,
+        cycle_id: str | None,
+        workspace_id: str | None,
+    ) -> None:
+        """校验 Cycle：存在且属于同一工作区。"""
+        if cycle_id is None:
+            return
+        result = await self.db.execute(select(Cycle).where(Cycle.id == cycle_id))
+        cycle = result.scalar_one_or_none()
+        if not cycle:
+            raise ValueError("Cycle 不存在")
+        if workspace_id is None or cycle.workspace_id != workspace_id:
+            raise ValueError("Cycle 必须属于同一工作区")
+
     async def create_issue(
         self,
         data: IssueCreate,
@@ -312,6 +335,10 @@ class IssueService:
         await self._validate_parent_issue_id(
             issue_id=None,
             parent_issue_id=issue_data.get("parent_issue_id"),
+            workspace_id=workspace_id,
+        )
+        await self._validate_cycle_id(
+            cycle_id=issue_data.get("cycle_id"),
             workspace_id=workspace_id,
         )
         issue_data["created_by"] = user_id
@@ -360,6 +387,15 @@ class IssueService:
             await self._validate_parent_issue_id(
                 issue_id=issue_id,
                 parent_issue_id=update_data.get("parent_issue_id"),
+                workspace_id=existing.workspace_id,
+            )
+
+        if "cycle_id" in update_data:
+            existing = await self.get_issue(issue_id)
+            if not existing:
+                return None
+            await self._validate_cycle_id(
+                cycle_id=update_data.get("cycle_id"),
                 workspace_id=existing.workspace_id,
             )
 

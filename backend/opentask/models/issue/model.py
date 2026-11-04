@@ -170,6 +170,20 @@ class Issue(DBModel):
         comment="实际工时"
     )
 
+    # Cycle 归属（E6-S2）
+    cycle_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("cycles.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="所属 Cycle ID",
+    )
+    estimate_points: Mapped[Optional[float]] = mapped_column(
+        Numeric(8, 2),
+        nullable=True,
+        comment="故事点估算（可选）",
+    )
+
     # 软删除
     is_deleted: Mapped[bool] = mapped_column(
         Boolean,
@@ -286,6 +300,7 @@ class Issue(DBModel):
         Index("idx_issues_project_status", "project_id", "status"),
         Index("idx_issues_assignee_status", "assignee_id", "status"),
         Index("idx_issues_parent", "parent_issue_id"),
+        Index("idx_issues_cycle", "cycle_id"),
     )
 
 
