@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { h, onMounted, reactive, ref } from 'vue';
+import { computed, h, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { NButton, NPopconfirm, NSpace, NTag, NText } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
@@ -8,12 +8,29 @@ import {
   createRepoConfig,
   deleteProjectMilestone,
   deleteRepoConfig,
+  fetchProjectHealth,
   fetchProjectMilestones,
   fetchProjectRepos,
+  fetchProjectTimeline,
+  fetchProjectWatchers,
+  postProjectHealth,
+  unwatchProject,
   updateProjectMilestone,
-  updateRepoConfig
+  updateRepoConfig,
+  watchProject
 } from '@/service/api';
+import { useAuthStore } from '@/store/modules/auth';
 import { useProjectStore } from '@/store/modules/project';
+import {
+  HEALTH_LABELS,
+  HEALTH_TAG_TYPE,
+  type HealthStatus,
+  type TimelineZoom,
+  computeTimelineRange,
+  isTimelineEmpty,
+  offsetDays,
+  timelineDayWidth
+} from '@/utils/project-timeline';
 
 defineOptions({
   name: 'ProjectDetail'
@@ -58,7 +75,80 @@ const repoFormData = reactive({
   main_branch: 'main'
 });
 
+const authStore = useAuthStore();
+const currentUserId = computed(() => authStore.userInfo?.userId || '');
+
+const healthHistory = ref<Api.Project.HealthUpdate[]>([]);
+const healthLoading = ref(false);
+const showHealthModal = ref(false);
+const healthForm = reactive({
+  status: 'on_track' as string,
+  note: ''
+});
+const watching = ref(false);
+const watchLoading = ref(false);
+
+const timelineZoom = ref<TimelineZoom>('week');
+const timelineData = ref<Api.Project.TimelineData | null>(null);
+const timelineLoading = ref(false);
+
 const projectId = (route.query.id as string) || '';
+
+const healthStatusOptions = [
+  { label: HEALTH_LABELS.on_track, value: 'on_track' },
+  { label: HEALTH_LABELS.at_risk, value: 'at_risk' },
+  { label: HEALTH_LABELS.off_track, value: 'off_track' }
+];
+
+const healthBadgeType = computed(() => {
+  const s = project.value?.health_status as HealthStatus | undefined;
+  if (!s || !(s in HEALTH_TAG_TYPE)) return 'default' as const;
+  return HEALTH_TAG_TYPE[s as HealthStatus];
+});
+
+const healthBadgeLabel = computed(() => {
+  const s = project.value?.health_status as HealthStatus | undefined;
+  if (!s) return '未设置健康状态';
+  return HEALTH_LABELS[s as HealthStatus] || s;
+});
+
+const timelineEmpty = computed(() => {
+  if (!timelineData.value) return true;
+  return isTimelineEmpty(timelineData.value.project, timelineData.value.milestones, timelineData.value.issues);
+});
+
+const timelineRange = computed(() => {
+  if (!timelineData.value) return null;
+  return computeTimelineRange(timelineData.value.project, {
+    milestones: timelineData.value.milestones,
+    issues: timelineData.value.issues
+  });
+});
+
+const dayW = computed(() => timelineDayWidth(timelineZoom.value));
+
+const timelineWidth = computed(() => {
+  const range = timelineRange.value;
+  if (!range) return 600;
+  return Math.max(600, (offsetDays(range.start, range.end) + 1) * dayW.value);
+});
+
+function leftFor(dateStr: string | null | undefined): number {
+  const range = timelineRange.value;
+  if (!range || !dateStr) return 0;
+  const d = new Date(dateStr);
+  return offsetDays(range.start, d) * dayW.value;
+}
+
+function barStyle(start: string | null | undefined, end: string | null | undefined) {
+  const range = timelineRange.value;
+  if (!range) return { left: '0px', width: '0px' };
+  const s = start ? new Date(start) : range.start;
+  const e = end ? new Date(end) : range.end;
+  const left = offsetDays(range.start, s) * dayW.value;
+  const width = Math.max(dayW.value, (offsetDays(s, e) + 1) * dayW.value);
+  return { left: `${left}px`, width: `${width}px` };
+}
 
 function toDateInput(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -103,6 +193,81 @@ async function loadMilestones() {
     window.$message?.error('加载里程碑失败');
   } finally {
     milestoneLoading.value = false;
+  }
+}
+
+async function loadHealth() {
+  healthLoading.value = true;
+  try {
+    const response = await fetchProjectHealth(projectId, true);
+    healthHistory.value = response.data?.history || [];
+  } catch {
+    healthHistory.value = [];
+  } finally {
+    healthLoading.value = false;
+  }
+}
+
+async function loadWatchers() {
+  try {
+    const response = await fetchProjectWatchers(projectId);
+    const rows = response.data || [];
+    watching.value = rows.some(r => r.user_id === currentUserId.value);
+  } catch {
+    watching.value = false;
+  }
+}
+
+async function loadTimeline() {
+  timelineLoading.value = true;
+  try {
+    const response = await fetchProjectTimeline(projectId);
+    timelineData.value = response.data || null;
+  } catch {
+    timelineData.value = null;
+    window.$message?.error('加载 Timeline 失败');
+  } finally {
+    timelineLoading.value = false;
+  }
+}
+
+function openHealthModal() {
+  healthForm.status = project.value?.health_status || 'on_track';
+  healthForm.note = project.value?.health_note || '';
+  showHealthModal.value = true;
+}
+
+async function handlePostHealth() {
+  try {
+    await postProjectHealth(projectId, {
+      status: healthForm.status,
+      note: healthForm.note || null
+    });
+    showHealthModal.value = false;
+    await loadProject();
+    await loadHealth();
+    window.$message?.success('健康状态已更新');
+  } catch {
+    window.$message?.error('更新健康状态失败');
+  }
+}
+
+async function toggleWatch() {
+  watchLoading.value = true;
+  try {
+    if (watching.value) {
+      await unwatchProject(projectId);
+      watching.value = false;
+      window.$message?.success('已取消关注');
+    } else {
+      await watchProject(projectId);
+      watching.value = true;
+      window.$message?.success('已关注项目');
+    }
+  } catch {
+    window.$message?.error('操作失败');
+  } finally {
+    watchLoading.value = false;
   }
 }
 
@@ -377,6 +542,9 @@ onMounted(() => {
   loadProject();
   loadRepos();
   loadMilestones();
+  loadHealth();
+  loadWatchers();
+  loadTimeline();
 });
 </script>
 
@@ -397,8 +565,16 @@ onMounted(() => {
               <NText strong style="font-size: 20px">{{ project.name }}</NText>
               <NTag v-if="project.is_active" type="success" size="small">活跃</NTag>
               <NTag v-else type="default" size="small">已归档</NTag>
+              <NTag :type="healthBadgeType" size="small">{{ healthBadgeLabel }}</NTag>
+              <NText v-if="project.health_note" depth="3" style="max-width: 280px" class="truncate">
+                {{ project.health_note }}
+              </NText>
             </NSpace>
             <NSpace>
+              <NButton :loading="watchLoading" @click="toggleWatch">
+                {{ watching ? '取消关注' : '关注' }}
+              </NButton>
+              <NButton @click="openHealthModal">更新健康</NButton>
               <NButton @click="openEditProjectModal">
                 <template #icon>
                   <icon-mdi-pencil />
@@ -413,6 +589,23 @@ onMounted(() => {
         <NCard title="项目描述" :bordered="false" class="mt-4">
           <NText v-if="project.description">{{ project.description }}</NText>
           <NText v-else depth="3">暂无描述</NText>
+        </NCard>
+
+        <NCard title="健康历史" :bordered="false" class="mt-4">
+          <NSpin :show="healthLoading">
+            <NEmpty v-if="!healthLoading && healthHistory.length === 0" description="暂无健康更新" size="small" />
+            <NTimeline v-else>
+              <NTimelineItem
+                v-for="row in healthHistory"
+                :key="row.id"
+                :type="(HEALTH_TAG_TYPE[row.status as HealthStatus] as any) || 'default'"
+                :title="HEALTH_LABELS[row.status as HealthStatus] || row.status"
+                :time="row.created_at ? new Date(row.created_at).toLocaleString() : ''"
+              >
+                {{ row.note || '—' }}
+              </NTimelineItem>
+            </NTimeline>
+          </NSpin>
         </NCard>
 
         <!-- Milestones (E8-S1) -->
@@ -466,6 +659,68 @@ onMounted(() => {
               striped
               size="small"
             />
+          </NSpin>
+        </NCard>
+
+        <!-- Timeline (E8-S2) -->
+        <NCard :bordered="false" class="mt-4">
+          <template #header>
+            <NSpace align="center" justify="space-between" style="width: 100%">
+              <NText strong>Timeline</NText>
+              <NRadioGroup v-model:value="timelineZoom" size="small">
+                <NRadioButton value="week">周</NRadioButton>
+                <NRadioButton value="month">月</NRadioButton>
+              </NRadioGroup>
+            </NSpace>
+          </template>
+          <NSpin :show="timelineLoading">
+            <div v-if="timelineEmpty" class="py-24px">
+              <NEmpty description="设置项目日期或添加里程碑后即可查看 Timeline">
+                <template #extra>
+                  <NSpace>
+                    <NButton size="small" @click="openEditProjectModal">设置项目日期</NButton>
+                    <NButton size="small" type="primary" @click="openCreateMilestoneModal">添加里程碑</NButton>
+                  </NSpace>
+                </template>
+              </NEmpty>
+            </div>
+            <div v-else class="timeline-scroll">
+              <div class="timeline-canvas" :style="{ width: timelineWidth + 'px' }">
+                <div v-if="timelineData?.project" class="timeline-row">
+                  <div class="timeline-label">项目</div>
+                  <div class="timeline-track">
+                    <div
+                      class="timeline-bar project-bar"
+                      :style="barStyle(timelineData.project.starts_at, timelineData.project.target_date)"
+                    >
+                      {{ timelineData.project.name }}
+                    </div>
+                  </div>
+                </div>
+                <div v-for="m in timelineData?.milestones || []" :key="m.id" class="timeline-row">
+                  <div class="timeline-label">{{ m.name }}</div>
+                  <div class="timeline-track">
+                    <div
+                      v-if="m.target_date"
+                      class="timeline-diamond"
+                      :style="{ left: leftFor(m.target_date) + 'px' }"
+                      :title="m.name"
+                    />
+                    <NText v-else depth="3" style="font-size: 12px">无目标日期</NText>
+                  </div>
+                </div>
+                <div v-for="issue in timelineData?.issues || []" :key="issue.id" class="timeline-row">
+                  <div class="timeline-label">{{ issue.issue_code || issue.title }}</div>
+                  <div class="timeline-track">
+                    <div
+                      class="timeline-dot"
+                      :style="{ left: leftFor(issue.due_date) + 'px' }"
+                      :title="issue.title"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
           </NSpin>
         </NCard>
 
@@ -604,6 +859,25 @@ onMounted(() => {
         </NSpace>
       </template>
     </NModal>
+
+    <!-- Health Update Modal (E8-S2) -->
+    <NModal v-model:show="showHealthModal" preset="card" title="更新项目健康" style="width: 520px">
+      <NForm label-placement="left" label-width="100px">
+        <NFormItem label="状态" required>
+          <NSelect v-model:value="healthForm.status" :options="healthStatusOptions" />
+        </NFormItem>
+        <NFormItem label="说明">
+          <NInput v-model:value="healthForm.note" type="textarea" :rows="3" placeholder="可选说明" />
+        </NFormItem>
+      </NForm>
+      <template #footer>
+        <NSpace justify="end">
+          <NButton @click="showHealthModal = false">取消</NButton>
+          <NButton type="primary" @click="handlePostHealth">保存</NButton>
+        </NSpace>
+      </template>
+    </NModal>
+
   </div>
 </template>
 
@@ -618,5 +892,81 @@ onMounted(() => {
 
 .mt-4 {
   margin-top: 16px;
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-scroll {
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.timeline-canvas {
+  min-height: 120px;
+}
+
+.timeline-row {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  margin-bottom: 8px;
+}
+
+.timeline-label {
+  width: 140px;
+  flex-shrink: 0;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 8px;
+}
+
+.timeline-track {
+  position: relative;
+  flex: 1;
+  height: 28px;
+  background: rgba(128, 128, 128, 0.08);
+  border-radius: 4px;
+}
+
+.timeline-bar {
+  position: absolute;
+  top: 4px;
+  height: 20px;
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 20px;
+  padding: 0 8px;
+  color: #fff;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.project-bar {
+  background: #2080f0;
+}
+
+.timeline-diamond {
+  position: absolute;
+  top: 6px;
+  width: 14px;
+  height: 14px;
+  background: #f0a020;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.timeline-dot {
+  position: absolute;
+  top: 8px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #18a058;
+  transform: translateX(-50%);
 }
 </style>

@@ -15,7 +15,8 @@ const total = ref(0);
 const typeLabel: Record<string, string> = {
   assigned: '指派',
   commented: '评论',
-  mentioned: '提及'
+  mentioned: '提及',
+  project_health: '项目健康'
 };
 
 const empty = computed(() => !loading.value && rows.value.length === 0);
@@ -42,6 +43,8 @@ async function onClickRow(row: InboxNotification) {
   }
   if (row.resourceType === 'issue' && row.resourceId) {
     router.push({ name: 'issue_detail', query: { id: row.resourceId } });
+  } else if (row.resourceType === 'project' && row.resourceId) {
+    router.push({ path: '/workflow/project-detail', query: { id: row.resourceId } });
   }
 }
 

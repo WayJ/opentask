@@ -128,6 +128,55 @@ export function deleteProjectMilestone(projectId: string, milestoneId: string) {
  * import { projectApi } from '@/service/api/project';
  * const projects = await projectApi.getList();
  */
+
+/**
+ * Health / Watchers / Timeline (E8-S2)
+ */
+
+export function fetchProjectHealth(projectId: string, history = false) {
+  return request<Api.Project.HealthPayload>({
+    url: `/api/projects/${projectId}/health`,
+    method: 'get',
+    params: history ? { history: 1 } : undefined
+  });
+}
+
+export function postProjectHealth(projectId: string, data: { status: string; note?: string | null }) {
+  return request<Api.Project.HealthUpdate>({
+    url: `/api/projects/${projectId}/health`,
+    method: 'post',
+    data
+  });
+}
+
+export function fetchProjectWatchers(projectId: string) {
+  return request<Api.Project.ProjectWatcher[]>({
+    url: `/api/projects/${projectId}/watchers`,
+    method: 'get'
+  });
+}
+
+export function watchProject(projectId: string) {
+  return request<Api.Project.ProjectWatcher>({
+    url: `/api/projects/${projectId}/watchers`,
+    method: 'post'
+  });
+}
+
+export function unwatchProject(projectId: string) {
+  return request({
+    url: `/api/projects/${projectId}/watchers`,
+    method: 'delete'
+  });
+}
+
+export function fetchProjectTimeline(projectId: string) {
+  return request<Api.Project.TimelineData>({
+    url: `/api/projects/${projectId}/timeline`,
+    method: 'get'
+  });
+}
+
 export const projectApi = {
   getList: fetchProjectList,
   getDetail: fetchProjectDetail,
@@ -141,5 +190,11 @@ export const projectApi = {
   getMilestones: fetchProjectMilestones,
   createMilestone: createProjectMilestone,
   updateMilestone: updateProjectMilestone,
-  deleteMilestone: deleteProjectMilestone
+  deleteMilestone: deleteProjectMilestone,
+  getHealth: fetchProjectHealth,
+  postHealth: postProjectHealth,
+  getWatchers: fetchProjectWatchers,
+  watch: watchProject,
+  unwatch: unwatchProject,
+  getTimeline: fetchProjectTimeline
 };
