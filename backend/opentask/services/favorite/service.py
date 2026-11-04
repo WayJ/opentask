@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opentask.models.favorite.model import TARGET_TYPES, Favorite
+from opentask.models.initiative.model import Initiative
 from opentask.models.issue.model import Issue
 from opentask.models.issue_saved_view.model import IssueSavedView
 from opentask.models.requirement.model import Project
@@ -70,6 +71,25 @@ class FavoriteService:
                 "type": "issue",
                 "name": issue.title,
                 "code": issue.issue_code,
+            }
+
+        if target_type == "initiative":
+            result = await self.db.execute(
+                select(Initiative).where(
+                    Initiative.id == target_id,
+                    Initiative.workspace_id == workspace_id,
+                )
+            )
+            ini = result.scalar_one_or_none()
+            if not ini:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail="Initiative 不存在"
+                )
+            return {
+                "id": ini.id,
+                "type": "initiative",
+                "name": ini.name,
+                "code": None,
             }
 
         # saved_view — must be in workspace and accessible (own or shared)

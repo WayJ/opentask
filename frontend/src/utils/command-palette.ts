@@ -32,6 +32,7 @@ export function buildNavActions(
     projects: string;
     inbox: string;
     triage?: string;
+    initiatives?: string;
     cycles?: string;
     labels?: string;
     issueTemplates?: string;
@@ -74,6 +75,15 @@ export function buildNavActions(
       title: titles.triage,
       keywords: ['triage', '分诊', '入站'],
       run: () => navigate('/triage')
+    });
+  }
+  if (titles.initiatives) {
+    items.push({
+      id: 'nav.initiatives',
+      kind: 'action',
+      title: titles.initiatives,
+      keywords: ['initiatives', 'initiative', '战略', '目标'],
+      run: () => navigate('/initiatives')
     });
   }
   if (titles.cycles) {

@@ -67,6 +67,21 @@ describe('buildNavActions + groups', () => {
     expect(filtered[0].items.map(i => i.id)).toEqual(['nav.inbox']);
   });
 
+  it('includes initiatives nav when titled', () => {
+    const nav = vi.fn();
+    const actions = buildNavActions(nav, {
+      issues: 'Issues',
+      createIssue: 'Create Issue',
+      projects: 'Projects',
+      inbox: 'Inbox',
+      initiatives: 'Initiatives'
+    });
+    const item = actions.find(a => a.id === 'nav.initiatives');
+    expect(item).toBeTruthy();
+    item!.run();
+    expect(nav).toHaveBeenCalledWith('/initiatives');
+  });
+
   it('includes create-from-template action when titled', () => {
     const nav = vi.fn();
     const actions = buildNavActions(nav, {

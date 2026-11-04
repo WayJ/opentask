@@ -38,6 +38,7 @@ async function load() {
 function iconFor(type: string): string {
   if (type === 'project') return '📁';
   if (type === 'saved_view') return '🔖';
+  if (type === 'initiative') return '🚩';
   if (type === 'issue') return '🎫';
   return '★';
 }

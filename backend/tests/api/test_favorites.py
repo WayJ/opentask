@@ -304,3 +304,34 @@ async def test_favorites_require_workspace_header(test_client: AsyncClient):
         headers=_auth(user["token"]),  # no X-Workspace-Id
     )
     assert resp.status_code in (400, 422)
+
+
+@pytest.mark.asyncio
+async def test_pin_initiative(test_client: AsyncClient):
+    """E10-S2: Favorites target_type=initiative"""
+    user = await _register(test_client, "fav_ini")
+    h = _auth(user["token"], user["workspaceId"])
+    created = await test_client.post(
+        "/api/initiatives",
+        headers=h,
+        json={"name": "钉住战略"},
+    )
+    assert created.status_code == 200, created.text
+    iid = created.json()["data"]["id"]
+
+    pinned = await test_client.post(
+        "/api/favorites",
+        headers=h,
+        json={"target_type": "initiative", "target_id": iid},
+    )
+    assert pinned.status_code == 200, pinned.text
+    row = pinned.json()["data"]
+    assert row["targetType"] == "initiative"
+    assert row["targetId"] == iid
+    assert row["target"]["type"] == "initiative"
+    assert row["target"]["name"] == "钉住战略"
+
+    listed = await test_client.get("/api/favorites", headers=h)
+    assert listed.status_code == 200
+    types = {r["targetType"] for r in listed.json()["data"]["rows"]}
+    assert "initiative" in types

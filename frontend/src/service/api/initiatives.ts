@@ -2,6 +2,18 @@ import { request } from '../request';
 
 export type InitiativeStatus = 'planned' | 'active' | 'completed' | 'canceled';
 
+export interface InitiativeHealthSummary {
+  overall: 'on_track' | 'at_risk' | 'off_track' | null;
+  counts: { onTrack: number; atRisk: number; offTrack: number; unknown: number };
+  projectCount: number;
+}
+
+export interface InitiativeProjectRef {
+  id: string;
+  name: string | null;
+  healthStatus: 'on_track' | 'at_risk' | 'off_track' | null;
+}
+
 export interface InitiativeRow {
   id: string;
   workspaceId: string;
@@ -12,6 +24,8 @@ export interface InitiativeRow {
   ownerUserId?: string | null;
   sortOrder: number;
   projectIds: string[];
+  healthSummary?: InitiativeHealthSummary;
+  projects?: InitiativeProjectRef[];
   createdBy?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;

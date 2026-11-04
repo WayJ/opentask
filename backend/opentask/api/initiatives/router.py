@@ -13,11 +13,7 @@ from opentask.models.initiative.model import INITIATIVE_STATUSES
 from opentask.models.user.model import UserModel
 from opentask.models.workspace.model import Workspace, WorkspaceMember
 from opentask.repositories.base import get_session
-from opentask.services.initiative.service import (
-    InitiativeService,
-    require_writer,
-    serialize_initiative,
-)
+from opentask.services.initiative.service import InitiativeService, require_writer
 from opentask.utils.response import success_response
 
 router = APIRouter(prefix="/api/initiatives", tags=["Initiatives"])
@@ -69,13 +65,10 @@ async def list_initiatives(
     session: AsyncSession = Depends(get_session),
 ):
     ws, _member, _user = ctx
-    rows = await InitiativeService(session).list(workspace_id=ws.id)
-    return success_response(
-        data={
-            "rows": [serialize_initiative(r, pids) for r, pids in rows],
-            "total": len(rows),
-        }
-    )
+    svc = InitiativeService(session)
+    rows = await svc.list(workspace_id=ws.id)
+    payload = [await svc.to_response(r, pids) for r, pids in rows]
+    return success_response(data={"rows": payload, "total": len(payload)})
 
 
 @router.post("")
@@ -86,7 +79,8 @@ async def create_initiative(
 ):
     ws, member, user = ctx
     require_writer(member)
-    row, pids = await InitiativeService(session).create(
+    svc = InitiativeService(session)
+    row, pids = await svc.create(
         workspace_id=ws.id,
         user_id=str(user.id),
         name=body.name,
@@ -97,7 +91,7 @@ async def create_initiative(
         sort_order=body.sortOrder,
         project_ids=body.projectIds,
     )
-    return success_response(data=serialize_initiative(row, pids), message="已创建")
+    return success_response(data=await svc.to_response(row, pids), message="已创建")
 
 
 @router.get("/{initiative_id}")
@@ -109,8 +103,7 @@ async def get_initiative(
     ws, _member, _user = ctx
     svc = InitiativeService(session)
     row = await svc.get(workspace_id=ws.id, initiative_id=initiative_id)
-    pids = await svc._project_ids_for(row.id)
-    return success_response(data=serialize_initiative(row, pids))
+    return success_response(data=await svc.to_response(row, include_projects=True))
 
 
 @router.patch("/{initiative_id}")
@@ -122,7 +115,8 @@ async def update_initiative(
 ):
     ws, member, _user = ctx
     require_writer(member)
-    row, pids = await InitiativeService(session).update(
+    svc = InitiativeService(session)
+    row, pids = await svc.update(
         workspace_id=ws.id,
         initiative_id=initiative_id,
         name=body.name,
@@ -135,7 +129,7 @@ async def update_initiative(
         sort_order=body.sortOrder,
         project_ids=body.projectIds,
     )
-    return success_response(data=serialize_initiative(row, pids), message="已更新")
+    return success_response(data=await svc.to_response(row, pids, include_projects=True), message="已更新")
 
 
 @router.delete("/{initiative_id}")
@@ -159,12 +153,13 @@ async def set_projects(
 ):
     ws, member, _user = ctx
     require_writer(member)
-    row, pids = await InitiativeService(session).set_projects(
+    svc = InitiativeService(session)
+    row, pids = await svc.set_projects(
         workspace_id=ws.id,
         initiative_id=initiative_id,
         project_ids=body.projectIds,
     )
-    return success_response(data=serialize_initiative(row, pids), message="已更新关联项目")
+    return success_response(data=await svc.to_response(row, pids, include_projects=True), message="已更新关联项目")
 
 
 @router.post("/{initiative_id}/projects/{project_id}")
@@ -176,12 +171,13 @@ async def attach_project(
 ):
     ws, member, _user = ctx
     require_writer(member)
-    row, pids = await InitiativeService(session).attach_project(
+    svc = InitiativeService(session)
+    row, pids = await svc.attach_project(
         workspace_id=ws.id,
         initiative_id=initiative_id,
         project_id=project_id,
     )
-    return success_response(data=serialize_initiative(row, pids), message="已关联项目")
+    return success_response(data=await svc.to_response(row, pids, include_projects=True), message="已关联项目")
 
 
 @router.delete("/{initiative_id}/projects/{project_id}")
@@ -193,9 +189,10 @@ async def detach_project(
 ):
     ws, member, _user = ctx
     require_writer(member)
-    row, pids = await InitiativeService(session).detach_project(
+    svc = InitiativeService(session)
+    row, pids = await svc.detach_project(
         workspace_id=ws.id,
         initiative_id=initiative_id,
         project_id=project_id,
     )
-    return success_response(data=serialize_initiative(row, pids), message="已解除关联")
+    return success_response(data=await svc.to_response(row, pids, include_projects=True), message="已解除关联")

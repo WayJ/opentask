@@ -56,6 +56,7 @@ watchEffect(() => {
     projects: $t('common.commandPalette.navProjects'),
     inbox: $t('common.commandPalette.navInbox'),
     triage: $t('common.commandPalette.navTriage'),
+    initiatives: $t('common.commandPalette.navInitiatives'),
     cycles: $t('common.commandPalette.navCycles'),
     labels: $t('common.commandPalette.navLabels'),
     issueTemplates: $t('route.workspace_issue-templates')

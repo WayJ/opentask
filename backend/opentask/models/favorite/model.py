@@ -14,11 +14,11 @@ def _uuid() -> str:
     return str(uuid.uuid4())
 
 
-TARGET_TYPES = frozenset({"project", "saved_view", "issue"})
+TARGET_TYPES = frozenset({"project", "saved_view", "issue", "initiative"})
 
 
 class Favorite(DBModel):
-    """Personal sidebar favorite for a project, saved view, or issue."""
+    """Personal sidebar favorite for a project, saved view, issue, or initiative."""
 
     __tablename__ = "favorites"
 

@@ -22,8 +22,53 @@ def require_writer(member: WorkspaceMember) -> None:
         )
 
 
-def serialize_initiative(row: Initiative, project_ids: list[str] | None = None) -> dict:
+_HEALTH_RANK = {"off_track": 3, "at_risk": 2, "on_track": 1}
+
+
+def compute_health_summary(statuses: list[str | None]) -> dict:
+    """Worst-of rollup over Project.health_status values (E10-S2)."""
+    counts = {"onTrack": 0, "atRisk": 0, "offTrack": 0, "unknown": 0}
+    best_rank = 0
+    overall: str | None = None
+    for raw in statuses:
+        if raw == "on_track":
+            counts["onTrack"] += 1
+            rank = _HEALTH_RANK["on_track"]
+        elif raw == "at_risk":
+            counts["atRisk"] += 1
+            rank = _HEALTH_RANK["at_risk"]
+        elif raw == "off_track":
+            counts["offTrack"] += 1
+            rank = _HEALTH_RANK["off_track"]
+        else:
+            counts["unknown"] += 1
+            rank = 0
+        if rank > best_rank:
+            best_rank = rank
+            overall = raw
+    if not statuses:
+        overall = None
+    elif best_rank == 0:
+        overall = None
     return {
+        "overall": overall,
+        "counts": counts,
+        "projectCount": len(statuses),
+    }
+
+
+def empty_health_summary() -> dict:
+    return compute_health_summary([])
+
+
+def serialize_initiative(
+    row: Initiative,
+    project_ids: list[str] | None = None,
+    *,
+    health_summary: dict | None = None,
+    projects: list[dict] | None = None,
+) -> dict:
+    data = {
         "id": row.id,
         "workspaceId": row.workspace_id,
         "name": row.name,
@@ -33,10 +78,14 @@ def serialize_initiative(row: Initiative, project_ids: list[str] | None = None) 
         "ownerUserId": row.owner_user_id,
         "sortOrder": row.sort_order,
         "projectIds": list(project_ids or []),
+        "healthSummary": health_summary if health_summary is not None else empty_health_summary(),
         "createdBy": row.created_by,
         "createdAt": row.created_at.isoformat() if row.created_at else None,
         "updatedAt": row.updated_at.isoformat() if row.updated_at else None,
     }
+    if projects is not None:
+        data["projects"] = projects
+    return data
 
 
 class InitiativeService:
@@ -269,3 +318,44 @@ class InitiativeService:
         await self.db.refresh(row)
         pids = await self._project_ids_for(row.id)
         return row, pids
+
+    async def _projects_health(
+        self, project_ids: list[str]
+    ) -> tuple[dict, list[dict]]:
+        if not project_ids:
+            return empty_health_summary(), []
+        result = await self.db.execute(
+            select(Project.id, Project.name, Project.health_status).where(
+                Project.id.in_(project_ids)
+            )
+        )
+        by_id = {r[0]: (r[1], r[2]) for r in result.all()}
+        statuses: list[str | None] = []
+        projects: list[dict] = []
+        for pid in project_ids:
+            name, hs = by_id.get(pid, (None, None))
+            statuses.append(hs)
+            projects.append(
+                {
+                    "id": pid,
+                    "name": name,
+                    "healthStatus": hs,
+                }
+            )
+        return compute_health_summary(statuses), projects
+
+    async def to_response(
+        self,
+        row: Initiative,
+        project_ids: list[str] | None = None,
+        *,
+        include_projects: bool = False,
+    ) -> dict:
+        pids = list(project_ids if project_ids is not None else await self._project_ids_for(row.id))
+        summary, projects = await self._projects_health(pids)
+        return serialize_initiative(
+            row,
+            pids,
+            health_summary=summary,
+            projects=projects if include_projects else None,
+        )

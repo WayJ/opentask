@@ -66,6 +66,7 @@ const local: App.I18n.Schema = {
       actionAddLabel: '添加标签…',
       navLabels: '标签 Labels',
       navCycles: 'Cycles 设置',
+      navInitiatives: 'Initiatives',
       navTriage: '分诊',
       navInbox: '收件箱'
     }

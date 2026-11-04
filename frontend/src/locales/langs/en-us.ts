@@ -66,6 +66,7 @@ const local: App.I18n.Schema = {
       actionAddLabel: 'Add label…',
       navLabels: 'Labels',
       navCycles: 'Cycles settings',
+      navInitiatives: 'Initiatives',
       navTriage: 'Triage',
       navInbox: 'Inbox'
     }

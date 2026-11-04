@@ -40,6 +40,29 @@ const statusLabel: Record<InitiativeStatus, string> = {
   canceled: '已取消'
 };
 
+const healthType: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
+  on_track: 'success',
+  at_risk: 'warning',
+  off_track: 'error'
+};
+const healthLabel: Record<string, string> = {
+  on_track: '顺利',
+  at_risk: '风险',
+  off_track: '偏离'
+};
+
+function renderHealth(row: InitiativeRow) {
+  const overall = row.healthSummary?.overall;
+  if (!overall) {
+    return h(NTag, { size: 'small', bordered: false }, { default: () => '—' });
+  }
+  return h(
+    NTag,
+    { type: healthType[overall] || 'default', size: 'small' },
+    { default: () => healthLabel[overall] || overall }
+  );
+}
+
 const columns: DataTableColumns<InitiativeRow> = [
   {
     title: '名称',
@@ -52,6 +75,12 @@ const columns: DataTableColumns<InitiativeRow> = [
     key: 'status',
     width: 110,
     render: row => h(NTag, { type: statusType[row.status], size: 'small' }, { default: () => statusLabel[row.status] })
+  },
+  {
+    title: '健康',
+    key: 'health',
+    width: 90,
+    render: row => renderHealth(row)
   },
   {
     title: '关联项目',

@@ -1,6 +1,6 @@
 import { request } from '../request';
 
-export type FavoriteTargetType = 'project' | 'saved_view' | 'issue';
+export type FavoriteTargetType = 'project' | 'saved_view' | 'issue' | 'initiative';
 
 export interface FavoriteTarget {
   id: string;
