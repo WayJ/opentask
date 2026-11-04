@@ -56,6 +56,8 @@ export interface InsightsReportFilters {
   assigneeLimit?: number;
 }
 
+export type InsightsReportVisibility = 'personal' | 'workspace';
+
 export interface InsightsSavedReport {
   id: string;
   workspaceId: string;
@@ -63,6 +65,8 @@ export interface InsightsSavedReport {
   name: string;
   filters: InsightsReportFilters;
   isDefault: boolean;
+  visibility?: InsightsReportVisibility;
+  canEdit?: boolean;
   createdAt?: string | null;
   updatedAt?: string | null;
 }
@@ -149,6 +153,7 @@ export function createInsightsReport(body: {
   name: string;
   filters?: InsightsReportFilters;
   isDefault?: boolean;
+  visibility?: InsightsReportVisibility;
 }) {
   return request<InsightsSavedReport>({
     url: '/api/insights/reports',
@@ -156,14 +161,20 @@ export function createInsightsReport(body: {
     data: {
       name: body.name,
       filters: body.filters || {},
-      isDefault: Boolean(body.isDefault)
+      isDefault: Boolean(body.isDefault),
+      visibility: body.visibility || 'personal'
     }
   });
 }
 
 export function patchInsightsReport(
   id: string,
-  body: { name?: string; filters?: InsightsReportFilters; isDefault?: boolean }
+  body: {
+    name?: string;
+    filters?: InsightsReportFilters;
+    isDefault?: boolean;
+    visibility?: InsightsReportVisibility;
+  }
 ) {
   return request<InsightsSavedReport>({
     url: `/api/insights/reports/${id}`,
@@ -177,6 +188,47 @@ export function deleteInsightsReport(id: string) {
     url: `/api/insights/reports/${id}`,
     method: 'delete'
   });
+}
+
+export function forkInsightsReport(id: string, body?: { name?: string }) {
+  return request<InsightsSavedReport>({
+    url: `/api/insights/reports/${id}/fork`,
+    method: 'post',
+    data: body?.name ? { name: body.name } : {}
+  });
+}
+
+/** E61: partition list into mine vs team (others' workspace-shared). */
+export function partitionReports(
+  rows: InsightsSavedReport[] | null | undefined,
+  currentUserId?: string | null
+): { mine: InsightsSavedReport[]; shared: InsightsSavedReport[] } {
+  const list = rows || [];
+  const uid = currentUserId != null ? String(currentUserId) : '';
+  const mine: InsightsSavedReport[] = [];
+  const shared: InsightsSavedReport[] = [];
+  for (const r of list) {
+    const owned = uid !== '' && String(r.ownerUserId) === uid;
+    const ownedByFlag = uid === '' && r.canEdit === true;
+    if (owned || ownedByFlag) {
+      mine.push(r);
+      continue;
+    }
+    if ((r.visibility || 'personal') === 'workspace') {
+      shared.push(r);
+    }
+  }
+  return { mine, shared };
+}
+
+export function canEditReport(
+  report: InsightsSavedReport | null | undefined,
+  currentUserId?: string | null
+): boolean {
+  if (!report) return false;
+  if (typeof report.canEdit === 'boolean') return report.canEdit;
+  if (currentUserId == null || currentUserId === '') return false;
+  return String(report.ownerUserId) === String(currentUserId);
 }
 
 /** 近 N 日 completed points 合计；空窗 → 0 */

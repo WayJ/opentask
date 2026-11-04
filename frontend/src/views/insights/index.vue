@@ -4,6 +4,7 @@ import {
   type CycleItem,
   type InsightsSavedReport,
   type InsightsSummary,
+  canEditReport,
   countOpenFromStatus,
   createInsightsReport,
   deleteInsightsReport,
@@ -14,16 +15,20 @@ import {
   fetchNotifPrefs,
   fetchProjectList,
   filtersToSummaryParams,
+  forkInsightsReport,
   normalizeLabelIds,
+  partitionReports,
   patchInsightsReport,
   sumVelocityPoints,
   tagApi,
   updateNotifPrefs,
   type TagItem
 } from '@/service/api';
+import { useAuthStore } from '@/store/modules/auth';
 
 defineOptions({ name: 'InsightsPage' });
 
+const authStore = useAuthStore();
 const loading = ref(false);
 const exporting = ref(false);
 const summary = ref<InsightsSummary | null>(null);
@@ -93,11 +98,28 @@ const labelOptions = computed(() =>
   }))
 );
 
-const reportOptions = computed(() =>
-  reports.value.map(r => ({
-    label: `${r.name}${r.isDefault ? ' ★' : ''}`,
+const currentUserId = computed(() => String(authStore.userInfo.userId || ''));
+
+const partitioned = computed(() => partitionReports(reports.value, currentUserId.value));
+
+const mineReportOptions = computed(() =>
+  partitioned.value.mine.map(r => ({
+    label: `${r.name}${r.isDefault ? ' ★' : ''}${(r.visibility || 'personal') === 'workspace' ? ' · 已分享' : ''}`,
     value: r.id
   }))
+);
+
+const teamReportOptions = computed(() =>
+  partitioned.value.shared.map(r => ({
+    label: `${r.name} · 团队`,
+    value: r.id
+  }))
+);
+
+const selectedReport = computed(() => reports.value.find(r => r.id === selectedReportId.value) || null);
+const selectedCanEdit = computed(() => canEditReport(selectedReport.value, currentUserId.value));
+const selectedIsShared = computed(
+  () => (selectedReport.value?.visibility || 'personal') === 'workspace'
 );
 
 function currentParams() {
@@ -230,7 +252,7 @@ async function onSaveAsReport() {
 }
 
 async function onDeleteReport() {
-  if (!selectedReportId.value) return;
+  if (!selectedReportId.value || !selectedCanEdit.value) return;
   const { error } = await deleteInsightsReport(selectedReportId.value);
   if (error) {
     window.$message?.error(error.message || '删除失败');
@@ -242,7 +264,7 @@ async function onDeleteReport() {
 }
 
 async function onSetDefaultReport() {
-  if (!selectedReportId.value) return;
+  if (!selectedReportId.value || !selectedCanEdit.value) return;
   const { error } = await patchInsightsReport(selectedReportId.value, { isDefault: true });
   if (error) {
     window.$message?.error(error.message || '设置失败');
@@ -250,6 +272,31 @@ async function onSetDefaultReport() {
   }
   window.$message?.success('已设为 digest 默认报表');
   await loadReports();
+}
+
+async function onToggleShare(shared: boolean) {
+  if (!selectedReportId.value || !selectedCanEdit.value) return;
+  const { error } = await patchInsightsReport(selectedReportId.value, {
+    visibility: shared ? 'workspace' : 'personal'
+  });
+  if (error) {
+    window.$message?.error(error.message || '分享失败');
+    return;
+  }
+  window.$message?.success(shared ? '已分享到团队' : '已取消分享');
+  await loadReports();
+}
+
+async function onForkReport() {
+  if (!selectedReportId.value) return;
+  const { data, error } = await forkInsightsReport(selectedReportId.value);
+  if (error || !data) {
+    window.$message?.error(error?.message || '另存失败');
+    return;
+  }
+  window.$message?.success('已另存为我的报表');
+  await loadReports();
+  selectedReportId.value = data.id;
 }
 
 async function onToggleDigest(v: boolean) {
@@ -298,7 +345,7 @@ onMounted(async () => {
       <div>
         <h2 class="m-0 text-20px font-medium">Insights</h2>
         <p class="mb-0 mt-4px text-13px opacity-60">
-          工作区效能摘要（多标签 OR · 我的报表 · 可选 digest）
+          工作区效能摘要（多标签 OR · 我的/团队报表 · 可选 digest）
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-8px">
@@ -344,17 +391,55 @@ onMounted(async () => {
         :value="selectedReportId"
         clearable
         placeholder="应用已存切片"
-        :options="reportOptions"
+        :options="mineReportOptions"
+        class="filter-select"
+        size="small"
+        @update:value="onApplyReport"
+      />
+      <span class="text-12px opacity-70">团队报表</span>
+      <NSelect
+        :value="selectedReportId"
+        clearable
+        placeholder="只读团队切片"
+        :options="teamReportOptions"
         class="filter-select"
         size="small"
         @update:value="onApplyReport"
       />
       <NInput v-model:value="saveName" size="small" placeholder="另存为名称" class="filter-select" />
       <NButton size="small" secondary @click="onSaveAsReport">另存为</NButton>
-      <NButton size="small" secondary :disabled="!selectedReportId" @click="onSetDefaultReport">
+      <NButton
+        size="small"
+        secondary
+        :disabled="!selectedReportId || !selectedCanEdit"
+        @click="onSetDefaultReport"
+      >
         设为默认
       </NButton>
-      <NButton size="small" tertiary :disabled="!selectedReportId" @click="onDeleteReport">删除</NButton>
+      <NButton
+        size="small"
+        tertiary
+        :disabled="!selectedReportId || !selectedCanEdit"
+        @click="onDeleteReport"
+      >
+        删除
+      </NButton>
+      <NButton
+        v-if="selectedReportId && selectedCanEdit"
+        size="small"
+        secondary
+        @click="onToggleShare(!selectedIsShared)"
+      >
+        {{ selectedIsShared ? '取消分享' : '分享到团队' }}
+      </NButton>
+      <NButton
+        v-if="selectedReportId && !selectedCanEdit"
+        size="small"
+        secondary
+        @click="onForkReport"
+      >
+        另存为我的
+      </NButton>
       <span class="mx-4px opacity-30">|</span>
       <span class="text-12px opacity-70">效能 digest</span>
       <NSwitch :value="digestOn" :loading="digestBusy" size="small" @update:value="onToggleDigest" />

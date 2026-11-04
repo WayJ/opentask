@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildInsightsSummaryParams,
+  canEditReport,
   countOpenFromStatus,
   filtersToSummaryParams,
   insightsExportUrl,
   normalizeLabelIds,
+  partitionReports,
   sumCompletedLastDays,
-  sumVelocityPoints
+  sumVelocityPoints,
+  type InsightsSavedReport
 } from './insights';
 
 describe('insights helpers', () => {
@@ -109,5 +112,54 @@ describe('insights helpers', () => {
       '/api/insights/export.csv?projectId=p1&labelId=3'
     );
     expect(insightsExportUrl({ labelIds: [3, 5] })).toBe('/api/insights/export.csv?labelIds=3%2C5');
+  });
+});
+
+describe('insights shared reports helpers (E61)', () => {
+  const base = (over: Partial<InsightsSavedReport>): InsightsSavedReport => ({
+    id: over.id || 'r1',
+    workspaceId: 'w1',
+    ownerUserId: over.ownerUserId || 'u1',
+    name: over.name || 'R',
+    filters: over.filters || {},
+    isDefault: Boolean(over.isDefault),
+    visibility: over.visibility || 'personal',
+    canEdit: over.canEdit,
+    ...over
+  });
+
+  it('partitionReports splits mine vs team shared', () => {
+    const rows = [
+      base({ id: 'a', ownerUserId: 'me', visibility: 'personal', canEdit: true }),
+      base({ id: 'b', ownerUserId: 'me', visibility: 'workspace', canEdit: true }),
+      base({ id: 'c', ownerUserId: 'peer', visibility: 'workspace', canEdit: false }),
+      base({ id: 'd', ownerUserId: 'peer', visibility: 'personal', canEdit: false })
+    ];
+    const { mine, shared } = partitionReports(rows, 'me');
+    expect(mine.map(r => r.id).sort()).toEqual(['a', 'b']);
+    expect(shared.map(r => r.id)).toEqual(['c']);
+  });
+
+  it('canEditReport prefers canEdit flag then ownerUserId', () => {
+    expect(canEditReport(base({ canEdit: false, ownerUserId: 'me' }), 'me')).toBe(false);
+    expect(canEditReport(base({ canEdit: true, ownerUserId: 'peer' }), 'me')).toBe(true);
+    expect(canEditReport(base({ ownerUserId: 'me' }), 'me')).toBe(true);
+    expect(canEditReport(base({ ownerUserId: 'peer' }), 'me')).toBe(false);
+  });
+
+  it('fork filters round-trip via filtersToSummaryParams', () => {
+    const report = base({
+      filters: { projectId: 'p1', labelIds: [9, 9, 3], cycleId: 'c1' },
+      visibility: 'workspace',
+      canEdit: false,
+      ownerUserId: 'peer'
+    });
+    const params = filtersToSummaryParams(report.filters);
+    expect(params).toEqual({ projectId: 'p1', labelIds: [9, 3], cycleId: 'c1' });
+    expect(buildInsightsSummaryParams(params)).toEqual({
+      projectId: 'p1',
+      labelIds: '9,3',
+      cycleId: 'c1'
+    });
   });
 });
