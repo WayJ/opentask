@@ -2,14 +2,23 @@
 import { computed, onMounted, ref } from 'vue';
 import {
   type CycleItem,
+  type InsightsSavedReport,
   type InsightsSummary,
   countOpenFromStatus,
+  createInsightsReport,
+  deleteInsightsReport,
   downloadInsightsExport,
   fetchCycles,
+  fetchInsightsReports,
   fetchInsightsSummary,
+  fetchNotifPrefs,
   fetchProjectList,
+  filtersToSummaryParams,
+  normalizeLabelIds,
+  patchInsightsReport,
   sumVelocityPoints,
   tagApi,
+  updateNotifPrefs,
   type TagItem
 } from '@/service/api';
 
@@ -21,9 +30,14 @@ const summary = ref<InsightsSummary | null>(null);
 const cycles = ref<CycleItem[]>([]);
 const projects = ref<Api.Project.Project[]>([]);
 const labels = ref<TagItem[]>([]);
+const reports = ref<InsightsSavedReport[]>([]);
 const selectedCycleId = ref<string | null>(null);
 const selectedProjectId = ref<string | null>(null);
-const selectedLabelId = ref<number | null>(null);
+const selectedLabelIds = ref<number[]>([]);
+const selectedReportId = ref<string | null>(null);
+const digestOn = ref(false);
+const digestBusy = ref(false);
+const saveName = ref('');
 
 const empty = computed(() => {
   if (loading.value || !summary.value) return false;
@@ -32,7 +46,6 @@ const empty = computed(() => {
 });
 
 const openCount = computed(() => countOpenFromStatus(summary.value?.statusCounts));
-
 const velocityTotal = computed(() => sumVelocityPoints(summary.value?.estimateVelocity?.buckets));
 
 const statusEntries = computed(() =>
@@ -80,12 +93,29 @@ const labelOptions = computed(() =>
   }))
 );
 
+const reportOptions = computed(() =>
+  reports.value.map(r => ({
+    label: `${r.name}${r.isDefault ? ' ★' : ''}`,
+    value: r.id
+  }))
+);
+
 function currentParams() {
+  const ids = normalizeLabelIds(selectedLabelIds.value);
   return {
     cycleId: selectedCycleId.value || undefined,
     projectId: selectedProjectId.value || undefined,
-    labelId: selectedLabelId.value ?? undefined
+    labelIds: ids.length ? ids : undefined
   };
+}
+
+function currentFilters() {
+  const ids = normalizeLabelIds(selectedLabelIds.value);
+  const filters: Record<string, unknown> = {};
+  if (selectedProjectId.value) filters.projectId = selectedProjectId.value;
+  if (selectedCycleId.value) filters.cycleId = selectedCycleId.value;
+  if (ids.length) filters.labelIds = ids;
+  return filters;
 }
 
 async function loadCycles() {
@@ -124,6 +154,29 @@ async function loadLabels() {
   }
 }
 
+async function loadReports() {
+  try {
+    const { data, error } = await fetchInsightsReports();
+    if (error || !data) {
+      reports.value = [];
+      return;
+    }
+    reports.value = data.rows || [];
+  } catch {
+    reports.value = [];
+  }
+}
+
+async function loadDigestPref() {
+  try {
+    const { data, error } = await fetchNotifPrefs();
+    if (error || !data) return;
+    digestOn.value = Boolean(data.insights_digest);
+  } catch {
+    digestOn.value = false;
+  }
+}
+
 async function loadSummary() {
   loading.value = true;
   try {
@@ -143,7 +196,75 @@ async function loadSummary() {
 }
 
 async function onFilterChange() {
+  selectedReportId.value = null;
   await loadSummary();
+}
+
+async function onApplyReport(reportId: string | null) {
+  selectedReportId.value = reportId;
+  if (!reportId) return;
+  const report = reports.value.find(r => r.id === reportId);
+  if (!report) return;
+  const params = filtersToSummaryParams(report.filters || {});
+  selectedProjectId.value = (params.projectId as string) || null;
+  selectedCycleId.value = (params.cycleId as string) || null;
+  selectedLabelIds.value = normalizeLabelIds(params.labelIds || []);
+  await loadSummary();
+}
+
+async function onSaveAsReport() {
+  const name = (saveName.value || '').trim() || `报表 ${new Date().toLocaleString()}`;
+  const { data, error } = await createInsightsReport({
+    name,
+    filters: currentFilters() as any,
+    isDefault: false
+  });
+  if (error || !data) {
+    window.$message?.error(error?.message || '保存失败');
+    return;
+  }
+  saveName.value = '';
+  window.$message?.success('已保存到我的报表');
+  await loadReports();
+  selectedReportId.value = data.id;
+}
+
+async function onDeleteReport() {
+  if (!selectedReportId.value) return;
+  const { error } = await deleteInsightsReport(selectedReportId.value);
+  if (error) {
+    window.$message?.error(error.message || '删除失败');
+    return;
+  }
+  window.$message?.success('已删除');
+  selectedReportId.value = null;
+  await loadReports();
+}
+
+async function onSetDefaultReport() {
+  if (!selectedReportId.value) return;
+  const { error } = await patchInsightsReport(selectedReportId.value, { isDefault: true });
+  if (error) {
+    window.$message?.error(error.message || '设置失败');
+    return;
+  }
+  window.$message?.success('已设为 digest 默认报表');
+  await loadReports();
+}
+
+async function onToggleDigest(v: boolean) {
+  digestBusy.value = true;
+  try {
+    const { data, error } = await updateNotifPrefs({ insights_digest: v });
+    if (error || !data) {
+      window.$message?.error(error?.message || '保存偏好失败');
+      digestOn.value = !v;
+      return;
+    }
+    digestOn.value = Boolean(data.insights_digest);
+  } finally {
+    digestBusy.value = false;
+  }
 }
 
 async function onExportCsv() {
@@ -166,7 +287,7 @@ async function onExportCsv() {
 }
 
 onMounted(async () => {
-  await Promise.all([loadCycles(), loadProjects(), loadLabels()]);
+  await Promise.all([loadCycles(), loadProjects(), loadLabels(), loadReports(), loadDigestPref()]);
   await loadSummary();
 });
 </script>
@@ -176,7 +297,9 @@ onMounted(async () => {
     <div class="mb-16px flex flex-wrap items-center justify-between gap-12px">
       <div>
         <h2 class="m-0 text-20px font-medium">Insights</h2>
-        <p class="mb-0 mt-4px text-13px opacity-60">工作区效能摘要（可按项目 / 标签 / Cycle 切片）</p>
+        <p class="mb-0 mt-4px text-13px opacity-60">
+          工作区效能摘要（多标签 OR · 我的报表 · 可选 digest）
+        </p>
       </div>
       <div class="flex flex-wrap items-center gap-8px">
         <span class="text-12px opacity-60">Project</span>
@@ -189,13 +312,15 @@ onMounted(async () => {
           size="small"
           @update:value="onFilterChange"
         />
-        <span class="text-12px opacity-60">Label</span>
+        <span class="text-12px opacity-60">Label（OR）</span>
         <NSelect
-          v-model:value="selectedLabelId"
+          v-model:value="selectedLabelIds"
+          multiple
           clearable
+          filterable
           placeholder="全部标签"
           :options="labelOptions"
-          class="filter-select"
+          class="filter-select-wide"
           size="small"
           @update:value="onFilterChange"
         />
@@ -211,6 +336,29 @@ onMounted(async () => {
         />
         <NButton size="small" secondary :loading="exporting" @click="onExportCsv">导出 CSV</NButton>
       </div>
+    </div>
+
+    <div class="mb-16px flex flex-wrap items-center gap-8px rounded-8px bg-[rgba(128,128,128,0.08)] px-12px py-8px">
+      <span class="text-12px opacity-70">我的报表</span>
+      <NSelect
+        :value="selectedReportId"
+        clearable
+        placeholder="应用已存切片"
+        :options="reportOptions"
+        class="filter-select"
+        size="small"
+        @update:value="onApplyReport"
+      />
+      <NInput v-model:value="saveName" size="small" placeholder="另存为名称" class="filter-select" />
+      <NButton size="small" secondary @click="onSaveAsReport">另存为</NButton>
+      <NButton size="small" secondary :disabled="!selectedReportId" @click="onSetDefaultReport">
+        设为默认
+      </NButton>
+      <NButton size="small" tertiary :disabled="!selectedReportId" @click="onDeleteReport">删除</NButton>
+      <span class="mx-4px opacity-30">|</span>
+      <span class="text-12px opacity-70">效能 digest</span>
+      <NSwitch :value="digestOn" :loading="digestBusy" size="small" @update:value="onToggleDigest" />
+      <span class="text-11px opacity-50">默认关；开后由外部 tick 写 Inbox/邮件</span>
     </div>
 
     <NSpin :show="loading">
@@ -378,6 +526,10 @@ onMounted(async () => {
 }
 .filter-select {
   width: 180px;
+}
+.filter-select-wide {
+  min-width: 220px;
+  max-width: 320px;
 }
 .trend-table,
 .velocity-table {

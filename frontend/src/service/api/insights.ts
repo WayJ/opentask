@@ -42,11 +42,48 @@ export interface InsightsSummary {
 export interface InsightsSummaryParams {
   cycleId?: string | null;
   projectId?: string | null;
+  /** 单 label 兼容别名；与 labelIds 勿同用 */
   labelId?: number | null;
+  /** 多 label OR；空数组 = 不过滤 */
+  labelIds?: number[] | null;
   assigneeLimit?: number;
 }
 
-/** 过滤参数归一化：空串 / null / undefined 省略键 */
+export interface InsightsReportFilters {
+  projectId?: string;
+  labelIds?: number[];
+  cycleId?: string;
+  assigneeLimit?: number;
+}
+
+export interface InsightsSavedReport {
+  id: string;
+  workspaceId: string;
+  ownerUserId: string;
+  name: string;
+  filters: InsightsReportFilters;
+  isDefault: boolean;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+/** 归一化 labelIds：去重保序；非法/空 → [] */
+export function normalizeLabelIds(input?: Array<number | string | null | undefined> | null): number[] {
+  if (!input?.length) return [];
+  const seen = new Set<number>();
+  const out: number[] = [];
+  for (const raw of input) {
+    if (raw == null || raw === '') continue;
+    const n = Number(raw);
+    if (!Number.isFinite(n)) continue;
+    if (seen.has(n)) continue;
+    seen.add(n);
+    out.push(n);
+  }
+  return out;
+}
+
+/** 过滤参数归一化：空串 / null / undefined / 空 labelIds 省略键 */
 export function buildInsightsSummaryParams(
   input?: InsightsSummaryParams | null
 ): Record<string, string | number> {
@@ -58,12 +95,28 @@ export function buildInsightsSummaryParams(
   if (input.projectId != null && String(input.projectId).trim() !== '') {
     out.projectId = String(input.projectId);
   }
-  if (input.labelId != null && Number.isFinite(Number(input.labelId))) {
+  const ids = normalizeLabelIds(input.labelIds);
+  if (ids.length) {
+    // 逗号串：后端 parse_label_ids_query 支持；避免与 labelId 冲突
+    out.labelIds = ids.join(',');
+  } else if (input.labelId != null && Number.isFinite(Number(input.labelId))) {
     out.labelId = Number(input.labelId);
   }
   if (input.assigneeLimit != null && Number.isFinite(Number(input.assigneeLimit))) {
     out.assigneeLimit = Number(input.assigneeLimit);
   }
+  return out;
+}
+
+/** 报表 filters → summary params（Q4a round-trip） */
+export function filtersToSummaryParams(filters?: InsightsReportFilters | null): InsightsSummaryParams {
+  if (!filters) return {};
+  const out: InsightsSummaryParams = {};
+  if (filters.projectId) out.projectId = filters.projectId;
+  if (filters.cycleId) out.cycleId = filters.cycleId;
+  const ids = normalizeLabelIds(filters.labelIds);
+  if (ids.length) out.labelIds = ids;
+  if (filters.assigneeLimit != null) out.assigneeLimit = filters.assigneeLimit;
   return out;
 }
 
@@ -82,6 +135,47 @@ export function downloadInsightsExport(params?: InsightsSummaryParams) {
     method: 'GET',
     params: buildInsightsSummaryParams(params),
     responseType: 'blob'
+  });
+}
+
+export function fetchInsightsReports() {
+  return request<{ rows: InsightsSavedReport[] }>({
+    url: '/api/insights/reports',
+    method: 'get'
+  });
+}
+
+export function createInsightsReport(body: {
+  name: string;
+  filters?: InsightsReportFilters;
+  isDefault?: boolean;
+}) {
+  return request<InsightsSavedReport>({
+    url: '/api/insights/reports',
+    method: 'post',
+    data: {
+      name: body.name,
+      filters: body.filters || {},
+      isDefault: Boolean(body.isDefault)
+    }
+  });
+}
+
+export function patchInsightsReport(
+  id: string,
+  body: { name?: string; filters?: InsightsReportFilters; isDefault?: boolean }
+) {
+  return request<InsightsSavedReport>({
+    url: `/api/insights/reports/${id}`,
+    method: 'patch',
+    data: body
+  });
+}
+
+export function deleteInsightsReport(id: string) {
+  return request<{ id: string }>({
+    url: `/api/insights/reports/${id}`,
+    method: 'delete'
   });
 }
 

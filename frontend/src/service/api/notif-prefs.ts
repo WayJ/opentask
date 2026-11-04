@@ -18,7 +18,7 @@ export type NotifPrefKey = (typeof NOTIF_PREF_KEYS)[number];
 export const NOTIF_PREF_LIST_KEYS = NOTIF_PREF_KEYS.filter(k => k !== 'due_reminder');
 
 /** E30 channel toggle / E39 digest mode (not TYPE gates). */
-export type NotifChannelKey = 'email_enabled' | 'due_reminder_digest';
+export type NotifChannelKey = 'email_enabled' | 'due_reminder_digest' | 'insights_digest';
 
 export interface NotifPrefs {
   userId: string;
@@ -34,6 +34,7 @@ export interface NotifPrefs {
   sla_breached: boolean;
   webhook_delivery_alert: boolean;
   due_reminder_digest: boolean;
+  insights_digest: boolean;
   email_enabled: boolean;
   email_configured: boolean;
 }
@@ -71,13 +72,18 @@ export function sendNotifEmailTest() {
 /** Helper for vitest / UI: merge partial into defaults. */
 export function mergeNotifPrefs(
   partial?: Partial<Record<NotifPrefKey | NotifChannelKey, boolean>> | null
-): Record<NotifPrefKey, boolean> & { email_enabled: boolean; due_reminder_digest: boolean } {
+): Record<NotifPrefKey, boolean> & {
+  email_enabled: boolean;
+  due_reminder_digest: boolean;
+  insights_digest: boolean;
+} {
   const base = Object.fromEntries(NOTIF_PREF_KEYS.map(k => [k, true])) as Record<
     NotifPrefKey,
     boolean
-  > & { email_enabled: boolean; due_reminder_digest: boolean };
+  > & { email_enabled: boolean; due_reminder_digest: boolean; insights_digest: boolean };
   base.email_enabled = false;
   base.due_reminder_digest = false;
+  base.insights_digest = false;
   if (!partial) return base;
   for (const k of NOTIF_PREF_KEYS) {
     if (typeof partial[k] === 'boolean') base[k] = partial[k] as boolean;
@@ -87,6 +93,9 @@ export function mergeNotifPrefs(
   }
   if (typeof partial.due_reminder_digest === 'boolean') {
     base.due_reminder_digest = partial.due_reminder_digest;
+  }
+  if (typeof partial.insights_digest === 'boolean') {
+    base.insights_digest = partial.insights_digest;
   }
   return base;
 }

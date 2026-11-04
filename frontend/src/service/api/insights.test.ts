@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   buildInsightsSummaryParams,
   countOpenFromStatus,
+  filtersToSummaryParams,
   insightsExportUrl,
+  normalizeLabelIds,
   sumCompletedLastDays,
   sumVelocityPoints
 } from './insights';
@@ -49,6 +51,38 @@ describe('insights helpers', () => {
     ).toEqual({ cycleId: 'c1', projectId: 'p1', labelId: 7, assigneeLimit: 5 });
   });
 
+  it('normalizeLabelIds dedupes and drops empties', () => {
+    expect(normalizeLabelIds(undefined)).toEqual([]);
+    expect(normalizeLabelIds([])).toEqual([]);
+    expect(normalizeLabelIds([1, '2', 1, null, '', 3])).toEqual([1, 2, 3]);
+  });
+
+  it('buildInsightsSummaryParams prefers labelIds comma OR; empty = no filter', () => {
+    expect(buildInsightsSummaryParams({ labelIds: [] })).toEqual({});
+    expect(buildInsightsSummaryParams({ labelIds: [3, 5] })).toEqual({ labelIds: '3,5' });
+    // labelIds wins over labelId when both present at helper level
+    expect(buildInsightsSummaryParams({ labelId: 9, labelIds: [1, 2] })).toEqual({ labelIds: '1,2' });
+  });
+
+  it('filtersToSummaryParams round-trips report filters', () => {
+    expect(filtersToSummaryParams({})).toEqual({});
+    expect(
+      filtersToSummaryParams({
+        projectId: 'p1',
+        labelIds: [1, 1, 2],
+        cycleId: 'c9',
+        assigneeLimit: 8
+      })
+    ).toEqual({
+      projectId: 'p1',
+      labelIds: [1, 2],
+      cycleId: 'c9',
+      assigneeLimit: 8
+    });
+    const params = filtersToSummaryParams({ labelIds: [4, 5] });
+    expect(buildInsightsSummaryParams(params)).toEqual({ labelIds: '4,5' });
+  });
+
   it('sumVelocityPoints handles empty window', () => {
     expect(sumVelocityPoints(undefined)).toBe(0);
     expect(sumVelocityPoints([])).toBe(0);
@@ -74,5 +108,6 @@ describe('insights helpers', () => {
     expect(insightsExportUrl({ projectId: 'p1', labelId: 3 })).toBe(
       '/api/insights/export.csv?projectId=p1&labelId=3'
     );
+    expect(insightsExportUrl({ labelIds: [3, 5] })).toBe('/api/insights/export.csv?labelIds=3%2C5');
   });
 });
