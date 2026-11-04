@@ -13,6 +13,20 @@ from opentask.api.settings.router import router as settings_router
 from opentask.api.agent.router import router as agent_router
 from opentask.api.requirement.router import router as requirement_router
 from opentask.api.project.router import router as project_router
+from opentask.api.workspace import router as workspace_router
+from opentask.api.inbox import router as inbox_router
+from opentask.api.saved_views import router as saved_views_router
+from opentask.api.display_prefs import router as display_prefs_router
+from opentask.api.cycles import router as cycles_router
+from opentask.api.favorites import router as favorites_router
+from opentask.api.triage import router as triage_router
+from opentask.api.issue_templates import router as issue_templates_router
+from opentask.api.initiatives import router as initiatives_router
+from opentask.api.entity_documents import router as entity_documents_router
+from opentask.api.issue_vcs import router as issue_vcs_router
+from opentask.api.webhooks_github import router as webhooks_github_router
+from opentask.api.invites import router as invites_router
+from opentask.api.tags.router import tags_router, groups_router as tag_groups_router
 # from opentask.api.ai.router import router as ai_router  # 模块不存在，已注释
 from opentask.api.mission_center import router as mission_center_router
 from opentask.api.agent.routes import router as agent_management_router
@@ -91,7 +105,21 @@ class App(fastapi.FastAPI):
         # Workspace routes (需要认证)
         self.include_router(settings_router, dependencies=common_dependencies)
         self.include_router(conversation_router, dependencies=common_dependencies)
-        # self.include_router(workspace_router, dependencies=common_dependencies)
+        self.include_router(workspace_router)
+        self.include_router(inbox_router)
+        self.include_router(saved_views_router)
+        self.include_router(display_prefs_router)
+        self.include_router(cycles_router)
+        self.include_router(favorites_router)
+        self.include_router(triage_router)
+        self.include_router(issue_templates_router)
+        self.include_router(initiatives_router)
+        self.include_router(entity_documents_router)
+        self.include_router(issue_vcs_router)
+        self.include_router(webhooks_github_router)
+        self.include_router(invites_router)
+        self.include_router(tags_router)
+        self.include_router(tag_groups_router)
         self.include_router(agent_router, dependencies=common_dependencies)
         # Requirement routes (需要认证)
         self.include_router(requirement_router, dependencies=common_dependencies)

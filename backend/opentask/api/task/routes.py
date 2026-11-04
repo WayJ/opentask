@@ -1,13 +1,14 @@
-"""PGE 任务 API 路由
+"""PGE 任务 API 路由（DEPRECATED · E12-S3）
 
-提供 PGE 任务创建和提示词生成的 RESTful API 接口。
+遗留 PGE 创建/提示词接口仍可用，但产品主路径已改为 Issue/KEY-N。
+响应带 `Deprecation: true`；请优先使用 Issue 工作流。
 """
 
 import logging
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -80,13 +81,16 @@ class PGETaskPreviewRequest(BaseModel):
 # ============================================================================
 
 
-@router.post("", response_model=PGETaskResponse)
+@router.post("", response_model=PGETaskResponse, deprecated=True)
 async def create_pge_task(
     request: PGETaskCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
+    response: Response,
 ):
     """
-    创建 PGE 任务（含 3 个子任务）
+    创建 PGE 任务（含 3 个子任务）【DEPRECATED】
+
+    产品主路径已改为 Issue/KEY-N；本接口保留兼容，响应含 Deprecation 头。
 
     请求体：
     - requirement_id: 所属需求 ID
@@ -148,6 +152,7 @@ async def create_pge_task(
 
         logger.info(f"PGE 任务创建成功: {task.id}")
 
+        response.headers["Deprecation"] = "true"
         return PGETaskResponse(
             code=200,
             message="PGE 任务创建成功",
@@ -168,10 +173,11 @@ async def create_pge_task(
         )
 
 
-@router.post("/preview-prompt", response_model=TaskPromptApiResponse)
+@router.post("/preview-prompt", response_model=TaskPromptApiResponse, deprecated=True)
 async def preview_pge_task_prompt(
     request_data: PGETaskPreviewRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
+    response: Response,
 ):
     """
     预览 PGE 任务提示词（不需要创建任务）
@@ -203,6 +209,7 @@ async def preview_pge_task_prompt(
 
         logger.info(f"预览任务提示词成功: {request_data.requirement_title}")
 
+        response.headers["Deprecation"] = "true"
         return TaskPromptApiResponse(
             code=200,
             message="success",
@@ -220,10 +227,11 @@ async def preview_pge_task_prompt(
         )
 
 
-@router.get("/{task_id}/prompt", response_model=TaskPromptApiResponse)
+@router.get("/{task_id}/prompt", response_model=TaskPromptApiResponse, deprecated=True)
 async def get_task_prompt(
     task_id: str,
     db: Annotated[AsyncSession, Depends(get_db)],
+    response: Response,
 ):
     """
     获取任务提示词
@@ -251,6 +259,7 @@ async def get_task_prompt(
 
         logger.info(f"获取任务提示词成功: {task_id} -> {resolved_task_id}")
 
+        response.headers["Deprecation"] = "true"
         return TaskPromptApiResponse(
             code=200,
             message="success",

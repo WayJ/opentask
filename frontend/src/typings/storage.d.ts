@@ -39,5 +39,7 @@ declare namespace StorageType {
     };
     /** The last login user id */
     lastLoginUserId: string;
+    /** Current workspace id (E3-S1) */
+    workspaceId: string;
   }
 }

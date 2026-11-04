@@ -49,6 +49,26 @@ const local: App.I18n.Schema = {
     yesOrNo: {
       yes: '是',
       no: '否'
+    },
+    commandPalette: {
+      placeholder: '输入命令或搜索…',
+      groupActions: '操作',
+      groupMenus: '菜单',
+      groupIssues: 'Issue',
+      groupProjects: '项目',
+      groupCycles: '冲刺',
+      groupViews: '视图',
+      searching: '搜索中…',
+      navIssues: 'Issue 列表',
+      navCreateIssue: '创建 Issue',
+      navCreateFromTemplate: '从模板创建 Issue',
+      navProjects: '项目',
+      actionAddLabel: '添加标签…',
+      navLabels: '标签 Labels',
+      navCycles: 'Cycles 设置',
+      navInitiatives: 'Initiatives',
+      navTriage: '分诊',
+      navInbox: '收件箱'
     }
   },
   request: {
@@ -232,12 +252,22 @@ const local: App.I18n.Schema = {
     500: '服务器错误',
     'iframe-page': '外链页面',
     home: '首页',
+    workspace: '工作区',
+    workspace_members: '成员 Members',
+    invite: '邀请',
+    workspace_labels: '标签 Labels',
+    'workspace_issue-templates': 'Issue 模板',
+    workspace_cycles: '冲刺 Cycles',
+    inbox: '收件箱',
+    initiatives: 'Initiatives',
+    initiatives_detail: 'Initiative 详情',
+    triage: '分诊',
     dashboard: '研发效能看板',
     workflow: '研发流水线',
     projects: '项目管理',
     workflow_projects: '项目管理',
     'workflow_project-detail': '项目详情',
-    workflow_requirements: '需求管理',
+    workflow_requirements: '需求（遗留）',
     'workflow_requirement-detail': '需求详情',
     system: '系统配置',
     'knowledge-base': '知识库',
@@ -290,6 +320,14 @@ const local: App.I18n.Schema = {
     'work-management_my-work_feedback': '工作反馈'
   },
   page: {
+    profile: {
+      pwd: {
+        title: '修改密码',
+        submit: '确认修改',
+        hint: '新密码需至少 8 位且同时包含字母和数字；修改成功后当前登录会失效，需使用新密码重新登录。',
+        reLoginTip: '密码已修改，当前登录已失效，请使用新密码重新登录。'
+      }
+    },
     oauth2: {
       consent: {
         title: '授权确认',

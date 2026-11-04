@@ -93,10 +93,17 @@ export namespace Api.Issue {
     due_date?: string;
     estimated_hours?: number;
     actual_hours?: number;
+    parent_issue_id?: string | null;
+    cycle_id?: string | null;
+    milestone_id?: string | null;
+    estimate_points?: number | null;
   }
 
   /** 创建 Issue */
-  export type CreateIssue = IssueBase;
+  export interface CreateIssue extends IssueBase {
+    /** E9-S2 workspace issue template */
+    template_id?: string;
+  }
 
   /** 更新 Issue */
   export interface UpdateIssue {
@@ -113,9 +120,21 @@ export namespace Api.Issue {
     due_date?: string;
     estimated_hours?: number;
     actual_hours?: number;
+    parent_issue_id?: string | null;
+    cycle_id?: string | null;
+    milestone_id?: string | null;
+    estimate_points?: number | null;
   }
 
   /** Issue 响应 */
+  /** 子 Issue 轻量摘要 */
+  export interface IssueChildSummary {
+    id: string;
+    issue_code: string;
+    title: string;
+    status: IssueStatus | string;
+  }
+
   export interface Issue extends IssueBase {
     id: string;
     issue_code: string;
@@ -133,6 +152,8 @@ export namespace Api.Issue {
     project?: Api.Project.Project;
     assignee?: UserInfo;
     reporter?: UserInfo;
+    children?: IssueChildSummary[];
+    tags?: IssueTag[];
   }
 
   /** Issue 列表查询参数 */
@@ -146,6 +167,8 @@ export namespace Api.Issue {
     assignee_id?: string;
     reporter_id?: string;
     search?: string;
+    cycle_id?: string;
+    milestone_id?: string;
     sort_by?: string;
     sort_order?: 'asc' | 'desc';
   }
@@ -227,12 +250,16 @@ export namespace Api.Issue {
     user_info?: UserInfo;
   }
 
-  /** Issue 标签 */
+  /** Issue 标签（列表/详情 brief） */
   export interface IssueTag {
     id: number;
     name: string;
     color: string;
-    type: string;
+    groupId?: string | null;
+    /** @deprecated legacy shape */
+    type?: string;
+    tag_id?: number;
+    tag?: { name?: string; color?: string };
   }
 
   /** Issue 反应 */

@@ -54,7 +54,8 @@ const customRoutes: CustomRoute[] = [
         component: 'view.workflow_requirements',
         meta: {
           title: 'workflow_requirements',
-          i18nKey: 'route.workflow_requirements'
+          i18nKey: 'route.workflow_requirements',
+          hideInMenu: true
         }
       }
     ]

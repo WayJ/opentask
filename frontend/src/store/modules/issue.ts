@@ -230,7 +230,14 @@ export const useIssueStore = defineStore('issue', () => {
    */
   async function removeTag(issueId: string, tagId: number) {
     await issueApi.removeTag(issueId, tagId);
-    tags.value = tags.value.filter(t => t.tag_id !== tagId);
+    tags.value = tags.value.filter(t => Number(t.id ?? t.tag_id) !== tagId);
+  }
+
+  async function replaceTags(issueId: string, tagIds: number[]) {
+    const response = await issueApi.replaceTags(issueId, tagIds);
+    const rows = response.data?.rows || [];
+    tags.value = rows;
+    return rows;
   }
 
   /**
@@ -388,6 +395,7 @@ export const useIssueStore = defineStore('issue', () => {
     getTags,
     addTag,
     removeTag,
+    replaceTags,
     getReactions,
     addReaction,
     removeReaction,

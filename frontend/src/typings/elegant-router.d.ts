@@ -24,6 +24,8 @@ declare module "@elegant-router/types" {
     "dashboard": "/dashboard";
     "home": "/home";
     "iframe-page": "/iframe-page/:url";
+    "inbox": "/inbox";
+    "invite": "/invite/:token";
     "issue": "/issue";
     "issue_collection": "/issue/collection/:id";
     "issue_collection-create": "/issue/collection-create";
@@ -53,6 +55,9 @@ declare module "@elegant-router/types" {
     "profile": "/profile";
     "profile_access-tokens": "/profile/access-tokens";
     "profile_userinfo": "/profile/userinfo";
+    "triage": "/triage";
+    "initiatives": "/initiatives";
+    "initiatives_detail": "/initiatives/detail";
     "work-management": "/work-management";
     "work-management_cost-projects": "/work-management/cost-projects";
     "work-management_cost-projects_create": "/work-management/cost-projects/create";
@@ -74,6 +79,11 @@ declare module "@elegant-router/types" {
     "workflow_projects": "/workflow/projects";
     "workflow_requirement-detail": "/workflow/requirement-detail";
     "workflow_requirements": "/workflow/requirements";
+    "workspace": "/workspace";
+    "workspace_cycles": "/workspace/cycles";
+    "workspace_issue-templates": "/workspace/issue-templates";
+    "workspace_labels": "/workspace/labels";
+    "workspace_members": "/workspace/members";
   };
 
   /**
@@ -112,14 +122,20 @@ declare module "@elegant-router/types" {
     | "dashboard"
     | "home"
     | "iframe-page"
+    | "inbox"
+    | "invite"
     | "issue"
     | "knowledge-base"
     | "login"
     | "manage"
     | "oauth2"
     | "profile"
+    | "triage"
+    | "initiatives"
+    | "initiatives_detail"
     | "work-management"
     | "workflow"
+    | "workspace"
   >;
 
   /**
@@ -144,6 +160,8 @@ declare module "@elegant-router/types" {
     | "agents"
     | "dashboard"
     | "home"
+    | "inbox"
+    | "invite"
     | "issue_collection-create"
     | "issue_collection-list"
     | "issue_collection"
@@ -166,6 +184,9 @@ declare module "@elegant-router/types" {
     | "oauth2"
     | "profile_access-tokens"
     | "profile_userinfo"
+    | "triage"
+    | "initiatives"
+    | "initiatives_detail"
     | "work-management_cost-projects_create"
     | "work-management_cost-projects_detail"
     | "work-management_cost-projects_list"
@@ -182,6 +203,10 @@ declare module "@elegant-router/types" {
     | "workflow_projects"
     | "workflow_requirement-detail"
     | "workflow_requirements"
+    | "workspace_cycles"
+    | "workspace_issue-templates"
+    | "workspace_labels"
+    | "workspace_members"
   >;
 
   /**

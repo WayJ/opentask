@@ -1,4 +1,4 @@
 """Tag Models"""
-from .model import Tag
+from .model import Tag, TagGroup
 
-__all__ = ["Tag"]
+__all__ = ["Tag", "TagGroup"]

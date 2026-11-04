@@ -88,7 +88,11 @@ from opentask.app import App
 from opentask.models.base import DBModel
 from opentask.repositories.base import get_session
 from opentask.models.user.model import UserModel
-from opentask.models.tag.model import Tag  # 导入 Tag 模型，确保它被包含在 metadata 中
+from opentask.models.tag.model import Tag, TagGroup  # noqa: F401 — metadata 注册
+from opentask.models.issue_display_prefs import IssueDisplayPrefs  # noqa: F401 — metadata 注册
+from opentask.models.milestone import Milestone  # noqa: F401 — metadata 注册 E8-S1
+from opentask.models.issue_vcs_link import IssueVcsLink  # noqa: F401 — metadata 注册 E11-S1
+from opentask.models.cycle import Cycle  # noqa: F401 — metadata 注册
 from opentask.jwt_utils import create_access_token
 
 

@@ -1,92 +1,84 @@
 <script lang="ts" setup>
-import { computed, ref, shallowRef } from 'vue';
-import { useRouter } from 'vue-router';
-import { onKeyStroke, useDebounceFn } from '@vueuse/core';
-import { useRouteStore } from '@/store/modules/route';
+import { computed } from 'vue';
+import { onKeyStroke } from '@vueuse/core';
 import { useAppStore } from '@/store/modules/app';
+import { useThemeStore } from '@/store/modules/theme';
+import { useCommandPalette } from '@/composables/use-command-palette';
+import type { PaletteItem } from '@/utils/command-palette';
 import { $t } from '@/locales';
-import SearchResult from './search-result.vue';
 import SearchFooter from './search-footer.vue';
 
 defineOptions({ name: 'SearchModal' });
 
-const router = useRouter();
 const appStore = useAppStore();
-const routeStore = useRouteStore();
+const theme = useThemeStore();
+const {
+  isOpen,
+  query,
+  groups,
+  flatItems,
+  activeItem,
+  activeIndex,
+  entityLoading,
+  open,
+  close,
+  setQuery,
+  moveUp,
+  moveDown,
+  run,
+  runActive
+} = useCommandPalette();
 
 const isMobile = computed(() => appStore.isMobile);
 
-const keyword = ref('');
-const activePath = ref('');
-const resultOptions = shallowRef<App.Global.Menu[]>([]);
+const visible = computed({
+  get: () => isOpen.value,
+  set: (v: boolean) => {
+    if (v) open();
+    else close();
+  }
+});
 
-const handleSearch = useDebounceFn(search, 300);
+const keyword = computed({
+  get: () => query.value,
+  set: (v: string) => setQuery(v)
+});
 
-const visible = defineModel<boolean>('show', { required: true });
-
-function search() {
-  resultOptions.value = routeStore.searchMenus.filter(menu => {
-    const trimKeyword = keyword.value.toLocaleLowerCase().trim();
-    const title = (menu.i18nKey ? $t(menu.i18nKey) : menu.label).toLocaleLowerCase();
-    return trimKeyword && title.includes(trimKeyword);
-  });
-  activePath.value = resultOptions.value[0]?.routePath ?? '';
-}
+const showSearching = computed(() => entityLoading.value && Boolean(query.value.trim()));
 
 function handleClose() {
-  // handle with setTimeout to prevent user from seeing some operations
-  setTimeout(() => {
-    visible.value = false;
-    resultOptions.value = [];
-    keyword.value = '';
-  }, 200);
+  close();
 }
 
-/** key up */
-function handleUp() {
-  const { length } = resultOptions.value;
-  if (length === 0) return;
-
-  const index = getActivePathIndex();
-  if (index === -1) return;
-
-  const activeIndex = index === 0 ? length - 1 : index - 1;
-
-  activePath.value = resultOptions.value[activeIndex].routePath;
+function handleUp(e: KeyboardEvent) {
+  if (!isOpen.value) return;
+  e.preventDefault();
+  moveUp();
 }
 
-/** key down */
-function handleDown() {
-  const { length } = resultOptions.value;
-  if (length === 0) return;
-
-  const index = getActivePathIndex();
-  if (index === -1) return;
-
-  const activeIndex = index === length - 1 ? 0 : index + 1;
-
-  activePath.value = resultOptions.value[activeIndex].routePath;
+function handleDown(e: KeyboardEvent) {
+  if (!isOpen.value) return;
+  e.preventDefault();
+  moveDown();
 }
 
-function getActivePathIndex() {
-  return resultOptions.value.findIndex(item => item.routePath === activePath.value);
+function handleEnter(e: KeyboardEvent) {
+  if (!isOpen.value) return;
+  e.preventDefault();
+  runActive();
 }
 
-/** key enter */
-function handleEnter() {
-  if (resultOptions.value?.length === 0 || activePath.value === '') return;
-  handleClose();
-  router.push(activePath.value);
+function handleHover(item: PaletteItem) {
+  const idx = flatItems.value.findIndex(i => i.id === item.id);
+  if (idx >= 0) activeIndex.value = idx;
 }
 
-function registerShortcut() {
-  onKeyStroke('Escape', handleClose);
-  onKeyStroke('Enter', handleEnter);
-  onKeyStroke('ArrowUp', handleUp);
-  onKeyStroke('ArrowDown', handleDown);
-}
-
-registerShortcut();
+onKeyStroke('Escape', () => {
+  if (isOpen.value) handleClose();
+});
+onKeyStroke('Enter', handleEnter);
+onKeyStroke('ArrowUp', handleUp);
+onKeyStroke('ArrowDown', handleDown);
 </script>
 
 <template>
@@ -99,20 +91,55 @@ registerShortcut();
     footer-style="padding: 0; margin: 0"
     class="fixed left-0 right-0"
     :class="[isMobile ? 'size-full top-0px rounded-0' : 'w-630px top-50px']"
-    @after-leave="handleClose"
   >
     <NInputGroup>
-      <NInput v-model:value="keyword" clearable :placeholder="$t('common.keywordSearch')" @input="handleSearch">
+      <NInput v-model:value="keyword" clearable :placeholder="$t('common.commandPalette.placeholder')">
         <template #prefix>
           <icon-uil-search class="text-15px text-#c2c2c2" />
         </template>
       </NInput>
-      <NButton v-if="isMobile" type="primary" ghost @click="handleClose">{{ $t('common.cancel') }}</NButton>
+      <NButton v-if="isMobile" type="primary" ghost @click="handleClose">
+        {{ $t('common.cancel') }}
+      </NButton>
     </NInputGroup>
 
     <div class="mt-20px">
-      <NEmpty v-if="resultOptions.length === 0" :description="$t('common.noData')" />
-      <SearchResult v-else v-model:path="activePath" :options="resultOptions" @enter="handleEnter" />
+      <div v-if="showSearching" class="mb-8px px-8px text-12px text-#8b8b8b dark:text-#a0a0a0">
+        {{ $t('common.commandPalette.searching') }}
+      </div>
+      <NEmpty v-if="flatItems.length === 0 && !showSearching" :description="$t('common.noData')" />
+      <NScrollbar v-else-if="flatItems.length > 0" style="max-height: 420px">
+        <div class="pb-12px">
+          <template v-for="group in groups" :key="group.id">
+            <div class="mb-4px mt-8px px-8px text-12px text-#8b8b8b dark:text-#a0a0a0">
+              {{ group.label }}
+            </div>
+            <div
+              v-for="item in group.items"
+              :key="item.id"
+              class="mt-8px min-h-56px flex-y-center cursor-pointer justify-between rounded-4px bg-#e5e7eb px-14px py-8px dark:bg-dark"
+              :style="{
+                background: item.id === activeItem?.id ? theme.themeColor : '',
+                color: item.id === activeItem?.id ? '#fff' : ''
+              }"
+              @click="run(item)"
+              @mouseenter="handleHover(item)"
+            >
+              <div class="ml-5px flex-1 overflow-hidden">
+                <div class="truncate">{{ item.title }}</div>
+                <div
+                  v-if="item.subtitle"
+                  class="truncate text-12px opacity-80"
+                  :style="{ color: item.id === activeItem?.id ? '#fff' : undefined }"
+                >
+                  {{ item.subtitle }}
+                </div>
+              </div>
+              <icon-ant-design-enter-outlined class="icon mr-3px p-2px text-20px" />
+            </div>
+          </template>
+        </div>
+      </NScrollbar>
     </div>
     <template #footer>
       <SearchFooter v-if="!isMobile" />

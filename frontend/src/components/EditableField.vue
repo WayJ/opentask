@@ -112,6 +112,13 @@ function handleCancel() {
   transition: background-color 0.2s ease;
 }
 
+.editable-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 4px;
+}
+
 .editable-field:hover {
   background-color: rgba(0, 0, 0, 0.02);
   border-radius: 4px;
@@ -125,6 +132,9 @@ function handleCancel() {
   font-size: 12px;
   font-weight: 500;
   color: #666;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 4.5em;
 }
 
 .field-value,

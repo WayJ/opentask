@@ -102,7 +102,7 @@ async function handleChangePassword() {
   // 改密后旧 token 失效：清理本地会话并回到登录页重新登录
   window.$dialog?.info({
     title: $t('page.login.changePassword.changeSuccess'),
-    content: $t('page.profile.pwd.reLoginTip'),
+    content: $t('profile.pwd.reLoginTip'),
     positiveText: $t('page.login.common.confirm'),
     onPositiveClick: async () => {
       await authStore.resetStore();
@@ -155,9 +155,17 @@ onMounted(() => {
               {{ userInfo?.ssoName || '-' }}
             </NDescriptionsItem>
             <NDescriptionsItem :label="$t('profile.role')">
-              <NTag v-if="userInfo?.role" :type="getRoleTagType(userInfo.role)">
-                {{ getRoleLabel(userInfo.role) }}
-              </NTag>
+              <NSpace v-if="userInfo?.workspaceRole || userInfo?.role" :size="8">
+                <NTag
+                  v-if="userInfo?.workspaceRole"
+                  :type="getRoleTagType(userInfo.workspaceRole)"
+                >
+                  工作区 · {{ getRoleLabel(userInfo.workspaceRole) }}
+                </NTag>
+                <NTag v-if="userInfo?.role" :type="getRoleTagType(userInfo.role)" :bordered="false">
+                  平台 · {{ getRoleLabel(userInfo.role) }}
+                </NTag>
+              </NSpace>
               <span v-else>-</span>
             </NDescriptionsItem>
             <NDescriptionsItem :label="$t('profile.status')">
@@ -178,7 +186,7 @@ onMounted(() => {
         </NCard>
 
         <!-- 修改密码卡片 -->
-        <NCard :title="$t('page.profile.pwd.title')" class="profile-card">
+        <NCard :title="$t('profile.pwd.title')" class="profile-card">
           <div class="pwd-form">
             <NForm ref="pwdFormRef" :model="pwdModel" :rules="pwdRules" label-placement="top" class="pwd-form__inner">
               <NFormItem :label="$t('page.login.changePassword.oldPasswordPlaceholder')" path="oldPassword">
@@ -207,10 +215,10 @@ onMounted(() => {
                 />
               </NFormItem>
               <NButton type="primary" :loading="pwdSubmitting" @click="handleChangePassword">
-                {{ $t('page.profile.pwd.submit') }}
+                {{ $t('profile.pwd.submit') }}
               </NButton>
             </NForm>
-            <p class="pwd-form__hint">{{ $t('page.profile.pwd.hint') }}</p>
+            <p class="pwd-form__hint">{{ $t('profile.pwd.hint') }}</p>
           </div>
         </NCard>
 

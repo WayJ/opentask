@@ -19,6 +19,15 @@ declare namespace Api {
       created_at: string;
       /** Updated at */
       updated_at: string;
+      /** Project start (E8-S1) */
+      starts_at?: string | null;
+      /** Project target date (E8-S1) */
+      target_date?: string | null;
+      /** Latest health (E8-S2) */
+      health_status?: 'on_track' | 'at_risk' | 'off_track' | string | null;
+      health_note?: string | null;
+      health_updated_at?: string | null;
+      health_updated_by?: string | null;
     }
 
     /** Create project params */
@@ -31,7 +40,91 @@ declare namespace Api {
     interface UpdateProject {
       name?: string;
       description?: string;
+      starts_at?: string | null;
+      target_date?: string | null;
     }
+
+    /** Milestone (E8-S1) */
+    interface Milestone {
+      id: string;
+      workspace_id: string;
+      project_id: string;
+      name: string;
+      description?: string | null;
+      target_date?: string | null;
+      status: 'planned' | 'done' | string;
+      position: number;
+      created_at: string;
+      updated_at: string;
+    }
+
+    interface CreateMilestone {
+      name: string;
+      description?: string | null;
+      target_date?: string | null;
+      status?: string;
+      position?: number;
+    }
+
+    interface UpdateMilestone {
+      name?: string;
+      description?: string | null;
+      target_date?: string | null;
+      status?: string;
+      position?: number;
+    }
+
+    type HealthStatus = 'on_track' | 'at_risk' | 'off_track';
+
+    interface HealthUpdate {
+      id: string;
+      workspace_id: string;
+      project_id: string;
+      status: HealthStatus | string;
+      note?: string | null;
+      actor_user_id: string;
+      created_at: string;
+    }
+
+    interface HealthPayload {
+      latest: {
+        status: HealthStatus | string;
+        note?: string | null;
+        actor_user_id?: string | null;
+        created_at?: string | null;
+        project_id?: string;
+      } | null;
+      history: HealthUpdate[];
+    }
+
+    interface ProjectWatcher {
+      id: string;
+      workspace_id: string;
+      project_id: string;
+      user_id: string;
+      created_at: string;
+    }
+
+    interface TimelineData {
+      project: {
+        id: string;
+        name: string;
+        starts_at?: string | null;
+        target_date?: string | null;
+        health_status?: string | null;
+        health_note?: string | null;
+      };
+      milestones: Milestone[];
+      issues: Array<{
+        id: string;
+        title: string;
+        issue_code?: string | null;
+        due_date: string;
+        status?: string;
+        milestone_id?: string | null;
+      }>;
+    }
+
 
     /** Repo config model */
     interface RepoConfig {

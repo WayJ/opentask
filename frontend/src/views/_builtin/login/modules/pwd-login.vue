@@ -127,6 +127,9 @@ async function handleSubmit() {
       <NDivider class="text-14px text-#666 !m-0">{{ $t('page.login.pwdLogin.otherAccountLogin') }}</NDivider>
 
       <div class="flex-y-center gap-12px">
+        <NButton class="flex-1" block @click="toggleLoginModule('register')">
+          {{ $t(loginModuleRecord.register) }}
+        </NButton>
         <NButton class="flex-1" block @click="toggleLoginModule('code-login')">
           {{ $t(loginModuleRecord['code-login']) }}
         </NButton>

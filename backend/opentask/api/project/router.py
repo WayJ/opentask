@@ -1,5 +1,6 @@
 """项目和仓库管理 API 路由"""
 import logging
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel
@@ -16,11 +17,15 @@ from opentask.models.requirement.schema import (
 )
 from opentask.models.requirement.enums import MergeStatus
 from opentask.services.project_service import ProjectService, RepoConfigService, RequirementRepoService
+from opentask.services.milestone.service import MilestoneService, require_writer, serialize_milestone
+from opentask.models.workspace.model import Workspace, WorkspaceMember
 from opentask.services.user_center.rbac_service import RbacService
 from opentask.repositories.base import get_session
 from opentask.auth import authenticate
 from opentask.models.user.model import UserModel
 from opentask.utils.response import success_response, error_response, StatusCode
+from opentask.api.workspace.deps import get_optional_workspace_context, require_workspace_context
+from opentask.services.workspace.service import WorkspaceService
 
 logger = logging.getLogger(__name__)
 
@@ -55,11 +60,25 @@ async def create_project(
     dto: ProjectCreate,
     service: ProjectService = Depends(get_project_service),
     current_user: UserModel = Depends(authenticate),
+    ws_ctx=Depends(get_optional_workspace_context),
 ):
-    """创建项目"""
+    """创建项目（可选 X-Workspace-Id：写入 workspace_id）；有工作区时创建者自动 watch"""
+    workspace, _member, user = ws_ctx
     # 部门归属快照：取创建人主部门写入（无归属则保持 NULL）
-    dept_id = await RbacService(service.db).get_primary_dept_id(current_user)
-    project = await service.create(dto, dept_id=dept_id)
+    dept_id = await RbacService(service.db).get_primary_dept_id(user)
+    project = await service.create(
+        dto,
+        dept_id=dept_id,
+        workspace_id=workspace.id if workspace else None,
+    )
+    if workspace is not None:
+        from opentask.services.project_watcher.service import ProjectWatcherService
+
+        await ProjectWatcherService(service.db).watch(
+            project_id=project.id,
+            workspace_id=workspace.id,
+            user_id=str(user.id),
+        )
     return success_response(data=service.to_response(project), message="项目创建成功")
 
 
@@ -68,11 +87,25 @@ async def list_projects(
     active_only: bool = Query(True, description="仅返回活跃项目"),
     service: ProjectService = Depends(get_project_service),
     current_user: UserModel = Depends(authenticate),
+    ws_ctx=Depends(get_optional_workspace_context),
 ):
-    """获取所有项目（数据范围过滤：仅按部门可见集，ALL 档零过滤）"""
-    # 数据范围：ALL → None（零过滤）；SELF → 空集（项目恒不可见）
-    visible_dept_ids = await RbacService(service.db).get_visible_dept_ids(current_user)
-    projects = await service.list_all(active_only, visible_dept_ids=visible_dept_ids)
+    """获取项目列表（部门数据范围 + 工作区隔离）"""
+    workspace, _member, user = ws_ctx
+    allowed = None
+    ws_id = None
+    if workspace is not None:
+        # 显式工作区上下文：以租户成员资格为边界，不再叠加部门 SELF 空集过滤
+        ws_id = workspace.id
+        visible_dept_ids = None
+    else:
+        allowed = await WorkspaceService(service.db).member_workspace_ids(str(user.id))
+        visible_dept_ids = await RbacService(service.db).get_visible_dept_ids(user)
+    projects = await service.list_all(
+        active_only,
+        visible_dept_ids=visible_dept_ids,
+        workspace_id=ws_id,
+        allowed_workspace_ids=allowed,
+    )
     return success_response(data=[service.to_response(p) for p in projects])
 
 
@@ -86,15 +119,31 @@ async def get_project(
     return success_response(data=service.to_response(project))
 
 
+class ProjectUpdateBody(BaseModel):
+    """项目更新请求体（全部可选）"""
+    name: str | None = None
+    description: str | None = None
+    starts_at: datetime | None = None
+    target_date: datetime | None = None
+
+
 @router.put("/{project_id}")
 async def update_project(
     project_id: str,
-    name: str | None = Body(None),
-    description: str | None = Body(None),
+    body: ProjectUpdateBody = Body(...),
     service: ProjectService = Depends(get_project_service),
 ):
-    """更新项目"""
-    project = await service.update(project_id, name, description)
+    """更新项目（含 starts_at / target_date）"""
+    kwargs = {}
+    if "name" in body.model_fields_set:
+        kwargs["name"] = body.name
+    if "description" in body.model_fields_set:
+        kwargs["description"] = body.description
+    if "starts_at" in body.model_fields_set:
+        kwargs["starts_at"] = body.starts_at
+    if "target_date" in body.model_fields_set:
+        kwargs["target_date"] = body.target_date
+    project = await service.update(project_id, **kwargs)
     return success_response(data=service.to_response(project), message="项目更新成功")
 
 
@@ -244,6 +293,250 @@ async def unlink_requirement_repo(
     return success_response(message="关联已取消")
 
 
+
+# ============================================================================
+# 里程碑（E8-S1）
+# ============================================================================
+
+milestones_router = APIRouter(prefix="/{project_id}/milestones", tags=["Milestones"])
+
+
+class MilestoneCreateBody(BaseModel):
+    name: str
+    description: str | None = None
+    target_date: datetime | None = None
+    status: str = "planned"
+    position: int = 0
+
+
+class MilestoneUpdateBody(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    target_date: datetime | None = None
+    status: str | None = None
+    position: int | None = None
+
+
+@milestones_router.get("")
+async def list_milestones(
+    project_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    ws, _member, _user = ctx
+    rows = await MilestoneService(db).list(project_id=project_id, workspace_id=ws.id)
+    return success_response(data=[serialize_milestone(r) for r in rows])
+
+
+@milestones_router.post("")
+async def create_milestone(
+    project_id: str,
+    body: MilestoneCreateBody,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    ws, member, _user = ctx
+    require_writer(member)
+    row = await MilestoneService(db).create(
+        project_id=project_id,
+        workspace_id=ws.id,
+        name=body.name,
+        description=body.description,
+        target_date=body.target_date,
+        status=body.status,
+        position=body.position,
+    )
+    return success_response(data=serialize_milestone(row), message="里程碑已创建")
+
+
+@milestones_router.get("/{milestone_id}")
+async def get_milestone(
+    project_id: str,
+    milestone_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    ws, _member, _user = ctx
+    row = await MilestoneService(db).get(
+        milestone_id, project_id=project_id, workspace_id=ws.id
+    )
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="里程碑不存在")
+    return success_response(data=serialize_milestone(row))
+
+
+@milestones_router.patch("/{milestone_id}")
+async def update_milestone(
+    project_id: str,
+    milestone_id: str,
+    body: MilestoneUpdateBody,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    ws, member, _user = ctx
+    require_writer(member)
+    svc = MilestoneService(db)
+    row = await svc.get(milestone_id, project_id=project_id, workspace_id=ws.id)
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="里程碑不存在")
+    kwargs = {}
+    if "name" in body.model_fields_set:
+        kwargs["name"] = body.name
+    if "description" in body.model_fields_set:
+        kwargs["description"] = body.description
+    if "target_date" in body.model_fields_set:
+        kwargs["target_date"] = body.target_date
+    if "status" in body.model_fields_set:
+        kwargs["status"] = body.status
+    if "position" in body.model_fields_set:
+        kwargs["position"] = body.position
+    row = await svc.update(row, **kwargs)
+    return success_response(data=serialize_milestone(row), message="里程碑已更新")
+
+
+@milestones_router.delete("/{milestone_id}")
+async def delete_milestone(
+    project_id: str,
+    milestone_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    ws, member, _user = ctx
+    require_writer(member)
+    svc = MilestoneService(db)
+    row = await svc.get(milestone_id, project_id=project_id, workspace_id=ws.id)
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="里程碑不存在")
+    await svc.delete(row)
+    return success_response(message="里程碑已删除")
+
+
+
+# ============================================================================
+# Health / Watchers / Timeline (E8-S2)
+# ============================================================================
+
+health_router = APIRouter(prefix="/{project_id}/health", tags=["Project Health"])
+watchers_router = APIRouter(prefix="/{project_id}/watchers", tags=["Project Watchers"])
+
+
+class HealthUpdateBody(BaseModel):
+    status: str
+    note: str | None = None
+
+
+@health_router.post("")
+async def post_project_health(
+    project_id: str,
+    body: HealthUpdateBody,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    from opentask.services.project_health.service import (
+        ProjectHealthService,
+        require_writer as health_require_writer,
+        serialize_health_update,
+    )
+
+    ws, member, user = ctx
+    health_require_writer(member)
+    row = await ProjectHealthService(db).post_update(
+        project_id=project_id,
+        workspace_id=ws.id,
+        actor_user_id=str(user.id),
+        status_value=body.status,
+        note=body.note,
+    )
+    return success_response(data=serialize_health_update(row), message="健康状态已更新")
+
+
+@health_router.get("")
+async def get_project_health(
+    project_id: str,
+    history: bool = Query(False, description="是否返回历史"),
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    from opentask.services.project_health.service import ProjectHealthService
+
+    ws, _member, _user = ctx
+    data = await ProjectHealthService(db).get_health(
+        project_id=project_id,
+        workspace_id=ws.id,
+        include_history=history,
+    )
+    return success_response(data=data)
+
+
+@watchers_router.get("")
+async def list_project_watchers(
+    project_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    from opentask.services.project_watcher.service import (
+        ProjectWatcherService,
+        serialize_watcher,
+    )
+
+    ws, _member, _user = ctx
+    rows = await ProjectWatcherService(db).list(
+        project_id=project_id, workspace_id=ws.id
+    )
+    return success_response(data=[serialize_watcher(r) for r in rows])
+
+
+@watchers_router.post("")
+async def watch_project(
+    project_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    from opentask.services.project_watcher.service import (
+        ProjectWatcherService,
+        serialize_watcher,
+    )
+
+    ws, _member, user = ctx
+    row = await ProjectWatcherService(db).watch(
+        project_id=project_id, workspace_id=ws.id, user_id=str(user.id)
+    )
+    return success_response(data=serialize_watcher(row), message="已订阅")
+
+
+@watchers_router.delete("")
+async def unwatch_project(
+    project_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    from opentask.services.project_watcher.service import ProjectWatcherService
+
+    ws, _member, user = ctx
+    await ProjectWatcherService(db).unwatch(
+        project_id=project_id, workspace_id=ws.id, user_id=str(user.id)
+    )
+    return success_response(message="已取消订阅")
+
+
+@router.get("/{project_id}/timeline")
+async def get_project_timeline(
+    project_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    from opentask.services.project_health.service import ProjectHealthService
+
+    ws, _member, _user = ctx
+    data = await ProjectHealthService(db).timeline(
+        project_id=project_id, workspace_id=ws.id
+    )
+    return success_response(data=data)
+
+
 # 将子路由器添加到主路由器
 router.include_router(repo_router)
+router.include_router(milestones_router)
+router.include_router(health_router)
+router.include_router(watchers_router)
 router.include_router(requirement_repo_router)

@@ -1,0 +1,99 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { PaletteItem } from '@/utils/command-palette';
+import { resetCommandPaletteForTests, useCommandPalette } from './use-command-palette';
+
+describe('useCommandPalette', () => {
+  beforeEach(() => {
+    resetCommandPaletteForTests();
+  });
+
+  it('open/close/toggle and clears query on close', () => {
+    const p = useCommandPalette();
+    expect(p.isOpen.value).toBe(false);
+    p.open();
+    expect(p.isOpen.value).toBe(true);
+    p.setQuery('abc');
+    expect(p.query.value).toBe('abc');
+    p.close();
+    expect(p.isOpen.value).toBe(false);
+    expect(p.query.value).toBe('');
+    p.toggle();
+    expect(p.isOpen.value).toBe(true);
+    p.toggle();
+    expect(p.isOpen.value).toBe(false);
+  });
+
+  it('groups actions and navigates on runActive', async () => {
+    const runIssues = vi.fn();
+    const runInbox = vi.fn();
+    const actions: PaletteItem[] = [
+      { id: 'nav.issues', kind: 'action', title: 'Issues', run: runIssues },
+      { id: 'nav.inbox', kind: 'action', title: 'Inbox', keywords: ['inbox'], run: runInbox }
+    ];
+    const p = useCommandPalette();
+    p.setSources({ actions, menus: [] });
+    p.open();
+    expect(p.groups.value[0].items).toHaveLength(2);
+    p.setQuery('inbox');
+    expect(p.flatItems.value.map(i => i.id)).toEqual(['nav.inbox']);
+    expect(p.activeIndex.value).toBe(0);
+    await p.runActive();
+    expect(runInbox).toHaveBeenCalled();
+    expect(p.isOpen.value).toBe(false);
+  });
+
+  it('moveDown/moveUp wraps', () => {
+    const p = useCommandPalette();
+    p.setSources({
+      actions: [
+        { id: 'a', kind: 'action', title: 'A', run: () => undefined },
+        { id: 'b', kind: 'action', title: 'B', run: () => undefined }
+      ],
+      menus: []
+    });
+    p.open();
+    p.moveDown();
+    expect(p.activeIndex.value).toBe(1);
+    p.moveDown();
+    expect(p.activeIndex.value).toBe(0);
+    p.moveUp();
+    expect(p.activeIndex.value).toBe(1);
+  });
+});
+
+describe('useCommandPalette entity sources', () => {
+  it('includes entity groups for non-empty query and clears on empty query via setEntitySources', () => {
+    const p = useCommandPalette();
+    p.setGroupLabels({
+      actions: 'Actions',
+      menus: 'Menus',
+      issues: 'Issues',
+      projects: 'Projects',
+      views: 'Views'
+    });
+    p.setSources({
+      actions: [{ id: 'nav.issues', kind: 'action', title: 'Issues', run: () => undefined }],
+      menus: []
+    });
+    p.setEntitySources({
+      issues: [{ id: 'issue.1', kind: 'issue', title: 'Fix login', run: () => undefined }],
+      projects: [{ id: 'project.1', kind: 'project', title: 'Alpha', run: () => undefined }],
+      savedViews: [{ id: 'view.1', kind: 'saved_view', title: 'Mine', run: () => undefined }]
+    });
+    p.setQuery('fix');
+    expect(p.groups.value.map(g => g.id)).toEqual(['issues', 'projects', 'views']);
+    expect(p.flatItems.value.map(i => i.id)).toEqual(['issue.1', 'project.1', 'view.1']);
+    p.moveDown();
+    expect(p.activeIndex.value).toBe(1);
+    p.setQuery('');
+    p.setEntitySources({ issues: [], projects: [], savedViews: [] });
+    expect(p.groups.value.map(g => g.id)).toEqual(['actions']);
+  });
+
+  it('exposes entityLoading flag', () => {
+    const p = useCommandPalette();
+    expect(p.entityLoading.value).toBe(false);
+    p.setEntityLoading(true);
+    expect(p.entityLoading.value).toBe(true);
+  });
+});

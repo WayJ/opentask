@@ -8,7 +8,7 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from passlib.context import CryptContext
 from pydantic import BaseModel, Field
 from sqlalchemy import select, func, or_, and_, delete, update
@@ -45,25 +45,19 @@ router = APIRouter(prefix="/api/users", tags=["用户管理"])
 async def get_current_user(
     current_user: UserModel = Depends(authenticate),
     session: AsyncSession = Depends(get_session),
+    x_workspace_id: str | None = Header(None, alias="X-Workspace-Id"),
 ) -> dict:
-    """
-    获取当前登录用户信息
-
-    Returns:
-        {
-            "code": 200,
-            "message": "success",
-            "data": {
-                "id": "xxx",
-                "sso_user_id": "xxx",
-                "sso_account": "laker",
-                ...
-            },
-            "timestamp": 1234567890
-        }
-    """
-    # 权限列表从 RbacService 计算（user_role 优先，存量 role 字符串桥接）
+    """获取当前登录用户信息（含当前工作区角色）。"""
     permissions = sorted(await RbacService(session).get_user_permissions(current_user))
+    workspace_role = None
+    if x_workspace_id:
+        from opentask.services.workspace.service import WorkspaceService
+
+        member = await WorkspaceService(session).get_membership(
+            x_workspace_id, str(current_user.id)
+        )
+        if member is not None:
+            workspace_role = member.role
 
     return {
         "code": 200,
@@ -77,6 +71,7 @@ async def get_current_user(
             organize_name=current_user.organize_name,
             position_name=current_user.position_name,
             role=current_user.role,
+            workspace_role=workspace_role,
             status=current_user.status,
             permissions=permissions,
         ).model_dump(by_alias=True),

@@ -11,6 +11,7 @@ import GlobalTab from '../modules/global-tab/index.vue';
 import GlobalContent from '../modules/global-content/index.vue';
 import GlobalFooter from '../modules/global-footer/index.vue';
 import ThemeDrawer from '../modules/theme-drawer/index.vue';
+import CommandPaletteHost from '../modules/global-search/command-palette-host.vue';
 import { provideMixMenuContext } from '../modules/global-menu/context';
 
 defineOptions({
@@ -150,6 +151,7 @@ function getSiderAndCollapsedWidth(isCollapsed: boolean) {
     <GlobalMenu />
     <GlobalContent />
     <ThemeDrawer />
+    <CommandPaletteHost />
     <!-- <AiAssistant /> -->
     <!-- 已隐藏AI助手功能 -->
     <template #footer>

@@ -9,6 +9,11 @@ export interface IssueTemplate {
   description: string;
   icon: string;
   fields: IssueTemplateField[];
+  /** API uuid when loaded from /api/issue-templates */
+  apiId?: string;
+  seedKey?: string;
+  defaultType?: string;
+  defaultPriority?: string;
 }
 
 export interface IssueTemplateField {

@@ -1,12 +1,17 @@
 <script setup lang="ts">
-import { computed, h, onMounted, reactive, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, h, onMounted, reactive, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import {
   NButton,
   NCard,
+  NCheckbox,
   NDataTable,
+  NDropdown,
   NEmpty,
+  NInput,
+  NModal,
   NPagination,
+  NPopover,
   NSelect,
   NSpace,
   NSpin,
@@ -16,7 +21,7 @@ import {
   NText,
   NTooltip
 } from 'naive-ui';
-import type { DataTableColumns } from 'naive-ui';
+import type { DataTableColumns, DropdownOption } from 'naive-ui';
 import {
   getIssuePriorityTagType,
   getIssueStatusTagType,
@@ -26,12 +31,41 @@ import {
   issueTypeOptions
 } from '@/constants/issue';
 import { fetchProjectList } from '@/service/api';
+import { type CycleItem, fetchCycles } from '@/service/api/cycles';
 import { issueApi } from '@/service/api/issue';
+import {
+  type SavedView,
+  fetchCreateSavedView,
+  fetchSaveAsSavedView,
+  fetchSavedViews,
+  fetchSetSavedViewFavorite,
+  fetchUpdateSavedView
+} from '@/service/api/saved-views';
+import { fetchIssueDisplayPrefs, fetchPutIssueDisplayPrefs } from '@/service/api/display-prefs';
+import { fetchAddFavorite, fetchFavorites, fetchRemoveFavorite } from '@/service/api/favorites';
+import { fetchWorkspaceList } from '@/service/api/workspace';
 import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
+import { useIssueFocus } from '@/composables/use-issue-focus';
+import { useIssueListViewMode } from '@/composables/use-issue-list-view-mode';
+import { localStg } from '@/utils/storage';
+import { buildSavedViewDropdownOptions, canWriteSavedView } from '@/utils/saved-view-sections';
+import { deriveListStateFromSavedView } from '@/utils/apply-saved-view';
+import { GROUP_BY_OPTIONS, type GroupByKey } from '@/utils/groupIssuesBy';
+import {
+  type IssueDisplayFields,
+  type SwimlaneBy,
+  defaultIssueDisplay,
+  displayStateToJson,
+  normalizeIssueDisplay
+} from '@/utils/display-prefs';
+import { nestIssuesDepth1 } from '@/utils/nestIssuesDepth1';
 import type { ParsedQuery } from '@/utils/issueSearchParser';
 import IssueSmartSearch from '@/components/IssueSmartSearch.vue';
 import type { Api } from '@/typings/api';
+import IssueBoard from './modules/IssueBoard.vue';
+import IssueListGrouped from './modules/IssueListGrouped.vue';
+import DisplayOptionsPanel from './modules/DisplayOptionsPanel.vue';
 
 defineOptions({
   name: 'IssueList'
@@ -40,12 +74,15 @@ defineOptions({
 const issueStore = useIssueStore();
 const authStore = useAuthStore();
 const router = useRouter();
+const route = useRoute();
 
 const issues = ref<Api.Issue.Issue[]>([]);
 const allIssues = ref<Api.Issue.Issue[]>([]); // 保存所有 issue，用于 tab 切换
 const loading = ref(false);
 const projects = ref<Api.Project.Project[]>([]);
 const projectsLoading = ref(false);
+const cycles = ref<CycleItem[]>([]);
+const cyclesLoading = ref(false);
 
 // 获取当前用户 ID
 const currentUserId = computed(() => authStore.userInfo?.userId || '');
@@ -62,6 +99,96 @@ const pagination = reactive({
 // Tab 状态
 const activeTab = ref<'my_issues' | 'open' | 'closed' | 'all'>('open');
 
+// 双视图：list | board（同数据源；与 ⌘B 共享单例）
+const { viewMode, setMode: setViewMode } = useIssueListViewMode();
+const issueFocus = useIssueFocus();
+const focusedIssueId = issueFocus.focusedIssueId;
+const filteredIssues = ref<Api.Issue.Issue[]>([]);
+
+/** E4-S2：列表分组依据（本地状态；可写入 Saved View display.group_by） */
+const groupBy = ref<GroupByKey>('none');
+const groupByOptions = GROUP_BY_OPTIONS;
+
+const isGroupedList = computed(() => groupBy.value !== 'none');
+const activeGroupBy = computed(() => groupBy.value as Exclude<GroupByKey, 'none'>);
+
+/** E7-S3：会话 Display（View 覆盖会话；prefs 为个人默认） */
+const displayFields = ref<IssueDisplayFields>(defaultIssueDisplay().fields);
+const swimlaneBy = ref<SwimlaneBy>('none');
+const hideEmptyLanes = ref(false);
+const displayPrefsSaving = ref(false);
+const displayPopoverShow = ref(false);
+
+function currentDisplayJson() {
+  return displayStateToJson({
+    viewMode: viewMode.value,
+    groupBy: groupBy.value,
+    swimlaneBy: swimlaneBy.value,
+    hideEmptyLanes: hideEmptyLanes.value,
+    fields: displayFields.value
+  });
+}
+
+function applyDisplayState(partial: {
+  viewMode?: 'list' | 'board';
+  groupBy?: GroupByKey;
+  swimlaneBy?: SwimlaneBy;
+  hideEmptyLanes?: boolean;
+  fields?: IssueDisplayFields;
+}) {
+  if (partial.viewMode) viewMode.value = partial.viewMode;
+  if (partial.groupBy) groupBy.value = partial.groupBy;
+  if (partial.swimlaneBy) swimlaneBy.value = partial.swimlaneBy;
+  if (typeof partial.hideEmptyLanes === 'boolean') hideEmptyLanes.value = partial.hideEmptyLanes;
+  if (partial.fields) displayFields.value = { ...partial.fields };
+}
+
+async function loadPersonalDisplayPrefs() {
+  try {
+    const { data, error } = await fetchIssueDisplayPrefs();
+    if (error || !data?.display) return;
+    const normalized = normalizeIssueDisplay(data.display);
+    applyDisplayState({
+      viewMode: normalized.viewMode,
+      groupBy: normalized.groupBy,
+      swimlaneBy: normalized.swimlaneBy,
+      hideEmptyLanes: normalized.hideEmptyLanes,
+      fields: normalized.fields
+    });
+  } catch {
+    /* ignore prefs load */
+  }
+}
+
+async function setPersonalDisplayDefault() {
+  displayPrefsSaving.value = true;
+  try {
+    const { error } = await fetchPutIssueDisplayPrefs(currentDisplayJson() as any);
+    if (error) {
+      window.$message?.error(error.message || '保存个人默认失败');
+      return;
+    }
+    window.$message?.success('已设为个人默认显示');
+  } catch {
+    window.$message?.error('保存个人默认失败');
+  } finally {
+    displayPrefsSaving.value = false;
+  }
+}
+
+function resetDisplayOptions() {
+  const d = defaultIssueDisplay();
+  swimlaneBy.value = d.swimlaneBy;
+  hideEmptyLanes.value = d.hideEmptyLanes;
+  displayFields.value = { ...d.fields };
+}
+
+/** E4-S3：当前页 depth-1 嵌套（父不在本页则子作顶层） */
+type IssueRow = Api.Issue.Issue & { nestDepth?: number };
+const nestedListIssues = computed<IssueRow[]>(() =>
+  nestIssuesDepth1(issues.value).map(r => ({ ...r.issue, nestDepth: r.depth }))
+);
+
 // 筛选框展开状态（默认关闭）
 const filtersExpanded = ref(false);
 
@@ -71,11 +198,256 @@ const filters = reactive({
   priority: undefined as Api.Issue.IssuePriority | undefined,
   type: undefined as Api.Issue.IssueType | undefined,
   project_id: undefined as string | undefined,
+  cycle_id: undefined as string | undefined,
   search: ''
 });
 
 // 智能搜索
 const smartSearchValue = ref('');
+
+// Saved Views（E4 个人；E7-S2 共享分区）
+const savedViews = ref<SavedView[]>([]);
+const personalSavedViews = ref<SavedView[]>([]);
+const sharedSavedViews = ref<SavedView[]>([]);
+const savedViewsLoading = ref(false);
+const saveViewModalVisible = ref(false);
+const saveViewName = ref('');
+const saveViewShared = ref(false);
+const saveViewSubmitting = ref(false);
+const activeSavedViewId = ref<string | null>(null);
+const workspaceRole = ref<string | null>(null);
+
+async function loadWorkspaceRole() {
+  try {
+    const res = await fetchWorkspaceList();
+    const list = res.data || [];
+    const wid = localStg.get('workspaceId');
+    const current = list.find(w => w.id === wid) || list[0];
+    workspaceRole.value = current?.role ?? null;
+  } catch {
+    workspaceRole.value = null;
+  }
+}
+
+async function loadSavedViews() {
+  savedViewsLoading.value = true;
+  try {
+    const response = await fetchSavedViews();
+    const data = response.data;
+    personalSavedViews.value = data?.personal || [];
+    sharedSavedViews.value = data?.shared || [];
+    savedViews.value = data?.rows || [...personalSavedViews.value, ...sharedSavedViews.value];
+  } catch {
+    personalSavedViews.value = [];
+    sharedSavedViews.value = [];
+    savedViews.value = [];
+  } finally {
+    savedViewsLoading.value = false;
+  }
+}
+
+const activeSavedView = computed(() => savedViews.value.find(v => v.id === activeSavedViewId.value) || null);
+
+const canWriteActiveSavedView = computed(() => {
+  const view = activeSavedView.value;
+  if (!view) return false;
+  return canWriteSavedView(view, currentUserId.value, workspaceRole.value);
+});
+
+function buildCurrentFilterPayload() {
+  const filter: Record<string, unknown> = {};
+  if (filters.status) filter.status = filters.status;
+  if (filters.type) filter.type = filters.type;
+  if (filters.priority) filter.priority = filters.priority;
+  if (filters.project_id) filter.project_id = filters.project_id;
+  if (filters.cycle_id) filter.cycle_id = filters.cycle_id;
+  if (filters.search) filter.search = filters.search;
+  filter.tab = activeTab.value;
+  return filter;
+}
+
+function openSaveViewModal() {
+  saveViewName.value = '';
+  saveViewShared.value = false;
+  saveViewModalVisible.value = true;
+}
+
+async function confirmSaveView() {
+  const name = saveViewName.value.trim();
+  if (!name) {
+    window.$message?.warning('请输入视图名称');
+    return false;
+  }
+  saveViewSubmitting.value = true;
+  try {
+    await fetchCreateSavedView({
+      name,
+      filter: buildCurrentFilterPayload(),
+      sort: { sort_by: 'created_at', sort_order: 'desc' },
+      display: currentDisplayJson(),
+      is_favorite: false,
+      is_shared: saveViewShared.value
+    });
+    window.$message?.success(saveViewShared.value ? '共享视图已保存' : '视图已保存');
+    await loadSavedViews();
+    return true;
+  } catch {
+    window.$message?.error('保存视图失败');
+    return false;
+  } finally {
+    saveViewSubmitting.value = false;
+  }
+}
+
+async function applySavedView(view: SavedView) {
+  const state = deriveListStateFromSavedView(view);
+  filters.type = state.filters.type;
+  filters.priority = state.filters.priority;
+  filters.project_id = state.filters.project_id;
+  filters.cycle_id = state.filters.cycle_id;
+  filters.status = state.filters.status;
+  filters.search = state.filters.search;
+  smartSearchValue.value = filters.search || '';
+
+  if (state.tab) {
+    activeTab.value = state.tab;
+  }
+
+  if (state.viewMode) {
+    viewMode.value = state.viewMode;
+  }
+  groupBy.value = state.groupBy;
+  swimlaneBy.value = state.swimlaneBy;
+  hideEmptyLanes.value = state.hideEmptyLanes;
+  displayFields.value = { ...state.fields };
+
+  activeSavedViewId.value = state.activeSavedViewId;
+  pagination.page = 1;
+  await loadIssues();
+  window.$message?.success(`已应用视图「${view.name}」`);
+}
+
+async function applySavedViewById(viewId: string) {
+  if (!viewId) return;
+  let view = savedViews.value.find(v => v.id === viewId);
+  if (!view) {
+    await loadSavedViews();
+    view = savedViews.value.find(v => v.id === viewId);
+  }
+  if (!view) {
+    window.$message?.warning('未找到该视图');
+    return;
+  }
+  await applySavedView(view);
+  if (route.query.view) {
+    const nextQuery = { ...route.query };
+    delete nextQuery.view;
+    router.replace({ path: route.path, query: nextQuery });
+  }
+}
+
+async function toggleActiveViewFavorite() {
+  const id = activeSavedViewId.value;
+  if (!id) {
+    window.$message?.info('请先应用一个已保存视图');
+    return;
+  }
+  const view = savedViews.value.find(v => v.id === id);
+  if (!view) return;
+  if (view.isShared) {
+    window.$message?.warning('共享视图不支持收藏，可另存为个人视图后再收藏');
+    return;
+  }
+  try {
+    await fetchSetSavedViewFavorite(view.id, !view.isFavorite);
+    await loadSavedViews();
+    window.$message?.success(view.isFavorite ? '已取消收藏' : '已收藏');
+  } catch {
+    window.$message?.error('更新收藏失败');
+  }
+}
+
+const sidebarPinnedViewFavoriteId = ref<string | null>(null);
+const sidebarPinLoading = ref(false);
+
+async function loadSidebarPinForActiveView() {
+  const id = activeSavedViewId.value;
+  if (!id) {
+    sidebarPinnedViewFavoriteId.value = null;
+    return;
+  }
+  try {
+    const res = await fetchFavorites();
+    const rows = res.data?.rows || [];
+    const hit = rows.find(r => r.targetType === 'saved_view' && r.targetId === id);
+    sidebarPinnedViewFavoriteId.value = hit?.id ?? null;
+  } catch {
+    sidebarPinnedViewFavoriteId.value = null;
+  }
+}
+
+watch(activeSavedViewId, () => {
+  loadSidebarPinForActiveView();
+});
+
+async function toggleActiveViewSidebarPin() {
+  const id = activeSavedViewId.value;
+  if (!id) {
+    window.$message?.info('请先应用一个已保存视图');
+    return;
+  }
+  sidebarPinLoading.value = true;
+  try {
+    if (sidebarPinnedViewFavoriteId.value) {
+      await fetchRemoveFavorite(sidebarPinnedViewFavoriteId.value);
+      sidebarPinnedViewFavoriteId.value = null;
+      window.$message?.success('已从侧栏移除');
+    } else {
+      const res = await fetchAddFavorite({ target_type: 'saved_view', target_id: id });
+      sidebarPinnedViewFavoriteId.value = res.data?.id ?? null;
+      window.$message?.success('已收藏到侧栏');
+    }
+    window.dispatchEvent(new CustomEvent('opentask:favorites-changed'));
+  } catch {
+    window.$message?.error('更新侧栏收藏失败');
+  } finally {
+    sidebarPinLoading.value = false;
+  }
+}
+
+async function saveActiveViewAsPersonal() {
+  const view = activeSavedView.value;
+  if (!view) {
+    window.$message?.info('请先应用一个已保存视图');
+    return;
+  }
+  try {
+    const res = await fetchSaveAsSavedView(view.id, `${view.name}（副本）`);
+    window.$message?.success('已另存为个人视图');
+    await loadSavedViews();
+    const copy = res.data;
+    if (copy?.id) {
+      await applySavedView(copy);
+    }
+  } catch {
+    window.$message?.error('另存为失败');
+  }
+}
+
+const savedViewDropdownOptions = computed<DropdownOption[]>(() => {
+  return buildSavedViewDropdownOptions(personalSavedViews.value, sharedSavedViews.value) as DropdownOption[];
+});
+
+const favoriteSavedViews = computed(() => personalSavedViews.value.filter(v => v.isFavorite));
+
+function handleSavedViewSelect(key: string | number) {
+  const id = String(key);
+  if (id === '__empty') return;
+  const view = savedViews.value.find(v => v.id === id);
+  if (view) {
+    applySavedView(view);
+  }
+}
 
 // 语法帮助显示状态
 const showSyntaxHelp = ref(false);
@@ -110,6 +482,7 @@ async function loadIssues() {
         priority: filters.priority,
         type: filters.type,
         project_id: filters.project_id,
+        cycle_id: filters.cycle_id,
         search: filters.search || undefined
       });
 
@@ -164,6 +537,13 @@ function applyTabAndFilters() {
   if (filters.project_id) {
     filtered = filtered.filter(issue => issue.project_id === filters.project_id);
   }
+  if (filters.cycle_id) {
+    if (filters.cycle_id === '__none__') {
+      filtered = filtered.filter(issue => !issue.cycle_id);
+    } else {
+      filtered = filtered.filter(issue => issue.cycle_id === filters.cycle_id);
+    }
+  }
   if (filters.search) {
     const searchLower = filters.search.toLowerCase();
     filtered = filtered.filter(
@@ -171,10 +551,11 @@ function applyTabAndFilters() {
     );
   }
 
-  // 更新分页总数
+  // 更新分页总数与看板全量（未分页）
+  filteredIssues.value = filtered;
   pagination.itemCount = filtered.length;
 
-  // 应用分页：只取当前页的数据
+  // 应用分页：只取当前页的数据（列表视图）
   const start = (pagination.page - 1) * pagination.pageSize;
   const end = start + pagination.pageSize;
   issues.value = filtered.slice(start, end);
@@ -262,6 +643,26 @@ async function loadProjects() {
   }
 }
 
+async function loadCycles() {
+  cyclesLoading.value = true;
+  try {
+    const response = await fetchCycles();
+    cycles.value = response.data?.rows || [];
+  } catch {
+    cycles.value = [];
+  } finally {
+    cyclesLoading.value = false;
+  }
+}
+
+const cycleFilterOptions = computed(() => {
+  const opts: { label: string; value: string }[] = [{ label: '无 Cycle', value: '__none__' }];
+  for (const c of cycles.value) {
+    opts.push({ label: `${c.name}${c.status === 'active' ? ' (active)' : ''}`, value: c.id });
+  }
+  return opts;
+});
+
 // Tab 统计
 const tabCounts = computed(() => {
   const openStatuses: Api.Issue.IssueStatus[] = ['open', 'in_progress', 'feedback'];
@@ -277,6 +678,13 @@ const tabCounts = computed(() => {
   }
   if (filters.project_id) {
     base = base.filter(issue => issue.project_id === filters.project_id);
+  }
+  if (filters.cycle_id) {
+    if (filters.cycle_id === '__none__') {
+      base = base.filter(issue => !issue.cycle_id);
+    } else {
+      base = base.filter(issue => issue.cycle_id === filters.cycle_id);
+    }
   }
   if (filters.search) {
     const searchLower = filters.search.toLowerCase();
@@ -313,8 +721,30 @@ function handleDelete(issue: Api.Issue.Issue) {
   });
 }
 
+// Focus row for A/S/P/I hotkeys
+function focusIssueRow(issue: Api.Issue.Issue) {
+  issueFocus.setFocus(issue.id, {
+    title: issue.title,
+    status: issue.status,
+    priority: issue.priority,
+    assigneeId: issue.assignee_id
+  });
+}
+
+function issueRowProps(row: Api.Issue.Issue) {
+  return {
+    class: issueFocus.focusedIssueId.value === row.id ? 'issue-row-focused' : undefined,
+    style:
+      issueFocus.focusedIssueId.value === row.id
+        ? 'outline: 2px solid var(--primary-color, #18a058); outline-offset: -2px;'
+        : undefined,
+    onClick: () => focusIssueRow(row)
+  };
+}
+
 // View issue detail
 function viewIssue(issue: Api.Issue.Issue) {
+  focusIssueRow(issue);
   router.push({
     path: '/issue/detail',
     query: { id: issue.id }
@@ -354,9 +784,50 @@ function handlePageSizeChange(pageSize: number) {
   applyTabAndFilters(); // 前端分页
 }
 
+async function handleGroupByChange(value: GroupByKey | null) {
+  groupBy.value = value || 'none';
+  const id = activeSavedViewId.value;
+  if (!id || !canWriteActiveSavedView.value) return;
+  try {
+    await fetchUpdateSavedView(id, {
+      display: currentDisplayJson()
+    });
+    await loadSavedViews();
+  } catch {
+    window.$message?.warning('分组已切换，但同步到已保存视图失败');
+  }
+}
+
+async function syncActiveViewDisplay() {
+  const id = activeSavedViewId.value;
+  if (!id || !canWriteActiveSavedView.value) return;
+  try {
+    await fetchUpdateSavedView(id, { display: currentDisplayJson() });
+    await loadSavedViews();
+  } catch {
+    /* non-blocking */
+  }
+}
+
+function onDisplayFieldsUpdate(next: IssueDisplayFields) {
+  displayFields.value = next;
+  syncActiveViewDisplay();
+}
+
+function onSwimlaneByUpdate(next: SwimlaneBy) {
+  swimlaneBy.value = next;
+  syncActiveViewDisplay();
+}
+
+function onHideEmptyLanesUpdate(next: boolean) {
+  hideEmptyLanes.value = next;
+  syncActiveViewDisplay();
+}
+
 // Clear all filters
 function clearFilters() {
   filters.project_id = undefined;
+  filters.cycle_id = undefined;
   filters.type = undefined;
   filters.status = undefined;
   filters.priority = undefined;
@@ -367,7 +838,9 @@ function clearFilters() {
 
 // Computed: Check if any filters are active
 const hasActiveFilters = computed(() => {
-  return Boolean(filters.project_id || filters.type || filters.status || filters.priority || filters.search);
+  return Boolean(
+    filters.project_id || filters.cycle_id || filters.type || filters.status || filters.priority || filters.search
+  );
 });
 
 // Get project name by id
@@ -406,7 +879,36 @@ const columns: DataTableColumns<Api.Issue.Issue> = [
     title: '标题',
     key: 'title',
     width: 300,
-    ellipsis: { tooltip: true }
+    ellipsis: { tooltip: true },
+    render: (row: Api.Issue.Issue & { nestDepth?: number }) => {
+      const depth = row.nestDepth || 0;
+      return h(
+        'span',
+        {
+          style: {
+            display: 'inline-block',
+            paddingLeft: `${depth * 16}px`,
+            maxWidth: '100%'
+          }
+        },
+        [
+          depth > 0
+            ? h(
+                'span',
+                {
+                  style: {
+                    opacity: 0.55,
+                    marginRight: '4px',
+                    color: 'var(--color-text-tertiary, #9ca3af)'
+                  }
+                },
+                '↳'
+              )
+            : null,
+          row.title
+        ]
+      );
+    }
   },
   {
     title: '类型',
@@ -494,9 +996,43 @@ const projectOptions = computed(() => {
   }));
 });
 
-onMounted(() => {
+watch(
+  () => route.query.view,
+  viewId => {
+    if (typeof viewId === 'string' && viewId) {
+      applySavedViewById(viewId).catch(() => undefined);
+    }
+  }
+);
+
+watch(
+  () => route.query.cycle_id,
+  cycleId => {
+    const next = typeof cycleId === 'string' && cycleId ? cycleId : undefined;
+    if (filters.cycle_id !== next) {
+      filters.cycle_id = next;
+      pagination.page = 1;
+      loadIssues();
+    }
+  }
+);
+
+onMounted(async () => {
   loadProjects();
-  loadIssues();
+  loadCycles();
+  await loadWorkspaceRole();
+  await loadSavedViews();
+  const viewId = route.query.view;
+  const cycleQ = route.query.cycle_id;
+  if (typeof cycleQ === 'string' && cycleQ) {
+    filters.cycle_id = cycleQ;
+  }
+  if (typeof viewId === 'string' && viewId) {
+    await applySavedViewById(viewId);
+  } else {
+    await loadPersonalDisplayPrefs();
+    await loadIssues();
+  }
 });
 </script>
 
@@ -506,12 +1042,36 @@ onMounted(() => {
       <template #header>
         <NSpace align="center" justify="space-between" style="width: 100%">
           <NText strong style="font-size: 16px">Issue 管理</NText>
-          <NButton type="primary" @click="createIssue">
-            <template #icon>
-              <icon-mdi-plus />
-            </template>
-            新建 Issue
-          </NButton>
+          <NSpace align="center">
+            <NButton
+              size="small"
+              :type="viewMode === 'list' ? 'primary' : 'default'"
+              secondary
+              @click="setViewMode('list')"
+            >
+              <template #icon>
+                <icon-mdi-view-list />
+              </template>
+              列表
+            </NButton>
+            <NButton
+              size="small"
+              :type="viewMode === 'board' ? 'primary' : 'default'"
+              secondary
+              @click="setViewMode('board')"
+            >
+              <template #icon>
+                <icon-mdi-view-column />
+              </template>
+              看板
+            </NButton>
+            <NButton type="primary" @click="createIssue">
+              <template #icon>
+                <icon-mdi-plus />
+              </template>
+              新建 Issue
+            </NButton>
+          </NSpace>
         </NSpace>
       </template>
 
@@ -578,6 +1138,60 @@ onMounted(() => {
             />
           </div>
           <div class="search-actions">
+            <NDropdown trigger="click" :options="savedViewDropdownOptions" @select="handleSavedViewSelect">
+              <NButton text size="small" class="action-btn">
+                <icon-mdi-bookmark-outline />
+                <span class="action-btn-text">视图</span>
+                <icon-mdi-chevron-down class="chevron-icon" />
+              </NButton>
+            </NDropdown>
+
+            <NTooltip>
+              <template #trigger>
+                <NButton text size="small" class="action-btn" @click="openSaveViewModal">
+                  <icon-mdi-content-save-outline />
+                  <span class="action-btn-text">保存视图</span>
+                </NButton>
+              </template>
+              <div>将当前筛选保存为个人或共享视图</div>
+            </NTooltip>
+
+            <NTooltip v-if="activeSavedViewId && activeSavedView && !activeSavedView.isShared">
+              <template #trigger>
+                <NButton text size="small" class="action-btn" @click="toggleActiveViewFavorite">
+                  <icon-mdi-star />
+                  <span class="action-btn-text">星标</span>
+                </NButton>
+              </template>
+              <div>星标视图（列表顶栏 chips，≠ 侧栏收藏）</div>
+            </NTooltip>
+
+            <NTooltip v-if="activeSavedViewId">
+              <template #trigger>
+                <NButton
+                  text
+                  size="small"
+                  class="action-btn"
+                  :loading="sidebarPinLoading"
+                  @click="toggleActiveViewSidebarPin"
+                >
+                  <icon-mdi-pin-outline />
+                  <span class="action-btn-text">{{ sidebarPinnedViewFavoriteId ? '取消侧栏' : '收藏到侧栏' }}</span>
+                </NButton>
+              </template>
+              <div>固定到左侧边栏 Favorites（独立于星标）</div>
+            </NTooltip>
+
+            <NTooltip v-if="activeSavedViewId">
+              <template #trigger>
+                <NButton text size="small" class="action-btn" @click="saveActiveViewAsPersonal">
+                  <icon-mdi-content-copy />
+                  <span class="action-btn-text">另存为</span>
+                </NButton>
+              </template>
+              <div>复制为个人视图（共享只读成员可用）</div>
+            </NTooltip>
+
             <NTooltip>
               <template #trigger>
                 <NButton text size="small" class="action-btn" @click="filtersExpanded = !filtersExpanded">
@@ -598,6 +1212,37 @@ onMounted(() => {
               </template>
               <div>查看搜索语法帮助</div>
             </NTooltip>
+
+            <NPopover v-model:show="displayPopoverShow" trigger="click" placement="bottom-end">
+              <template #trigger>
+                <NButton text size="small" class="action-btn">
+                  <icon-mdi-eye-outline />
+                  <span class="action-btn-text">显示</span>
+                </NButton>
+              </template>
+              <DisplayOptionsPanel
+                :fields="displayFields"
+                :swimlane-by="swimlaneBy"
+                :hide-empty-lanes="hideEmptyLanes"
+                :saving="displayPrefsSaving"
+                @update:fields="onDisplayFieldsUpdate"
+                @update:swimlane-by="onSwimlaneByUpdate"
+                @update:hide-empty-lanes="onHideEmptyLanesUpdate"
+                @set-personal-default="setPersonalDisplayDefault"
+                @reset="resetDisplayOptions"
+              />
+            </NPopover>
+
+            <div class="group-by-select">
+              <NText depth="3" class="group-by-label">分组</NText>
+              <NSelect
+                :value="groupBy"
+                :options="groupByOptions"
+                size="small"
+                style="width: 120px"
+                @update:value="handleGroupByChange"
+              />
+            </div>
           </div>
         </div>
 
@@ -610,6 +1255,15 @@ onMounted(() => {
               placeholder="项目"
               clearable
               :loading="projectsLoading"
+              size="small"
+              @update:value="handleFilterChange"
+            />
+            <NSelect
+              v-model:value="filters.cycle_id"
+              :options="cycleFilterOptions"
+              placeholder="Cycle"
+              clearable
+              :loading="cyclesLoading"
               size="small"
               @update:value="handleFilterChange"
             />
@@ -667,6 +1321,24 @@ onMounted(() => {
         </div>
       </div>
 
+      <!-- Saved View favorites -->
+      <div v-if="favoriteSavedViews.length" class="saved-view-favorites">
+        <NSpace :size="6" align="center">
+          <NText depth="3" style="font-size: 12px">收藏视图</NText>
+          <NTag
+            v-for="v in favoriteSavedViews"
+            :key="v.id"
+            size="small"
+            round
+            :type="activeSavedViewId === v.id ? 'primary' : 'default'"
+            style="cursor: pointer"
+            @click="applySavedView(v)"
+          >
+            ★ {{ v.name }}
+          </NTag>
+        </NSpace>
+      </div>
+
       <!-- Active Filters Tags -->
       <div v-if="hasActiveFilters" class="active-filters">
         <NSpace :size="6">
@@ -707,30 +1379,66 @@ onMounted(() => {
       </div>
 
       <NSpin :show="loading">
-        <NEmpty v-if="!loading && issues.length === 0" description="暂无 Issue" size="large" />
-        <div v-else>
-          <NDataTable
-            :columns="columns"
-            :data="issues"
-            :row-key="(row: Api.Issue.Issue) => row.id"
-            :scroll-x="1400"
-            striped
-            size="small"
+        <template v-if="viewMode === 'board'">
+          <IssueBoard
+            :issues="filteredIssues"
+            :swimlane-by="swimlaneBy"
+            :hide-empty-lanes="hideEmptyLanes"
+            :fields="displayFields"
+            @changed="loadIssues"
           />
-          <div class="pagination-wrapper">
-            <NPagination
-              v-model:page="pagination.page"
-              :page-size="pagination.pageSize"
-              :item-count="pagination.itemCount"
-              :page-sizes="pagination.pageSizes"
-              show-size-picker
-              @update:page="handlePageChange"
-              @update:page-size="handlePageSizeChange"
+        </template>
+        <template v-else-if="isGroupedList">
+          <IssueListGrouped
+            :issues="filteredIssues"
+            :group-by="activeGroupBy"
+            :columns="columns"
+            :row-props="issueRowProps"
+          />
+        </template>
+        <template v-else>
+          <NEmpty v-if="!loading && issues.length === 0" description="暂无 Issue" size="large" />
+          <div v-else>
+            <NDataTable
+              :columns="columns"
+              :data="nestedListIssues"
+              :row-key="(row: Api.Issue.Issue) => row.id"
+              :row-props="issueRowProps"
+              :row-class-name="(row: Api.Issue.Issue) => (focusedIssueId === row.id ? 'issue-row-focused' : '')"
+              :scroll-x="1400"
+              striped
+              size="small"
             />
+            <div class="pagination-wrapper">
+              <NPagination
+                v-model:page="pagination.page"
+                :page-size="pagination.pageSize"
+                :item-count="pagination.itemCount"
+                :page-sizes="pagination.pageSizes"
+                show-size-picker
+                @update:page="handlePageChange"
+                @update:page-size="handlePageSizeChange"
+              />
+            </div>
           </div>
-        </div>
+        </template>
       </NSpin>
     </NCard>
+
+    <NModal
+      v-model:show="saveViewModalVisible"
+      preset="dialog"
+      :title="saveViewShared ? '保存为共享视图' : '保存为个人视图'"
+      positive-text="保存"
+      negative-text="取消"
+      :loading="saveViewSubmitting"
+      @positive-click="confirmSaveView"
+    >
+      <NSpace vertical :size="12">
+        <NInput v-model:value="saveViewName" placeholder="视图名称，例如：我的高优缺陷" maxlength="128" />
+        <NCheckbox v-model:checked="saveViewShared">共享给工作区</NCheckbox>
+      </NSpace>
+    </NModal>
   </div>
 </template>
 
@@ -1052,6 +1760,10 @@ onMounted(() => {
 }
 
 /* Active Filters */
+.saved-view-favorites {
+  margin: 8px 0 4px;
+}
+
 .active-filters {
   padding: 8px 16px 12px;
   background: #fafbfc;
@@ -1153,5 +1865,21 @@ onMounted(() => {
 .issue-list-container :deep(.n-text strong) {
   font-size: 16px;
   font-weight: 600;
+}
+
+.group-by-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 4px;
+}
+
+.group-by-label {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+:deep(.issue-row-focused td) {
+  background: color-mix(in srgb, var(--primary-color, #18a058) 8%, transparent);
 }
 </style>

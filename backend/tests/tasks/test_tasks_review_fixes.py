@@ -245,11 +245,11 @@ class TestIssueCodeCollisionRetry:
         calls = {"n": 0}
         real_generate = IssueService._generate_issue_code
 
-        async def collide_once(inner_self):
+        async def collide_once(inner_self, workspace_id=None):
             calls["n"] += 1
             if calls["n"] == 1:
                 return occupied_code  # 模拟并发窗口内的同号
-            return await real_generate(inner_self)
+            return await real_generate(inner_self, workspace_id)
 
         monkeypatch.setattr(IssueService, "_generate_issue_code", collide_once)
 

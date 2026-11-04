@@ -26,13 +26,27 @@ class Issue(DBModel):
     # 主键
     id: Mapped[str] = mapped_column(String(36), primary_key=True, insert_default=generate_uuid)
 
-    # 问题编号（格式：ISSUE2026-1）
+    # 问题编号（E12：KEY-N；历史可为 ISSUE2026-N）
     issue_code: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
         unique=True,
         index=True,
         comment="问题编号"
+    )
+    legacy_issue_code: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
+        index=True,
+        comment="迁移前旧码（双解析）",
+    )
+
+    # E9-S1：Triage 队列（pending = 在队；NULL = 不在队）
+    triage_status: Mapped[Optional[str]] = mapped_column(
+        String(16),
+        nullable=True,
+        index=True,
+        comment="pending|null",
     )
 
     # 基本信息
@@ -65,6 +79,13 @@ class Issue(DBModel):
         index=True,
         comment="项目 ID"
     )
+    workspace_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("workspaces.id"),
+        nullable=True,
+        index=True,
+        comment="所属工作区"
+    )
     task_id: Mapped[Optional[str]] = mapped_column(
         String(36),
         nullable=True,
@@ -76,6 +97,15 @@ class Issue(DBModel):
         nullable=True,
         index=True,
         comment="需求 ID"
+    )
+
+    # 一等公民父子（E4-S3）；不用 IssueRelation 表达父子
+    parent_issue_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("issues.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="父 Issue ID"
     )
 
     # 分配信息
@@ -152,6 +182,29 @@ class Issue(DBModel):
         Numeric(5, 2),
         nullable=True,
         comment="实际工时"
+    )
+
+    # Cycle 归属（E6-S2）
+    cycle_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("cycles.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="所属 Cycle ID",
+    )
+    estimate_points: Mapped[Optional[float]] = mapped_column(
+        Numeric(8, 2),
+        nullable=True,
+        comment="故事点估算（可选）",
+    )
+
+    # Milestone 归属（E8-S1）
+    milestone_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("milestones.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="所属里程碑 ID",
     )
 
     # 软删除
@@ -248,6 +301,12 @@ class Issue(DBModel):
         uselist=False
     )
 
+    parent: Mapped[Optional["Issue"]] = relationship(
+        "Issue",
+        remote_side="Issue.id",
+        foreign_keys="Issue.parent_issue_id",
+    )
+
     # 索引
     __table_args__ = (
         Index("idx_issues_issue_code", "issue_code", unique=True),
@@ -255,6 +314,7 @@ class Issue(DBModel):
         Index("idx_issues_status", "status"),
         Index("idx_issues_priority", "priority"),
         Index("idx_issues_project", "project_id"),
+        Index("idx_issues_workspace", "workspace_id"),
         Index("idx_issues_assignee", "assignee_id"),
         Index("idx_issues_reporter", "reporter_id"),
         Index("idx_issues_created_at", "created_at"),
@@ -262,6 +322,10 @@ class Issue(DBModel):
         Index("idx_issues_due_date", "due_date"),
         Index("idx_issues_project_status", "project_id", "status"),
         Index("idx_issues_assignee_status", "assignee_id", "status"),
+        Index("idx_issues_parent", "parent_issue_id"),
+        Index("idx_issues_cycle", "cycle_id"),
+        Index("idx_issues_milestone", "milestone_id"),
+        Index("idx_issues_ws_triage", "workspace_id", "triage_status"),
     )
 
 
@@ -516,7 +580,7 @@ class IssueTag(DBModel):
 
     # 关系
     issue: Mapped["Issue"] = relationship("Issue", back_populates="tags")
-    # tag: Mapped["Tag"] = relationship("Tag")  # Tag 模型已移除
+    tag: Mapped["Tag"] = relationship("Tag")  # noqa: F821 — Tag in models.tag
 
     # 索引
     __table_args__ = (

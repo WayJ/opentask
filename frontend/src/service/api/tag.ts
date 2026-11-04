@@ -1,73 +1,93 @@
-/** Tag API 客户端 */
-// ============================================================================
-// ⚠️ Tag 功能已移除 - 知识库不再需要 tag 功能
-// 此文件已废弃，API 端点已在后端禁用
-// ============================================================================
+/** Tag / Label API 客户端（E7-S1） */
 import { request } from '@/service/request';
-import type { Api } from '@/typings/api';
+
+export interface TagItem {
+  id: number;
+  workspaceId: string;
+  name: string;
+  color: string;
+  groupId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface TagGroupItem {
+  id: string;
+  workspaceId: string;
+  name: string;
+  color?: string | null;
+  position: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface TagBrief {
+  id: number;
+  name: string;
+  color: string;
+  groupId?: string | null;
+}
 
 export const tagApi = {
-  /**
-   * 获取标签列表
-   */
-  getTags: (params?: { current?: number; pageSize?: number; keyword?: string }) => {
-    return request<Api.Tag.TagList['data']>({
+  list: (params?: { group_id?: string; q?: string }) =>
+    request<{ rows: TagItem[]; total: number }>({
       url: '/api/tags',
       method: 'GET',
       params
-    });
-  },
+    }),
 
-  /**
-   * 获取热门标签
-   */
-  getPopularTags: (limit: number = 20) => {
-    return request<Api.Tag.Tag[]>({
-      url: '/api/tags/popular',
-      method: 'GET',
-      params: { limit }
-    });
-  },
-
-  /**
-   * 获取标签详情
-   */
-  getTag: (id: number) => {
-    return request<Api.Tag.Tag>({
+  get: (id: number) =>
+    request<TagItem>({
       url: `/api/tags/${id}`,
       method: 'GET'
-    });
-  },
+    }),
 
-  /**
-   * 创建标签
-   */
-  createTag: (data: Api.Tag.TagCreate) => {
-    return request<Api.Tag.Tag>({
+  create: (data: { name: string; color?: string; group_id?: string | null }) =>
+    request<TagItem>({
       url: '/api/tags',
       method: 'POST',
       data
-    });
-  },
+    }),
 
-  /**
-   * 更新标签
-   */
-  updateTag: (id: number, data: Api.Tag.TagUpdate) => {
-    return request<Api.Tag.Tag>({
+  update: (id: number, data: { name?: string; color?: string; group_id?: string | null; clear_group?: boolean }) =>
+    request<TagItem>({
       url: `/api/tags/${id}`,
-      method: 'PUT',
+      method: 'PATCH',
       data
-    });
-  },
+    }),
 
-  /**
-   * 删除标签
-   */
-  deleteTag: (id: number) => {
-    return request<null>({
+  remove: (id: number) =>
+    request<null>({
       url: `/api/tags/${id}`,
       method: 'DELETE'
-    });
-  }
+    }),
+
+  listGroups: () =>
+    request<{ rows: TagGroupItem[]; total: number }>({
+      url: '/api/tag-groups',
+      method: 'GET'
+    }),
+
+  createGroup: (data: { name: string; color?: string; position?: number }) =>
+    request<TagGroupItem>({
+      url: '/api/tag-groups',
+      method: 'POST',
+      data
+    }),
+
+  updateGroup: (id: string, data: { name?: string; color?: string; position?: number }) =>
+    request<TagGroupItem>({
+      url: `/api/tag-groups/${id}`,
+      method: 'PATCH',
+      data
+    }),
+
+  removeGroup: (id: string) =>
+    request<null>({
+      url: `/api/tag-groups/${id}`,
+      method: 'DELETE'
+    })
 };
+
+/** @deprecated use tagApi */
+export const fetchTags = tagApi.list;

@@ -5,7 +5,7 @@ from typing import Optional
 from typing_extensions import Annotated
 from pydantic import BaseModel, Field
 
-from fastapi import APIRouter, Body, Depends, Response, HTTPException, status, Request
+from fastapi import APIRouter, Body, Depends, Header, Response, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opentask.auth import authenticate
@@ -52,6 +52,14 @@ class ChangePasswordBody(BaseModel):
     """修改密码请求体"""
     oldPassword: str
     newPassword: str
+
+
+class RegisterBody(BaseModel):
+    """开放注册请求体（与 login 字段风格对齐）"""
+    userName: str = Field(..., min_length=2, max_length=50)
+    password: str
+    name: Optional[str] = None
+    inviteToken: Optional[str] = None
 
 
 class DingTalkCallbackBody(BaseModel):
@@ -452,6 +460,37 @@ async def login_local(
     })
 
 
+
+
+@router.post("/register")
+async def register(
+    body: RegisterBody,
+    request: Request,
+    session=Depends(get_session),
+):
+    """开放注册（E3-S1）：本地账号 + 默认工作区 + 签发 token 对。
+
+    密码载荷与登录一致，经 `_plain_password`（RSA-OAEP 或明文兼容）还原。
+    """
+    client_ip = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("user-agent")
+    auth = AuthService(session)
+    user, pair, default_workspace_id = await auth.register(
+        body.userName,
+        _plain_password(body.password),
+        name=body.name,
+        user_agent=user_agent,
+        ip=client_ip,
+        invite_token=body.inviteToken,
+    )
+    return success_response({
+        **pair,
+        "username": user.username or user.name,
+        "userId": str(user.id),
+        "name": user.name,
+        "defaultWorkspaceId": default_workspace_id,
+    })
+
 @router.get("/dingtalk/config")
 async def dingtalk_config():
     """
@@ -511,6 +550,7 @@ async def dingtalk_callback(
 async def get_user_info(
     current_user=Depends(authenticate),
     session: AsyncSession = Depends(get_session),
+    x_workspace_id: str | None = Header(None, alias="X-Workspace-Id"),
 ):
     """
     获取当前用户信息：真实角色 + 权限下发（Phase 3 Task 3）
@@ -550,12 +590,23 @@ async def get_user_info(
             else:
                 buttons.append(perm.code)
 
+    workspace_role = None
+    if x_workspace_id:
+        from opentask.services.workspace.service import WorkspaceService
+
+        member = await WorkspaceService(session).get_membership(
+            x_workspace_id, str(current_user.id)
+        )
+        if member is not None:
+            workspace_role = member.role
+
     return success_response({
         "userId": str(current_user.id),
         "userName": current_user.sso_name or current_user.name or current_user.username,
         "roles": roles,
         "buttons": buttons,
         "menus": menus,
+        "workspaceRole": workspace_role,
     })
 
 

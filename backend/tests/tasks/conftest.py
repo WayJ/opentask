@@ -265,6 +265,14 @@ async def seed_issue(
     updated_at: datetime,
 ) -> Issue:
     """直接插入 Issue（绕过 service，精确控制时间戳）"""
+    from opentask.models.workspace.model import Workspace
+    from sqlalchemy import select as _select
+
+    ws_id = (
+        await db.execute(
+            _select(Workspace.id).order_by(Workspace.created_at.asc(), Workspace.id.asc()).limit(1)
+        )
+    ).scalar_one_or_none()
     issue = Issue(
         issue_code=next_seed_issue_code(),
         title=title,
@@ -274,6 +282,7 @@ async def seed_issue(
         priority="medium",
         assignee_id=assignee_id,
         reporter_id="ct-seed",
+        workspace_id=ws_id,
         created_at=updated_at,
         updated_at=updated_at,
     )

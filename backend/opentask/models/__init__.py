@@ -33,7 +33,7 @@ from opentask.models.agent import Agent
 
 # 补齐未自动注册的模型模块：确保 `from opentask.models import *` / alembic
 # autogenerate 拿到完整 metadata（此前 conftest 需手工 import Tag 同理）
-from opentask.models.tag import Tag
+from opentask.models.tag import Tag, TagGroup
 from opentask.models.issue import (
     Issue,
     IssueComment,
@@ -43,6 +43,19 @@ from opentask.models.issue import (
     IssueReaction,
 )
 from opentask.models.issue_collection import IssueCollection
+from opentask.models.workspace import Workspace, WorkspaceMember, WorkspaceInvite
+from opentask.models.notification import Notification
+from opentask.models.issue_template import IssueTemplate
+from opentask.models.initiative import Initiative, InitiativeProject
+from opentask.models.entity_document import EntityDocument
+from opentask.models.issue_vcs_link import IssueVcsLink
+from opentask.models.issue_saved_view import IssueSavedView
+from opentask.models.issue_display_prefs import IssueDisplayPrefs
+from opentask.models.cycle import Cycle
+from opentask.models.milestone import Milestone
+from opentask.models.project_health import ProjectHealthUpdate
+from opentask.models.project_watcher import ProjectWatcher
+from opentask.models.favorite import Favorite
 from opentask.models.oauth2 import (
     OAuthAccessToken,
     OAuthAuthorizationCode,
@@ -90,6 +103,7 @@ __all__ = [
     "RefreshToken",
     "Agent",
     "Tag",
+    "TagGroup",
     "Issue",
     "IssueComment",
     "IssueRelation",
@@ -97,6 +111,17 @@ __all__ = [
     "IssueTag",
     "IssueReaction",
     "IssueCollection",
+    "Workspace",
+    "WorkspaceMember",
+    "WorkspaceInvite",
+    "Notification",
+    "IssueSavedView",
+    "IssueDisplayPrefs",
+    "Cycle",
+    "Milestone",
+    "ProjectHealthUpdate",
+    "ProjectWatcher",
+    "Favorite",
     "OAuthClient",
     "OAuthAuthorizationCode",
     "OAuthAccessToken",

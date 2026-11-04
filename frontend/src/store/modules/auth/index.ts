@@ -2,7 +2,7 @@ import { computed, reactive, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { defineStore } from 'pinia';
 import { useLoading } from '@sa/hooks';
-import { fetchGetUserInfo, fetchLogin } from '@/service/api';
+import { fetchGetUserInfo, fetchLogin, fetchWorkspaceList } from '@/service/api';
 import { useRouterPush } from '@/hooks/common/router';
 import { localStg } from '@/utils/storage';
 import { SetupStoreId } from '@/enum';
@@ -156,6 +156,14 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
     return { mustChangePassword: false };
   }
 
+  async function ensureWorkspace() {
+    if (localStg.get('workspaceId')) return;
+    const { data, error } = await fetchWorkspaceList();
+    if (!error && data?.length) {
+      localStg.set('workspaceId', data[0].id);
+    }
+  }
+
   async function loginByToken(loginToken: Api.Auth.LoginToken) {
     // 1. stored in the localStorage, the later requests need it in headers
     localStg.set('token', loginToken.token);
@@ -166,6 +174,7 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
 
     if (pass) {
       token.value = loginToken.token;
+      await ensureWorkspace();
 
       return true;
     }

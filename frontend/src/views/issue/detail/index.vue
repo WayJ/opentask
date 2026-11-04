@@ -1,7 +1,20 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { NAlert, NButton, NCard, NDatePicker, NEmpty, NModal, NSpace, NSpin, NTag, NText } from 'naive-ui';
+import {
+  NAlert,
+  NButton,
+  NCard,
+  NDatePicker,
+  NEmpty,
+  NInput,
+  NModal,
+  NSelect,
+  NSpace,
+  NSpin,
+  NTag,
+  NText
+} from 'naive-ui';
 import {
   getIssuePriorityTagType,
   getIssueStatusTagType,
@@ -10,15 +23,22 @@ import {
   issueStatusOptions,
   issueTypeOptions
 } from '@/constants/issue';
-import { projectApi } from '@/service/api/project';
+import { fetchProjectMilestones, projectApi } from '@/service/api/project';
+import { type CycleItem, fetchCycles } from '@/service/api/cycles';
+import { type TagItem, tagApi } from '@/service/api/tag';
 import { issueApi } from '@/service/api/issue';
+import { fetchAddFavorite, fetchFavorites, fetchRemoveFavorite } from '@/service/api/favorites';
+import { fetchIssueBranchName } from '@/service/api/issue-vcs';
 import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
+import { useIssueFocus } from '@/composables/use-issue-focus';
 import MarkdownEditor from '@/components/MarkdownEditor.vue';
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
 import IssueReactions from '@/components/IssueReactions.vue';
 import UserSelect from '@/components/UserSelect.vue';
 import AttachmentList from '@/components/common/AttachmentList.vue';
+import EntityDocsPanel from '@/components/entity-docs/EntityDocsPanel.vue';
+import IssuePrPanel from '@/components/issue-vcs/IssuePrPanel.vue';
 import EditableField from '@/components/EditableField.vue';
 import type { Api } from '@/typings/api';
 
@@ -30,12 +50,16 @@ const route = useRoute();
 const router = useRouter();
 const issueStore = useIssueStore();
 const authStore = useAuthStore();
+const issueFocus = useIssueFocus();
 
 const issueId = computed(() => (route.query.id as string) || '');
 // 获取当前登录用户 ID
 const currentUserId = computed(() => authStore.userInfo.userId || 'admin');
 const issue = ref<Api.Issue.Issue | null>(null);
 const loading = ref(false);
+const pinnedFavoriteId = ref<string | null>(null);
+const pinLoading = ref(false);
+const copyBranchLoading = ref(false);
 
 // Comments
 const comments = ref<Api.Issue.IssueComment[]>([]);
@@ -64,14 +88,26 @@ const relations = ref<{
   as_target: Api.Issue.IssueRelation[];
 } | null>(null);
 
+// E4-S3 父子
+const parentIssue = ref<Api.Issue.Issue | null>(null);
+const childSummaries = ref<Api.Issue.IssueChildSummary[]>([]);
+const showAddSubIssue = ref(false);
+const newSubIssueTitle = ref('');
+const addingSubIssue = ref(false);
+
 // Tags
 const tags = ref<Api.Issue.IssueTag[]>([]);
+const availableTags = ref<TagItem[]>([]);
+const showAddTag = ref(false);
+const pendingTagId = ref<number | null>(null);
 
 // Reactions
 const reactions = ref<Record<string, string[]>>({});
 
 // Projects list for select
 const projects = ref<Api.Project.Project[]>([]);
+const cycles = ref<CycleItem[]>([]);
+const milestones = ref<Api.Project.Milestone[]>([]);
 
 // User map for timeline display (reserved for future use)
 // const userMap = ref<Map<string, { sso_name?: string; sso_account?: string; id: string }>>(new Map());
@@ -90,6 +126,34 @@ const projectOptions = computed(() => {
   return options;
 });
 
+const cycleOptions = computed(() => {
+  const opts: { label: string; value: string | null }[] = [{ label: '无 Cycle', value: null }];
+  for (const c of cycles.value) {
+    opts.push({ label: c.name, value: c.id });
+  }
+  return opts;
+});
+
+const cycleDisplayValue = computed(() => {
+  if (!issue.value?.cycle_id) return '未分配';
+  const found = cycles.value.find(c => c.id === issue.value?.cycle_id);
+  return found?.name || issue.value.cycle_id;
+});
+
+const milestoneOptions = computed(() => {
+  const opts: { label: string; value: string | null }[] = [{ label: '无 Milestone', value: null }];
+  for (const m of milestones.value) {
+    opts.push({ label: m.name, value: m.id });
+  }
+  return opts;
+});
+
+const milestoneDisplayValue = computed(() => {
+  if (!issue.value?.milestone_id) return '未分配';
+  const found = milestones.value.find(m => m.id === issue.value?.milestone_id);
+  return found?.name || issue.value.milestone_id;
+});
+
 // Editing states - 为每个字段创建独立状态
 const editingStatus = ref(false);
 const editingPriority = ref(false);
@@ -98,6 +162,8 @@ const editingAssignee = ref(false);
 const editingReporter = ref(false);
 const editingDueDate = ref(false);
 const editingProject = ref(false);
+const editingCycle = ref(false);
+const editingMilestone = ref(false);
 
 // 临时值
 const tempStatus = ref<string | null>(null);
@@ -107,6 +173,8 @@ const tempAssignee = ref<string | null>(null);
 const tempReporter = ref<string | null>(null);
 const tempDueDate = ref<number | null>(null);
 const tempProject = ref<string | null>(null);
+const tempCycle = ref<string | null>(null);
+const tempMilestone = ref<string | null>(null);
 
 // Constants for template
 const getTypeType = getIssueTypeTagType;
@@ -125,7 +193,16 @@ async function loadIssue() {
     const data = await issueStore.getIssue(issueId.value);
     issue.value = data;
     // 加载相关数据
-    Promise.all([loadComments(), loadTimeline(), loadRelations(), loadTags(), loadReactions(), loadAttachments()]);
+    Promise.all([
+      loadComments(),
+      loadTimeline(),
+      loadRelations(),
+      loadTags(),
+      loadAvailableTags(),
+      loadReactions(),
+      loadAttachments(),
+      loadParentAndChildren()
+    ]);
   } finally {
     loading.value = false;
   }
@@ -377,6 +454,58 @@ async function copyIssuePrompt() {
   }
 }
 
+async function loadParentAndChildren() {
+  parentIssue.value = null;
+  childSummaries.value = [];
+  if (!issue.value) return;
+
+  childSummaries.value = issue.value.children || [];
+  try {
+    const fromApi = await issueApi.getChildren(issue.value.id);
+    if (fromApi?.rows) childSummaries.value = fromApi.rows;
+  } catch {
+    // keep children from detail payload
+  }
+
+  if (issue.value.parent_issue_id) {
+    try {
+      parentIssue.value = await issueApi.getIssue(issue.value.parent_issue_id);
+    } catch {
+      parentIssue.value = null;
+    }
+  }
+}
+
+async function createSubIssue() {
+  if (!issue.value || !newSubIssueTitle.value.trim()) {
+    window.$message?.warning('请输入子 Issue 标题');
+    return;
+  }
+  addingSubIssue.value = true;
+  try {
+    const created = await issueApi.createIssue({
+      title: newSubIssueTitle.value.trim(),
+      type: issue.value.type || 'feature',
+      status: 'open',
+      priority: issue.value.priority || 'medium',
+      reporter_id: currentUserId.value,
+      parent_issue_id: issue.value.id,
+      project_id: issue.value.project_id
+    } as Api.Issue.CreateIssue);
+    window.$message?.success('子 Issue 已创建');
+    showAddSubIssue.value = false;
+    newSubIssueTitle.value = '';
+    await loadIssue();
+    if (created?.id) {
+      router.push({ path: '/issue/detail', query: { id: created.id } });
+    }
+  } catch (e: any) {
+    window.$message?.error(e?.message || '创建子 Issue 失败');
+  } finally {
+    addingSubIssue.value = false;
+  }
+}
+
 // Load relations
 async function loadRelations() {
   if (!issueId.value) return;
@@ -401,6 +530,53 @@ async function loadTags() {
   }
 }
 
+function tagDisplayName(tag: Api.Issue.IssueTag) {
+  return tag.name || tag.tag?.name || String(tag.id ?? tag.tag_id ?? '');
+}
+
+function tagDisplayColor(tag: Api.Issue.IssueTag) {
+  return tag.color || tag.tag?.color || '#3b82f6';
+}
+
+function tagNumericId(tag: Api.Issue.IssueTag) {
+  return Number(tag.id ?? tag.tag_id);
+}
+
+async function loadAvailableTags() {
+  try {
+    const res = await tagApi.list();
+    availableTags.value = res.data?.rows || [];
+  } catch {
+    availableTags.value = [];
+  }
+}
+
+async function handleAddTag() {
+  if (!issueId.value || pendingTagId.value === null) return;
+  try {
+    await issueStore.addTag(issueId.value, pendingTagId.value);
+    pendingTagId.value = null;
+    showAddTag.value = false;
+    await loadTags();
+    window.$message?.success?.('标签已添加');
+  } catch (e: any) {
+    window.$message?.error?.(e?.message || '添加标签失败');
+  }
+}
+
+async function handleRemoveTag(tag: Api.Issue.IssueTag) {
+  if (!issueId.value) return;
+  const id = tagNumericId(tag);
+  if (Number.isNaN(id)) return;
+  try {
+    await issueStore.removeTag(issueId.value, id);
+    await loadTags();
+    window.$message?.success?.('标签已移除');
+  } catch (e: any) {
+    window.$message?.error?.(e?.message || '移除标签失败');
+  }
+}
+
 // Load reactions
 async function loadReactions() {
   if (!issueId.value) return;
@@ -413,6 +589,29 @@ async function loadReactions() {
 }
 
 // Load projects
+async function loadCycles() {
+  try {
+    const response = await fetchCycles();
+    cycles.value = response.data?.rows || [];
+  } catch {
+    cycles.value = [];
+  }
+}
+
+async function loadMilestones(projectId?: string | null) {
+  const pid = projectId || issue.value?.project_id;
+  if (!pid) {
+    milestones.value = [];
+    return;
+  }
+  try {
+    const response = await fetchProjectMilestones(pid);
+    milestones.value = response.data || [];
+  } catch {
+    milestones.value = [];
+  }
+}
+
 async function loadProjects() {
   try {
     const response = await projectApi.getList();
@@ -602,6 +801,38 @@ function cancelProject() {
   editingProject.value = false;
 }
 
+async function saveCycle() {
+  if (!issueId.value) return;
+  try {
+    await issueStore.updateIssue(issueId.value, { cycle_id: tempCycle.value || null });
+    await loadIssue();
+    window.$message?.success('Cycle 更新成功');
+  } catch {
+    window.$message?.error('Cycle 更新失败');
+  }
+}
+
+function cancelCycle() {
+  tempCycle.value = null;
+  editingCycle.value = false;
+}
+
+async function saveMilestone() {
+  if (!issueId.value) return;
+  try {
+    await issueStore.updateIssue(issueId.value, { milestone_id: tempMilestone.value || null });
+    await loadIssue();
+    window.$message?.success('Milestone 更新成功');
+  } catch {
+    window.$message?.error('Milestone 更新失败');
+  }
+}
+
+function cancelMilestone() {
+  tempMilestone.value = null;
+  editingMilestone.value = false;
+}
+
 // Add comment
 async function handleAddComment() {
   if (!newComment.value.trim() || !issueId.value) return;
@@ -773,9 +1004,84 @@ function getRelationLabel(type: string): string {
   return labels[type] || type;
 }
 
+watch(
+  issueId,
+  id => {
+    issueFocus.ensureDetailFocus(id);
+  },
+  { immediate: true }
+);
+
+watch(
+  () => issue.value?.project_id,
+  pid => {
+    loadMilestones(pid);
+  }
+);
+
+
+async function loadPinState() {
+  const id = issueId.value;
+  if (!id) {
+    pinnedFavoriteId.value = null;
+    return;
+  }
+  try {
+    const response = await fetchFavorites();
+    const rows = response.data?.rows || [];
+    const hit = rows.find(r => r.targetType === 'issue' && r.targetId === id);
+    pinnedFavoriteId.value = hit?.id ?? null;
+  } catch {
+    pinnedFavoriteId.value = null;
+  }
+}
+
+
+async function copyGitBranchName() {
+  if (!issue.value?.id) return;
+  copyBranchLoading.value = true;
+  try {
+    const { data, error } = await fetchIssueBranchName(issue.value.id);
+    if (error || !data?.branchName) {
+      window.$message?.error(error?.message || '无法获取分支名');
+      return;
+    }
+    await navigator.clipboard.writeText(data.branchName);
+    window.$message?.success(`已复制分支名：${data.branchName}`);
+  } catch (e: any) {
+    window.$message?.error(e?.message || '复制分支名失败');
+  } finally {
+    copyBranchLoading.value = false;
+  }
+}
+
+async function toggleSidebarPin() {
+  const id = issueId.value;
+  if (!id) return;
+  pinLoading.value = true;
+  try {
+    if (pinnedFavoriteId.value) {
+      await fetchRemoveFavorite(pinnedFavoriteId.value);
+      pinnedFavoriteId.value = null;
+      window.$message?.success('已从侧栏移除');
+    } else {
+      const response = await fetchAddFavorite({ target_type: 'issue', target_id: id });
+      pinnedFavoriteId.value = response.data?.id ?? null;
+      window.$message?.success('已收藏到侧栏');
+    }
+    window.dispatchEvent(new CustomEvent('opentask:favorites-changed'));
+  } catch {
+    window.$message?.error('更新侧栏收藏失败');
+  } finally {
+    pinLoading.value = false;
+  }
+}
+
 onMounted(() => {
   loadIssue();
+  loadPinState();
   loadProjects();
+  loadCycles();
 });
 </script>
 
@@ -796,6 +1102,23 @@ onMounted(() => {
               <div class="issue-title-info">
                 <div class="issue-code">{{ issue.issue_code }}</div>
                 <h1 class="issue-title">{{ issue.title }}</h1>
+                <div v-if="parentIssue || issue.parent_issue_id" class="parent-issue-link">
+                  <NText depth="3" style="font-size: 12px">父 Issue：</NText>
+                  <NButton
+                    text
+                    size="tiny"
+                    type="primary"
+                    @click="
+                      router.push({
+                        path: '/issue/detail',
+                        query: { id: parentIssue?.id || issue.parent_issue_id }
+                      })
+                    "
+                  >
+                    {{ parentIssue?.issue_code || issue.parent_issue_id }}
+                    <template v-if="parentIssue">· {{ parentIssue.title }}</template>
+                  </NButton>
+                </div>
               </div>
             </div>
 
@@ -819,6 +1142,15 @@ onMounted(() => {
                     <icon-mdi-delete />
                   </template>
                   删除
+                </NButton>
+                <NButton size="small" :loading="pinLoading" @click="toggleSidebarPin">
+                  {{ pinnedFavoriteId ? '取消侧栏收藏' : '收藏到侧栏' }}
+                </NButton>
+                <NButton size="small" :loading="copyBranchLoading" @click="copyGitBranchName">
+                  <template #icon>
+                    <icon-mdi-source-branch />
+                  </template>
+                  复制分支名
                 </NButton>
               </NButtonGroup>
             </div>
@@ -849,6 +1181,14 @@ onMounted(() => {
               <AttachmentList :issue-id="issueId" :attachments="attachments" @refresh="loadAttachments" />
             </NSpin>
           </NCard>
+
+          <div v-if="issueId" class="mt-12px">
+            <EntityDocsPanel parent-type="issue" :parent-id="issueId" />
+          </div>
+
+          <div v-if="issueId" class="mt-12px">
+            <IssuePrPanel :issue-id="issueId" />
+          </div>
 
           <!-- Comments & Timeline -->
           <div class="issue-activity">
@@ -993,6 +1333,56 @@ onMounted(() => {
               </template>
             </EditableField>
 
+            <!-- Cycle -->
+            <EditableField
+              v-model="tempCycle"
+              v-model:editing="editingCycle"
+              label="Cycle"
+              :display-value="cycleDisplayValue"
+              placeholder="未分配"
+              @save="saveCycle"
+              @cancel="cancelCycle"
+              @start-edit="tempCycle = issue.cycle_id || null"
+            >
+              <template #label-icon>
+                <icon-mdi-repeat />
+              </template>
+              <template #editor>
+                <NSelect
+                  v-model:value="tempCycle"
+                  :options="cycleOptions"
+                  placeholder="选择 Cycle"
+                  size="small"
+                  clearable
+                />
+              </template>
+            </EditableField>
+
+            <!-- Milestone (E8-S1) -->
+            <EditableField
+              v-model="tempMilestone"
+              v-model:editing="editingMilestone"
+              label="Milestone"
+              :display-value="milestoneDisplayValue"
+              placeholder="未分配"
+              @save="saveMilestone"
+              @cancel="cancelMilestone"
+              @start-edit="tempMilestone = issue.milestone_id || null"
+            >
+              <template #label-icon>
+                <icon-mdi-flag-checkered />
+              </template>
+              <template #editor>
+                <NSelect
+                  v-model:value="tempMilestone"
+                  :options="milestoneOptions"
+                  placeholder="选择 Milestone"
+                  size="small"
+                  clearable
+                />
+              </template>
+            </EditableField>
+
             <!-- Type -->
             <EditableField
               v-model="tempType"
@@ -1127,12 +1517,43 @@ onMounted(() => {
             </div>
 
             <!-- Tags -->
-            <div v-if="tags.length > 0" class="sidebar-section">
-              <div class="sidebar-section-title">标签</div>
+            <div class="sidebar-section">
+              <div class="sidebar-section-title">
+                <span>标签</span>
+                <NButton text size="tiny" @click="showAddTag = !showAddTag">+ 添加</NButton>
+              </div>
               <div class="tags-list">
-                <NTag v-for="(tag, idx) in tags" :key="'tag-' + idx + '-' + tag.tag_id" size="small" :bordered="false">
-                  {{ tag.tag?.name }}
+                <NTag
+                  v-for="(tag, idx) in tags"
+                  :key="'tag-' + idx + '-' + (tag.id ?? tag.tag_id)"
+                  size="small"
+                  closable
+                  :bordered="false"
+                  :style="{ background: tagDisplayColor(tag), color: '#fff' }"
+                  @close="handleRemoveTag(tag)"
+                >
+                  {{ tagDisplayName(tag) }}
                 </NTag>
+                <NText v-if="!tags.length" depth="3" style="font-size: 12px">暂无标签</NText>
+              </div>
+              <div v-if="showAddTag" class="mt-2">
+                <NSelect
+                  v-model:value="pendingTagId"
+                  :options="availableTags.map(t => ({ label: t.name, value: t.id }))"
+                  placeholder="选择标签"
+                  size="small"
+                  filterable
+                  clearable
+                />
+                <NButton
+                  class="mt-2"
+                  size="tiny"
+                  type="primary"
+                  :disabled="pendingTagId === null"
+                  @click="handleAddTag"
+                >
+                  确认添加
+                </NButton>
               </div>
             </div>
 
@@ -1178,6 +1599,17 @@ onMounted(() => {
     </NSpin>
 
     <!-- Agent Prompt Modal -->
+    <NModal v-model:show="showAddSubIssue" preset="card" title="添加子 Issue" style="width: 480px">
+      <NSpace vertical>
+        <NText depth="3">将创建挂在当前 Issue 下的子项（parent_issue_id）。</NText>
+        <NInput v-model:value="newSubIssueTitle" placeholder="子 Issue 标题" @keyup.enter="createSubIssue" />
+        <NSpace justify="end">
+          <NButton @click="showAddSubIssue = false">取消</NButton>
+          <NButton type="primary" :loading="addingSubIssue" @click="createSubIssue">创建</NButton>
+        </NSpace>
+      </NSpace>
+    </NModal>
+
     <NModal v-model:show="showAgentPromptModal" preset="card" title="🤖 Agent 工作指令" style="width: 700px">
       <NAlert type="success" class="mb-3">复制下方指令，粘贴到 Claude 中即可指挥 agent 开始工作</NAlert>
 
@@ -1272,6 +1704,14 @@ onMounted(() => {
   background: var(--color-primary);
   border-radius: 50%;
   display: inline-block;
+}
+
+.parent-issue-link {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
 }
 
 .issue-title {
@@ -1444,6 +1884,7 @@ onMounted(() => {
    SIDEBAR - 紧凑风格
    ============================================ */
 .sidebar {
+  min-width: 280px;
   position: sticky;
   top: var(--space-md);
   max-height: calc(100vh - var(--space-lg));
@@ -1497,12 +1938,23 @@ onMounted(() => {
 }
 
 .sidebar-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   font-size: var(--font-size-xs);
   font-weight: 600;
   color: var(--color-text-secondary);
   margin-bottom: var(--space-md);
   text-transform: none;
   letter-spacing: 0;
+}
+
+.tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
 }
 
 .linked-issues {
@@ -1526,12 +1978,6 @@ onMounted(() => {
 .linked-issue:hover {
   background: var(--color-bg-hover);
   transform: translateX(4px);
-}
-
-.tags-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
 }
 
 .metadata {
@@ -1673,3 +2119,10 @@ onMounted(() => {
   color: var(--color-border-subtle);
 }
 </style>
+
+/* E11-S4: 属性栏标签不换行（避免「负责/人」） */
+:deep(.editable-field__label),
+:deep(.field-label),
+:deep(.n-form-item-label) {
+  white-space: nowrap;
+}

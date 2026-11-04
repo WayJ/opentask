@@ -9,6 +9,12 @@ function cleanParams(params: Record<string, any>): Record<string, any> {
   return Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== '' && v !== null && v !== undefined));
 }
 
+/** Build query params for issue detail; used by getIssue and unit-tested. */
+export function buildIssueDetailParams(opts?: { byCode?: boolean }): { by_code: true } | undefined {
+  if (opts?.byCode) return { by_code: true };
+  return undefined;
+}
+
 export const issueApi = {
   /**
    * 获取 Issue 列表
@@ -26,11 +32,23 @@ export const issueApi = {
 
   /**
    * 获取 Issue 详情
+   * @param opts.byCode 为 true 时按 issue_code 查询（?by_code=true）
    */
-  getIssue: (id: string) => {
+  getIssue: (id: string, opts?: { byCode?: boolean }) => {
     return request<Api.Issue.Issue>({
       url: `/api/issues/${id}`,
-      method: 'GET'
+      method: 'GET',
+      params: buildIssueDetailParams(opts)
+    });
+  },
+
+  /**
+   * 获取直接子 Issue（depth-1）
+   */
+  getChildren: (id: string) => {
+    return request<{ rows: Api.Issue.IssueChildSummary[]; total: number }>({
+      url: `/api/issues/${id}/children`,
+      method: 'get'
     });
   },
 
@@ -52,6 +70,22 @@ export const issueApi = {
     return request<Api.Issue.Issue>({
       url: `/api/issues/${id}`,
       method: 'PUT',
+      data
+    });
+  },
+
+  /**
+   * 看板拖拽落盘（status + position，可选 ordered_ids）
+   */
+  moveOnBoard: (data: {
+    issue_id: string;
+    status: Api.Issue.IssueStatus;
+    position: number;
+    ordered_ids?: string[];
+  }) => {
+    return request<Api.Issue.Issue>({
+      url: '/api/issues/board/move',
+      method: 'POST',
       data
     });
   },
@@ -198,6 +232,18 @@ export const issueApi = {
     return request({
       url: `/api/issues/${issueId}/tags/${tagId}`,
       method: 'DELETE'
+    });
+  },
+
+  /** 整体替换标签（L picker） */
+  replaceTags: (issueId: string, tagIds: number[]) => {
+    return request<{
+      rows: Api.Issue.IssueTag[];
+      total: number;
+    }>({
+      url: `/api/issues/${issueId}/tags`,
+      method: 'PUT',
+      data: { tag_ids: tagIds }
     });
   },
 

@@ -334,8 +334,8 @@ const hasPGETask = computed(() => {
                 </NButton>
               </NUpload> 
 -->
-              <NButton type="primary" size="small" :disabled="hasPGETask" @click="showCreatePGETaskModal = true">
-                创建任务
+              <NButton tertiary size="small" :disabled="hasPGETask" @click="showCreatePGETaskModal = true">
+                创建任务（遗留·已弃用）
               </NButton>
               <NTooltip v-if="hasPGETask" trigger="hover">
                 <template #trigger>

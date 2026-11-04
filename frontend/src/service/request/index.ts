@@ -25,6 +25,10 @@ export const request = createFlatRequest(
     async onRequest(config) {
       const Authorization = getAuthorization();
       Object.assign(config.headers, { Authorization });
+      const workspaceId = localStg.get('workspaceId');
+      if (workspaceId) {
+        Object.assign(config.headers, { 'X-Workspace-Id': workspaceId });
+      }
 
       return config;
     },
@@ -95,6 +99,7 @@ export const request = createFlatRequest(
 
       return null;
     },
+    // eslint-disable-next-line complexity -- 401/附件静默分支叠加，E11-S4 热修保留
     onError(error) {
       // when the request is fail, you can show error message
 
@@ -105,6 +110,13 @@ export const request = createFlatRequest(
         if (!localStg.get('token')) {
           window.$message?.error($t('page.login.common.pwdError'));
         }
+        return;
+      }
+
+      // E11-S4：Issue 附件列表失败不刷屏（详情页自行兜底空列表）
+      const reqUrl = String(error.config?.url || '');
+      const reqMethod = String(error.config?.method || 'get').toLowerCase();
+      if (reqMethod === 'get' && /\/attachments\/?$/.test(reqUrl)) {
         return;
       }
 

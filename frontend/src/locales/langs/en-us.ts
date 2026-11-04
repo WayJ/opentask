@@ -49,6 +49,26 @@ const local: App.I18n.Schema = {
     yesOrNo: {
       yes: 'Yes',
       no: 'No'
+    },
+    commandPalette: {
+      placeholder: 'Type a command or search…',
+      groupActions: 'Actions',
+      groupMenus: 'Menus',
+      groupIssues: 'Issues',
+      groupProjects: 'Projects',
+      groupCycles: 'Cycles',
+      groupViews: 'Views',
+      searching: 'Searching…',
+      navIssues: 'Issues',
+      navCreateIssue: 'Create Issue',
+      navCreateFromTemplate: 'Create from template',
+      navProjects: 'Projects',
+      actionAddLabel: 'Add label…',
+      navLabels: 'Labels',
+      navCycles: 'Cycles settings',
+      navInitiatives: 'Initiatives',
+      navTriage: 'Triage',
+      navInbox: 'Inbox'
     }
   },
   request: {
@@ -234,6 +254,16 @@ const local: App.I18n.Schema = {
     500: 'Server Error',
     'iframe-page': 'Iframe',
     home: 'Home',
+    workspace: 'Workspace',
+    workspace_members: 'Members',
+    invite: 'Invite',
+    workspace_labels: 'Labels',
+    'workspace_issue-templates': 'Issue Templates',
+    workspace_cycles: 'Cycles',
+    inbox: 'Inbox',
+    initiatives: 'Initiatives',
+    initiatives_detail: 'Initiative Detail',
+    triage: 'Triage',
     dashboard: 'Dev Dashboard',
     projects: 'Projects',
     'projects-detail': 'Project Detail',
@@ -267,7 +297,7 @@ const local: App.I18n.Schema = {
     workflow: 'Workflow',
     workflow_projects: 'Projects',
     'workflow_project-detail': 'Project Detail',
-    workflow_requirements: 'Requirements',
+    workflow_requirements: 'Requirements (Legacy)',
     'workflow_requirement-detail': 'Requirement Detail',
     'work-management': 'Work Management',
     'work-management_rd-groups': 'R&D Groups',
@@ -295,6 +325,14 @@ const local: App.I18n.Schema = {
     'issue_collection-create': 'Create Collection'
   },
   page: {
+    profile: {
+      pwd: {
+        title: 'Change password',
+        submit: 'Update password',
+        hint: 'New password must be at least 8 characters and include letters and numbers. You will need to sign in again.',
+        reLoginTip: 'Password changed. Please sign in again with the new password.'
+      }
+    },
     oauth2: {
       consent: {
         title: 'Authorization Request',

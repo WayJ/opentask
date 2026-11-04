@@ -763,7 +763,7 @@ def update_issue(obj: "Context", issue_id: str, title, description, issue_type, 
     """Update an issue.
 
     Issue identifier format is auto-detected:
-    - If starts with "ISSUE" followed by year: treated as issue code (e.g., ISSUE2026-32)
+    - If KEY-N or legacy ISSUE{year}-N: treated as issue code (e.g., OT-1, ISSUE2026-32)
     - Otherwise: treated as UUID ID (e.g., 5ee3420e-2d69-4509-9ae7-524e8c40d6d1)
 
     Examples:
@@ -781,7 +781,7 @@ def update_issue(obj: "Context", issue_id: str, title, description, issue_type, 
 
     # Auto-detect: check if it's an issue code (ISSUE + digits + hyphen + digits)
     import re
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
     if issue_code_pattern.match(issue_id):
         # It's a code, need to get the real ID first
         try:
@@ -877,7 +877,7 @@ def start_issue(obj: "Context", issue_ids: tuple, as_json: bool):
     json_mode = as_json or obj.json_mode
 
     import re
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
 
     # Start all issues
     results = []
@@ -959,7 +959,7 @@ def reopen_issue(obj: "Context", issue_ids: tuple, reason: str, as_json: bool):
     json_mode = as_json or obj.json_mode
 
     import re
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
 
     # Prepare comment if reason provided
     comment_text = None
@@ -1283,7 +1283,7 @@ def resolve_issue(obj: "Context", issue_ids: tuple, reason: str, commit_id: str,
     json_mode = as_json or obj.json_mode
 
     import re
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
 
     # Prepare comment if reason or commit-id provided
     comment_text = None
@@ -1388,7 +1388,7 @@ def close_issue(obj: "Context", issue_ids: tuple, reason: str, commit_id: str, a
     json_mode = as_json or obj.json_mode
 
     import re
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
 
     # Prepare comment if reason or commit-id provided
     comment_text = None
@@ -1477,7 +1477,7 @@ def show_issue(obj: "Context", issue_id: str, as_json: bool, show_comments: bool
     """Show issue details by ID or code (auto-detected).
 
     Issue identifier format is auto-detected:
-    - If starts with "ISSUE" followed by year: treated as issue code (e.g., ISSUE2026-32)
+    - If KEY-N or legacy ISSUE{year}-N: treated as issue code (e.g., OT-1, ISSUE2026-32)
     - Otherwise: treated as UUID ID (e.g., 5ee3420e-2d69-4509-9ae7-524e8c40d6d1)
 
     Examples:
@@ -1494,7 +1494,7 @@ def show_issue(obj: "Context", issue_id: str, as_json: bool, show_comments: bool
     json_mode = as_json or obj.json_mode
 
     import re
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
     by_code = issue_code_pattern.match(issue_id) is not None
 
     try:
@@ -1551,7 +1551,7 @@ def assign_issue(obj: "Context", issue_id: str, assignee_input: str, as_json: bo
     """Assign an issue to a user.
 
     Issue identifier format is auto-detected:
-    - If starts with "ISSUE" followed by year: treated as issue code (e.g., ISSUE2026-32)
+    - If KEY-N or legacy ISSUE{year}-N: treated as issue code (e.g., OT-1, ISSUE2026-32)
     - Otherwise: treated as UUID ID (e.g., 5ee3420e-2d69-4509-9ae7-524e8c40d6d1)
 
     Assignee formats:
@@ -1574,7 +1574,7 @@ def assign_issue(obj: "Context", issue_id: str, assignee_input: str, as_json: bo
 
     # Auto-detect: check if it's an issue code (ISSUE + digits + hyphen + digits)
     import re
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
     if issue_code_pattern.match(issue_id):
         # It's a code, need to get the real ID first
         try:
@@ -1659,7 +1659,7 @@ def batch_assign_issues(obj: "Context", issue_ids: tuple, assignee_input: str, a
     """Batch assign multiple issues to a user.
 
     Issue identifier format is auto-detected:
-    - If starts with "ISSUE" followed by year: treated as issue code (e.g., ISSUE2026-32)
+    - If KEY-N or legacy ISSUE{year}-N: treated as issue code (e.g., OT-1, ISSUE2026-32)
     - Otherwise: treated as UUID ID (e.g., 5ee3420e-2d69-4509-9ae7-524e8c40d6d1)
 
     Assignee formats:
@@ -1685,7 +1685,7 @@ def batch_assign_issues(obj: "Context", issue_ids: tuple, assignee_input: str, a
         return
 
     import re
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
 
     # Assign all issues
     results = []
@@ -1775,7 +1775,7 @@ def add_comment(obj: "Context", issue_id: str, content: str, message_content: st
     """Add a comment to an issue.
 
     Issue identifier format is auto-detected:
-    - If starts with "ISSUE" followed by year: treated as issue code (e.g., ISSUE2026-32)
+    - If KEY-N or legacy ISSUE{year}-N: treated as issue code (e.g., OT-1, ISSUE2026-32)
     - Otherwise: treated as UUID ID (e.g., 5ee3420e-2d69-4509-9ae7-524e8c40d6d1)
 
     Examples:
@@ -1798,7 +1798,7 @@ def add_comment(obj: "Context", issue_id: str, content: str, message_content: st
 
     # Auto-detect: check if it's an issue code (ISSUE + digits + hyphen + digits)
     import re
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
     if issue_code_pattern.match(issue_id):
         # It's a code, need to get the real ID first
         try:
@@ -1840,7 +1840,7 @@ def list_comments(obj: "Context", issue_id: str, as_json: bool):
     """List all comments for an issue.
 
     Issue identifier format is auto-detected:
-    - If starts with "ISSUE" followed by year: treated as issue code (e.g., ISSUE2026-32)
+    - If KEY-N or legacy ISSUE{year}-N: treated as issue code (e.g., OT-1, ISSUE2026-32)
     - Otherwise: treated as UUID ID (e.g., 5ee3420e-2d69-4509-9ae7-524e8c40d6d1)
 
     Examples:
@@ -1856,7 +1856,7 @@ def list_comments(obj: "Context", issue_id: str, as_json: bool):
 
     # Auto-detect: check if it's an issue code
     import re
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
     by_code = issue_code_pattern.match(issue_id) is not None
 
     try:
@@ -1959,7 +1959,7 @@ def list_documents(obj: "Context", issue_id: str, as_json: bool):
 
     # Auto-detect: check if it's an issue code
     import re
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
     by_code = issue_code_pattern.match(issue_id) is not None
 
     try:
@@ -2027,7 +2027,7 @@ def upload_document(obj: "Context", issue_id: str, file_path: str, description: 
     # Auto-detect: check if it's an issue code
     import re
     import os
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
     by_code = issue_code_pattern.match(issue_id) is not None
 
     try:
@@ -2091,7 +2091,7 @@ def delete_document(obj: "Context", issue_id: str, document_id: str, as_json: bo
 
     # Auto-detect: check if it's an issue code
     import re
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
     by_code = issue_code_pattern.match(issue_id) is not None
 
     try:
@@ -2145,7 +2145,7 @@ def download_document(obj: "Context", issue_id: str, document_id: str, save_path
     # Auto-detect: check if it's an issue code
     import re
     import os
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
     by_code = issue_code_pattern.match(issue_id) is not None
 
     try:
@@ -2214,7 +2214,7 @@ def download_all_documents(obj: "Context", issue_id: str, save_dir: str, as_json
     # Auto-detect: check if it's an issue code
     import re
     import os
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
     by_code = issue_code_pattern.match(issue_id) is not None
 
     try:
@@ -2343,3 +2343,159 @@ def delete_issue(obj: "Context", issue_id: str, force: bool, as_json: bool):
     # 返回错误码
     raise SystemExit(1)
 
+
+
+def _looks_like_issue_code(issue_id: str) -> bool:
+    import re
+    return (
+        re.compile(r"^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$", re.IGNORECASE).match(issue_id)
+        is not None
+    )
+
+
+async def _resolve_issue_id(client: OpenTaskClient, issue_id: str) -> tuple[str, dict]:
+    """Return (uuid, issue_dict) resolving KEY-N / legacy codes."""
+    by_code = _looks_like_issue_code(issue_id)
+    issue = await client.get_issue(issue_id, by_code=by_code)
+    return issue.get("id", issue_id), issue
+
+
+@issue_cli.command(name="branch-name")
+@click.argument("issue_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.option("--copy", "do_copy", is_flag=True, help="Also print hint to copy (stdout is the name)")
+@click.pass_obj
+def issue_branch_name(obj: "Context", issue_id: str, as_json: bool, do_copy: bool):
+    """Suggest Linear-like git branch name for an Issue (same HTTP as FE).
+
+    Examples:
+        issue branch-name WAY-42
+        issue branch-name WAY-42 --json
+    """
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+
+    try:
+        real_id, _issue = asyncio.run(_resolve_issue_id(client, issue_id))
+        data = asyncio.run(client.get_issue_branch_name(real_id))
+        if json_mode:
+            click.echo(_format_json_response(success=True, data=data, message="branch-name"))
+            return
+        name = data.get("branchName") or data.get("branch_name") or ""
+        click.echo(name)
+        if do_copy:
+            skin.hint(f"Copied suggestion: {name}")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to get branch name", json_mode)
+        sys.exit(1)
+
+
+@issue_cli.command(name="link-branch")
+@click.argument("issue_id")
+@click.argument("branch_name")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def issue_link_branch(obj: "Context", issue_id: str, branch_name: str, as_json: bool):
+    """Attach a branch name to an Issue via POST /vcs/links (same HTTP as FE).
+
+    Examples:
+        issue link-branch WAY-42 WAY-42-fix-login
+    """
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+
+    try:
+        real_id, _issue = asyncio.run(_resolve_issue_id(client, issue_id))
+        row = asyncio.run(
+            client.create_issue_vcs_link(
+                real_id, kind="branch", branchName=branch_name, provider="manual"
+            )
+        )
+        if json_mode:
+            click.echo(_format_json_response(success=True, data=row, message="linked branch"))
+            return
+        skin.success(f"Linked branch {branch_name} → {row.get('id', '')}")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to link branch", json_mode)
+        sys.exit(1)
+
+
+@issue_cli.command(name="link-pr")
+@click.argument("issue_id")
+@click.argument("pr_url")
+@click.option("--status", default="open", help="PR status: open|draft|merged|closed")
+@click.option("--title", default=None, help="Optional PR title cache")
+@click.option("--provider", default="github", help="Provider: github|gitlab|gitea|manual")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def issue_link_pr(
+    obj: "Context",
+    issue_id: str,
+    pr_url: str,
+    status: str,
+    title: str | None,
+    provider: str,
+    as_json: bool,
+):
+    """Attach a pull request URL to an Issue via POST /vcs/links (same HTTP as FE).
+
+    Examples:
+        issue link-pr WAY-42 https://github.com/org/repo/pull/12
+    """
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+
+    try:
+        real_id, _issue = asyncio.run(_resolve_issue_id(client, issue_id))
+        kwargs = {
+            "kind": "pull_request",
+            "prUrl": pr_url,
+            "provider": provider,
+            "status": status,
+        }
+        if title:
+            kwargs["title"] = title
+        row = asyncio.run(client.create_issue_vcs_link(real_id, **kwargs))
+        if json_mode:
+            click.echo(_format_json_response(success=True, data=row, message="linked pr"))
+            return
+        skin.success(f"Linked PR {pr_url} → {row.get('id', '')}")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to link PR", json_mode)
+        sys.exit(1)
+
+
+@issue_cli.command(name="vcs-links")
+@click.argument("issue_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def issue_vcs_links(obj: "Context", issue_id: str, as_json: bool):
+    """List VCS links on an Issue (same HTTP as FE)."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+
+    try:
+        real_id, _issue = asyncio.run(_resolve_issue_id(client, issue_id))
+        data = asyncio.run(client.list_issue_vcs_links(real_id))
+        if json_mode:
+            click.echo(_format_json_response(success=True, data=data, message="vcs-links"))
+            return
+        rows = data.get("rows") or []
+        if not rows:
+            skin.info("No VCS links")
+            return
+        for r in rows:
+            skin.info(
+                f"{r.get('kind')}: {r.get('branchName') or r.get('prUrl')} [{r.get('status')}] id={r.get('id')}"
+            )
+    except APIError as e:
+        _handle_error(skin, e, "Failed to list VCS links", json_mode)
+        sys.exit(1)

@@ -85,6 +85,30 @@ export const generatedRoutes: GeneratedRoute[] = [
     }
   },
   {
+    name: 'inbox',
+    path: '/inbox',
+    component: 'layout.base$view.inbox',
+    meta: {
+      title: 'inbox',
+      i18nKey: 'route.inbox',
+      icon: 'mdi:bell-outline',
+      order: 2.5,
+      hideInMenu: true
+    }
+  },
+  {
+    name: 'invite',
+    path: '/invite/:token',
+    component: 'layout.blank$view.invite',
+    meta: {
+      title: 'invite',
+      i18nKey: 'route.invite',
+      constant: true,
+      hideInMenu: true
+    },
+    props: true
+  },
+  {
     name: 'issue',
     path: '/issue',
     component: 'layout.base',
@@ -395,12 +419,47 @@ export const generatedRoutes: GeneratedRoute[] = [
     ]
   },
   {
+    name: 'triage',
+    path: '/triage',
+    component: 'layout.base$view.triage',
+    meta: {
+      title: 'triage',
+      i18nKey: 'route.triage',
+      icon: 'mdi:inbox-arrow-down',
+      order: 2.4,
+      hideInMenu: true
+    }
+  },
+  {
+    name: 'initiatives',
+    path: '/initiatives',
+    component: 'layout.base$view.initiatives',
+    meta: {
+      title: 'initiatives',
+      i18nKey: 'route.initiatives',
+      icon: 'mdi:flag-variant',
+      order: 2.5
+    }
+  },
+  {
+    name: 'initiatives_detail',
+    path: '/initiatives/detail',
+    component: 'layout.base$view.initiatives_detail',
+    meta: {
+      title: 'initiatives_detail',
+      i18nKey: 'route.initiatives_detail',
+      hideInMenu: true,
+      activeMenu: 'initiatives'
+    }
+  },
+  {
     name: 'work-management',
     path: '/work-management',
     component: 'layout.base',
     meta: {
       title: 'work-management',
-      i18nKey: 'route.work-management'
+      i18nKey: 'route.work-management',
+      hideInMenu: true
     },
     children: [
       {
@@ -594,7 +653,55 @@ export const generatedRoutes: GeneratedRoute[] = [
         meta: {
           title: 'workflow_requirements',
           i18nKey: 'route.workflow_requirements',
-          icon: 'mdi:checkbox-marked-circle-outline'
+          icon: 'mdi:checkbox-marked-circle-outline',
+          hideInMenu: true
+        }
+      }
+    ]
+  },
+  {
+    name: 'workspace',
+    path: '/workspace',
+    component: 'layout.base',
+    meta: {
+      title: 'workspace',
+      i18nKey: 'route.workspace'
+    },
+    children: [
+      {
+        name: 'workspace_cycles',
+        path: '/workspace/cycles',
+        component: 'view.workspace_cycles',
+        meta: {
+          title: 'workspace_cycles',
+          i18nKey: 'route.workspace_cycles'
+        }
+      },
+      {
+        name: 'workspace_issue-templates',
+        path: '/workspace/issue-templates',
+        component: 'view.workspace_issue-templates',
+        meta: {
+          title: 'workspace_issue-templates',
+          i18nKey: 'route.workspace_issue-templates'
+        }
+      },
+      {
+        name: 'workspace_labels',
+        path: '/workspace/labels',
+        component: 'view.workspace_labels',
+        meta: {
+          title: 'workspace_labels',
+          i18nKey: 'route.workspace_labels'
+        }
+      },
+      {
+        name: 'workspace_members',
+        path: '/workspace/members',
+        component: 'view.workspace_members',
+        meta: {
+          title: 'workspace_members',
+          i18nKey: 'route.workspace_members'
         }
       }
     ]

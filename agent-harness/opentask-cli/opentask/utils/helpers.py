@@ -221,9 +221,15 @@ def validate_issue_code(code: str) -> bool:
     Examples:
         >>> validate_issue_code("ISSUE2026-123")
         True
+        >>> validate_issue_code("OT-1")
+        True
         >>> validate_issue_code("NOT-A-CODE")
         False
     """
     import re
-    pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    # KEY-N (2–6 alnum prefix) or legacy ISSUE{year}-N
+    pattern = re.compile(
+        r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$',
+        re.IGNORECASE,
+    )
     return pattern.match(code) is not None

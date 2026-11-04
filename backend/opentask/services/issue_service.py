@@ -19,6 +19,7 @@ from opentask.models.issue.schema import (
     IssueCreate,
     IssueUpdate,
     IssueBulkUpdate,
+    IssueBoardMove,
     IssueQueryParams,
 )
 from opentask.models.issue.enums import (
@@ -27,7 +28,12 @@ from opentask.models.issue.enums import (
     TimelineAction,
     RelationType,
 )
+from opentask.models.cycle.model import Cycle
+from opentask.models.milestone.model import Milestone
 from opentask.services.user_center.rbac_service import RbacService
+from opentask.services.notification.service import NotificationService
+
+from opentask.models.workspace.model import Workspace
 
 
 class IssueService:
@@ -36,31 +42,35 @@ class IssueService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def _generate_issue_code(self) -> str:
-        """生成问题编号
+    async def _generate_issue_code(self, workspace_id: str | None = None) -> str:
+        """生成问题编号。
 
-        格式: ISSUE + 年份 + 序号
-        例如: ISSUE2026-1, ISSUE2026-2
-
-        使用当前年份最大序号 + 1，避免重复
+        有 workspace_id：KEY-N（工作区 issue_key + 行级 counter 递增）。
+        无 workspace_id：保留历史 ISSUE{year}-N（孤儿/无头路径）。
         """
+        from datetime import datetime
+        from sqlalchemy import text
+
+        if workspace_id:
+            result = await self.db.execute(
+                select(Workspace)
+                .where(Workspace.id == workspace_id)
+                .with_for_update()
+            )
+            ws = result.scalar_one_or_none()
+            if ws is None:
+                raise ValueError(f"工作区不存在: {workspace_id}")
+            ws.issue_counter = int(ws.issue_counter or 0) + 1
+            await self.db.flush()
+            return f"{ws.issue_key}-{ws.issue_counter}"
+
         current_year = datetime.now().year
         prefix = f"ISSUE{current_year}-"
-
-        # 查询当前年份已有的 issue_code，序号最大值在 Python 侧计算。
-        # 说明：序号是数字（-9 与 -10），按字符串排序会得到错误的最大值
-        # （'ISSUE2026-9' > 'ISSUE2026-10'），且数据库侧 CAST 到整数是
-        # 方言相关语法（MySQL 用 SIGNED/UNSIGNED，PG 用 INTEGER），
-        # 因此取全量 code 后在应用侧解析，保持方言无关（PG/MySQL 均可用）。
-        from sqlalchemy import text
         query = text(
             "SELECT issue_code FROM issues "
             "WHERE issue_code LIKE :prefix_pattern"
         )
-        result = await self.db.execute(query, {
-            "prefix_pattern": f"{prefix}%"
-        })
-
+        result = await self.db.execute(query, {"prefix_pattern": f"{prefix}%"})
         max_num = 0
         for (code,) in result:
             suffix = code[len(prefix):]
@@ -69,11 +79,7 @@ class IssueService:
             except (TypeError, ValueError):
                 continue
             max_num = max(max_num, num)
-
-        # 生成新的序号
-        next_number = max_num + 1
-
-        return f"{prefix}{next_number}"
+        return f"{prefix}{max_num + 1}"
 
     # ========================================================================
     # CRUD 操作
@@ -84,6 +90,8 @@ class IssueService:
         params: IssueQueryParams,
         visible_dept_ids: set[str] | None = None,
         user_id: str | None = None,
+        workspace_id: str | None = None,
+        allowed_workspace_ids: list[str] | None = None,
     ) -> Tuple[List[Issue], int]:
         """获取 Issue 列表
 
@@ -113,12 +121,35 @@ class IssueService:
             query = query.where(Issue.assignee_id == params.assignee_id)
         if params.reporter_id:
             query = query.where(Issue.reporter_id == params.reporter_id)
+        if params.cycle_id:
+            if params.cycle_id == "__none__":
+                query = query.where(Issue.cycle_id.is_(None))
+            else:
+                query = query.where(Issue.cycle_id == params.cycle_id)
+        if getattr(params, "milestone_id", None):
+            if params.milestone_id == "__none__":
+                query = query.where(Issue.milestone_id.is_(None))
+            else:
+                query = query.where(Issue.milestone_id == params.milestone_id)
         if params.search:
             search_pattern = f"%{params.search}%"
             query = query.where(
                 or_(
                     Issue.title.ilike(search_pattern),
                     Issue.description.ilike(search_pattern),
+                    Issue.issue_code.ilike(search_pattern),
+                    Issue.legacy_issue_code.ilike(search_pattern),
+                )
+            )
+
+        # 工作区隔离（E3-S1）
+        if workspace_id is not None:
+            query = query.where(Issue.workspace_id == workspace_id)
+        elif allowed_workspace_ids is not None:
+            query = query.where(
+                or_(
+                    Issue.workspace_id.in_(allowed_workspace_ids),
+                    Issue.workspace_id.is_(None),
                 )
             )
 
@@ -136,9 +167,24 @@ class IssueService:
         result = await self.db.execute(count_query)
         total = result.scalar()
 
-        # 排序
-        sort_column = getattr(Issue, params.sort_by, Issue.created_at)
-        if params.sort_order == "asc":
+        # 排序（白名单；position 支持看板同源排序，NULL 靠后）
+        allowed_sort = {
+            "created_at",
+            "updated_at",
+            "position",
+            "priority",
+            "status",
+            "title",
+            "due_date",
+        }
+        sort_key = params.sort_by if params.sort_by in allowed_sort else "created_at"
+        sort_column = getattr(Issue, sort_key)
+        if sort_key == "position":
+            if params.sort_order == "asc":
+                query = query.order_by(sort_column.asc().nulls_last(), Issue.created_at.asc())
+            else:
+                query = query.order_by(sort_column.desc().nulls_last(), Issue.created_at.desc())
+        elif params.sort_order == "asc":
             query = query.order_by(sort_column.asc())
         else:
             query = query.order_by(sort_column.desc())
@@ -153,12 +199,16 @@ class IssueService:
 
         return list(issues), total
 
-    async def get_issue(self, issue_id: str, by_code: bool = False) -> Optional[Issue]:
-        """获取 Issue 详情
+    async def get_issue(
+        self,
+        issue_id: str,
+        by_code: bool = False,
+        workspace_id: str | None = None,
+    ) -> Optional[Issue]:
+        """获取单个 Issue。
 
-        Args:
-            issue_id: Issue ID 或 Issue Code
-            by_code: 是否通过 issue_code 查询（默认 False，通过 ID 查询）
+        by_code: 按 issue_code 或 legacy_issue_code 查询。
+        workspace_id: 若提供则限制租户（跨 WS by_code → 找不到）。
         """
         query = (
             select(Issue)
@@ -174,14 +224,21 @@ class IssueService:
             .where(Issue.is_deleted == False)
         )
 
-        # 根据 by_code 参数选择查询条件
         if by_code:
-            query = query.where(Issue.issue_code == issue_id)
+            query = query.where(
+                or_(
+                    Issue.issue_code == issue_id,
+                    Issue.legacy_issue_code == issue_id,
+                )
+            )
+            if workspace_id is not None:
+                query = query.where(Issue.workspace_id == workspace_id)
         else:
             query = query.where(Issue.id == issue_id)
 
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
+
 
     async def get_issues_by_ids(self, issue_ids: List[str]) -> List[Issue]:
         """根据 ID 列表批量获取 Issues
@@ -213,24 +270,130 @@ class IssueService:
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
+
+    async def list_child_issues(self, parent_id: str) -> List[Issue]:
+        """列出未删除的直接子 Issue（depth-1）。"""
+        query = (
+            select(Issue)
+            .where(
+                Issue.parent_issue_id == parent_id,
+                Issue.is_deleted == False,
+            )
+            .order_by(Issue.created_at.asc())
+        )
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def _validate_parent_issue_id(
+        self,
+        *,
+        issue_id: str | None,
+        parent_issue_id: str | None,
+        workspace_id: str | None,
+    ) -> None:
+        """校验父 Issue：存在、同工作区、非自指、不成环。"""
+        if parent_issue_id is None:
+            return
+        if issue_id is not None and parent_issue_id == issue_id:
+            raise ValueError("不能将自身设为父 Issue")
+
+        parent = await self.get_issue(parent_issue_id)
+        if not parent:
+            raise ValueError("父 Issue 不存在")
+
+        if workspace_id is not None and parent.workspace_id != workspace_id:
+            raise ValueError("父 Issue 必须属于同一工作区")
+        if workspace_id is None and parent.workspace_id is not None:
+            raise ValueError("父 Issue 必须属于同一工作区")
+
+        # 环检测：从拟设父节点沿祖先上行，不可碰到 issue_id
+        if issue_id is not None:
+            cursor = parent
+            seen: set[str] = set()
+            while cursor is not None:
+                if cursor.id == issue_id:
+                    raise ValueError("不能形成父子循环")
+                if cursor.id in seen:
+                    break
+                seen.add(cursor.id)
+                if not cursor.parent_issue_id:
+                    break
+                cursor = await self.get_issue(cursor.parent_issue_id)
+
+
+    async def _validate_cycle_id(
+        self,
+        *,
+        cycle_id: str | None,
+        workspace_id: str | None,
+    ) -> None:
+        """校验 Cycle：存在且属于同一工作区。"""
+        if cycle_id is None:
+            return
+        result = await self.db.execute(select(Cycle).where(Cycle.id == cycle_id))
+        cycle = result.scalar_one_or_none()
+        if not cycle:
+            raise ValueError("Cycle 不存在")
+        if workspace_id is None or cycle.workspace_id != workspace_id:
+            raise ValueError("Cycle 必须属于同一工作区")
+
+    async def _validate_milestone_id(
+        self,
+        *,
+        milestone_id: str | None,
+        issue_project_id: str | None,
+        workspace_id: str | None,
+    ) -> None:
+        """校验 Milestone：存在、同工作区，且 milestone.project_id == issue.project_id。"""
+        if milestone_id is None:
+            return
+        if not issue_project_id:
+            raise ValueError("Issue 未关联项目，不能挂载里程碑")
+        result = await self.db.execute(select(Milestone).where(Milestone.id == milestone_id))
+        ms = result.scalar_one_or_none()
+        if not ms:
+            raise ValueError("里程碑不存在")
+        if workspace_id is None or ms.workspace_id != workspace_id:
+            raise ValueError("里程碑必须属于同一工作区")
+        if ms.project_id != issue_project_id:
+            raise ValueError("里程碑必须属于 Issue 所在项目")
+
     async def create_issue(
         self,
         data: IssueCreate,
         user_id: str,
         dept_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> Issue:
         """创建 Issue
 
         dept_id: 创建人主部门 id 快照（None 表示无归属，行保持 NULL）
+        workspace_id: 所属工作区（E3-S1）
         """
         # 生成问题编号
-        issue_code = await self._generate_issue_code()
+        issue_code = await self._generate_issue_code(workspace_id)
 
         issue_data = data.model_dump()
+        issue_data.pop("template_id", None)
+        await self._validate_parent_issue_id(
+            issue_id=None,
+            parent_issue_id=issue_data.get("parent_issue_id"),
+            workspace_id=workspace_id,
+        )
+        await self._validate_cycle_id(
+            cycle_id=issue_data.get("cycle_id"),
+            workspace_id=workspace_id,
+        )
+        await self._validate_milestone_id(
+            milestone_id=issue_data.get("milestone_id"),
+            issue_project_id=issue_data.get("project_id"),
+            workspace_id=workspace_id,
+        )
         issue_data["created_by"] = user_id
         issue_data["updated_by"] = user_id
         issue_data["issue_code"] = issue_code
         issue_data["dept_id"] = dept_id  # 部门归属快照
+        issue_data["workspace_id"] = workspace_id
 
         # 自动设置 reporter_id 为当前用户（如果未提供）
         if not issue_data.get("reporter_id"):
@@ -247,7 +410,7 @@ class IssueService:
             issue_id=issue.id,
             action_type=TimelineAction.CREATED,
             user_id=user_id,
-            action_data={"title": issue.title, "type": issue.type.value, "issue_code": issue_code},
+            action_data={"title": issue.title, "type": (issue.type.value if hasattr(issue.type, "value") else issue.type), "issue_code": issue_code},
         )
 
         await self.db.commit()
@@ -264,6 +427,37 @@ class IssueService:
         update_data = data.model_dump(exclude_unset=True)
         if not update_data:
             return await self.get_issue(issue_id)
+
+        if "parent_issue_id" in update_data:
+            existing = await self.get_issue(issue_id)
+            if not existing:
+                return None
+            await self._validate_parent_issue_id(
+                issue_id=issue_id,
+                parent_issue_id=update_data.get("parent_issue_id"),
+                workspace_id=existing.workspace_id,
+            )
+
+        if "cycle_id" in update_data:
+            existing = await self.get_issue(issue_id)
+            if not existing:
+                return None
+            await self._validate_cycle_id(
+                cycle_id=update_data.get("cycle_id"),
+                workspace_id=existing.workspace_id,
+            )
+
+        if "milestone_id" in update_data:
+            existing = await self.get_issue(issue_id)
+            if not existing:
+                return None
+            # project_id may also be updating in same payload
+            project_id = update_data.get("project_id", existing.project_id)
+            await self._validate_milestone_id(
+                milestone_id=update_data.get("milestone_id"),
+                issue_project_id=project_id,
+                workspace_id=existing.workspace_id,
+            )
 
         update_data["updated_by"] = user_id
 
@@ -305,9 +499,11 @@ class IssueService:
                 )
 
         # 记录分配变更
+        assignee_changed_to = None
         if "assignee_id" in update_data:
             old_assignee = await self._get_issue_assignee(issue_id)
             if old_assignee != update_data["assignee_id"]:
+                assignee_changed_to = update_data["assignee_id"]
                 # 获取用户信息对象
                 old_assignee_info = await self._get_user_info_dict(old_assignee)
                 new_assignee_info = await self._get_user_info_dict(update_data["assignee_id"])
@@ -336,7 +532,75 @@ class IssueService:
         await self.db.execute(query)
         await self.db.commit()
 
-        return await self.get_issue(issue_id)
+        issue = await self.get_issue(issue_id)
+        if issue and assignee_changed_to:
+            await NotificationService(self.db).notify_assigned(
+                issue,
+                actor_user_id=user_id,
+                new_assignee_id=assignee_changed_to,
+            )
+        return issue
+
+    async def move_issue_on_board(
+        self,
+        data: IssueBoardMove,
+        user_id: str,
+        *,
+        workspace_id: str | None = None,
+    ) -> Issue:
+        """看板拖拽：原子更新 status + position，可选重写目标列 ordered_ids。
+
+        workspace_id 若提供，则要求目标 Issue（及 ordered_ids）属于该工作区。
+        """
+        issue = await self.get_issue(data.issue_id)
+        if not issue:
+            raise LookupError("Issue 不存在")
+        if workspace_id is not None and issue.workspace_id != workspace_id:
+            raise PermissionError("Issue 不属于当前工作区")
+
+        # 主卡片：走 update_issue 以复用 status timeline
+        await self.update_issue(
+            data.issue_id,
+            IssueUpdate(status=data.status, position=data.position),
+            user_id,
+        )
+
+        if data.ordered_ids:
+            # 校验并批量写 position（同事务外再 commit；ordered 项跳过已由 update 写过的主卡亦可再写）
+            for idx, oid in enumerate(data.ordered_ids):
+                if oid == data.issue_id:
+                    # 已写；仍允许校正 position 为序中下标
+                    if idx != data.position:
+                        await self.db.execute(
+                            update(Issue)
+                            .where(Issue.id == oid, Issue.is_deleted == False)
+                            .values(position=idx, updated_by=user_id)
+                        )
+                    continue
+                other = await self.get_issue(oid)
+                if not other:
+                    raise LookupError(f"Issue 不存在: {oid}")
+                if workspace_id is not None and other.workspace_id != workspace_id:
+                    raise PermissionError("ordered_ids 含非本工作区 Issue")
+                if other.status != data.status.value and other.status != data.status:
+                    # 仅允许重排目标列内卡片；若列表含他列则强制改 status
+                    await self.update_issue(
+                        oid,
+                        IssueUpdate(status=data.status, position=idx),
+                        user_id,
+                    )
+                else:
+                    await self.db.execute(
+                        update(Issue)
+                        .where(Issue.id == oid, Issue.is_deleted == False)
+                        .values(position=idx, updated_by=user_id)
+                    )
+            await self.db.commit()
+
+        moved = await self.get_issue(data.issue_id)
+        if not moved:
+            raise LookupError("Issue 不存在")
+        return moved
 
     async def delete_issue(self, issue_id: str, user_id: str) -> bool:
         """删除 Issue（软删除）"""
@@ -447,6 +711,16 @@ class IssueService:
         await self.db.commit()
         # 注释掉 refresh 以避免枚举值问题
         # await self.db.refresh(comment)
+
+        # Inbox：评论 / @mention 通知（非作者）
+        issue = await self.get_issue(issue_id)
+        if issue:
+            await NotificationService(self.db).notify_comment(
+                issue,
+                actor_user_id=user_id,
+                comment_content=content,
+                comment_id=comment.id,
+            )
         return comment
 
     async def update_comment(
@@ -626,9 +900,10 @@ class IssueService:
         return result.rowcount > 0
 
     async def get_tags(self, issue_id: str) -> List[IssueTag]:
-        """获取 Issue 的所有标签"""
-        # Tag 功能已移除，返回空列表
-        return []
+        """获取 Issue 的所有标签关联行"""
+        query = select(IssueTag).where(IssueTag.issue_id == issue_id)
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
 
     # ========================================================================
     # 反应操作

@@ -101,3 +101,27 @@ export function fetchDingtalkCallback(authCode: string) {
     data: { authCode }
   });
 }
+
+/**
+ * 开放注册（E3-S1）：用户名+密码；口令同样走 RSA-OAEP。
+ * 成功返回 token 对与 defaultWorkspaceId。
+ */
+export async function fetchRegister(
+  userName: string,
+  password: string,
+  options?: { name?: string; inviteToken?: string }
+) {
+  const encryptedPassword = await encryptLoginPassword(password);
+  const name = options?.name;
+  const inviteToken = options?.inviteToken;
+  return request<Api.Auth.LoginToken & { defaultWorkspaceId?: string }>({
+    url: '/api/auth/register',
+    method: 'post',
+    data: {
+      userName,
+      password: encryptedPassword,
+      name,
+      ...(inviteToken ? { inviteToken } : {})
+    }
+  });
+}

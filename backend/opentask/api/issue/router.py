@@ -17,6 +17,7 @@ from opentask.models.issue.schema import (
     IssueCreate,
     IssueUpdate,
     IssueResponse,
+    IssueChildSummary,
     IssueListResponse,
     IssueCommentBase,
     IssueCommentRequest,
@@ -29,6 +30,7 @@ from opentask.models.issue.schema import (
     IssueQueryParams,
     IssueBulkUpdate,
     IssueBulkDelete,
+    IssueBoardMove,
     IssueStatistics,
     IssueReactionCreate,
     IssueReactionResponse,
@@ -46,7 +48,18 @@ from opentask.models.issue_collection.schema import (
 )
 from opentask.models.issue.enums import RelationType
 from opentask.services.issue_service import IssueService
+from opentask.services.issue_template.service import IssueTemplateService
+from opentask.services.tag.service import (
+    TagService,
+    load_tags_for_issues,
+    require_writer as require_tag_writer,
+    serialize_tag_brief,
+)
+from opentask.api.workspace.deps import get_optional_workspace_context, require_workspace_context
+from opentask.models.workspace.model import Workspace, WorkspaceMember
+from pydantic import BaseModel, Field
 from opentask.services.user_center.rbac_service import RbacService
+from opentask.services.workspace.service import WorkspaceService
 from opentask.services.storage.service import get_storage_service
 from opentask.services.issue_collection_service import IssueCollectionService
 from opentask.auth import authenticate
@@ -78,12 +91,16 @@ async def get_issues(
     assignee_id: Optional[str] = Query(None, description="负责人 ID"),
     reporter_id: Optional[str] = Query(None, description="报告人 ID"),
     search: Optional[str] = Query(None, description="搜索关键词"),
+    cycle_id: Optional[str] = Query(None, description="Cycle ID；__none__ 表示无 Cycle"),
+    milestone_id: Optional[str] = Query(None, description="Milestone ID；__none__ 表示无里程碑"),
     sort_by: str = Query("created_at", description="排序字段"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$", description="排序方向"),
     service: IssueService = Depends(get_issue_service),
     current_user: UserModel = Depends(authenticate),
+    ws_ctx=Depends(get_optional_workspace_context),
 ):
-    """获取 Issue 列表（数据范围过滤：部门可见集 + "或本人创建"，ALL 档零过滤）"""
+    """获取 Issue 列表（部门数据范围 + 工作区隔离）"""
+    workspace, _member, user = ws_ctx
     params = IssueQueryParams(
         page=page,
         page_size=page_size,
@@ -94,19 +111,35 @@ async def get_issues(
         assignee_id=assignee_id,
         reporter_id=reporter_id,
         search=search,
+        cycle_id=cycle_id,
+        milestone_id=milestone_id,
         sort_by=sort_by,
         sort_order=sort_order,
     )
 
+    ws_id = workspace.id if workspace is not None else None
+    allowed = None
+    if workspace is None:
+        allowed = await WorkspaceService(service.db).member_workspace_ids(str(user.id))
+        visible_dept_ids = await RbacService(service.db).get_visible_dept_ids(user)
+    else:
+        # 显式工作区：租户隔离优先，跳过部门 SELF 空集
+        visible_dept_ids = None
     issues, total = await service.get_issues(
         params,
-        # 数据范围：ALL → None（零过滤）；SELF → 空集 + creator 条件（只见本人）
-        visible_dept_ids=await RbacService(service.db).get_visible_dept_ids(current_user),
-        user_id=str(current_user.id),
+        visible_dept_ids=visible_dept_ids,
+        user_id=str(user.id),
+        workspace_id=ws_id,
+        allowed_workspace_ids=allowed,
     )
 
     # 使用 IssueResponse 的 field_validator 自动处理用户信息转换
-    rows = [IssueResponse.model_validate(issue) for issue in issues]
+    tag_map = await load_tags_for_issues(service.db, issues)
+    rows = []
+    for issue in issues:
+        payload = IssueResponse.model_validate(issue).model_dump(mode="json", exclude_none=False)
+        payload["tags"] = [serialize_tag_brief(t) for t in tag_map.get(issue.id, [])]
+        rows.append(payload)
 
     return {
         "code": 200,
@@ -182,22 +215,79 @@ async def create_issue(
     data: IssueCreate,
     service: IssueService = Depends(get_issue_service),
     current_user: UserModel = Depends(authenticate),
+    ws_ctx=Depends(get_optional_workspace_context),
 ):
-    """创建 Issue"""
+    """创建 Issue（可选 X-Workspace-Id；可选 template_id 合并模板 payload）"""
 
     try:
+        workspace, _member, user = ws_ctx
+        # E9-S2：template_id → 合并 payload（body 非空 title 保留）
+        if data.template_id:
+            if workspace is None:
+                raise HTTPException(status_code=400, detail="使用模板需要 X-Workspace-Id")
+            tpl = await IssueTemplateService(service.db).get(
+                workspace_id=workspace.id, template_id=data.template_id
+            )
+            merged = IssueTemplateService.apply_template_defaults(
+                tpl.payload or {}, data.model_dump()
+            )
+            # drop template_id before Issue(**)
+            merged.pop("template_id", None)
+            data = IssueCreate(**merged)
         # 部门归属快照：取创建人主部门
-        dept_id = await RbacService(service.db).get_primary_dept_id(current_user)
-        issue = await service.create_issue(data, str(current_user.id), dept_id=dept_id)
+        dept_id = await RbacService(service.db).get_primary_dept_id(user)
+        issue = await service.create_issue(
+            data,
+            str(user.id),
+            dept_id=dept_id,
+            workspace_id=workspace.id if workspace else None,
+        )
         return {
             "code": 200,
             "message": "Issue 创建成功",
             "data": IssueResponse.model_validate(issue),
             "timestamp": 0,
         }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"创建 Issue 失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@router.post("/board/move")
+async def move_issue_on_board(
+    data: IssueBoardMove,
+    service: IssueService = Depends(get_issue_service),
+    current_user: UserModel = Depends(authenticate),
+    ws_ctx=Depends(get_optional_workspace_context),
+):
+    """看板拖拽落盘：原子更新 status + position（可选 ordered_ids 同列重排）。
+
+    若带 X-Workspace-Id，则校验 Issue 属于该工作区。
+    """
+    workspace, _member, user = ws_ctx
+    try:
+        issue = await service.move_issue_on_board(
+            data,
+            str(user.id),
+            workspace_id=workspace.id if workspace else None,
+        )
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except Exception as e:
+        logger.error(f"看板移动 Issue 失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return {
+        "code": 200,
+        "message": "Issue 看板位置已更新",
+        "data": IssueResponse.model_validate(issue),
+        "timestamp": 0,
+    }
 
 
 # ========================================================================
@@ -467,23 +557,41 @@ async def get_issue(
     by_code: bool = Query(False, description="是否通过 issue_code 查询（默认通过 ID 查询）"),
     service: IssueService = Depends(get_issue_service),
     db: AsyncSession = Depends(get_session),
+    ws_ctx=Depends(get_optional_workspace_context),
 ):
     """获取 Issue 详情
 
     Args:
         issue_id: Issue ID 或 Issue Code
-        by_code: 设为 true 时，通过 issue_code 查询；默认通过 ID 查询
+        by_code: 设为 true 时，通过 issue_code / legacy_issue_code 查询；默认通过 ID 查询
 
     Examples:
         GET /api/issues/5ee3420e-2d69-4509-9ae7-524e8c40d6d1  # 通过 ID 查询
-        GET /api/issues/ISSUE2026-32?by_code=true          # 通过 code 查询
+        GET /api/issues/OT-1?by_code=true                  # 通过 KEY-N 查询
+        GET /api/issues/ISSUE2026-32?by_code=true          # 通过 legacy code 查询
     """
-    issue = await service.get_issue(issue_id, by_code=by_code)
+    workspace, _member, _user = ws_ctx
+    workspace_id = workspace.id if (workspace is not None and by_code) else None
+    issue = await service.get_issue(issue_id, by_code=by_code, workspace_id=workspace_id)
     if not issue:
         raise HTTPException(status_code=404, detail="Issue 不存在")
 
     # 转换为字典，使用 mode='json' 确保所有字段都被序列化
     issue_dict = IssueResponse.model_validate(issue).model_dump(mode='json', exclude_none=False)
+    detail_tags = await load_tags_for_issues(db, [issue])
+    issue_dict["tags"] = [serialize_tag_brief(t) for t in detail_tags.get(issue.id, [])]
+
+    # E4-S3：子 Issue 轻量摘要
+    children = await service.list_child_issues(issue.id)
+    issue_dict["children"] = [
+        IssueChildSummary(
+            id=c.id,
+            issue_code=c.issue_code,
+            title=c.title,
+            status=str(c.status.value if hasattr(c.status, "value") else c.status),
+        ).model_dump(mode="json")
+        for c in children
+    ]
 
     # 如果有关联项目，查询项目信息
     if issue.project_id:
@@ -516,7 +624,10 @@ async def update_issue(
 ):
     """更新 Issue"""
 
-    issue = await service.update_issue(issue_id, data, str(current_user.id))
+    try:
+        issue = await service.update_issue(issue_id, data, str(current_user.id))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     if not issue:
         raise HTTPException(status_code=404, detail="Issue 不存在")
 
@@ -755,6 +866,35 @@ async def delete_comment(
     }
 
 
+
+@router.get("/{issue_id}/children")
+async def get_issue_children(
+    issue_id: str,
+    service: IssueService = Depends(get_issue_service),
+    current_user: UserModel = Depends(authenticate),
+):
+    """列出 Issue 的直接子项（depth-1 摘要）"""
+    issue = await service.get_issue(issue_id)
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue 不存在")
+    children = await service.list_child_issues(issue_id)
+    rows = [
+        IssueChildSummary(
+            id=c.id,
+            issue_code=c.issue_code,
+            title=c.title,
+            status=str(c.status.value if hasattr(c.status, "value") else c.status),
+        )
+        for c in children
+    ]
+    return {
+        "code": 200,
+        "message": "success",
+        "data": {"rows": rows, "total": len(rows)},
+        "timestamp": 0,
+    }
+
+
 # ========================================================================
 # 关系操作
 # ========================================================================
@@ -837,20 +977,49 @@ async def remove_relation(
 # 标签操作
 # ========================================================================
 
+class IssueTagsReplace(BaseModel):
+    tag_ids: List[int] = Field(default_factory=list)
+
+
 @router.get("/{issue_id}/tags")
 async def get_tags(
     issue_id: str,
-    service: IssueService = Depends(get_issue_service),
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
 ):
     """获取 Issue 的所有标签"""
-    # Tag 功能已移除，返回空列表
+    ws, _member, _user = ctx
+    rows = await TagService(session).list_issue_tags(issue_id, workspace_id=ws.id)
+    briefs = [serialize_tag_brief(t) for t in rows]
     return {
         "code": 200,
         "message": "success",
-        "data": {
-            "rows": [],
-            "total": 0,
-        },
+        "data": {"rows": briefs, "total": len(briefs)},
+        "timestamp": 0,
+    }
+
+
+@router.put("/{issue_id}/tags")
+async def replace_tags(
+    issue_id: str,
+    body: IssueTagsReplace,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    """整体替换 Issue 标签（L picker）"""
+    ws, member, user = ctx
+    require_tag_writer(member)
+    rows = await TagService(session).replace_issue_tags(
+        issue_id=issue_id,
+        tag_ids=body.tag_ids,
+        workspace_id=ws.id,
+        user_id=str(user.id),
+    )
+    briefs = [serialize_tag_brief(t) for t in rows]
+    return {
+        "code": 200,
+        "message": "标签已更新",
+        "data": {"rows": briefs, "total": len(briefs)},
         "timestamp": 0,
     }
 
@@ -859,34 +1028,42 @@ async def get_tags(
 async def add_tag(
     issue_id: str,
     tag_id: int,
-    service: IssueService = Depends(get_issue_service),
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
 ):
     """添加标签到 Issue"""
-    try:
-        issue_tag = await service.add_tag(issue_id, tag_id)
-        return {
-            "code": 200,
-            "message": "标签添加成功",
-            "data": {"issue_tag_id": issue_tag.id},
-            "timestamp": 0,
-        }
-    except Exception as e:
-        logger.error(f"添加标签失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    ws, member, user = ctx
+    require_tag_writer(member)
+    tag = await TagService(session).attach_tag(
+        issue_id=issue_id,
+        tag_id=tag_id,
+        workspace_id=ws.id,
+        user_id=str(user.id),
+    )
+    return {
+        "code": 200,
+        "message": "标签添加成功",
+        "data": {"tag": serialize_tag_brief(tag)},
+        "timestamp": 0,
+    }
 
 
 @router.delete("/{issue_id}/tags/{tag_id}")
 async def remove_tag(
     issue_id: str,
     tag_id: int,
-    service: IssueService = Depends(get_issue_service),
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
 ):
     """从 Issue 移除标签"""
-    success = await service.remove_tag(issue_id, tag_id)
-
-    if not success:
-        raise HTTPException(status_code=404, detail="标签不存在")
-
+    ws, member, user = ctx
+    require_tag_writer(member)
+    await TagService(session).detach_tag(
+        issue_id=issue_id,
+        tag_id=tag_id,
+        workspace_id=ws.id,
+        user_id=str(user.id),
+    )
     return {
         "code": 200,
         "message": "标签移除成功",
@@ -1128,10 +1305,19 @@ async def get_issue_attachments(
     issue_id: str,
     service: IssueService = Depends(get_issue_service),
 ):
-    """获取 Issue 的所有附件"""
-    attachments = await service.get_attachments(issue_id)
+    """获取 Issue 的所有附件。空列表必须 200（E11-S4）。"""
+    try:
+        attachments = await service.get_attachments(issue_id)
+    except Exception as e:
+        # 防御：缺表/瞬时 DB 错误时不把详情页打成 500 刷屏
+        logger.exception("get_issue_attachments failed for %s: %s", issue_id, e)
+        return {
+            "code": 200,
+            "message": "success",
+            "data": [],
+            "timestamp": 0,
+        }
 
-    # 手动构建响应，避免枚举序列化问题
     rows = []
     for att in attachments:
         rows.append({

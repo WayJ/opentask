@@ -26,15 +26,22 @@ class ProjectService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def create(self, dto: ProjectCreate, dept_id: str | None = None) -> Project:
+    async def create(
+        self,
+        dto: ProjectCreate,
+        dept_id: str | None = None,
+        workspace_id: str | None = None,
+    ) -> Project:
         """创建项目
 
         dept_id: 创建人主部门 id 快照（None 表示无归属，行保持 NULL）
+        workspace_id: 所属工作区（E3-S1）
         """
         project = Project(
             name=dto.name,
             description=dto.description,
             dept_id=dept_id,  # 部门归属快照：创建时创建人的主部门
+            workspace_id=workspace_id,
         )
         self.db.add(project)
         await self.db.commit()
@@ -56,15 +63,30 @@ class ProjectService:
         self,
         active_only: bool = True,
         visible_dept_ids: set[str] | None = None,
+        workspace_id: str | None = None,
+        allowed_workspace_ids: list[str] | None = None,
     ) -> list[Project]:
         """获取所有项目
 
         visible_dept_ids: 数据范围可见部门集（None=不过滤；项目表无 created_by，
         空集（SELF）时结果恒空——项目均为部门资产）
+        workspace_id: 当前工作区（精确过滤）
+        allowed_workspace_ids: 无精确工作区时，限制在成员工作区 ∪ NULL
         """
+        from sqlalchemy import or_
+
         query = select(Project)
         if active_only:
             query = query.where(Project.is_active == True)
+        if workspace_id is not None:
+            query = query.where(Project.workspace_id == workspace_id)
+        elif allowed_workspace_ids is not None:
+            query = query.where(
+                or_(
+                    Project.workspace_id.in_(allowed_workspace_ids),
+                    Project.workspace_id.is_(None),
+                )
+            )
         # 数据范围过滤（visible_dept_ids=None 时原样返回，旧调用零破坏）
         query = RbacService(session=None).apply_data_scope(
             query,
@@ -74,10 +96,30 @@ class ProjectService:
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
-    async def update(self, project_id: str, name: str | None = None, description: str | None = None) -> Project:
-        """更新项目"""
+    async def update(
+        self,
+        project_id: str,
+        name: str | None = None,
+        description: str | None = None,
+        starts_at=...,
+        target_date=...,
+    ) -> Project:
+        """更新项目（含 E8-S1 starts_at / target_date）"""
+        from datetime import datetime
+
         project = await self.get_by_id(project_id)
         logger.info(f"Before update - project: {project.id}, name={project.name}, description={project.description}, received name={name}, description={description}")
+
+        def _parse(value):
+            if value is None:
+                return None
+            if isinstance(value, datetime):
+                return value.replace(tzinfo=None) if value.tzinfo else value
+            if isinstance(value, str):
+                text = value.strip().replace("Z", "+00:00")
+                dt = datetime.fromisoformat(text)
+                return dt.replace(tzinfo=None) if dt.tzinfo else dt
+            return value
 
         updated = False
         if name is not None and name != "" and name != project.name:
@@ -88,6 +130,12 @@ class ProjectService:
             project.description = description
             updated = True
             logger.info(f"Updating description to: {description}")
+        if starts_at is not ...:
+            project.starts_at = _parse(starts_at)
+            updated = True
+        if target_date is not ...:
+            project.target_date = _parse(target_date)
+            updated = True
 
         if updated:
             await self.db.flush()
@@ -115,6 +163,12 @@ class ProjectService:
             is_active=project.is_active,
             created_at=project.created_at,
             updated_at=project.updated_at,
+            starts_at=getattr(project, "starts_at", None),
+            target_date=getattr(project, "target_date", None),
+            health_status=getattr(project, "health_status", None),
+            health_note=getattr(project, "health_note", None),
+            health_updated_at=getattr(project, "health_updated_at", None),
+            health_updated_by=getattr(project, "health_updated_by", None),
         )
 
 

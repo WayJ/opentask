@@ -47,11 +47,15 @@ class IssueBase(BaseModel):
     due_date: Optional[datetime] = Field(None, description="截止日期")
     estimated_hours: Optional[float] = Field(None, ge=0, description="预估工时")
     actual_hours: Optional[float] = Field(None, ge=0, description="实际工时")
+    parent_issue_id: Optional[str] = Field(None, description="父 Issue ID（一等公民子 Issue）")
+    cycle_id: Optional[str] = Field(None, description="所属 Cycle ID")
+    estimate_points: Optional[float] = Field(None, ge=0, description="故事点估算（可选）")
+    milestone_id: Optional[str] = Field(None, description="所属里程碑 ID")
 
 
 class IssueCreate(IssueBase):
     """创建 Issue Schema"""
-    pass
+    template_id: Optional[str] = Field(None, description="E9-S2：应用工作区 Issue 模板")
 
 
 class IssueUpdate(BaseModel):
@@ -70,6 +74,10 @@ class IssueUpdate(BaseModel):
     due_date: Optional[datetime] = None
     estimated_hours: Optional[float] = None
     actual_hours: Optional[float] = None
+    parent_issue_id: Optional[str] = None
+    cycle_id: Optional[str] = None
+    estimate_points: Optional[float] = None
+    milestone_id: Optional[str] = None
 
 
 class ProjectInfo(BaseModel):
@@ -77,6 +85,27 @@ class ProjectInfo(BaseModel):
     id: str
     name: str
     description: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+
+class TagBrief(BaseModel):
+    """Issue 上的轻量标签（E7-S1 groupBy / 详情）"""
+    id: int
+    name: str
+    color: str = "#3b82f6"
+    group_id: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class IssueChildSummary(BaseModel):
+    """子 Issue 轻量摘要"""
+    id: str
+    issue_code: str
+    title: str
+    status: str
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -99,6 +128,10 @@ class IssueResponse(IssueBase):
     project: Optional[ProjectInfo] = Field(None, description="关联项目")
     assignee: Optional[UserInfo] = Field(None, description="负责人信息")
     reporter: Optional[UserInfo] = Field(None, description="报告人信息")
+    children: Optional[List[IssueChildSummary]] = Field(
+        None, description="子 Issue 摘要（详情接口填充）"
+    )
+    triage_status: Optional[str] = Field(None, description="pending|null triage 队列状态")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -239,6 +272,14 @@ class IssueQueryParams(BaseModel):
     assignee_id: Optional[str] = Field(None, description="负责人 ID")
     reporter_id: Optional[str] = Field(None, description="报告人 ID")
     search: Optional[str] = Field(None, description="搜索关键词")
+    cycle_id: Optional[str] = Field(
+        None,
+        description="Cycle ID 筛选；传 __none__ 表示无 Cycle",
+    )
+    milestone_id: Optional[str] = Field(
+        None,
+        description="Milestone ID 筛选；传 __none__ 表示无里程碑",
+    )
     sort_by: str = Field("created_at", description="排序字段")
     sort_order: str = Field("desc", pattern="^(asc|desc)$", description="排序方向")
 
@@ -247,7 +288,25 @@ class IssueQueryParams(BaseModel):
 # Bulk Operation Schemas
 # ============================================================================
 
+class IssueBoardMoveItem(BaseModel):
+    """看板列内重排单项"""
+    issue_id: str = Field(..., description="Issue ID")
+    position: int = Field(..., ge=0, description="目标排序位置（0-based）")
+
+
+class IssueBoardMove(BaseModel):
+    """看板拖拽落盘：原子更新 status + position，可选同列重排"""
+    issue_id: str = Field(..., description="被拖动的 Issue ID")
+    status: IssueStatus = Field(..., description="目标状态列")
+    position: int = Field(..., ge=0, description="目标列内位置（0-based）")
+    ordered_ids: Optional[List[str]] = Field(
+        None,
+        description="目标列完整有序 ID 列表（含被拖动项）；若提供则按序重写各 position",
+    )
+
+
 class IssueBulkUpdate(BaseModel):
+
     """批量更新 Schema"""
     issue_ids: List[str] = Field(..., min_length=1, description="Issue ID 列表")
     status: Optional[IssueStatus] = None

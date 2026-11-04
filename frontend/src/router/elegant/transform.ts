@@ -170,6 +170,8 @@ const routeMap: RouteMap = {
   "dashboard": "/dashboard",
   "home": "/home",
   "iframe-page": "/iframe-page/:url",
+  "inbox": "/inbox",
+  "invite": "/invite/:token",
   "issue": "/issue",
   "issue_collection": "/issue/collection/:id",
   "issue_collection-create": "/issue/collection-create",
@@ -199,6 +201,9 @@ const routeMap: RouteMap = {
   "profile": "/profile",
   "profile_access-tokens": "/profile/access-tokens",
   "profile_userinfo": "/profile/userinfo",
+  "triage": "/triage",
+  "initiatives": "/initiatives",
+  "initiatives_detail": "/initiatives/detail",
   "work-management": "/work-management",
   "work-management_cost-projects": "/work-management/cost-projects",
   "work-management_cost-projects_create": "/work-management/cost-projects/create",
@@ -219,7 +224,12 @@ const routeMap: RouteMap = {
   "workflow_project-detail": "/workflow/project-detail",
   "workflow_projects": "/workflow/projects",
   "workflow_requirement-detail": "/workflow/requirement-detail",
-  "workflow_requirements": "/workflow/requirements"
+  "workflow_requirements": "/workflow/requirements",
+  "workspace": "/workspace",
+  "workspace_cycles": "/workspace/cycles",
+  "workspace_issue-templates": "/workspace/issue-templates",
+  "workspace_labels": "/workspace/labels",
+  "workspace_members": "/workspace/members"
 };
 
 /**
