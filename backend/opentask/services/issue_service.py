@@ -243,6 +243,56 @@ class IssueService:
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
+
+    async def list_child_issues(self, parent_id: str) -> List[Issue]:
+        """列出未删除的直接子 Issue（depth-1）。"""
+        query = (
+            select(Issue)
+            .where(
+                Issue.parent_issue_id == parent_id,
+                Issue.is_deleted == False,
+            )
+            .order_by(Issue.created_at.asc())
+        )
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def _validate_parent_issue_id(
+        self,
+        *,
+        issue_id: str | None,
+        parent_issue_id: str | None,
+        workspace_id: str | None,
+    ) -> None:
+        """校验父 Issue：存在、同工作区、非自指、不成环。"""
+        if parent_issue_id is None:
+            return
+        if issue_id is not None and parent_issue_id == issue_id:
+            raise ValueError("不能将自身设为父 Issue")
+
+        parent = await self.get_issue(parent_issue_id)
+        if not parent:
+            raise ValueError("父 Issue 不存在")
+
+        if workspace_id is not None and parent.workspace_id != workspace_id:
+            raise ValueError("父 Issue 必须属于同一工作区")
+        if workspace_id is None and parent.workspace_id is not None:
+            raise ValueError("父 Issue 必须属于同一工作区")
+
+        # 环检测：从拟设父节点沿祖先上行，不可碰到 issue_id
+        if issue_id is not None:
+            cursor = parent
+            seen: set[str] = set()
+            while cursor is not None:
+                if cursor.id == issue_id:
+                    raise ValueError("不能形成父子循环")
+                if cursor.id in seen:
+                    break
+                seen.add(cursor.id)
+                if not cursor.parent_issue_id:
+                    break
+                cursor = await self.get_issue(cursor.parent_issue_id)
+
     async def create_issue(
         self,
         data: IssueCreate,
@@ -259,6 +309,11 @@ class IssueService:
         issue_code = await self._generate_issue_code()
 
         issue_data = data.model_dump()
+        await self._validate_parent_issue_id(
+            issue_id=None,
+            parent_issue_id=issue_data.get("parent_issue_id"),
+            workspace_id=workspace_id,
+        )
         issue_data["created_by"] = user_id
         issue_data["updated_by"] = user_id
         issue_data["issue_code"] = issue_code
@@ -280,7 +335,7 @@ class IssueService:
             issue_id=issue.id,
             action_type=TimelineAction.CREATED,
             user_id=user_id,
-            action_data={"title": issue.title, "type": issue.type.value, "issue_code": issue_code},
+            action_data={"title": issue.title, "type": (issue.type.value if hasattr(issue.type, "value") else issue.type), "issue_code": issue_code},
         )
 
         await self.db.commit()
@@ -297,6 +352,16 @@ class IssueService:
         update_data = data.model_dump(exclude_unset=True)
         if not update_data:
             return await self.get_issue(issue_id)
+
+        if "parent_issue_id" in update_data:
+            existing = await self.get_issue(issue_id)
+            if not existing:
+                return None
+            await self._validate_parent_issue_id(
+                issue_id=issue_id,
+                parent_issue_id=update_data.get("parent_issue_id"),
+                workspace_id=existing.workspace_id,
+            )
 
         update_data["updated_by"] = user_id
 

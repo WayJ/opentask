@@ -93,6 +93,7 @@ export namespace Api.Issue {
     due_date?: string;
     estimated_hours?: number;
     actual_hours?: number;
+    parent_issue_id?: string | null;
   }
 
   /** 创建 Issue */
@@ -113,9 +114,18 @@ export namespace Api.Issue {
     due_date?: string;
     estimated_hours?: number;
     actual_hours?: number;
+    parent_issue_id?: string | null;
   }
 
   /** Issue 响应 */
+  /** 子 Issue 轻量摘要 */
+  export interface IssueChildSummary {
+    id: string;
+    issue_code: string;
+    title: string;
+    status: IssueStatus | string;
+  }
+
   export interface Issue extends IssueBase {
     id: string;
     issue_code: string;
@@ -133,6 +143,7 @@ export namespace Api.Issue {
     project?: Api.Project.Project;
     assignee?: UserInfo;
     reporter?: UserInfo;
+    children?: IssueChildSummary[];
   }
 
   /** Issue 列表查询参数 */

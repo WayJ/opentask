@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { NAlert, NButton, NCard, NDatePicker, NEmpty, NModal, NSpace, NSpin, NTag, NText } from 'naive-ui';
+import { NAlert, NButton, NCard, NDatePicker, NEmpty, NInput, NModal, NSpace, NSpin, NTag, NText } from 'naive-ui';
 import {
   getIssuePriorityTagType,
   getIssueStatusTagType,
@@ -64,6 +64,13 @@ const relations = ref<{
   as_target: Api.Issue.IssueRelation[];
 } | null>(null);
 
+// E4-S3 父子
+const parentIssue = ref<Api.Issue.Issue | null>(null);
+const childSummaries = ref<Api.Issue.IssueChildSummary[]>([]);
+const showAddSubIssue = ref(false);
+const newSubIssueTitle = ref('');
+const addingSubIssue = ref(false);
+
 // Tags
 const tags = ref<Api.Issue.IssueTag[]>([]);
 
@@ -125,7 +132,15 @@ async function loadIssue() {
     const data = await issueStore.getIssue(issueId.value);
     issue.value = data;
     // 加载相关数据
-    Promise.all([loadComments(), loadTimeline(), loadRelations(), loadTags(), loadReactions(), loadAttachments()]);
+    Promise.all([
+      loadComments(),
+      loadTimeline(),
+      loadRelations(),
+      loadTags(),
+      loadReactions(),
+      loadAttachments(),
+      loadParentAndChildren()
+    ]);
   } finally {
     loading.value = false;
   }
@@ -374,6 +389,58 @@ async function copyIssuePrompt() {
     window.$message?.success('指令已复制到剪贴板');
   } catch {
     window.$message?.error('复制失败，请手动复制');
+  }
+}
+
+async function loadParentAndChildren() {
+  parentIssue.value = null;
+  childSummaries.value = [];
+  if (!issue.value) return;
+
+  childSummaries.value = issue.value.children || [];
+  try {
+    const fromApi = await issueApi.getChildren(issue.value.id);
+    if (fromApi?.rows) childSummaries.value = fromApi.rows;
+  } catch {
+    // keep children from detail payload
+  }
+
+  if (issue.value.parent_issue_id) {
+    try {
+      parentIssue.value = await issueApi.getIssue(issue.value.parent_issue_id);
+    } catch {
+      parentIssue.value = null;
+    }
+  }
+}
+
+async function createSubIssue() {
+  if (!issue.value || !newSubIssueTitle.value.trim()) {
+    window.$message?.warning('请输入子 Issue 标题');
+    return;
+  }
+  addingSubIssue.value = true;
+  try {
+    const created = await issueApi.createIssue({
+      title: newSubIssueTitle.value.trim(),
+      type: issue.value.type || 'feature',
+      status: 'open',
+      priority: issue.value.priority || 'medium',
+      reporter_id: currentUserId.value,
+      parent_issue_id: issue.value.id,
+      project_id: issue.value.project_id
+    } as Api.Issue.CreateIssue);
+    window.$message?.success('子 Issue 已创建');
+    showAddSubIssue.value = false;
+    newSubIssueTitle.value = '';
+    await loadIssue();
+    if (created?.id) {
+      router.push({ path: '/issue/detail', query: { id: created.id } });
+    }
+  } catch (e: any) {
+    window.$message?.error(e?.message || '创建子 Issue 失败');
+  } finally {
+    addingSubIssue.value = false;
   }
 }
 
@@ -796,6 +863,23 @@ onMounted(() => {
               <div class="issue-title-info">
                 <div class="issue-code">{{ issue.issue_code }}</div>
                 <h1 class="issue-title">{{ issue.title }}</h1>
+                <div v-if="parentIssue || issue.parent_issue_id" class="parent-issue-link">
+                  <NText depth="3" style="font-size: 12px">父 Issue：</NText>
+                  <NButton
+                    text
+                    size="tiny"
+                    type="primary"
+                    @click="
+                      router.push({
+                        path: '/issue/detail',
+                        query: { id: parentIssue?.id || issue.parent_issue_id }
+                      })
+                    "
+                  >
+                    {{ parentIssue?.issue_code || issue.parent_issue_id }}
+                    <template v-if="parentIssue">· {{ parentIssue.title }}</template>
+                  </NButton>
+                </div>
               </div>
             </div>
 
@@ -1178,6 +1262,17 @@ onMounted(() => {
     </NSpin>
 
     <!-- Agent Prompt Modal -->
+    <NModal v-model:show="showAddSubIssue" preset="card" title="添加子 Issue" style="width: 480px">
+      <NSpace vertical>
+        <NText depth="3">将创建挂在当前 Issue 下的子项（parent_issue_id）。</NText>
+        <NInput v-model:value="newSubIssueTitle" placeholder="子 Issue 标题" @keyup.enter="createSubIssue" />
+        <NSpace justify="end">
+          <NButton @click="showAddSubIssue = false">取消</NButton>
+          <NButton type="primary" :loading="addingSubIssue" @click="createSubIssue">创建</NButton>
+        </NSpace>
+      </NSpace>
+    </NModal>
+
     <NModal v-model:show="showAgentPromptModal" preset="card" title="🤖 Agent 工作指令" style="width: 700px">
       <NAlert type="success" class="mb-3">复制下方指令，粘贴到 Claude 中即可指挥 agent 开始工作</NAlert>
 
@@ -1272,6 +1367,14 @@ onMounted(() => {
   background: var(--color-primary);
   border-radius: 50%;
   display: inline-block;
+}
+
+.parent-issue-link {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
 }
 
 .issue-title {

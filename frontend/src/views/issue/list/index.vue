@@ -40,6 +40,7 @@ import {
 import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
 import { GROUP_BY_OPTIONS, type GroupByKey, isGroupByKey } from '@/utils/groupIssuesBy';
+import { nestIssuesDepth1 } from '@/utils/nestIssuesDepth1';
 import type { ParsedQuery } from '@/utils/issueSearchParser';
 import IssueSmartSearch from '@/components/IssueSmartSearch.vue';
 import type { Api } from '@/typings/api';
@@ -85,6 +86,12 @@ const groupByOptions = GROUP_BY_OPTIONS;
 
 const isGroupedList = computed(() => groupBy.value !== 'none');
 const activeGroupBy = computed(() => groupBy.value as Exclude<GroupByKey, 'none'>);
+
+/** E4-S3：当前页 depth-1 嵌套（父不在本页则子作顶层） */
+type IssueRow = Api.Issue.Issue & { nestDepth?: number };
+const nestedListIssues = computed<IssueRow[]>(() =>
+  nestIssuesDepth1(issues.value).map(r => ({ ...r.issue, nestDepth: r.depth }))
+);
 
 // 筛选框展开状态（默认关闭）
 const filtersExpanded = ref(false);
@@ -577,7 +584,36 @@ const columns: DataTableColumns<Api.Issue.Issue> = [
     title: '标题',
     key: 'title',
     width: 300,
-    ellipsis: { tooltip: true }
+    ellipsis: { tooltip: true },
+    render: (row: Api.Issue.Issue & { nestDepth?: number }) => {
+      const depth = row.nestDepth || 0;
+      return h(
+        'span',
+        {
+          style: {
+            display: 'inline-block',
+            paddingLeft: `${depth * 16}px`,
+            maxWidth: '100%'
+          }
+        },
+        [
+          depth > 0
+            ? h(
+                'span',
+                {
+                  style: {
+                    opacity: 0.55,
+                    marginRight: '4px',
+                    color: 'var(--color-text-tertiary, #9ca3af)'
+                  }
+                },
+                '↳'
+              )
+            : null,
+          row.title
+        ]
+      );
+    }
   },
   {
     title: '类型',
@@ -971,7 +1007,7 @@ onMounted(() => {
           <div v-else>
             <NDataTable
               :columns="columns"
-              :data="issues"
+              :data="nestedListIssues"
               :row-key="(row: Api.Issue.Issue) => row.id"
               :scroll-x="1400"
               striped

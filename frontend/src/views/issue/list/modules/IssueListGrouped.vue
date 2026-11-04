@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { NCollapse, NCollapseItem, NDataTable, NEmpty, NTag, NText } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
 import { type GroupByKey, type IssueGroupBucket, groupIssuesBy } from '@/utils/groupIssuesBy';
+import { nestIssuesDepth1 } from '@/utils/nestIssuesDepth1';
 import type { Api } from '@/typings/api';
 
 defineOptions({ name: 'IssueListGrouped' });
@@ -14,6 +15,10 @@ const props = defineProps<{
 }>();
 
 const buckets = computed<IssueGroupBucket[]>(() => groupIssuesBy(props.issues, props.groupBy));
+
+function nestBucketIssues(list: Api.Issue.Issue[]) {
+  return nestIssuesDepth1(list).map(r => ({ ...r.issue, nestDepth: r.depth }));
+}
 
 /** 默认全部展开 */
 const expandedNames = ref<string[]>([]);
@@ -42,7 +47,7 @@ watch(
         </template>
         <NDataTable
           :columns="columns"
-          :data="bucket.issues"
+          :data="nestBucketIssues(bucket.issues)"
           :row-key="(row: Api.Issue.Issue) => row.id"
           :scroll-x="1400"
           striped
@@ -50,7 +55,9 @@ watch(
         />
       </NCollapseItem>
     </NCollapse>
-    <NText depth="3" class="lane-hint">列表分组为展示泳道，跨泳道拖拽改字段不在本 Sprint 范围。</NText>
+    <NText depth="3" class="lane-hint">
+      列表分组为展示泳道；泳道内 depth-1 嵌套。跨泳道拖拽改字段不在本 Sprint 范围。
+    </NText>
   </div>
 </template>
 

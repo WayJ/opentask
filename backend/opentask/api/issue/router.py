@@ -17,6 +17,7 @@ from opentask.models.issue.schema import (
     IssueCreate,
     IssueUpdate,
     IssueResponse,
+    IssueChildSummary,
     IssueListResponse,
     IssueCommentBase,
     IssueCommentRequest,
@@ -216,6 +217,8 @@ async def create_issue(
             "data": IssueResponse.model_validate(issue),
             "timestamp": 0,
         }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"创建 Issue 失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -541,6 +544,18 @@ async def get_issue(
     # 转换为字典，使用 mode='json' 确保所有字段都被序列化
     issue_dict = IssueResponse.model_validate(issue).model_dump(mode='json', exclude_none=False)
 
+    # E4-S3：子 Issue 轻量摘要
+    children = await service.list_child_issues(issue.id)
+    issue_dict["children"] = [
+        IssueChildSummary(
+            id=c.id,
+            issue_code=c.issue_code,
+            title=c.title,
+            status=str(c.status.value if hasattr(c.status, "value") else c.status),
+        ).model_dump(mode="json")
+        for c in children
+    ]
+
     # 如果有关联项目，查询项目信息
     if issue.project_id:
         result = await db.execute(
@@ -572,7 +587,10 @@ async def update_issue(
 ):
     """更新 Issue"""
 
-    issue = await service.update_issue(issue_id, data, str(current_user.id))
+    try:
+        issue = await service.update_issue(issue_id, data, str(current_user.id))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     if not issue:
         raise HTTPException(status_code=404, detail="Issue 不存在")
 
@@ -807,6 +825,35 @@ async def delete_comment(
         "code": 200,
         "message": "评论删除成功",
         "data": None,
+        "timestamp": 0,
+    }
+
+
+
+@router.get("/{issue_id}/children")
+async def get_issue_children(
+    issue_id: str,
+    service: IssueService = Depends(get_issue_service),
+    current_user: UserModel = Depends(authenticate),
+):
+    """列出 Issue 的直接子项（depth-1 摘要）"""
+    issue = await service.get_issue(issue_id)
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue 不存在")
+    children = await service.list_child_issues(issue_id)
+    rows = [
+        IssueChildSummary(
+            id=c.id,
+            issue_code=c.issue_code,
+            title=c.title,
+            status=str(c.status.value if hasattr(c.status, "value") else c.status),
+        )
+        for c in children
+    ]
+    return {
+        "code": 200,
+        "message": "success",
+        "data": {"rows": rows, "total": len(rows)},
         "timestamp": 0,
     }
 

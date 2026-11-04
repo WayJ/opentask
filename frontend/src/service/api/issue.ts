@@ -35,6 +35,16 @@ export const issueApi = {
   },
 
   /**
+   * 获取直接子 Issue（depth-1）
+   */
+  getChildren: (id: string) => {
+    return request<{ rows: Api.Issue.IssueChildSummary[]; total: number }>({
+      url: `/api/issues/${id}/children`,
+      method: 'get'
+    });
+  },
+
+  /**
    * 创建 Issue
    */
   createIssue: (data: Api.Issue.CreateIssue) => {

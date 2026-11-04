@@ -47,6 +47,7 @@ class IssueBase(BaseModel):
     due_date: Optional[datetime] = Field(None, description="截止日期")
     estimated_hours: Optional[float] = Field(None, ge=0, description="预估工时")
     actual_hours: Optional[float] = Field(None, ge=0, description="实际工时")
+    parent_issue_id: Optional[str] = Field(None, description="父 Issue ID（一等公民子 Issue）")
 
 
 class IssueCreate(IssueBase):
@@ -70,6 +71,7 @@ class IssueUpdate(BaseModel):
     due_date: Optional[datetime] = None
     estimated_hours: Optional[float] = None
     actual_hours: Optional[float] = None
+    parent_issue_id: Optional[str] = None
 
 
 class ProjectInfo(BaseModel):
@@ -77,6 +79,16 @@ class ProjectInfo(BaseModel):
     id: str
     name: str
     description: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class IssueChildSummary(BaseModel):
+    """子 Issue 轻量摘要"""
+    id: str
+    issue_code: str
+    title: str
+    status: str
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -99,6 +111,9 @@ class IssueResponse(IssueBase):
     project: Optional[ProjectInfo] = Field(None, description="关联项目")
     assignee: Optional[UserInfo] = Field(None, description="负责人信息")
     reporter: Optional[UserInfo] = Field(None, description="报告人信息")
+    children: Optional[List[IssueChildSummary]] = Field(
+        None, description="子 Issue 摘要（详情接口填充）"
+    )
 
     model_config = ConfigDict(from_attributes=True)
 

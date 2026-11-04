@@ -85,6 +85,15 @@ class Issue(DBModel):
         comment="需求 ID"
     )
 
+    # 一等公民父子（E4-S3）；不用 IssueRelation 表达父子
+    parent_issue_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("issues.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="父 Issue ID"
+    )
+
     # 分配信息
     assignee_id: Mapped[Optional[str]] = mapped_column(
         String(255),
@@ -255,6 +264,12 @@ class Issue(DBModel):
         uselist=False
     )
 
+    parent: Mapped[Optional["Issue"]] = relationship(
+        "Issue",
+        remote_side="Issue.id",
+        foreign_keys="Issue.parent_issue_id",
+    )
+
     # 索引
     __table_args__ = (
         Index("idx_issues_issue_code", "issue_code", unique=True),
@@ -270,6 +285,7 @@ class Issue(DBModel):
         Index("idx_issues_due_date", "due_date"),
         Index("idx_issues_project_status", "project_id", "status"),
         Index("idx_issues_assignee_status", "assignee_id", "status"),
+        Index("idx_issues_parent", "parent_issue_id"),
     )
 
 
