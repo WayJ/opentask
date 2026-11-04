@@ -1,13 +1,14 @@
-"""E41：Issue timeline CSV export helpers."""
+"""E41/E47：Issue timeline CSV export + shared activity query helpers."""
 from __future__ import annotations
 
+import base64
 import csv
 import io
 import json
 from datetime import datetime
-from typing import Any, Iterable, Optional, Sequence
+from typing import Any, Optional, Sequence
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opentask.models.issue.model import Issue, IssueTimeline
@@ -15,6 +16,9 @@ from opentask.models.user.model import UserModel
 
 EXPORT_HARD_CAP = 10000
 EXPORT_DEFAULT_LIMIT = 5000
+
+ACTIVITY_DEFAULT_LIMIT = 50
+ACTIVITY_HARD_CAP = 200
 
 CSV_COLUMNS = [
     "created_at",
@@ -26,6 +30,48 @@ CSV_COLUMNS = [
     "to_value",
     "action_data_json",
 ]
+
+
+def clamp_activity_limit(limit: Optional[int]) -> int:
+    """Clamp page size to [1, ACTIVITY_HARD_CAP]; default ACTIVITY_DEFAULT_LIMIT."""
+    if limit is None:
+        return ACTIVITY_DEFAULT_LIMIT
+    try:
+        lim = int(limit)
+    except (TypeError, ValueError):
+        return ACTIVITY_DEFAULT_LIMIT
+    if lim < 1:
+        return 1
+    if lim > ACTIVITY_HARD_CAP:
+        return ACTIVITY_HARD_CAP
+    return lim
+
+
+def encode_activity_cursor(created_at: datetime, row_id: str) -> str:
+    """Opaque cursor: base64url of ``iso|id``."""
+    raw = f"{created_at.isoformat()}|{row_id}".encode("utf-8")
+    return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+
+def decode_activity_cursor(cursor: str) -> tuple[datetime, str]:
+    """Decode cursor; raises ValueError on bad input."""
+    if not cursor or not isinstance(cursor, str):
+        raise ValueError("empty cursor")
+    pad = "=" * (-len(cursor) % 4)
+    try:
+        raw = base64.urlsafe_b64decode(cursor + pad).decode("utf-8")
+    except Exception as e:  # noqa: BLE001
+        raise ValueError(f"invalid cursor encoding: {e}") from e
+    if "|" not in raw:
+        raise ValueError("invalid cursor payload")
+    iso, row_id = raw.split("|", 1)
+    if not row_id:
+        raise ValueError("invalid cursor id")
+    try:
+        ts = datetime.fromisoformat(iso)
+    except ValueError as e:
+        raise ValueError(f"invalid cursor timestamp: {e}") from e
+    return ts, row_id
 
 
 def _normalize_action_types(raw: Optional[Sequence[str] | str]) -> list[str] | None:
@@ -60,6 +106,92 @@ def _action_type_value(action_type: Any) -> str:
     return getattr(action_type, "value", action_type) if action_type is not None else ""
 
 
+async def query_timeline_entries(
+    db: AsyncSession,
+    *,
+    workspace_id: str,
+    issue_id: Optional[str] = None,
+    since: Optional[datetime] = None,
+    until: Optional[datetime] = None,
+    action_types: Optional[Sequence[str] | str] = None,
+    actor_id: Optional[str] = None,
+    cursor: Optional[tuple[datetime, str]] = None,
+    limit: int = EXPORT_DEFAULT_LIMIT,
+) -> list[IssueTimeline]:
+    """Shared timeline query (E41 CSV + E47 JSON). Returns up to ``limit`` rows.
+
+    Caller that needs next-page detection should pass ``limit+1``.
+    """
+    types = _normalize_action_types(action_types)
+
+    q = (
+        select(IssueTimeline)
+        .join(Issue, Issue.id == IssueTimeline.issue_id)
+        .where(
+            Issue.workspace_id == workspace_id,
+            Issue.is_deleted == False,  # noqa: E712
+        )
+    )
+    if issue_id:
+        q = q.where(IssueTimeline.issue_id == issue_id)
+    if since is not None:
+        q = q.where(IssueTimeline.created_at >= since)
+    if until is not None:
+        q = q.where(IssueTimeline.created_at <= until)
+    if types:
+        q = q.where(IssueTimeline.action_type.in_(types))
+    if actor_id:
+        q = q.where(IssueTimeline.user_id == actor_id)
+    if cursor is not None:
+        c_at, c_id = cursor
+        q = q.where(
+            or_(
+                IssueTimeline.created_at < c_at,
+                and_(IssueTimeline.created_at == c_at, IssueTimeline.id < c_id),
+            )
+        )
+
+    q = q.order_by(IssueTimeline.created_at.desc(), IssueTimeline.id.desc()).limit(limit)
+    result = await db.execute(q)
+    return list(result.scalars().all())
+
+
+def serialize_activity_item(
+    row: IssueTimeline,
+    *,
+    issue: Optional[Issue] = None,
+    actor_user: Optional[UserModel] = None,
+) -> dict[str, Any]:
+    """CamelCase activity feed item (E47)."""
+    actor: dict[str, Any] | None = None
+    if row.user_id:
+        display = None
+        username = None
+        if actor_user is not None:
+            display = (
+                getattr(actor_user, "sso_name", None)
+                or actor_user.name
+                or getattr(actor_user, "username", None)
+                or str(actor_user.id)
+            )
+            username = getattr(actor_user, "username", None) or actor_user.name
+        actor = {
+            "id": str(row.user_id),
+            "username": username,
+            "displayName": display,
+        }
+    return {
+        "id": row.id,
+        "issueId": row.issue_id,
+        "issueCode": (issue.issue_code if issue is not None else None),
+        "issueTitle": (issue.title if issue is not None else None),
+        "actionType": _action_type_value(row.action_type),
+        "actor": actor,
+        "createdAt": row.created_at.isoformat() if row.created_at else None,
+        "payload": row.action_data or {},
+    }
+
+
 async def build_timeline_csv(
     db: AsyncSession,
     *,
@@ -76,33 +208,20 @@ async def build_timeline_csv(
     if lim > EXPORT_HARD_CAP:
         lim = EXPORT_HARD_CAP
 
-    types = _normalize_action_types(action_types)
-
-    q = (
-        select(IssueTimeline)
-        .join(Issue, Issue.id == IssueTimeline.issue_id)
-        .where(
-            Issue.workspace_id == workspace_id,
-            Issue.is_deleted == False,  # noqa: E712
-        )
+    rows = await query_timeline_entries(
+        db,
+        workspace_id=workspace_id,
+        issue_id=issue_id,
+        since=since,
+        action_types=action_types,
+        limit=lim + 1,
     )
-    if issue_id:
-        q = q.where(IssueTimeline.issue_id == issue_id)
-    if since is not None:
-        q = q.where(IssueTimeline.created_at >= since)
-    if types:
-        q = q.where(IssueTimeline.action_type.in_(types))
-
-    q = q.order_by(IssueTimeline.created_at.desc()).limit(lim + 1)
-    result = await db.execute(q)
-    rows: list[IssueTimeline] = list(result.scalars().all())
     truncated = len(rows) > lim
     rows = rows[:lim]
 
     user_ids = list({r.user_id for r in rows if r.user_id})
     name_map: dict[str, str] = {}
     if user_ids:
-        # UserModel.id may be UUID — compare as str
         ures = await db.execute(select(UserModel).where(UserModel.id.in_(user_ids)))
         for u in ures.scalars().all():
             name_map[str(u.id)] = u.name or getattr(u, "sso_name", None) or ""
