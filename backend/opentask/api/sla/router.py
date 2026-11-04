@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -136,10 +136,12 @@ class HolidayPackTargetBody(BaseModel):
 @router.get("/holiday-packs")
 async def holiday_packs_list(
     ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    region: Optional[str] = Query(None, description="E64: filter by region code"),
+    year: Optional[int] = Query(None, description="E64: filter by year"),
 ):
-    """E58: list static packs (global read-only)."""
+    """E58: list static packs (global read-only). E64: optional region/year filter."""
     _ws, _member, _user = ctx
-    rows = list_packs()
+    rows = list_packs(region=region, year=year)
     return success_response(data={"rows": rows, "total": len(rows)})
 
 
