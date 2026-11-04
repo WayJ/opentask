@@ -19,8 +19,12 @@ describe('custom-fields helpers', () => {
     expect(formatFormulaDisplay({ value: 12, formulaResultType: 'number' })).toBe('12');
   });
 
-  it('formula type is not grouping/swimlane eligible', () => {
-    expect(isGroupingCfType('formula')).toBe(false);
+  it('formula type is grouping/swimlane eligible for number/text/boolean results', () => {
+    expect(isGroupingCfType('formula', 'number')).toBe(true);
+    expect(isGroupingCfType('formula', 'text')).toBe(true);
+    expect(isGroupingCfType('formula', 'boolean')).toBe(true);
+    expect(isGroupingCfType('formula', 'date')).toBe(false);
+    expect(isGroupingCfType('formula')).toBe(true); // default number
     expect(isGroupingCfType('single_select')).toBe(true);
   });
 });

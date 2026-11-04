@@ -26,6 +26,9 @@ const UNLABELLED_LABEL = '无标签';
 export const EMPTY_CF_KEY = '__empty__';
 const EMPTY_CF_LABEL = '空';
 
+export const ERROR_CF_KEY = '__error__';
+const ERROR_CF_LABEL = '计算错误';
+
 const STATUS_LABEL = Object.fromEntries(issueStatusOptions.map(o => [o.value, o.label]));
 const PRIORITY_LABEL = Object.fromEntries(issuePriorityOptions.map(o => [o.value, o.label]));
 const TYPE_LABEL = Object.fromEntries(issueTypeOptions.map(o => [o.value, o.label]));
@@ -45,8 +48,22 @@ export const GROUPING_CF_TYPES = new Set([
   'date'
 ]);
 
-export function isGroupingCfType(type: string | undefined | null): boolean {
+const FORMULA_GROUPING_RESULT_TYPES = new Set(['number', 'text', 'boolean']);
+
+export function isGroupingCfType(
+  type: string | undefined | null,
+  formulaResultType?: string | null
+): boolean {
+  if (type === 'formula') {
+    const rt = (formulaResultType || 'number').trim() || 'number';
+    return FORMULA_GROUPING_RESULT_TYPES.has(rt);
+  }
   return Boolean(type && GROUPING_CF_TYPES.has(type));
+}
+
+/** Formula dims are display-only; never write CF value on drag. */
+export function isFormulaCfReadonly(type: string | undefined | null): boolean {
+  return type === 'formula';
 }
 
 export function parseCfDim(value: unknown): string | null {
@@ -103,9 +120,13 @@ function preferredOrder(groupBy: Exclude<SystemGroupByKey, 'none'>): string[] | 
 
 function orderKeys(groupBy: Exclude<SystemGroupByKey, 'none'> | 'cf', keys: string[]): string[] {
   if (groupBy === 'cf') {
-    const rest = keys.filter(k => k !== EMPTY_CF_KEY).sort((a, b) => a.localeCompare(b));
-    if (keys.includes(EMPTY_CF_KEY)) return [...rest, EMPTY_CF_KEY];
-    return rest;
+    const rest = keys
+      .filter(k => k !== EMPTY_CF_KEY && k !== ERROR_CF_KEY)
+      .sort((a, b) => a.localeCompare(b));
+    const tail: string[] = [];
+    if (keys.includes(ERROR_CF_KEY)) tail.push(ERROR_CF_KEY);
+    if (keys.includes(EMPTY_CF_KEY)) tail.push(EMPTY_CF_KEY);
+    return [...rest, ...tail];
   }
 
   const preferred = preferredOrder(groupBy);
@@ -197,10 +218,20 @@ function resolveCfBucket(
   fieldKey: string
 ): { key: string; label: string } {
   const entry = findCf(issue, fieldKey);
-  if (!entry || entry.value === null || entry.value === undefined) {
+  if (!entry) {
     return { key: EMPTY_CF_KEY, label: EMPTY_CF_LABEL };
   }
-  const t = entry.type || 'text';
+  const anyEntry = entry as IssueCfEntry & { error?: string | null; formulaResultType?: string };
+  if (entry.type === 'formula' && anyEntry.error) {
+    return { key: ERROR_CF_KEY, label: ERROR_CF_LABEL };
+  }
+  if (entry.value === null || entry.value === undefined) {
+    return { key: EMPTY_CF_KEY, label: EMPTY_CF_LABEL };
+  }
+  const t =
+    entry.type === 'formula'
+      ? (anyEntry.formulaResultType || 'number')
+      : entry.type || 'text';
   if (t === 'single_select') {
     const raw = entry.value;
     if (typeof raw !== 'string' || raw === '') {
@@ -280,11 +311,19 @@ export const GROUP_BY_OPTIONS: { label: string; value: GroupByKey }[] = [
 ];
 
 export function buildGroupByOptions(
-  customFields?: Array<{ key: string; name: string; type: string }>
+  customFields?: Array<{
+    key: string;
+    name: string;
+    type: string;
+    formulaResultType?: string | null;
+  }>
 ): { label: string; value: GroupByKey }[] {
   const extras = (customFields || [])
-    .filter(f => f && f.key && isGroupingCfType(f.type))
-    .map(f => ({ label: f.name || f.key, value: `cf:${f.key}` as GroupByKey }));
+    .filter(f => f && f.key && isGroupingCfType(f.type, f.formulaResultType))
+    .map(f => ({
+      label: f.type === 'formula' ? `${f.name || f.key}（计算值·只读）` : f.name || f.key,
+      value: `cf:${f.key}` as GroupByKey
+    }));
   return [...GROUP_BY_OPTIONS, ...extras];
 }
 

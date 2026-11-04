@@ -157,11 +157,19 @@ export function isSwimlaneByKey(value: unknown): value is SwimlaneBy {
 }
 
 export function buildSwimlaneOptions(
-  customFields?: Array<{ key: string; name: string; type: string }>
+  customFields?: Array<{
+    key: string;
+    name: string;
+    type: string;
+    formulaResultType?: string | null;
+  }>
 ): { label: string; value: SwimlaneBy }[] {
   const extras = (customFields || [])
-    .filter(f => f && f.key && isGroupingCfType(f.type))
-    .map(f => ({ label: f.name || f.key, value: `cf:${f.key}` as SwimlaneBy }));
+    .filter(f => f && f.key && isGroupingCfType(f.type, f.formulaResultType))
+    .map(f => ({
+      label: f.type === 'formula' ? `${f.name || f.key}（计算值·只读）` : f.name || f.key,
+      value: `cf:${f.key}` as SwimlaneBy
+    }));
   return [...SWIMLANE_OPTIONS, ...extras];
 }
 

@@ -297,7 +297,8 @@ export function generateSearchSuggestions(): string[] {
     'priority:urgent - 只显示紧急优先级的 Issue',
     'cycle:__none__ - 无 Cycle',
     'project:<id> - 按项目过滤',
-    'field:severity:s1 - 自定义字段过滤（cf:key:value 亦可）'
+    'field:severity:s1 - 自定义字段过滤（cf:key:value 亦可）',
+    'field:score:10 - 公式字段按计算值等值过滤（只读）'
   ];
 }
 

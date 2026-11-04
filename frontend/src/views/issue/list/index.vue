@@ -126,7 +126,12 @@ const filteredIssues = ref<Api.Issue.Issue[]>([]);
 const groupBy = ref<GroupByKey>('none');
 const groupByOptions = computed(() =>
   buildGroupByOptions(
-    customFieldDefs.value.map(f => ({ key: f.key, name: f.name, type: f.type }))
+    customFieldDefs.value.map(f => ({
+      key: f.key,
+      name: f.name,
+      type: f.type,
+      formulaResultType: f.formulaResultType
+    }))
   )
 );
 
@@ -147,7 +152,7 @@ function sanitizeCfDim<T extends string>(dim: T, kind: 'group' | 'swimlane'): T 
   if (!key) return dim;
   const def = customFieldDefs.value.find(f => f.key === key);
   if (!def) return dim; // BE already validated on write; missing local def → keep, empty buckets
-  if (!isGroupingCfType(def.type)) {
+  if (!isGroupingCfType(def.type, (def as any).formulaResultType)) {
     window.$message?.warning(
       kind === 'group'
         ? '已保存的分组自定义字段类型不受支持，已回退为不分组'
@@ -1603,7 +1608,7 @@ onUnmounted(() => {
                 :swimlane-by="swimlaneBy"
                 :hide-empty-lanes="hideEmptyLanes"
                 :saving="displayPrefsSaving"
-                :custom-field-options="customFieldDefs.map(f => ({ key: f.key, name: f.name, type: f.type }))"
+                :custom-field-options="customFieldDefs.map(f => ({ key: f.key, name: f.name, type: f.type, formulaResultType: f.formulaResultType }))"
                 :custom-field-keys="customFieldKeys"
                 @update:fields="onDisplayFieldsUpdate"
                 @update:swimlane-by="onSwimlaneByUpdate"

@@ -300,7 +300,7 @@ def _resolve_user_id(skin: ReplSkin, client: OpenTaskClient, assignee_input: str
 @click.option("--page-size", default=20, help="Page size")
 @click.option("--sort-by", default="created_at", help="Sort field")
 @click.option("--sort-order", default="desc", help="Sort order (asc/desc)")
-@click.option("--cf", multiple=True, help="E32: custom field filter key=value (repeatable)")
+@click.option("--cf", multiple=True, help="E32/E43: custom field filter key=value (repeatable; formula keys match computed value)")
 @click.option(
     "--group-by",
     "group_by",

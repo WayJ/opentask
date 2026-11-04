@@ -193,3 +193,37 @@ describe('groupIssuesBy cf:<key> (E37)', () => {
     expect(buckets.find(b => b.key === '__empty__')?.issues.map(i => i.id)).toEqual(['3']);
   });
 });
+
+
+describe('groupIssuesBy cf:<formula> (E43)', () => {
+  it('isGroupingCfType allows formula with number/text/boolean', async () => {
+    const { isGroupingCfType } = await import('./groupIssuesBy');
+    expect(isGroupingCfType('formula', 'number')).toBe(true);
+    expect(isGroupingCfType('formula', 'date')).toBe(false);
+  });
+
+  it('puts formula error into __error__ bucket and empty into __empty__', async () => {
+    const { groupIssuesBy, ERROR_CF_KEY, EMPTY_CF_KEY } = await import('./groupIssuesBy');
+    const issues = [
+      {
+        id: '1',
+        title: 'ok',
+        customFields: [{ key: 'score', type: 'formula', value: 10, formulaResultType: 'number' }]
+      },
+      {
+        id: '2',
+        title: 'err',
+        customFields: [{ key: 'score', type: 'formula', value: null, error: 'div_zero', formulaResultType: 'number' }]
+      },
+      {
+        id: '3',
+        title: 'empty',
+        customFields: [{ key: 'score', type: 'formula', value: null, formulaResultType: 'number' }]
+      }
+    ] as any;
+    const buckets = groupIssuesBy(issues, 'cf:score');
+    expect(buckets.find(b => b.key === '10')?.issues.map(i => i.id)).toEqual(['1']);
+    expect(buckets.find(b => b.key === ERROR_CF_KEY)?.issues.map(i => i.id)).toEqual(['2']);
+    expect(buckets.find(b => b.key === EMPTY_CF_KEY)?.issues.map(i => i.id)).toEqual(['3']);
+  });
+});
