@@ -5,6 +5,8 @@ import { NCard, NEmpty, NTag, NText, useMessage } from 'naive-ui';
 import { VueDraggable } from 'vue-draggable-plus';
 import { getIssuePriorityTagType, getIssueStatusTagType, issueStatusOptions } from '@/constants/issue';
 import { issueApi } from '@/service/api/issue';
+import { useIssueFocus } from '@/composables/use-issue-focus';
+import { buildIssueDetailLocation } from '@/utils/issue-board-nav';
 import type { Api } from '@/typings/api';
 
 defineOptions({ name: 'IssueBoard' });
@@ -12,6 +14,8 @@ defineOptions({ name: 'IssueBoard' });
 const props = defineProps<{
   issues: Api.Issue.Issue[];
 }>();
+
+const issueFocus = useIssueFocus();
 
 const emit = defineEmits<{
   changed: [];
@@ -55,8 +59,18 @@ watch(
 
 const totalCards = computed(() => props.issues.length);
 
+function focusIssue(issue: Api.Issue.Issue) {
+  issueFocus.setFocus(issue.id, {
+    title: issue.title,
+    status: issue.status,
+    priority: issue.priority,
+    assigneeId: issue.assignee_id
+  });
+}
+
 function openDetail(issue: Api.Issue.Issue) {
-  router.push(`/issue/detail/${issue.id}`);
+  focusIssue(issue);
+  router.push(buildIssueDetailLocation(issue.id));
 }
 
 function assigneeLabel(issue: Api.Issue.Issue): string {
@@ -139,7 +153,9 @@ async function onColumnChange(status: Api.Issue.IssueStatus, evt: any) {
             size="small"
             hoverable
             class="board-card"
-            @click="openDetail(issue)"
+            :class="{ 'is-focused': issueFocus.focusedIssueId === issue.id }"
+            @click="focusIssue(issue)"
+            @dblclick="openDetail(issue)"
           >
             <div class="board-card-code">
               <NText depth="3" class="text-12px">{{ issue.issue_code }}</NText>
@@ -217,6 +233,11 @@ async function onColumnChange(status: Api.Issue.IssueStatus, evt: any) {
 .board-card {
   cursor: grab;
   border-radius: 8px;
+}
+
+.board-card.is-focused {
+  outline: 2px solid var(--primary-color, #18a058);
+  outline-offset: 1px;
 }
 
 .board-card:active {

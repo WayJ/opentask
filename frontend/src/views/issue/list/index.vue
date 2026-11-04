@@ -39,6 +39,8 @@ import {
 } from '@/service/api/saved-views';
 import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
+import { useIssueFocus } from '@/composables/use-issue-focus';
+import { useIssueListViewMode } from '@/composables/use-issue-list-view-mode';
 import { deriveListStateFromSavedView } from '@/utils/apply-saved-view';
 import { GROUP_BY_OPTIONS, type GroupByKey } from '@/utils/groupIssuesBy';
 import { nestIssuesDepth1 } from '@/utils/nestIssuesDepth1';
@@ -78,8 +80,10 @@ const pagination = reactive({
 // Tab 状态
 const activeTab = ref<'my_issues' | 'open' | 'closed' | 'all'>('open');
 
-// 双视图：list | board（同数据源）
-const viewMode = ref<'list' | 'board'>('list');
+// 双视图：list | board（同数据源；与 ⌘B 共享单例）
+const { viewMode, setMode: setViewMode } = useIssueListViewMode();
+const issueFocus = useIssueFocus();
+const focusedIssueId = issueFocus.focusedIssueId;
 const filteredIssues = ref<Api.Issue.Issue[]>([]);
 
 /** E4-S2：列表分组依据（本地状态；可写入 Saved View display.group_by） */
@@ -488,8 +492,30 @@ function handleDelete(issue: Api.Issue.Issue) {
   });
 }
 
+// Focus row for A/S/P/I hotkeys
+function focusIssueRow(issue: Api.Issue.Issue) {
+  issueFocus.setFocus(issue.id, {
+    title: issue.title,
+    status: issue.status,
+    priority: issue.priority,
+    assigneeId: issue.assignee_id
+  });
+}
+
+function issueRowProps(row: Api.Issue.Issue) {
+  return {
+    class: issueFocus.focusedIssueId.value === row.id ? 'issue-row-focused' : undefined,
+    style:
+      issueFocus.focusedIssueId.value === row.id
+        ? 'outline: 2px solid var(--primary-color, #18a058); outline-offset: -2px;'
+        : undefined,
+    onClick: () => focusIssueRow(row)
+  };
+}
+
 // View issue detail
 function viewIssue(issue: Api.Issue.Issue) {
+  focusIssueRow(issue);
   router.push({
     path: '/issue/detail',
     query: { id: issue.id }
@@ -744,7 +770,7 @@ onMounted(async () => {
               size="small"
               :type="viewMode === 'list' ? 'primary' : 'default'"
               secondary
-              @click="viewMode = 'list'"
+              @click="setViewMode('list')"
             >
               <template #icon>
                 <icon-mdi-view-list />
@@ -755,7 +781,7 @@ onMounted(async () => {
               size="small"
               :type="viewMode === 'board' ? 'primary' : 'default'"
               secondary
-              @click="viewMode = 'board'"
+              @click="setViewMode('board')"
             >
               <template #icon>
                 <icon-mdi-view-column />
@@ -1025,7 +1051,12 @@ onMounted(async () => {
           <IssueBoard :issues="filteredIssues" @changed="loadIssues" />
         </template>
         <template v-else-if="isGroupedList">
-          <IssueListGrouped :issues="filteredIssues" :group-by="activeGroupBy" :columns="columns" />
+          <IssueListGrouped
+            :issues="filteredIssues"
+            :group-by="activeGroupBy"
+            :columns="columns"
+            :row-props="issueRowProps"
+          />
         </template>
         <template v-else>
           <NEmpty v-if="!loading && issues.length === 0" description="暂无 Issue" size="large" />
@@ -1034,6 +1065,8 @@ onMounted(async () => {
               :columns="columns"
               :data="nestedListIssues"
               :row-key="(row: Api.Issue.Issue) => row.id"
+              :row-props="issueRowProps"
+              :row-class-name="(row: Api.Issue.Issue) => (focusedIssueId === row.id ? 'issue-row-focused' : '')"
               :scroll-x="1400"
               striped
               size="small"
@@ -1503,5 +1536,9 @@ onMounted(async () => {
 .group-by-label {
   font-size: 12px;
   white-space: nowrap;
+}
+
+:deep(.issue-row-focused td) {
+  background: color-mix(in srgb, var(--primary-color, #18a058) 8%, transparent);
 }
 </style>

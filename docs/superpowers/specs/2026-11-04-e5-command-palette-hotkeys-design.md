@@ -2,8 +2,8 @@
 
 日期：2026-11-04  
 Epic：E5  
-状态：active（S2 closed；S3 待做；未推远程）  
-基线：`sprint/E5-S1` @ `3075de2` → `sprint/E5-S2`；worktree `/workspace/opentask-worktrees/E5-S2`
+状态：local-complete（S1–S3 closed；未推远程；merged-commit null）  
+基线：`sprint/E5-S3` @ tip（基 E5-S2 `f5c70d1`）；worktree `/workspace/opentask-worktrees/E5-S3`
 
 ## 1. 目标
 
@@ -94,6 +94,7 @@ S1 静态 **Actions**（query 空或匹配 keywords 时展示）：
 | `Escape` | 关闭面板（modal 内已有；全局可兜底） | S1 |
 | `C` | 若面板未开 → `/issue/create`；若面板开则交给面板输入（单键不抢） | S3（可 S1 先做 C） |
 | `S` / `A` / `P` / `I` | 需 `focusedIssueId`；打开对应 picker 或执行 I | S3 |
+| `Meta+B` / `Ctrl+B` | 在 `/issue/list` 切换 Board↔List（与列表页按钮同一 `useIssueListViewMode` 单例） | S3 |
 
 **`ignoreWhenEditable(event)`**
 
@@ -239,7 +240,7 @@ focusedIssueId
 ### E5-S3 — 焦点 + 热键 + pickers + URL + Epic 收口
 
 - `useIssueFocus` + list/board 高亮
-- `useAppHotkeys`：C/A/S/P/I + ignoreWhenEditable
+- `useAppHotkeys`：C/A/S/P/I + ⌘B/Ctrl+B + ignoreWhenEditable
 - Pickers + assign-to-me
 - Board `?id=` 修复
 - Epic acceptance + roadmap status → local-complete（整包回执 Yuri）
@@ -269,6 +270,9 @@ focusedIssueId
 | Composable | `frontend/src/composables/use-command-palette.ts` | S1 |
 | Composable | `frontend/src/composables/use-app-hotkeys.ts` | S1/S3 |
 | Composable | `frontend/src/composables/use-issue-focus.ts` | S3 |
+| Composable | `frontend/src/composables/use-issue-list-view-mode.ts` | S3 |
+| Composable | `frontend/src/composables/use-issue-field-pickers.ts` | S3 |
+| Utils | `frontend/src/utils/issue-hotkeys.ts` / `issue-board-nav.ts` | S3 |
 | UI | `frontend/src/layouts/modules/global-search/**`（升级）或 `features/command-palette/**` | S1–S2 |
 | Host | `frontend/src/layouts/base-layout/index.vue` | S1 |
 | Header | `frontend/src/layouts/modules/global-header/index.vue` | S1（v-if 仅图标） |

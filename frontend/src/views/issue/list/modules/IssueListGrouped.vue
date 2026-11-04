@@ -12,6 +12,7 @@ const props = defineProps<{
   issues: Api.Issue.Issue[];
   groupBy: Exclude<GroupByKey, 'none'>;
   columns: DataTableColumns<Api.Issue.Issue>;
+  rowProps?: (row: Api.Issue.Issue) => Record<string, unknown>;
 }>();
 
 const buckets = computed<IssueGroupBucket[]>(() => groupIssuesBy(props.issues, props.groupBy));
@@ -49,6 +50,7 @@ watch(
           :columns="columns"
           :data="nestBucketIssues(bucket.issues)"
           :row-key="(row: Api.Issue.Issue) => row.id"
+          :row-props="props.rowProps"
           :scroll-x="1400"
           striped
           size="small"

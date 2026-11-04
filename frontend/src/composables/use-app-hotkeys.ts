@@ -1,10 +1,28 @@
+import { useRouter } from 'vue-router';
 import { useEventListener } from '@vueuse/core';
-import { isModK } from '@/utils/hotkeys';
+import { issueApi } from '@/service/api/issue';
+import { useAuthStore } from '@/store/modules/auth';
+import { ignoreWhenEditable, isModK } from '@/utils/hotkeys';
+import { resolveIssueHotkeyAction } from '@/utils/issue-hotkeys';
 import { useCommandPalette } from './use-command-palette';
+import { useIssueFocus } from './use-issue-focus';
+import { useIssueFieldPickers } from './use-issue-field-pickers';
+import { useIssueListViewMode } from './use-issue-list-view-mode';
 
-/** S1: Meta/Ctrl+K toggles palette (allowed in inputs); Esc closes. Single-letter / ⌘B → S3. */
+/**
+ * Global app hotkeys:
+ * - Meta/Ctrl+K toggles palette (allowed in inputs)
+ * - Esc closes palette
+ * - C / A / S / P / I (ignoreWhenEditable; blocked when palette open)
+ * - Meta/Ctrl+B toggles Board↔List on /issue/list
+ */
 export function useAppHotkeys() {
   const palette = useCommandPalette();
+  const focus = useIssueFocus();
+  const pickers = useIssueFieldPickers();
+  const listView = useIssueListViewMode();
+  const router = useRouter();
+  const authStore = useAuthStore();
 
   useEventListener(window, 'keydown', (event: KeyboardEvent) => {
     if (isModK(event)) {
@@ -16,6 +34,69 @@ export function useAppHotkeys() {
     if (event.key === 'Escape' && palette.isOpen.value) {
       event.preventDefault();
       palette.close();
+      return;
+    }
+
+    if (event.key === 'Escape' && pickers.activePicker.value) {
+      event.preventDefault();
+      pickers.closePicker();
+      return;
+    }
+
+    const action = resolveIssueHotkeyAction({
+      key: event.key,
+      metaKey: event.metaKey,
+      ctrlKey: event.ctrlKey,
+      altKey: event.altKey,
+      paletteOpen: palette.isOpen.value,
+      editable: ignoreWhenEditable(event.target),
+      hasFocusedIssue: Boolean(focus.focusedIssueId.value),
+      onIssueListRoute: router.currentRoute.value.path === '/issue/list'
+    });
+
+    if (!action) return;
+
+    event.preventDefault();
+
+    switch (action.type) {
+      case 'create':
+        router.push('/issue/create');
+        break;
+      case 'status':
+        pickers.openStatus();
+        break;
+      case 'assignee':
+        pickers.openAssignee();
+        break;
+      case 'priority':
+        pickers.openPriority();
+        break;
+      case 'assign_me': {
+        const issueId = focus.focusedIssueId.value;
+        const userId = authStore.userInfo?.userId;
+        if (!issueId || !userId) {
+          window.$message?.info?.('请先聚焦 Issue 并确保已登录');
+          break;
+        }
+        issueApi
+          .updateAssignee(issueId, userId)
+          .then(({ error }) => {
+            if (error) {
+              window.$message?.error?.(error.message || '指派失败');
+              return;
+            }
+            window.$message?.success?.('已指派给我');
+          })
+          .catch(() => {
+            window.$message?.error?.('指派失败');
+          });
+        break;
+      }
+      case 'toggle_view':
+        listView.toggle();
+        break;
+      default:
+        break;
     }
   });
 }

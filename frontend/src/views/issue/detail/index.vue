@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { NAlert, NButton, NCard, NDatePicker, NEmpty, NInput, NModal, NSpace, NSpin, NTag, NText } from 'naive-ui';
 import {
@@ -14,6 +14,7 @@ import { projectApi } from '@/service/api/project';
 import { issueApi } from '@/service/api/issue';
 import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
+import { useIssueFocus } from '@/composables/use-issue-focus';
 import MarkdownEditor from '@/components/MarkdownEditor.vue';
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
 import IssueReactions from '@/components/IssueReactions.vue';
@@ -30,6 +31,7 @@ const route = useRoute();
 const router = useRouter();
 const issueStore = useIssueStore();
 const authStore = useAuthStore();
+const issueFocus = useIssueFocus();
 
 const issueId = computed(() => (route.query.id as string) || '');
 // 获取当前登录用户 ID
@@ -839,6 +841,14 @@ function getRelationLabel(type: string): string {
   };
   return labels[type] || type;
 }
+
+watch(
+  issueId,
+  id => {
+    issueFocus.ensureDetailFocus(id);
+  },
+  { immediate: true }
+);
 
 onMounted(() => {
   loadIssue();

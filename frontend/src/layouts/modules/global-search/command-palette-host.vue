@@ -19,6 +19,7 @@ import {
 } from '@/utils/command-palette-entities';
 import { $t } from '@/locales';
 import SearchModal from './components/search-modal.vue';
+import IssueHotkeyPickerHost from './issue-hotkey-picker-host.vue';
 
 defineOptions({ name: 'CommandPaletteHost' });
 
@@ -136,4 +137,5 @@ watch(
 
 <template>
   <SearchModal />
+  <IssueHotkeyPickerHost />
 </template>
