@@ -99,6 +99,16 @@ Follow the workflow guidance to continue working until all tasks are completed.
 - notes: .agents/notes/
 - debt_tracker: docs/tech-debt-tracker.md
 - wip_limit: 3
+### epic_superpowers（强制）
+每个 Epic / 厚迭代必须按序走完，禁止跳步写码：
+1. brainstorming（澄清目标/约束/方案；产出写入 design）
+2. `docs/superpowers/specs/YYYY-MM-DD-eN-*-design.md` 入库并自检
+3. writing-plans → `docs/superpowers/plans/YYYY-MM-DD-eN-*.md`（checkbox 任务）
+4. test-driven-development：先红测再实现
+5. verification-before-completion：BE/CLI/FE 门禁证据齐全才可称完成
+6. `docs/superpowers/acceptances/YYYY-MM-DD-EN-acceptance.md` 收 tip + 测数；STOP，不自开下一 Epic
+「继续推进」时由 Yuri 代审 design 后才实现；Way 可随时要求亲自审 design。
+
 ### gates
 - contracts: cd backend && uv run pytest tests/ -v
 - tests: cd frontend && npm run lint && npm run build
