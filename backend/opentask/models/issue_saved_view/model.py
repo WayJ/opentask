@@ -1,4 +1,4 @@
-"""个人 Saved View 模型（E4-S1）"""
+"""Saved View 模型（E4-S1 个人；E7-S2 可共享）"""
 from __future__ import annotations
 
 import uuid
@@ -16,7 +16,7 @@ def _uuid() -> str:
 
 
 class IssueSavedView(DBModel):
-    """个人 Issue 筛选/排序视图（非 IssueCollection）"""
+    """Issue 筛选/排序视图（个人或工作区共享；非 IssueCollection）"""
 
     __tablename__ = "issue_saved_views"
 
@@ -30,6 +30,7 @@ class IssueSavedView(DBModel):
     owner_user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     is_favorite: Mapped[bool] = mapped_column(Boolean, nullable=False, insert_default=False)
+    is_shared: Mapped[bool] = mapped_column(Boolean, nullable=False, insert_default=False)
     filter_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, insert_default=dict)
     sort_json: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)
     display_json: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)
@@ -43,4 +44,5 @@ class IssueSavedView(DBModel):
     __table_args__ = (
         Index("idx_saved_views_ws_owner", "workspace_id", "owner_user_id"),
         Index("idx_saved_views_owner_fav", "owner_user_id", "is_favorite"),
+        Index("idx_saved_views_ws_shared", "workspace_id", "is_shared"),
     )
