@@ -40,3 +40,27 @@ async def test_api_client_vcs_paths():
         # post(endpoint, data=kwargs)
         assert kwargs["data"]["kind"] == "branch"
         assert kwargs["data"]["branchName"] == "A-1-x"
+
+
+def test_issue_link_pr_help():
+    runner = CliRunner()
+    result = runner.invoke(cli, ["issue", "link-pr", "--help"])
+    assert result.exit_code == 0
+    assert "pr" in result.output.lower() or "pull" in result.output.lower()
+
+
+@pytest.mark.asyncio
+async def test_api_client_link_pr_payload():
+    client = OpenTaskClient(base_url="http://example.test", token="t")
+    with mock.patch.object(client, "post", new=mock.AsyncMock(return_value={"id": "p1"})) as p:
+        await client.create_issue_vcs_link(
+            "uuid-1",
+            kind="pull_request",
+            prUrl="https://github.com/o/r/pull/1",
+            provider="github",
+            status="open",
+        )
+        p.assert_awaited()
+        kwargs = p.await_args.kwargs
+        assert kwargs["data"]["kind"] == "pull_request"
+        assert kwargs["data"]["prUrl"] == "https://github.com/o/r/pull/1"

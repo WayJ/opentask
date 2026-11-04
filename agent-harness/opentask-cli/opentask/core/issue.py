@@ -2424,6 +2424,53 @@ def issue_link_branch(obj: "Context", issue_id: str, branch_name: str, as_json: 
         sys.exit(1)
 
 
+@issue_cli.command(name="link-pr")
+@click.argument("issue_id")
+@click.argument("pr_url")
+@click.option("--status", default="open", help="PR status: open|draft|merged|closed")
+@click.option("--title", default=None, help="Optional PR title cache")
+@click.option("--provider", default="github", help="Provider: github|gitlab|gitea|manual")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def issue_link_pr(
+    obj: "Context",
+    issue_id: str,
+    pr_url: str,
+    status: str,
+    title: str | None,
+    provider: str,
+    as_json: bool,
+):
+    """Attach a pull request URL to an Issue via POST /vcs/links (same HTTP as FE).
+
+    Examples:
+        issue link-pr WAY-42 https://github.com/org/repo/pull/12
+    """
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+
+    try:
+        real_id, _issue = asyncio.run(_resolve_issue_id(client, issue_id))
+        kwargs = {
+            "kind": "pull_request",
+            "prUrl": pr_url,
+            "provider": provider,
+            "status": status,
+        }
+        if title:
+            kwargs["title"] = title
+        row = asyncio.run(client.create_issue_vcs_link(real_id, **kwargs))
+        if json_mode:
+            click.echo(_format_json_response(success=True, data=row, message="linked pr"))
+            return
+        skin.success(f"Linked PR {pr_url} → {row.get('id', '')}")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to link PR", json_mode)
+        sys.exit(1)
+
+
 @issue_cli.command(name="vcs-links")
 @click.argument("issue_id")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
