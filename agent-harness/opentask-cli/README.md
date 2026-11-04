@@ -2,7 +2,7 @@
 
 面向人类与 AI Agent 的 OpenTask 命令行客户端。
 
-**Version**: **v1.2.0** · Python 3.8+ · 默认 API `http://localhost:7377`
+**Version**: **v1.3.0** · Python 3.8+ · 默认 API `http://localhost:7377`
 
 ## 主轴（E14）
 
@@ -48,7 +48,7 @@ opentask triage list --json
 |---|---|
 | `workspace` | list / use / current / show |
 | `project` | list / show / create / update / use / current / delete |
-| `issue` | list / show / create / update（含 `--estimate-points`）/ assign / status 工作流 / children / relation / branch-name / link-branch / link-pr / vcs-links / comment / document |
+| `issue` | list / show / create / update（含 `--estimate-points`）/ watch / unwatch / watchers / assign / status 工作流 / children / relation / branch-name / link-branch / link-pr / vcs-links / comment / document |
 | `cycle` | list / show（附容量）/ capacity / create / activate / complete |
 | `label` | list / create / delete / attach / detach |
 | `triage` | list / enqueue / accept / decline / duplicate |
@@ -83,3 +83,15 @@ opentask cycle capacity --json
 opentask cycle capacity --cycle-id <id> --json
 opentask cycle show <id>     # 人类可读时附带 SuggestedCapacity / LoadPoints
 ```
+
+
+## E18 Issue Watch
+
+```bash
+opentask issue watch KEY-1 --json
+opentask issue watchers KEY-1 --json
+opentask issue show KEY-1          # Watching 字段
+opentask issue unwatch KEY-1 --json
+```
+
+关注后，他人对该 Issue 的评论 / 状态 / 指派会进入你的 Inbox。

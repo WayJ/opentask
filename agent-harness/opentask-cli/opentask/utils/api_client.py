@@ -745,6 +745,24 @@ class OpenTaskClient:
         return await self.delete(f"/api/favorites/{favorite_id}")
 
     # ============================================================================
+    # Issue Watchers API (E18)
+    # ============================================================================
+
+    async def list_issue_watchers(self, issue_id: str) -> list:
+        data = await self.get(f"/api/issues/{issue_id}/watchers")
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict) and isinstance(data.get("data"), list):
+            return data["data"]
+        return data or []
+
+    async def watch_issue(self, issue_id: str) -> dict:
+        return await self.post(f"/api/issues/{issue_id}/watchers")
+
+    async def unwatch_issue(self, issue_id: str) -> dict:
+        return await self.delete(f"/api/issues/{issue_id}/watchers")
+
+    # ============================================================================
     # Saved Views API
     # ============================================================================
 

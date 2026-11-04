@@ -4,6 +4,7 @@ import json
 import sys
 import click
 from ..utils.api_client import OpenTaskClient, APIError
+from ..utils.cli_output import echo_json, handle_api_error, require_workspace_id
 from ..utils.config import Config
 from ..utils.repl_skin import ReplSkin
 
@@ -111,6 +112,15 @@ def _display_issue_details(skin: ReplSkin, client: OpenTaskClient, issue: dict, 
 
     # Basic info
     skin.info("Basic Information")
+    watching_label = "—"
+    try:
+        watchers = asyncio.run(client.list_issue_watchers(real_issue_id))
+        if isinstance(watchers, dict):
+            watchers = watchers.get("data") or watchers.get("rows") or []
+        watching_label = f"yes ({len(watchers)} watchers)" if watchers else "no"
+    except (APIError, TypeError, ValueError):
+        watching_label = "—"
+
     skin.status_block({
         "ID": issue.get("id", ""),
         "Code": issue.get("issue_code", "N/A"),
@@ -119,6 +129,7 @@ def _display_issue_details(skin: ReplSkin, client: OpenTaskClient, issue: dict, 
         "Status": issue.get("status", "N/A"),
         "Priority": issue.get("priority", "N/A"),
         "EstimatePoints": issue.get("estimate_points", "—"),
+        "Watching": watching_label,
     })
 
     # People
@@ -1523,6 +1534,15 @@ def show_issue(obj: "Context", issue_id: str, as_json: bool, show_comments: bool
 
             output = issue.copy()
             output["comments"] = comments
+            try:
+                watchers = asyncio.run(client.list_issue_watchers(real_issue_id))
+                if isinstance(watchers, dict):
+                    watchers = watchers.get("data") or watchers.get("rows") or []
+                output["watchers"] = watchers
+                output["watching_count"] = len(watchers) if isinstance(watchers, list) else 0
+            except (APIError, TypeError, ValueError):
+                output["watchers"] = []
+                output["watching_count"] = 0
             click.echo(_format_json_response(
                 success=True,
                 data=output,
@@ -1550,6 +1570,84 @@ def show_issue(obj: "Context", issue_id: str, as_json: bool, show_comments: bool
             skin.error(f"Failed to get issue: {e.message}")
 
         sys.exit(1)
+
+
+
+@issue_cli.command(name="watch")
+@click.argument("issue_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def watch_issue_cmd(obj: "Context", issue_id: str, as_json: bool):
+    """关注 Issue（Inbox 收评论/状态/指派更新）。支持 KEY-N。"""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    try:
+        real_id, _info = asyncio.run(_resolve_issue_id(client, issue_id))
+        data = asyncio.run(client.watch_issue(real_id))
+        if json_mode:
+            echo_json(True, data=data, message="watching")
+            return
+        skin.success(f"已关注 {issue_id}")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@issue_cli.command(name="unwatch")
+@click.argument("issue_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def unwatch_issue_cmd(obj: "Context", issue_id: str, as_json: bool):
+    """取消关注 Issue。支持 KEY-N。"""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    try:
+        real_id, _info = asyncio.run(_resolve_issue_id(client, issue_id))
+        data = asyncio.run(client.unwatch_issue(real_id))
+        if json_mode:
+            echo_json(True, data=data or {"id": real_id}, message="unwatched")
+            return
+        skin.success(f"已取消关注 {issue_id}")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@issue_cli.command(name="watchers")
+@click.argument("issue_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def list_issue_watchers_cmd(obj: "Context", issue_id: str, as_json: bool):
+    """列出 Issue 关注者。支持 KEY-N。"""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    try:
+        real_id, _info = asyncio.run(_resolve_issue_id(client, issue_id))
+        rows = asyncio.run(client.list_issue_watchers(real_id))
+        if isinstance(rows, dict):
+            rows = rows.get("data") or rows.get("rows") or []
+        if json_mode:
+            echo_json(True, data={"rows": rows})
+            return
+        if not rows:
+            skin.info("无关注者")
+            return
+        skin.table(
+            ["User", "Since"],
+            [[r.get("user_id", "")[:8], str(r.get("created_at") or "")[:19]] for r in rows],
+        )
+    except APIError as e:
+        handle_api_error(e, json_mode)
 
 
 @issue_cli.command(name="assign")
