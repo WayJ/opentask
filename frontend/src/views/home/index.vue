@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { fetchCycles, fetchInboxList, fetchWorkspaceList } from '@/service/api';
+import {
+  countOpenFromStatus,
+  fetchCycles,
+  fetchInboxList,
+  fetchInsightsSummary,
+  fetchWorkspaceList,
+  sumCompletedLastDays
+} from '@/service/api';
 import type { WorkspaceItem } from '@/service/api';
 import { issueApi } from '@/service/api/issue';
 import { localStg } from '@/utils/storage';
@@ -19,6 +26,8 @@ const assignedCount = ref(0);
 const createdCount = ref(0);
 const watchingCount = ref(0);
 const dueSoonCount = ref(0);
+const weekCompleted = ref(0);
+const insightsOpen = ref(0);
 
 const greeting = computed(() => {
   const h = new Date().getHours();
@@ -63,6 +72,23 @@ async function loadInboxUnread() {
   }
 }
 
+
+async function loadInsightsStrip() {
+  try {
+    const { data } = await fetchInsightsSummary();
+    if (!data) {
+      weekCompleted.value = 0;
+      insightsOpen.value = 0;
+      return;
+    }
+    weekCompleted.value = sumCompletedLastDays(data.createdVsCompleted, 7);
+    insightsOpen.value = countOpenFromStatus(data.statusCounts);
+  } catch {
+    weekCompleted.value = 0;
+    insightsOpen.value = 0;
+  }
+}
+
 async function loadActiveCycle(ws: WorkspaceItem) {
   try {
     if (!ws.cyclesEnabled) {
@@ -84,7 +110,7 @@ async function load() {
     const list = workspaces || [];
     workspace.value = list.find(w => w.id === wsId) || list[0] || null;
     if (!workspace.value?.id) return;
-    await Promise.all([loadIssueTotal(), loadInboxUnread(), loadActiveCycle(workspace.value), loadMySections()]);
+    await Promise.all([loadIssueTotal(), loadInboxUnread(), loadActiveCycle(workspace.value), loadMySections(), loadInsightsStrip()]);
   } finally {
     loading.value = false;
   }
@@ -102,6 +128,9 @@ function goInbox() {
 }
 function goCycles() {
   router.push({ name: 'workspace_cycles' });
+}
+function goInsights() {
+  router.push({ name: 'insights' });
 }
 
 onMounted(load);
@@ -174,6 +203,27 @@ onMounted(load);
             </NCard>
           </NGi>
         </NGrid>
+      </NCard>
+
+
+      <NCard size="small" class="mt-16px insights-strip cursor-pointer" hoverable @click="goInsights">
+        <div class="flex flex-wrap items-center justify-between gap-12px">
+          <div>
+            <div class="text-13px font-medium">Insights</div>
+            <div class="mt-2px text-12px opacity-55">本周完成 / 开放 Issue</div>
+          </div>
+          <div class="flex gap-24px">
+            <div>
+              <div class="text-11px opacity-55">本周完成</div>
+              <div class="text-20px font-medium">{{ weekCompleted }}</div>
+            </div>
+            <div>
+              <div class="text-11px opacity-55">开放</div>
+              <div class="text-20px font-medium">{{ insightsOpen }}</div>
+            </div>
+          </div>
+          <div class="text-12px text-primary">查看效能 →</div>
+        </div>
       </NCard>
 
       <NCard size="small" class="mt-16px" title="快速入口">

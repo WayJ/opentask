@@ -28,6 +28,7 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   inbox: () => import("@/views/inbox/index.vue"),
   initiatives_detail: () => import("@/views/initiatives/detail/index.vue"),
   initiatives: () => import("@/views/initiatives/index.vue"),
+  insights: () => import("@/views/insights/index.vue"),
   invite: () => import("@/views/invite/[token].vue"),
   "issue_collection-create": () => import("@/views/issue/collection-create/index.vue"),
   "issue_collection-list": () => import("@/views/issue/collection-list/index.vue"),

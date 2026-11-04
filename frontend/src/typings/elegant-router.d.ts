@@ -29,6 +29,7 @@ declare module "@elegant-router/types" {
     "inbox": "/inbox";
     "initiatives": "/initiatives";
     "initiatives_detail": "/initiatives/detail";
+    "insights": "/insights";
     "invite": "/invite/:token";
     "issue": "/issue";
     "issue_collection": "/issue/collection/:id";
@@ -130,6 +131,7 @@ declare module "@elegant-router/types" {
     | "iframe-page"
     | "inbox"
     | "initiatives"
+    | "insights"
     | "invite"
     | "issue"
     | "knowledge-base"
@@ -172,6 +174,7 @@ declare module "@elegant-router/types" {
     | "inbox"
     | "initiatives_detail"
     | "initiatives"
+    | "insights"
     | "invite"
     | "issue_collection-create"
     | "issue_collection-list"

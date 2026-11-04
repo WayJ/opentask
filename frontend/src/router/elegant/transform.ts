@@ -175,6 +175,7 @@ const routeMap: RouteMap = {
   "inbox": "/inbox",
   "initiatives": "/initiatives",
   "initiatives_detail": "/initiatives/detail",
+  "insights": "/insights",
   "invite": "/invite/:token",
   "issue": "/issue",
   "issue_collection": "/issue/collection/:id",

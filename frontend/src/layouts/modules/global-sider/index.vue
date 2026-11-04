@@ -7,6 +7,7 @@ import GlobalLogo from '../global-logo/index.vue';
 import FavoritesNav from './FavoritesNav.vue';
 import TriageNav from './TriageNav.vue';
 import CustomersNav from './CustomersNav.vue';
+import InsightsNav from './InsightsNav.vue';
 
 defineOptions({
   name: 'GlobalSider'
@@ -34,6 +35,7 @@ const menuWrapperClass = computed(() => (showLogo.value ? 'flex-1-hidden' : 'h-f
     />
     <TriageNav />
     <CustomersNav />
+    <InsightsNav />
     <FavoritesNav />
     <div :id="GLOBAL_SIDER_MENU_ID" :class="menuWrapperClass"></div>
   </DarkModeContainer>

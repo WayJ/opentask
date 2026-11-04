@@ -143,6 +143,18 @@ export const generatedRoutes: GeneratedRoute[] = [
     ]
   },
   {
+    name: 'insights',
+    path: '/insights',
+    component: 'layout.base$view.insights',
+    meta: {
+      title: 'insights',
+      i18nKey: 'route.insights',
+      icon: 'mdi:chart-box-outline',
+      order: 2.6,
+      hideInMenu: true
+    }
+  },
+  {
     name: 'invite',
     path: '/invite/:token',
     component: 'layout.blank$view.invite',
