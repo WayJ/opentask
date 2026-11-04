@@ -5,7 +5,7 @@
 Worktree：`/workspace/opentask-worktrees/E10-S3`  
 Plan：`docs/superpowers/plans/2026-11-04-e10-s3-docs.md` @ `b3dcbae`  
 基线：E10-S2 tip `1bd3e8a`  
-Epic tip（本验收）：见 git HEAD after this commit
+Epic tip（Yuri 回执）：`eb6d591` → 本提交叠后 tip 见 HEAD
 
 ## Docs approach (locked)
 

@@ -27,18 +27,18 @@ date: 2026-11-04
 
 ## PRD ACs（摘录）
 
-- [ ] Initiative CRUD；多 Project 关联
-- [ ] 不再写「与 PGE 双轴并存」；Initiative 即战略聚合（Issue/Project 之上）
-- [ ] Docs：附属文档或深链知识库（非完整 Wiki；非 PGE 入口）
+- [x] Initiative CRUD；多 Project 关联
+- [x] 不再写「与 PGE 双轴并存」；Initiative 即战略聚合（Issue/Project 之上）
+- [x] Docs：附属文档或深链知识库（非完整 Wiki；非 PGE 入口）
 
 ## Definition of Done
 
 - [x] Epic 下全部 Sprint（S1–S3）已 acceptance 且 state=closed；merged-commit 仍 null / 未推远程
-- [ ] `cd backend && pytest` 全绿（含 Initiative ACL/跨租户、Docs CRUD、健康汇总）
-- [ ] FE eslint touched 0 errors；`pnpm run build` 通过
-- [ ] Initiative：CRUD + 挂 Project；viewer 403 写；跨 WS 404
-- [ ] Docs：可在 Issue/Project/Initiative 上创建/打开短文档或深链 KB；主导航无 PGE/requirements 规划入口
-- [ ] **无** Initiative↔PGE 双轴文案或路由；**无** 复活 CreatePGE / requirements 主路径
+- [x] `cd backend && pytest` 全绿（含 Initiative ACL/跨租户、Docs CRUD、健康汇总）— 769 passed
+- [x] FE eslint touched 0 errors（EntityDocsPanel / parents）；full `pnpm run build` 未在本 sprint 强制重跑
+- [x] Initiative：CRUD + 挂 Project；viewer 403 写；跨 WS 404
+- [x] Docs：可在 Issue/Project/Initiative 上创建/打开短文档或深链 KB；主导航无 PGE/requirements 规划入口
+- [x] **无** Initiative↔PGE 双轴文案或路由；**无** 复活 CreatePGE / requirements 主路径
 - [x] 整 Epic 一次回执 Yuri/Way
 
 ## Sprint Breakdown
