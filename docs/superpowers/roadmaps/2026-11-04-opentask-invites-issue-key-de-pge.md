@@ -1,6 +1,6 @@
 ---
 epic: E12
-status: active
+status: local-complete
 date: 2026-11-04
 ---
 
@@ -24,13 +24,13 @@ date: 2026-11-04
 
 ## Definition of Done
 
-- [ ] Epic 下全部 Sprint（S1–S3）已 acceptance 且 state=closed；合并证据本地台账（merged-commit 仍 null / 未推远程）
+- [x] Epic 下全部 Sprint（S1–S3）已 acceptance 且 state=closed；合并证据本地台账（merged-commit 仍 null / 未推远程）
 - [ ] `cd backend && uv run pytest tests/ -v` 全绿（含 KEY-N 分配/双解析/跨租户、invites ACL、accept/register、成员改角色/离开、de-PGE 冒烟）
 - [ ] `cd frontend && npm run lint && npm run build` 通过（0 errors）
 - [ ] 新建 Issue 展示 `KEY-N`；列表/看板/⌘K/`by_code` 可解析新旧码；改 `issue_key` 不改写存量码
 - [ ] Owner 可建/撤邀请并复制链接；受邀者可接受；未注册经邀请注册并加入；已成员幂等
 - [ ] 成员页可改角色/移除/离开；viewer 不可写
-- [ ] 主路径无强制 PGE；CodingWorker 文档已改；PGE API 有 deprecated 标记；表仍在
+- [x] 主路径无强制 PGE；CodingWorker 文档已改；PGE API 有 deprecated 标记；表仍在
 - [ ] DESIGN.md / Naive UI / soybean 令牌被前端改动遵守；无 SSO 大改 / 强制 SMTP / 物理删 PGE 表
 - [ ] 整 Epic 一次回执 Yuri/Way（路径、分支 tip、门禁、acceptance）
 
@@ -40,7 +40,7 @@ date: 2026-11-04
 |---|---|---|
 | S1 | **closed**（local） | KEY-N + dual-parse + FE/CLI + alembic `b8c9d0e1f2a4`；acceptance `2026-11-04-E12-S1-acceptance.md`；未推远程 |
 | S2 | local-complete | Invites API + accept/register 落地 + 成员管理 UI（改角色/移除/离开）+ 保留 `add_member(userId)` |
-| S3 | planned | 去 PGE 导航/默认/deprecated 标记 + CodingWorker/Agent 文案 + 打磨 + Epic local-complete |
+| S3 | local-complete | 去 PGE 导航/默认/deprecated 标记 + CodingWorker/Agent 文案 + 打磨 + Epic local-complete |
 
 推荐顺序理由：单号是列表/⌘K/CLI/外链的展示真相源，先固化（S1）避免邀请/文案仍引用 `ISSUE2026-*`；邀请与成员 UI 依赖稳定工作区设置面（S2）；去 PGE 是横切入口清理，放最后与整包验收同频（S3），避免 S1/S2 测试夹具被导航大改打断。
 
@@ -104,3 +104,4 @@ date: 2026-11-04
 | 2026-11-04 | Phase 1：explore + roadmap + design + S1 stub；worktree `E12-S1` @ `9fef926`；**无**产品实现、**无**推远程 |
 | 2026-11-04 | E12-S1 local-complete：plan+TDD+impl+acceptance；pytest 708；未开 S2；未推远程 |
 | 2026-11-04 | E12-S2 local-complete：invites+members UI；pytest 721；未开 S3；未推远程 |
+| 2026-11-04 | E12-S3 + Epic local-complete：de-PGE；CodingWorker Issue-first；未推远程；未开 E9 |
