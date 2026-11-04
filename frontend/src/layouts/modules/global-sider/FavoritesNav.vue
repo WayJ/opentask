@@ -102,7 +102,7 @@ defineExpose({ reload: load });
 <style scoped>
 .favorites-nav {
   padding: 8px 10px 4px;
-  border-bottom: 1px solid rgba(128, 128, 128, 0.18);
+  border-bottom: 1px solid var(--color-hairline);
   max-height: 40%;
   overflow: auto;
 }
@@ -134,7 +134,7 @@ defineExpose({ reload: load });
   background: transparent;
   color: inherit;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 6px 8px;
   text-align: left;
 }
@@ -145,7 +145,7 @@ defineExpose({ reload: load });
 }
 
 .favorites-nav__item:hover {
-  background: rgba(128, 128, 128, 0.12);
+  background: var(--color-bg-hover);
 }
 
 .favorites-nav__icon {

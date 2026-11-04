@@ -1,0 +1,49 @@
+/* E13: Linear-density shell chrome — tokens only, no hex in components */
+
+html.dark .shadow-header,
+html.dark .shadow-tab {
+  box-shadow: 0 1px 0 var(--color-hairline) !important;
+}
+
+html.dark .shadow-sider {
+  box-shadow: 1px 0 0 var(--color-hairline) !important;
+}
+
+html:not(.dark) .shadow-header,
+html:not(.dark) .shadow-tab {
+  box-shadow: 0 1px 0 var(--color-hairline) !important;
+}
+
+html:not(.dark) .shadow-sider {
+  box-shadow: 1px 0 0 var(--color-hairline) !important;
+}
+
+/* Quieter multi-tabs */
+.global-tab,
+[class*='page-tab'] {
+  border-color: var(--color-hairline) !important;
+}
+
+/* Sider menu rows denser / quieter */
+#__SCROLL_EL_ID__,
+.n-menu {
+  --n-item-height: 34px !important;
+}
+
+.n-layout-sider,
+.n-layout-sider-scroll-container {
+  background-color: var(--color-surface-1) !important;
+  border-right: 1px solid var(--color-hairline);
+}
+
+html.dark .n-layout-header,
+html:not(.dark) .n-layout-header {
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+/* Content cards: prefer hairline over heavy elevation */
+.n-card {
+  border-color: var(--color-hairline) !important;
+  box-shadow: none !important;
+  border-radius: var(--radius-md) !important;
+}
