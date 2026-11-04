@@ -118,6 +118,7 @@ def _display_issue_details(skin: ReplSkin, client: OpenTaskClient, issue: dict, 
         "Type": issue.get("type", "N/A"),
         "Status": issue.get("status", "N/A"),
         "Priority": issue.get("priority", "N/A"),
+        "EstimatePoints": issue.get("estimate_points", "—"),
     })
 
     # People
@@ -371,15 +372,17 @@ def list_issues(obj: "Context", status, issue_type, priority, project_id, assign
 
         skin.section(f"Issues ({total} total, Page {page})")
 
-        headers = ["Code", "Title", "Type", "Priority", "Status", "Created"]
+        headers = ["Code", "Title", "Type", "Priority", "Status", "Pts", "Created"]
         table_rows = []
         for issue in rows:
+            pts = issue.get("estimate_points")
             table_rows.append([
                 issue.get("issue_code", "N/A"),
                 issue.get("title", "")[:30],
                 issue.get("type", "")[:10],
                 issue.get("priority", "")[:10],
                 issue.get("status", "")[:10],
+                "" if pts is None else str(pts),
                 issue.get("created_at", "")[:10] if issue.get("created_at") else ""
             ])
 
@@ -647,10 +650,12 @@ def list_my_issues(obj: "Context", status, issue_type, priority, project_id, ope
               help="Project ID [Optional: uses active project if set]")
 @click.option("--assignee", "-a", "assignee_id",
               help="Assignee user ID [Optional]")
+@click.option("--estimate-points", type=float, default=None,
+              help="Story points estimate (e.g. 1/2/3/5/8)")
 @click.option("--verbose", "-v", is_flag=True, help="Show detailed information")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.pass_obj
-def create_issue(obj: "Context", title: str, description: str, issue_type: str, status: str, priority: str, project_id: str, assignee_id: str, verbose: bool, as_json: bool):
+def create_issue(obj: "Context", title: str, description: str, issue_type: str, status: str, priority: str, project_id: str, assignee_id: str, estimate_points, verbose: bool, as_json: bool):
     """Create a new issue.
 
     Required fields:
@@ -692,7 +697,8 @@ def create_issue(obj: "Context", title: str, description: str, issue_type: str, 
             status=status,
             priority=priority,
             project_id=project_id,
-            assignee_id=assignee_id
+            assignee_id=assignee_id,
+            estimate_points=estimate_points,
         ))
 
         if json_mode:
@@ -715,6 +721,7 @@ def create_issue(obj: "Context", title: str, description: str, issue_type: str, 
             "Type": result.get("type", ""),
             "Priority": result.get("priority", ""),
             "Status": result.get("status", ""),
+            "EstimatePoints": result.get("estimate_points", "—"),
         })
 
         # Show description only in verbose mode or if it exists
@@ -756,10 +763,12 @@ def create_issue(obj: "Context", title: str, description: str, issue_type: str, 
 @click.option("--priority", "-p", type=click.Choice(["low", "medium", "high", "critical"], case_sensitive=False), help="New priority")
 @click.option("--assignee", "-a", "assignee_id", help="New assignee user ID")
 @click.option("--reporter", "-r", "reporter_id", help="New reporter user ID")
+@click.option("--estimate-points", type=float, default=None,
+              help="Story points estimate (e.g. 1/2/3/5/8); omit to leave unchanged")
 @click.option("--verbose", "-v", is_flag=True, help="Show detailed information")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.pass_obj
-def update_issue(obj: "Context", issue_id: str, title, description, issue_type, status, priority, assignee_id, reporter_id, verbose: bool, as_json: bool):
+def update_issue(obj: "Context", issue_id: str, title, description, issue_type, status, priority, assignee_id, reporter_id, estimate_points, verbose: bool, as_json: bool):
     """Update an issue.
 
     Issue identifier format is auto-detected:
@@ -810,6 +819,8 @@ def update_issue(obj: "Context", issue_id: str, title, description, issue_type, 
         kwargs["assignee_id"] = assignee_id
     if reporter_id:
         kwargs["reporter_id"] = reporter_id
+    if estimate_points is not None:
+        kwargs["estimate_points"] = estimate_points
 
     if not kwargs:
         skin.error("At least one field must be specified for update")

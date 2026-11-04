@@ -72,13 +72,26 @@ def cycle_show(obj, cycle_id, as_json):
             echo_json(True, data=data)
             return
         d = data or {}
-        obj.skin.status_block({
+        hint = {}
+        try:
+            hint = asyncio.run(client.get_cycle_capacity_hint(cycle_id)) or {}
+        except APIError:
+            hint = {}
+        block = {
             "ID": d.get("id", ""),
             "Name": d.get("name", ""),
             "Status": d.get("status", ""),
             "Starts": str(d.get("startsAt") or d.get("starts_at") or ""),
             "Ends": str(d.get("endsAt") or d.get("ends_at") or ""),
-        })
+        }
+        if hint:
+            block["CapacityUnit"] = hint.get("unit", "")
+            block["SuggestedCapacity"] = hint.get("suggestedCapacity", "")
+            load = hint.get("currentLoad") or {}
+            if load:
+                block["LoadPoints"] = load.get("points", "")
+                block["LoadIssues"] = load.get("issueCount", "")
+        obj.skin.status_block(block)
     except APIError as e:
         handle_api_error(e, json_mode)
 
@@ -143,3 +156,52 @@ def cycle_complete(obj, cycle_id, as_json):
         obj.skin.success("Cycle 已完成")
     except APIError as e:
         handle_api_error(e, json_mode)
+
+
+@cycle_cli.command(name="capacity")
+@click.option("--cycle-id", default=None, help="Optional cycle id for currentLoad")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def cycle_capacity(obj, cycle_id, as_json):
+    """Show points-first capacity / velocity hint for the workspace."""
+    config: Config = obj.config
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.get_cycle_capacity_hint(cycle_id))
+        if json_mode:
+            echo_json(True, data=data)
+            return
+        d = data or {}
+        skin.section("Cycle capacity")
+        skin.status_block({
+            "Basis": d.get("basis", ""),
+            "Unit": d.get("unit", ""),
+            "Suggested": d.get("suggestedCapacity", ""),
+            "LookbackN": d.get("lookbackN", ""),
+        })
+        samples = d.get("samples") or []
+        if samples:
+            skin.table(
+                ["Cycle", "Points", "Issues", "Hours"],
+                [[
+                    (s.get("name") or s.get("cycleId") or "")[:24],
+                    s.get("completedPoints", ""),
+                    s.get("completedIssueCount", ""),
+                    s.get("completedHours", ""),
+                ] for s in samples],
+            )
+        load = d.get("currentLoad")
+        if load:
+            skin.info("Current load")
+            skin.status_block({
+                "Points": load.get("points", ""),
+                "Issues": load.get("issueCount", ""),
+                "Hours": load.get("hours", ""),
+            })
+    except APIError as e:
+        handle_api_error(e, json_mode)
+

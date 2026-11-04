@@ -2,7 +2,7 @@
 
 面向人类与 AI Agent 的 OpenTask 命令行客户端。
 
-**Version**: **v1.1.0** · Python 3.8+ · 默认 API `http://localhost:7377`
+**Version**: **v1.2.0** · Python 3.8+ · 默认 API `http://localhost:7377`
 
 ## 主轴（E14）
 
@@ -48,8 +48,8 @@ opentask triage list --json
 |---|---|
 | `workspace` | list / use / current / show |
 | `project` | list / show / create / update / use / current / delete |
-| `issue` | list / show / create / update / assign / status 工作流 / children / relation / branch-name / link-branch / link-pr / vcs-links / comment / document |
-| `cycle` | list / show / create / activate / complete |
+| `issue` | list / show / create / update（含 `--estimate-points`）/ assign / status 工作流 / children / relation / branch-name / link-branch / link-pr / vcs-links / comment / document |
+| `cycle` | list / show（附容量）/ capacity / create / activate / complete |
 | `label` | list / create / delete / attach / detach |
 | `triage` | list / enqueue / accept / decline / duplicate |
 | `inbox` | list / read / read-all / snooze / unsnooze |
@@ -66,4 +66,20 @@ opentask triage list --json
 ```bash
 uv run pytest -q
 bash scripts/e14_cli_smoke.sh   # 需本地 BE :7377
+```
+
+
+## E17 估点与容量
+
+```bash
+# 创建/更新故事点
+opentask issue create -t "Ship search" --estimate-points 5 --json
+opentask issue update KEY-12 --estimate-points 8 --json
+opentask issue show KEY-12   # 展示 EstimatePoints
+opentask issue list          # Pts 列
+
+# Cycle 点容量 / velocity hint（对齐 GET /api/cycles/capacity-hint）
+opentask cycle capacity --json
+opentask cycle capacity --cycle-id <id> --json
+opentask cycle show <id>     # 人类可读时附带 SuggestedCapacity / LoadPoints
 ```

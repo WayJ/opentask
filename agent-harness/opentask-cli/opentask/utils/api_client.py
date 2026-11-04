@@ -617,6 +617,13 @@ class OpenTaskClient:
     async def get_cycle(self, cycle_id: str) -> dict:
         return await self.get(f"/api/cycles/{cycle_id}")
 
+    async def get_cycle_capacity_hint(self, cycle_id: str | None = None) -> dict:
+        """E17: cycle capacity / velocity hint (points-first)."""
+        params = {}
+        if cycle_id:
+            params["cycle_id"] = cycle_id
+        return await self.get("/api/cycles/capacity-hint", params=params or None)
+
     async def create_cycle(self, starts_at: str, ends_at: str, name: str | None = None) -> dict:
         data = {"starts_at": starts_at, "ends_at": ends_at}
         if name:
@@ -977,7 +984,8 @@ class OpenTaskClient:
         status: str = "open",
         priority: str = "medium",
         project_id: str | None = None,
-        assignee_id: str | None = None
+        assignee_id: str | None = None,
+        estimate_points: float | None = None,
     ) -> dict:
         """Create a new issue.
 
@@ -997,6 +1005,8 @@ class OpenTaskClient:
             data["project_id"] = project_id
         if assignee_id:
             data["assignee_id"] = assignee_id
+        if estimate_points is not None:
+            data["estimate_points"] = estimate_points
 
         return await self.post("/api/issues", data=data)
 
