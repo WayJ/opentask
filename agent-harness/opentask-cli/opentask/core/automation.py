@@ -16,6 +16,7 @@ TRIGGERS = [
     "issue.assignee_changed",
     "label_added",
     "custom_field_changed",
+    "issue.sla_breached",  # E45; set_status may re-enter start — configure carefully
 ]
 ACTIONS = [
     "set_status",

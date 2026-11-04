@@ -34,6 +34,7 @@ import type { IssueCustomFieldValue } from '@/service/api/custom-fields';
 import {
   type SlaClockRow,
   fetchIssueSla,
+  formatSlaPaused,
   formatSlaRemaining,
   slaBadgeType
 } from '@/service/api/sla';
@@ -1692,10 +1693,13 @@ onUnmounted(() => {
               <div class="sidebar-section-title">SLA</div>
               <div v-for="c in slaClocks" :key="c.id" style="margin-bottom: 6px">
                 <NTag size="small" :type="slaBadgeType(c.status)" :bordered="false">
-                  {{ c.policyName || c.policyId.slice(0, 8) }} · {{ c.status }}
+                  {{ c.policyName || c.policyId.slice(0, 8) }} · {{ c.status === 'paused' ? '已暂停' : c.status }}
                 </NTag>
                 <NText v-if="c.status === 'running'" depth="3" style="font-size: 12px; margin-left: 6px">
                   {{ formatSlaRemaining(c.deadlineAt) }}
+                </NText>
+                <NText v-else-if="c.status === 'paused'" depth="3" style="font-size: 12px; margin-left: 6px">
+                  {{ formatSlaPaused(c.elapsedBeforePauseMinutes) }}
                 </NText>
               </div>
             </div>

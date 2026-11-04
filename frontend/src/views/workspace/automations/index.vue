@@ -10,7 +10,8 @@ import {
   NSelect,
   NSpace,
   NSwitch,
-  NTag
+  NTag,
+  NText
 } from 'naive-ui';
 import {
   type AutomationRuleRow,
@@ -67,7 +68,8 @@ const triggerOptions = [
   { label: 'issue.status_changed', value: 'issue.status_changed' },
   { label: 'issue.assignee_changed', value: 'issue.assignee_changed' },
   { label: 'label_added', value: 'label_added' },
-  { label: 'custom_field_changed', value: 'custom_field_changed' }
+  { label: 'custom_field_changed', value: 'custom_field_changed' },
+  { label: 'SLA 违约 (issue.sla_breached)', value: 'issue.sla_breached' }
 ];
 
 const actionOptions = [
@@ -345,6 +347,9 @@ onMounted(load);
         <NSpace align="center" :wrap="true">
           <NInput v-model:value="form.name" placeholder="规则名称" style="width: 180px" />
           <NSelect v-model:value="form.triggerType" :options="triggerOptions" style="width: 200px" />
+          <NText v-if="form.triggerType === 'issue.sla_breached'" depth="3" style="font-size:12px;display:block;margin-top:4px">
+            警告：动作使用 set_status 可能把 Issue 绕回 start 状态，造成 SLA 震荡；请谨慎配置。
+          </NText>
           <template v-if="form.triggerType === 'custom_field_changed'">
             <NSelect
               v-model:value="form.triggerCfKey"

@@ -9,7 +9,7 @@ export const ISSUE_STATUSES = [
   'rejected'
 ] as const;
 
-export type SlaClockStatus = 'running' | 'met' | 'breached' | 'cancelled';
+export type SlaClockStatus = 'running' | 'paused' | 'met' | 'breached' | 'cancelled';
 
 export interface SlaPolicyRow {
   id: string;
@@ -19,6 +19,7 @@ export interface SlaPolicyRow {
   metric: string;
   startStatuses: string[];
   stopStatuses: string[];
+  pauseStatuses: string[];
   targetMinutes: number;
   notifyAssignee: boolean;
   notifyWatchers: boolean;
@@ -38,6 +39,9 @@ export interface SlaClockRow {
   stoppedAt?: string | null;
   breachedAt?: string | null;
   startStatus: string;
+  elapsedBeforePauseMinutes?: number;
+  pausedAt?: string | null;
+  segmentStartedAt?: string | null;
 }
 
 /** Format remaining/overdue wall-clock minutes for SLA badges. */
@@ -64,7 +68,19 @@ export function slaBadgeType(status: string): 'default' | 'info' | 'success' | '
   if (status === 'breached') return 'error';
   if (status === 'met') return 'success';
   if (status === 'running') return 'warning';
+  if (status === 'paused') return 'warning';
   return 'default';
+}
+
+/** Paused badge copy: 已暂停 · 已用 X / 目标 Y */
+export function formatSlaPaused(
+  elapsedBeforePauseMinutes?: number | null,
+  targetMinutes?: number | null
+): string {
+  const used = Math.max(0, Math.floor(Number(elapsedBeforePauseMinutes) || 0));
+  const target = targetMinutes == null ? null : Math.max(0, Math.floor(Number(targetMinutes) || 0));
+  if (target == null) return `已暂停 · 已用 ${used}`;
+  return `已暂停 · 已用 ${used} / 目标 ${target}`;
 }
 
 export function fetchSlaPolicies() {
@@ -75,6 +91,7 @@ export function fetchCreateSlaPolicy(body: {
   name: string;
   startStatuses: string[];
   stopStatuses?: string[];
+  pauseStatuses?: string[];
   targetMinutes?: number;
   notifyAssignee?: boolean;
   notifyWatchers?: boolean;
@@ -89,6 +106,7 @@ export function fetchUpdateSlaPolicy(
     name: string;
     startStatuses: string[];
     stopStatuses: string[];
+    pauseStatuses: string[];
     targetMinutes: number;
     notifyAssignee: boolean;
     notifyWatchers: boolean;

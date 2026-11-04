@@ -5,7 +5,17 @@ export type AutomationTrigger =
   | 'issue.status_changed'
   | 'issue.assignee_changed'
   | 'label_added'
-  | 'custom_field_changed';
+  | 'custom_field_changed'
+  | 'issue.sla_breached';
+
+export const AUTOMATION_TRIGGERS: AutomationTrigger[] = [
+  'issue.created',
+  'issue.status_changed',
+  'issue.assignee_changed',
+  'label_added',
+  'custom_field_changed',
+  'issue.sla_breached'
+];
 
 export type AutomationAction =
   | 'set_status'

@@ -10,7 +10,8 @@ import {
   summarizeCfChangedTrigger,
   withCustomFieldCondition,
   withCustomFieldConditions,
-  withDelayMinutes
+  withDelayMinutes,
+  AUTOMATION_TRIGGERS
 } from './automations';
 
 describe('automations helpers', () => {
@@ -136,5 +137,11 @@ describe('automations helpers', () => {
         actionConfig: { priority: 'high' }
       })
     ).toBe('on field:tier');
+  });
+});
+
+describe('E45 automation triggers', () => {
+  it('includes issue.sla_breached', () => {
+    expect(AUTOMATION_TRIGGERS).toContain('issue.sla_breached');
   });
 });

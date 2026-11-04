@@ -32,6 +32,7 @@ const form = reactive({
   name: 'Time in progress',
   startStatuses: ['in_progress'] as string[],
   stopStatuses: ['resolved', 'closed'] as string[],
+  pauseStatuses: [] as string[],
   targetMinutes: 1440,
   notifyAssignee: true,
   notifyWatchers: false
@@ -58,7 +59,7 @@ const columns: DataTableColumns<SlaPolicyRow> = [
         { depth: 3, style: 'font-size:12px' },
         {
           default: () =>
-            `start: ${(row.startStatuses || []).join(', ') || '—'} → stop: ${(row.stopStatuses || []).join(', ') || '关闭类'}`
+            `start: ${(row.startStatuses || []).join(', ') || '—'} → stop: ${(row.stopStatuses || []).join(', ') || '关闭类'} · pause: ${(row.pauseStatuses || []).join(', ') || '—'}`
         }
       )
   },
@@ -111,6 +112,7 @@ async function create() {
       name: form.name.trim(),
       startStatuses: form.startStatuses,
       stopStatuses: form.stopStatuses,
+      pauseStatuses: form.pauseStatuses,
       targetMinutes: form.targetMinutes,
       notifyAssignee: form.notifyAssignee,
       notifyWatchers: form.notifyWatchers
@@ -174,7 +176,7 @@ onMounted(load);
         </NSpace>
       </template>
       <NText depth="3" style="display:block;margin-bottom:12px;font-size:12px">
-        time-in-status 日历分钟（UTC）。stop 为空时进入 resolved/closed/rejected 即满足。无内置 cron，请外部调度 POST /api/sla/run-due。
+        time-in-status 日历分钟（UTC）。stop 为空时进入 resolved/closed/rejected 即满足。进入暂停状态时不计时，离开后按剩余时间续跑。无内置 cron，请外部调度 POST /api/sla/run-due。
       </NText>
       <NDataTable :columns="columns" :data="rows" :loading="loading" size="small" />
     </NCard>
@@ -184,6 +186,13 @@ onMounted(load);
         <NInput v-model:value="form.name" placeholder="名称" maxlength="80" />
         <NSelect v-model:value="form.startStatuses" multiple :options="statusOptions" placeholder="startStatuses" />
         <NSelect v-model:value="form.stopStatuses" multiple :options="statusOptions" placeholder="stopStatuses（可空=关闭类）" />
+        <NSelect
+          v-model:value="form.pauseStatuses"
+          multiple
+          :options="statusOptions"
+          placeholder="暂停计时的状态（可空=不启用暂停；示例 feedback）"
+        />
+        <NText depth="3" style="font-size:12px">进入这些状态时 SLA 暂停；离开后按剩余时间续跑。优先级：stop &gt; pause &gt; start。</NText>
         <NInputNumber v-model:value="form.targetMinutes" :min="1" :max="10080" placeholder="targetMinutes" />
         <NSpace>
           <span>通知负责人</span>

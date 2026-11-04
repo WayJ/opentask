@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatSlaRemaining, slaBadgeType } from './sla';
+import { formatSlaPaused, formatSlaRemaining, slaBadgeType } from './sla';
 import { WEBHOOK_EVENTS, WEBHOOK_EVENT_LABELS } from './webhooks';
 import { NOTIF_PREF_KEYS, NOTIF_PREF_LABELS, mergeNotifPrefs } from './notif-prefs';
 
@@ -28,6 +28,16 @@ describe('slaBadgeType', () => {
     expect(slaBadgeType('breached')).toBe('error');
     expect(slaBadgeType('met')).toBe('success');
     expect(slaBadgeType('running')).toBe('warning');
+    expect(slaBadgeType('paused')).toBe('warning');
+  });
+});
+
+describe('formatSlaPaused', () => {
+  it('shows used and target', () => {
+    expect(formatSlaPaused(12, 60)).toBe('已暂停 · 已用 12 / 目标 60');
+  });
+  it('handles missing target', () => {
+    expect(formatSlaPaused(5)).toBe('已暂停 · 已用 5');
   });
 });
 
@@ -41,5 +51,14 @@ describe('E42 constants', () => {
     expect(NOTIF_PREF_KEYS).toContain('sla_breached');
     expect(NOTIF_PREF_LABELS.sla_breached).toBe('SLA 违约');
     expect(mergeNotifPrefs().sla_breached).toBe(true);
+  });
+});
+
+describe('E45 pause fields', () => {
+  it('pauseStatuses default empty array is serializable', () => {
+    const row = { pauseStatuses: [] as string[] };
+    expect(row.pauseStatuses).toEqual([]);
+    row.pauseStatuses = ['feedback'];
+    expect(row.pauseStatuses).toContain('feedback');
   });
 });
