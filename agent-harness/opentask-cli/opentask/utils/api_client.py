@@ -558,6 +558,10 @@ class OpenTaskClient:
         """Get workspace details."""
         return await self.get(f"/api/workspaces/{workspace_id}")
 
+    async def update_workspace(self, workspace_id: str, **kwargs) -> dict:
+        """PATCH workspace (E50: timezone / businessHours)."""
+        return await self.patch(f"/api/workspaces/{workspace_id}", data=kwargs)
+
     async def list_workspace_members(self, workspace_id: str) -> list:
         data = await self.get(f"/api/workspaces/{workspace_id}/members")
         if isinstance(data, list):
