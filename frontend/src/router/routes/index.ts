@@ -373,8 +373,30 @@ const customRoutes: CustomRoute[] = [
           i18nKey: 'route.settings_webhooks',
           order: 2
         }
+      },
+      {
+        name: 'settings_forms',
+        path: '/settings/forms',
+        component: 'view.settings_forms',
+        meta: {
+          title: 'settings_forms',
+          i18nKey: 'route.settings_forms',
+          order: 3
+        }
       }
     ]
+  },
+  {
+    name: 'public-form',
+    path: '/f/:token',
+    component: 'layout.blank$view.f',
+    meta: {
+      title: 'public-form',
+      i18nKey: 'route.public-form',
+      constant: true,
+      hideInMenu: true
+    },
+    props: true
   }
 ];
 

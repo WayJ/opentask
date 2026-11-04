@@ -29,6 +29,8 @@ from opentask.api.insights import router as insights_router
 from opentask.api.custom_fields import router as custom_fields_router
 from opentask.api.automations import router as automations_router
 from opentask.api.webhooks import router as webhooks_router
+from opentask.api.forms import router as forms_router
+from opentask.api.public_forms import router as public_forms_router
 from opentask.api.entity_documents import router as entity_documents_router
 from opentask.api.issue_vcs import router as issue_vcs_router
 from opentask.api.webhooks_github import router as webhooks_github_router
@@ -128,6 +130,8 @@ class App(fastapi.FastAPI):
         self.include_router(custom_fields_router)
         self.include_router(automations_router)
         self.include_router(webhooks_router)
+        self.include_router(forms_router)
+        self.include_router(public_forms_router)
         self.include_router(entity_documents_router)
         self.include_router(issue_vcs_router)
         self.include_router(webhooks_github_router)

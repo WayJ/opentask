@@ -63,6 +63,7 @@ from opentask.models.customer import Customer, CustomerRequest, CustomerRequestI
 from opentask.models.custom_field import CustomField, IssueCustomFieldValue
 from opentask.models.automation import AutomationRule
 from opentask.models.workspace_webhook import WorkspaceWebhook, WebhookDeliveryLog
+from opentask.models.issue_form import IssueForm
 from opentask.models.access_token import AccessToken
 from opentask.models.oauth2 import (
     OAuthAccessToken,
@@ -139,6 +140,7 @@ __all__ = [
     "AutomationRule",
     "WorkspaceWebhook",
     "WebhookDeliveryLog",
+    "IssueForm",
     "CommentReaction",
     "NotificationPreference",
     "AccessToken",

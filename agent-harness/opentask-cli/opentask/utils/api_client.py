@@ -918,6 +918,48 @@ class OpenTaskClient:
 
 
     # ========================================================================
+    # Issue Forms (E31)
+    # ========================================================================
+
+    async def list_forms(self) -> dict:
+        return await self.get("/api/forms")
+
+    async def get_form(self, form_id: str) -> dict:
+        return await self.get(f"/api/forms/{form_id}")
+
+    async def create_form(
+        self,
+        name: str,
+        fields: list,
+        *,
+        description: str | None = None,
+        slug: str | None = None,
+        enabled: bool = True,
+        create_customer_request: bool = False,
+    ) -> dict:
+        data = {
+            "name": name,
+            "fields": fields,
+            "enabled": enabled,
+            "createCustomerRequest": create_customer_request,
+        }
+        if description is not None:
+            data["description"] = description
+        if slug is not None:
+            data["slug"] = slug
+        return await self.post("/api/forms", data=data)
+
+    async def update_form(self, form_id: str, body: dict) -> dict:
+        return await self.patch(f"/api/forms/{form_id}", data=body)
+
+    async def delete_form(self, form_id: str) -> dict:
+        return await self.delete(f"/api/forms/{form_id}")
+
+    async def regenerate_form_token(self, form_id: str) -> dict:
+        return await self.post(f"/api/forms/{form_id}/regenerate-token")
+
+
+    # ========================================================================
     # Notification preferences (E27)
     # ========================================================================
 

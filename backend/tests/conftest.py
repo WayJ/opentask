@@ -97,6 +97,7 @@ from opentask.models.customer import Customer, CustomerRequest, CustomerRequestI
 from opentask.models.custom_field import CustomField, IssueCustomFieldValue  # noqa: F401 — E25
 from opentask.models.automation import AutomationRule  # noqa: F401 — E26
 from opentask.models.workspace_webhook import WorkspaceWebhook, WebhookDeliveryLog  # noqa: F401 — E29
+from opentask.models.issue_form import IssueForm  # noqa: F401 — E31
 from opentask.models.notification_preference import NotificationPreference  # noqa: F401 — E27
 from opentask.models.issue.model import CommentReaction  # noqa: F401 — E27
 from opentask.jwt_utils import create_access_token
