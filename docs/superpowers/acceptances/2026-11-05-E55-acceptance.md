@@ -3,7 +3,7 @@
 日期：2026-11-05（Asia/Shanghai）  
 分支：`sprint/E55-S1`  
 基线：`6e2c8d3`（全文 `6e2c8d34c18b02d527babf9f872878831571351b`）  
-**tip：** `4f68688`（全文 `4f686887dcb40cdb0daddc20a507390f065c7bce`）— 收口后再钉最终 tip
+**tip：** `1797160`（全文 `17971606ff0c5926f9b18fdb0cfdec536e9f961e`）
 
 ## 范围落地
 
