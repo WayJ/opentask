@@ -537,6 +537,7 @@ declare namespace App {
           };
           register: {
             title: string;
+            passwordPlaceholder: string;
             agreement: string;
             protocol: string;
             policy: string;

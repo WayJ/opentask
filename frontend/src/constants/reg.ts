@@ -5,12 +5,11 @@ export const REG_PHONE =
   /^[1](([3][0-9])|([4][01456789])|([5][012356789])|([6][2567])|([7][0-8])|([8][0-9])|([9][012356789]))[0-9]{8}$/;
 
 /**
- * Password reg
+ * Password reg（与后端 AuthService 注册/改密策略对齐）
  *
- * 6-32 characters, including letters, numbers, and common special characters
- * Supports: @, #, $, %, ^, &, *, -, _, +, =, !, ?, ., ~
+ * 至少 8 位，且同时包含字母和数字。
  */
-export const REG_PWD = /^[a-zA-Z0-9@#$%^&*\-_+=!?!.~]{6,32}$/;
+export const REG_PWD = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
 
 /** Email reg */
 export const REG_EMAIL = /^\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*$/;
@@ -23,4 +22,4 @@ export const REG_CODE_FOUR = /^\d{4}$/;
 
 /** Url reg */
 export const REG_URL =
-  /(((^https?:(?:\/\/)?)(?:[-;:&=+$,\w]+@)?[A-Za-z0-9.-]+(?::\d+)?|(?:www.|[-;:&=+$,\w]+@)[A-Za-z0-9.-]+)((?:\/[+~%/.\w-_]*)?\??(?:[-+=&;%@.\w_]*)#?(?:[\w]*))?)$/;
+  /(((^https?:(?:\/\/)?)(?:[-;:&=+$,\w]+@)?[A-Za-z0-9.-]+(?::\d+)?|(?:www.|[-;:&=+$,\w]+@)[A-Za-z0-9.-]+)((?:\/[+~%/\.\w-_]*)?\??(?:[-+=&;%@.\w_]*)#?(?:[\w]*))?)$/;

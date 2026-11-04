@@ -50,7 +50,9 @@ async function handleSubmit() {
     inviteToken: inviteToken.value
   });
   if (error) {
-    window.$message?.error(error.message || $t('common.error'));
+    const respData = (error as { response?: { data?: { message?: string; detail?: string } } }).response?.data;
+    const detail = typeof respData?.detail === 'string' ? respData.detail : undefined;
+    window.$message?.error(detail || respData?.message || error.message || $t('common.error'));
     return;
   }
   if (data?.defaultWorkspaceId) {
@@ -72,7 +74,7 @@ async function handleSubmit() {
         v-model:value="model.password"
         type="password"
         show-password-on="click"
-        :placeholder="$t('page.login.common.passwordPlaceholder')"
+        :placeholder="$t('page.login.register.passwordPlaceholder')"
       />
     </NFormItem>
     <NFormItem path="confirmPassword">

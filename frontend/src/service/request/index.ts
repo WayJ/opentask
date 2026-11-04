@@ -122,11 +122,19 @@ export const request = createFlatRequest(
 
       let message = error.message;
       let backendErrorCode = '';
+      const respData = error.response?.data as
+        | { message?: string; detail?: unknown; code?: string | number }
+        | undefined;
 
       // get backend error message and code
       if (error.code === BACKEND_ERROR_CODE) {
-        message = error.response?.data?.message || message;
-        backendErrorCode = String(error.response?.data?.code || '');
+        message = respData?.message || message;
+        backendErrorCode = String(respData?.code || '');
+      } else if (typeof respData?.detail === 'string' && respData.detail) {
+        // FastAPI HTTPException：透出 detail（如注册弱密码「至少 8 位…」）
+        message = respData.detail;
+      } else if (typeof respData?.message === 'string' && respData.message) {
+        message = respData.message;
       }
 
       // the error message is displayed in the modal

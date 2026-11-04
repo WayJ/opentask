@@ -1,6 +1,6 @@
 const local: App.I18n.Schema = {
   system: {
-    title: 'AI研发管理平台',
+    title: 'OpenTask',
     updateTitle: '系统版本更新通知',
     updateContent: '检测到系统有新版本发布，是否立即刷新页面？',
     updateConfirm: '立即刷新',
@@ -379,6 +379,7 @@ const local: App.I18n.Schema = {
       },
       register: {
         title: '注册账号',
+        passwordPlaceholder: '请输入密码（至少 8 位，含字母和数字）',
         agreement: '我已经仔细阅读并接受',
         protocol: '《用户协议》',
         policy: '《隐私权政策》'
@@ -509,7 +510,7 @@ const local: App.I18n.Schema = {
     },
     pwd: {
       required: '请输入密码',
-      invalid: '密码格式不正确，6-18位字符，包含字母、数字、下划线'
+      invalid: '密码至少 8 位，且需同时包含字母和数字'
     },
     confirmPwd: {
       required: '请输入确认密码',

@@ -1,6 +1,6 @@
 const local: App.I18n.Schema = {
   system: {
-    title: 'SoybeanAdmin',
+    title: 'OpenTask',
     updateTitle: 'System Version Update Notification',
     updateContent: 'A new version of the system has been detected. Do you want to refresh the page immediately?',
     updateConfirm: 'Refresh immediately',
@@ -385,6 +385,7 @@ const local: App.I18n.Schema = {
       },
       register: {
         title: 'Register',
+        passwordPlaceholder: 'Please enter password (min 8 chars, letters and numbers)',
         agreement: 'I have read and agree to',
         protocol: '《User Agreement》',
         policy: '《Privacy Policy》'
@@ -455,7 +456,7 @@ const local: App.I18n.Schema = {
     },
     pwd: {
       required: 'Please enter password',
-      invalid: '6-18 characters, including letters, numbers, and underscores'
+      invalid: 'Password must be at least 8 characters and include both letters and numbers'
     },
     confirmPwd: {
       required: 'Please enter password again',
