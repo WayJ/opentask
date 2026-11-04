@@ -36,6 +36,7 @@ TYPE_TO_PREF_KEY: dict[str, str] = {
     "sla_breached": "sla_breached",
     "webhook_dead_letter_alert": "webhook_delivery_alert",
     "webhook_auto_disabled": "webhook_delivery_alert",
+    "insights_digest": "insights_digest",
 }
 
 
@@ -73,6 +74,8 @@ class NotificationPreference(DBModel):
     webhook_delivery_alert: Mapped[bool] = mapped_column(
         Boolean, nullable=False, insert_default=True
     )
+    # E59：Insights 效能 digest（默认关；非 PREF_KEYS 类型门，类 due_reminder_digest）
+    insights_digest: Mapped[bool] = mapped_column(Boolean, nullable=False, insert_default=False)
     # E30：邮件通道总开关（opt-in，默认关；不在 PREF_KEYS 类型映射内）
     email_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, insert_default=False)
     created_at: Mapped[datetime] = mapped_column(

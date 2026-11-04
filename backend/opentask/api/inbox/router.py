@@ -43,6 +43,7 @@ class PrefsBody(BaseModel):
     automation_comment: Optional[bool] = None
     due_reminder: Optional[bool] = None
     due_reminder_digest: Optional[bool] = None
+    insights_digest: Optional[bool] = None
     sla_breached: Optional[bool] = None
     webhook_delivery_alert: Optional[bool] = None
     email_enabled: Optional[bool] = None
@@ -91,6 +92,8 @@ async def put_inbox_preferences(
     updates = {k: getattr(body, k) for k in PREF_KEYS if hasattr(body, k) and getattr(body, k) is not None}
     if body.due_reminder_digest is not None:
         updates["due_reminder_digest"] = body.due_reminder_digest
+    if body.insights_digest is not None:
+        updates["insights_digest"] = body.insights_digest
     if body.email_enabled is not None:
         updates["email_enabled"] = body.email_enabled
     row = await NotificationService(session).upsert_prefs(

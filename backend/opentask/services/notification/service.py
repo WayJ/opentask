@@ -94,6 +94,7 @@ class NotificationService:
             "workspaceId": workspace_id,
             **base,
             "due_reminder_digest": False,
+            "insights_digest": False,
             "email_enabled": False,
             "email_configured": email_configured(),
         }
@@ -102,6 +103,7 @@ class NotificationService:
         for k in PREF_KEYS:
             out[k] = bool(getattr(row, k))
         out["due_reminder_digest"] = bool(getattr(row, "due_reminder_digest", False))
+        out["insights_digest"] = bool(getattr(row, "insights_digest", False))
         out["email_enabled"] = bool(getattr(row, "email_enabled", False))
         return out
 
@@ -135,6 +137,8 @@ class NotificationService:
                 setattr(row, k, bool(updates[k]))
         if "due_reminder_digest" in updates and updates["due_reminder_digest"] is not None:
             row.due_reminder_digest = bool(updates["due_reminder_digest"])
+        if "insights_digest" in updates and updates["insights_digest"] is not None:
+            row.insights_digest = bool(updates["insights_digest"])
         if "email_enabled" in updates and updates["email_enabled"] is not None:
             row.email_enabled = bool(updates["email_enabled"])
         row.updated_at = datetime.utcnow()

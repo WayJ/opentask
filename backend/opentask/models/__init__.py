@@ -68,6 +68,8 @@ from opentask.models.issue_form import IssueForm
 from opentask.models.issue_recurrence import IssueRecurrence
 from opentask.models.due_reminder_delivery import DueReminderDelivery
 from opentask.models.webhook_alert_delivery import WebhookAlertDelivery
+from opentask.models.insights_saved_report import InsightsSavedReport
+from opentask.models.insights_digest_delivery import InsightsDigestDelivery
 from opentask.models.sla import SlaPolicy, IssueSlaClock
 from opentask.models.access_token import AccessToken
 from opentask.models.oauth2 import (
@@ -152,6 +154,8 @@ __all__ = [
     "IssueRecurrence",
     "DueReminderDelivery",
     "WebhookAlertDelivery",
+    "InsightsSavedReport",
+    "InsightsDigestDelivery",
     "SlaPolicy",
     "IssueSlaClock",
     "CommentReaction",

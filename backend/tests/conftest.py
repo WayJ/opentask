@@ -266,6 +266,7 @@ async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
                 "ALTER TABLE IF EXISTS workspace_webhooks ADD COLUMN IF NOT EXISTS alert_settings JSON",
                 "ALTER TABLE IF EXISTS workspace_webhooks ADD COLUMN IF NOT EXISTS paused_reason VARCHAR(64)",
                 "ALTER TABLE IF EXISTS notification_preferences ADD COLUMN IF NOT EXISTS webhook_delivery_alert BOOLEAN NOT NULL DEFAULT TRUE",
+                "ALTER TABLE IF EXISTS notification_preferences ADD COLUMN IF NOT EXISTS insights_digest BOOLEAN NOT NULL DEFAULT FALSE",
             ):
                 await conn.execute(_sql_text(_stmt))
             # E48 timeline_action enum values (no alembic per Q6a)
