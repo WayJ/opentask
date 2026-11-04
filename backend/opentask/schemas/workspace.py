@@ -11,6 +11,7 @@ class WorkspaceCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=120)
     slug: Optional[str] = Field(None, min_length=1, max_length=80)
     description: Optional[str] = None
+    issueKey: Optional[str] = Field(None, min_length=1, max_length=6)
 
 
 class WorkspaceUpdate(BaseModel):

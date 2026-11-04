@@ -73,7 +73,7 @@ async def test_create_issue_gets_key_n(test_client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_patch_issue_key_only_affects_new(test_client: AsyncClient):
+async def test_patch_issue_key_resets_counter_for_new(test_client: AsyncClient):
     user = await _register(test_client, "ik_p")
     first = await test_client.post(
         "/api/issues",
@@ -103,7 +103,8 @@ async def test_patch_issue_key_only_affects_new(test_client: AsyncClient):
         json={"title": "New", "type": "feature"},
     )
     assert nxt.status_code == 200, nxt.text
-    assert nxt.json()["data"]["issue_code"].startswith(f"{new_key}-")
+    # E11-S4: 改 key 后序号从 1 重新计（旧单号保留）
+    assert nxt.json()["data"]["issue_code"] == f"{new_key}-1"
 
 
 @pytest.mark.asyncio
@@ -193,3 +194,24 @@ async def test_missing_legacy_by_code_404(test_client: AsyncClient):
         headers=_auth(user["token"], user["workspaceId"]),
     )
     assert resp.status_code == 404
+
+@pytest.mark.asyncio
+async def test_create_workspace_with_explicit_issue_key(test_client: AsyncClient):
+    user = await _register(test_client, "ik_ck")
+    key = f"K{uuid.uuid4().hex[:4].upper()}"
+    resp = await test_client.post(
+        "/api/workspaces",
+        headers=_auth(user["token"]),
+        json={"name": f"WS {key}", "issueKey": key},
+    )
+    assert resp.status_code == 200, resp.text
+    ws = resp.json()["data"]
+    assert ws["issueKey"] == key
+    created = await test_client.post(
+        "/api/issues",
+        headers=_auth(user["token"], ws["id"]),
+        json={"title": "First", "type": "bug"},
+    )
+    assert created.status_code == 200, created.text
+    assert created.json()["data"]["issue_code"] == f"{key}-1"
+

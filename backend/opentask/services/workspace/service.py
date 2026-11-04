@@ -37,9 +37,22 @@ class WorkspaceService:
         owner_user_id: str,
         slug: str | None = None,
         description: str | None = None,
+        issue_key: str | None = None,
     ) -> Workspace:
         final_slug = await self._unique_slug(slug or slugify(name))
-        issue_key = await self._unique_issue_key(derive_issue_key_from_slug(final_slug))
+        if issue_key:
+            try:
+                desired = normalize_issue_key(issue_key)
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e)) from e
+            clash = await self.session.execute(
+                select(Workspace.id).where(Workspace.issue_key == desired).limit(1)
+            )
+            if clash.first() is not None:
+                raise HTTPException(status_code=400, detail="issue_key 已被占用")
+            issue_key = desired
+        else:
+            issue_key = await self._unique_issue_key(derive_issue_key_from_slug(final_slug))
         ws = Workspace(
             name=name.strip(),
             slug=final_slug,
@@ -130,6 +143,7 @@ class WorkspaceService:
             owner_user_id=user_id,
             slug=dto.slug,
             description=dto.description,
+            issue_key=dto.issueKey,
         )
         await self.session.commit()
         await self.session.refresh(ws)
@@ -167,6 +181,8 @@ class WorkspaceService:
                 if clash.first() is not None:
                     raise HTTPException(status_code=400, detail="issue_key 已被占用")
                 ws.issue_key = key
+                # E11-S4：改前缀后新单从 1 起；旧 Issue 保留原 issue_code
+                ws.issue_counter = 0
         if dto.gitStatusHooksEnabled is not None:
             ws.git_status_hooks_enabled = bool(dto.gitStatusHooksEnabled)
         if dto.gitHookOnPrOpen is not None:
