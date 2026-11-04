@@ -245,6 +245,7 @@ const local: App.I18n.Schema = {
     500: '服务器错误',
     'iframe-page': '外链页面',
     home: '首页',
+    workspace_cycles: '冲刺 Cycles',
     inbox: '收件箱',
     dashboard: '研发效能看板',
     workflow: '研发流水线',

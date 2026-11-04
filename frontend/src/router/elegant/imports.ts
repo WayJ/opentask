@@ -62,4 +62,5 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   workflow_projects: () => import("@/views/workflow/projects/index.vue"),
   "workflow_requirement-detail": () => import("@/views/workflow/requirement-detail/index.vue"),
   workflow_requirements: () => import("@/views/workflow/requirements/index.vue"),
+  workspace_cycles: () => import("@/views/workspace/cycles/index.vue"),
 };

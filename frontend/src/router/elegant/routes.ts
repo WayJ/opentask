@@ -610,5 +610,25 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       }
     ]
+  },
+  {
+    name: 'workspace',
+    path: '/workspace',
+    component: 'layout.base',
+    meta: {
+      title: 'workspace',
+      i18nKey: 'route.workspace'
+    },
+    children: [
+      {
+        name: 'workspace_cycles',
+        path: '/workspace/cycles',
+        component: 'view.workspace_cycles',
+        meta: {
+          title: 'workspace_cycles',
+          i18nKey: 'route.workspace_cycles'
+        }
+      }
+    ]
   }
 ];

@@ -75,6 +75,8 @@ declare module "@elegant-router/types" {
     "workflow_projects": "/workflow/projects";
     "workflow_requirement-detail": "/workflow/requirement-detail";
     "workflow_requirements": "/workflow/requirements";
+    "workspace": "/workspace";
+    "workspace_cycles": "/workspace/cycles";
   };
 
   /**
@@ -122,6 +124,7 @@ declare module "@elegant-router/types" {
     | "profile"
     | "work-management"
     | "workflow"
+    | "workspace"
   >;
 
   /**
@@ -185,6 +188,7 @@ declare module "@elegant-router/types" {
     | "workflow_projects"
     | "workflow_requirement-detail"
     | "workflow_requirements"
+    | "workspace_cycles"
   >;
 
   /**
