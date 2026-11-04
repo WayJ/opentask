@@ -1236,8 +1236,15 @@ class OpenTaskClient:
     async def run_due_sla(self) -> dict:
         return await self.post("/api/sla/run-due")
 
-    async def list_holiday_packs(self) -> dict:
-        return await self.get("/api/sla/holiday-packs")
+    async def list_holiday_packs(
+        self, *, region: str | None = None, year: int | None = None
+    ) -> dict:
+        params: dict = {}
+        if region:
+            params["region"] = region
+        if year is not None:
+            params["year"] = year
+        return await self.get("/api/sla/holiday-packs", params=params or None)
 
     async def get_holiday_pack(self, region: str, year: int) -> dict:
         return await self.get(f"/api/sla/holiday-packs/{region}/{year}")

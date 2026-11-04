@@ -484,16 +484,18 @@ def holiday_packs_cli():
 
 
 @holiday_packs_cli.command(name="list")
+@click.option("--region", default=None, help="E64: filter by region (CN/US/EU/UK)")
+@click.option("--year", default=None, type=int, help="E64: filter by year")
 @click.option("--json", "as_json", is_flag=True)
 @click.pass_obj
-def holiday_packs_list(obj, as_json):
+def holiday_packs_list(obj, region, year, as_json):
     config: Config = obj.config
     json_mode = as_json or obj.json_mode
     if not require_workspace_id(config, json_mode):
         raise SystemExit(1)
     client = make_client(config)
     try:
-        data = asyncio.run(client.list_holiday_packs()) or {}
+        data = asyncio.run(client.list_holiday_packs(region=region, year=year)) or {}
         rows = data.get("rows") or []
         if json_mode:
             echo_json(True, data=data)
