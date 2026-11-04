@@ -853,6 +853,39 @@ class OpenTaskClient:
     # Insights (E24)
     # ========================================================================
 
+
+    async def list_automations(self) -> dict:
+        return await self.get("/api/automations")
+
+    async def create_automation(
+        self,
+        name: str,
+        trigger_type: str,
+        action_type: str,
+        *,
+        trigger_config: dict | None = None,
+        action_config: dict | None = None,
+        condition: dict | None = None,
+        enabled: bool = True,
+    ) -> dict:
+        data = {
+            "name": name,
+            "triggerType": trigger_type,
+            "actionType": action_type,
+            "triggerConfig": trigger_config or {},
+            "actionConfig": action_config or {},
+            "enabled": enabled,
+        }
+        if condition is not None:
+            data["condition"] = condition
+        return await self.post("/api/automations", data=data)
+
+    async def enable_automation(self, rule_id: str) -> dict:
+        return await self.post(f"/api/automations/{rule_id}/enable")
+
+    async def disable_automation(self, rule_id: str) -> dict:
+        return await self.post(f"/api/automations/{rule_id}/disable")
+
     async def insights_summary(self, cycle_id: str | None = None, assignee_limit: int | None = None) -> dict:
         params = {}
         if cycle_id:
