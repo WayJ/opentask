@@ -26,13 +26,19 @@ class Issue(DBModel):
     # 主键
     id: Mapped[str] = mapped_column(String(36), primary_key=True, insert_default=generate_uuid)
 
-    # 问题编号（格式：ISSUE2026-1）
+    # 问题编号（E12：KEY-N；历史可为 ISSUE2026-N）
     issue_code: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
         unique=True,
         index=True,
         comment="问题编号"
+    )
+    legacy_issue_code: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
+        index=True,
+        comment="迁移前旧码（双解析）",
     )
 
     # 基本信息

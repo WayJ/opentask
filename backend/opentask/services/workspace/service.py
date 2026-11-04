@@ -11,6 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from opentask.models.workspace.model import Workspace, WorkspaceMember
 from opentask.schemas.workspace import WorkspaceCreate, WorkspaceUpdate
+from opentask.services.workspace.issue_key import (
+    derive_issue_key_from_slug,
+    normalize_issue_key,
+)
 
 
 _SLUG_RE = re.compile(r"[^a-z0-9-]+")
@@ -35,11 +39,14 @@ class WorkspaceService:
         description: str | None = None,
     ) -> Workspace:
         final_slug = await self._unique_slug(slug or slugify(name))
+        issue_key = await self._unique_issue_key(derive_issue_key_from_slug(final_slug))
         ws = Workspace(
             name=name.strip(),
             slug=final_slug,
             description=description,
             created_by=owner_user_id,
+            issue_key=issue_key,
+            issue_counter=0,
         )
         self.session.add(ws)
         await self.session.flush()
@@ -63,6 +70,20 @@ class WorkspaceService:
                 return candidate
             candidate = f"{base[:50]}-{uuid.uuid4().hex[:6]}"
         return f"{base[:40]}-{uuid.uuid4().hex}"
+
+    async def _unique_issue_key(self, base: str) -> str:
+        candidate = base
+        n = 2
+        for _ in range(32):
+            exists = await self.session.execute(
+                select(Workspace.id).where(Workspace.issue_key == candidate).limit(1)
+            )
+            if exists.first() is None:
+                return candidate
+            suffix = str(n)
+            candidate = (base[: max(2, 6 - len(suffix))] + suffix)[:6]
+            n += 1
+        return f"OT{uuid.uuid4().hex[:4]}".upper()[:6]
 
     async def list_for_user(self, user_id: str) -> list[tuple[Workspace, str]]:
         result = await self.session.execute(
@@ -131,6 +152,21 @@ class WorkspaceService:
             ws.cycle_rollover_policy = dto.cycleRolloverPolicy
         if dto.cycleCapacityLookback is not None:
             ws.cycle_capacity_lookback = int(dto.cycleCapacityLookback)
+        if dto.issueKey is not None:
+            try:
+                key = normalize_issue_key(dto.issueKey)
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e)) from e
+            if key != ws.issue_key:
+                clash = await self.session.execute(
+                    select(Workspace.id).where(
+                        Workspace.issue_key == key,
+                        Workspace.id != workspace_id,
+                    ).limit(1)
+                )
+                if clash.first() is not None:
+                    raise HTTPException(status_code=400, detail="issue_key 已被占用")
+                ws.issue_key = key
         ws.updated_at = datetime.utcnow()
         await self.session.commit()
         await self.session.refresh(ws)

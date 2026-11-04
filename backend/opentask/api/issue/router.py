@@ -543,18 +543,22 @@ async def get_issue(
     by_code: bool = Query(False, description="是否通过 issue_code 查询（默认通过 ID 查询）"),
     service: IssueService = Depends(get_issue_service),
     db: AsyncSession = Depends(get_session),
+    ws_ctx=Depends(get_optional_workspace_context),
 ):
     """获取 Issue 详情
 
     Args:
         issue_id: Issue ID 或 Issue Code
-        by_code: 设为 true 时，通过 issue_code 查询；默认通过 ID 查询
+        by_code: 设为 true 时，通过 issue_code / legacy_issue_code 查询；默认通过 ID 查询
 
     Examples:
         GET /api/issues/5ee3420e-2d69-4509-9ae7-524e8c40d6d1  # 通过 ID 查询
-        GET /api/issues/ISSUE2026-32?by_code=true          # 通过 code 查询
+        GET /api/issues/OT-1?by_code=true                  # 通过 KEY-N 查询
+        GET /api/issues/ISSUE2026-32?by_code=true          # 通过 legacy code 查询
     """
-    issue = await service.get_issue(issue_id, by_code=by_code)
+    workspace, _member, _user = ws_ctx
+    workspace_id = workspace.id if (workspace is not None and by_code) else None
+    issue = await service.get_issue(issue_id, by_code=by_code, workspace_id=workspace_id)
     if not issue:
         raise HTTPException(status_code=404, detail="Issue 不存在")
 

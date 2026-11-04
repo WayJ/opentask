@@ -40,6 +40,20 @@ class Workspace(DBModel):
     cycle_capacity_lookback: Mapped[int] = mapped_column(
         Integer, nullable=False, insert_default=3, server_default="3", comment="容量回看 completed Cycle 数"
     )
+    issue_key: Mapped[str] = mapped_column(
+        String(6),
+        nullable=False,
+        insert_default="OT",
+        server_default="OT",
+        comment="Issue 单号前缀 KEY（2–6 大写字母数字）",
+    )
+    issue_counter: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        insert_default=0,
+        server_default="0",
+        comment="已分配最大序号；下一单 = counter+1",
+    )
     created_by: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, insert_default=datetime.utcnow
@@ -50,6 +64,7 @@ class Workspace(DBModel):
 
     __table_args__ = (
         UniqueConstraint("slug", name="uq_workspaces_slug"),
+        UniqueConstraint("issue_key", name="uq_workspaces_issue_key"),
         Index("idx_workspaces_created_by", "created_by"),
     )
 

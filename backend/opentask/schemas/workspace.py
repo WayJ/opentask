@@ -20,6 +20,7 @@ class WorkspaceUpdate(BaseModel):
     cycleDurationDays: Optional[int] = Field(None, ge=1, le=365)
     cycleRolloverPolicy: Optional[str] = Field(None, pattern="^(into_next|leave_unassigned)$")
     cycleCapacityLookback: Optional[int] = Field(None, ge=1, le=20)
+    issueKey: Optional[str] = Field(None, min_length=1, max_length=6)
 
 
 class WorkspaceMemberAdd(BaseModel):
@@ -44,5 +45,6 @@ class WorkspaceOut(BaseModel):
     cycleDurationDays: int = 14
     cycleRolloverPolicy: str = "into_next"
     cycleCapacityLookback: int = 3
+    issueKey: str = "OT"
     createdAt: datetime
     updatedAt: datetime

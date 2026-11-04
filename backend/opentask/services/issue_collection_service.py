@@ -279,7 +279,8 @@ class IssueCollectionService:
                     issue_priority = IssuePriority.MEDIUM
 
                 # 生成 issue_code
-                issue_code = await issue_service._generate_issue_code()
+                ws_id = issue_data.get("workspace_id")
+                issue_code = await issue_service._generate_issue_code(ws_id)
 
                 # 准备描述
                 description = issue_data.get("description", "")
