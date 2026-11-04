@@ -107,7 +107,7 @@ Follow the workflow guidance to continue working until all tasks are completed.
 4. test-driven-development：先红测再实现
 5. verification-before-completion：BE/CLI/FE 门禁证据齐全才可称完成
 6. `docs/superpowers/acceptances/YYYY-MM-DD-EN-acceptance.md` 收 tip + 测数；STOP，不自开下一 Epic
-「继续推进」时由 Yuri 代审 design 后才实现；Way 可随时要求亲自审 design。
+brainstorming 对话与设计分段审批由 **Yuri** 代 Way 完成并拍板；大软仅在 Yuri 确认 design/plan 后写码。Way 默认只收 Epic 齐套回执，除非明确要求亲自审。
 
 ### gates
 - contracts: cd backend && uv run pytest tests/ -v
