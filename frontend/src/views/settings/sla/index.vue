@@ -32,9 +32,12 @@ import { localStg } from '@/utils/storage';
 import {
   WEEKDAY_KEYS,
   WEEKDAY_LABELS,
+  type BusinessException,
+  type ExceptionKind,
   type WeekdayKey,
   emptyWindows,
   normalizeBusinessHours,
+  normalizeExceptions,
   normalizeWindows,
   validateTimezoneClient,
   weekdayPreset0918
@@ -64,8 +67,18 @@ const bhSaving = ref(false);
 const bhForm = reactive({
   timezone: 'Asia/Shanghai',
   enabled: false,
-  windows: emptyWindows() as Record<WeekdayKey, { start: string; end: string }[]>
+  windows: emptyWindows() as Record<WeekdayKey, { start: string; end: string }[]>,
+  exceptions: [] as BusinessException[]
 });
+const exDraft = reactive({
+  date: '',
+  kind: 'closed' as ExceptionKind,
+  windowsText: ''
+});
+const kindOptions = [
+  { label: '关闭日 (closed)', value: 'closed' },
+  { label: '强制营业 (forced_open)', value: 'forced_open' }
+];
 const timezoneOptions = [
   { label: 'Asia/Shanghai', value: 'Asia/Shanghai' },
   { label: 'UTC', value: 'UTC' },
@@ -94,6 +107,7 @@ async function loadBusinessHours() {
   bhForm.timezone = data.timezone || 'Asia/Shanghai';
   bhForm.enabled = bh.enabled;
   bhForm.windows = bh.windows;
+  bhForm.exceptions = bh.exceptions;
 }
 
 function applyWeekdayPreset() {
@@ -123,16 +137,18 @@ async function saveBusinessHours() {
   try {
     let tz: string | null;
     let windows;
+    let exceptions: BusinessException[];
     try {
       tz = validateTimezoneClient(bhForm.timezone);
       windows = normalizeWindows(bhForm.windows);
+      exceptions = normalizeExceptions(bhForm.exceptions);
     } catch (e: any) {
       window.$message?.error?.(e?.message || '时段非法');
       return;
     }
     const { data, error } = await fetchUpdateWorkspace(workspace.value.id, {
       timezone: tz,
-      businessHours: { enabled: bhForm.enabled, windows }
+      businessHours: { enabled: bhForm.enabled, windows, exceptions }
     });
     if (error || !data) {
       window.$message?.error?.(error?.message || '保存失败');
@@ -144,6 +160,40 @@ async function saveBusinessHours() {
   } finally {
     bhSaving.value = false;
   }
+}
+
+function parseWindowsText(raw: string): { start: string; end: string }[] {
+  const parts = String(raw || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+  return parts.map(p => {
+    const [start, end] = p.split('-').map(x => x.trim());
+    return { start: start || '', end: end || '' };
+  });
+}
+
+function addExceptionDraft() {
+  if (!isOwner.value) return;
+  try {
+    const entry: BusinessException = {
+      date: String(exDraft.date || '').trim(),
+      kind: exDraft.kind
+    };
+    if (exDraft.kind === 'forced_open' && exDraft.windowsText.trim()) {
+      entry.windows = parseWindowsText(exDraft.windowsText);
+    }
+    bhForm.exceptions = normalizeExceptions([...bhForm.exceptions, entry]);
+    exDraft.date = '';
+    exDraft.windowsText = '';
+    exDraft.kind = 'closed';
+  } catch (e: any) {
+    window.$message?.error?.(e?.message || '例外日非法');
+  }
+}
+
+function removeException(date: string) {
+  bhForm.exceptions = bhForm.exceptions.filter(e => e.date !== date);
 }
 
 const metricOptions = [
@@ -344,6 +394,39 @@ onMounted(load);
             placeholder="空=非营业；例 09:00-12:00,13:00-18:00"
             @update:value="(v: string) => setDaySegments(day, v)"
           />
+        </div>
+        <div style="margin-top:8px">
+          <NText depth="3" style="display:block;margin-bottom:8px;font-size:12px">
+            例外日（本地日历日）：closed 全日不计营业分钟；forced_open 覆盖周窗（未填窗口则用周一窗或 09:00–18:00）。上限 366。
+          </NText>
+          <div v-if="!bhForm.exceptions.length" style="font-size:12px;color:#888;margin-bottom:8px">暂无例外日</div>
+          <div
+            v-for="ex in bhForm.exceptions"
+            :key="ex.date"
+            style="display:flex;gap:8px;align-items:center;margin-bottom:4px"
+          >
+            <span style="width:110px">{{ ex.date }}</span>
+            <span style="width:120px">{{ ex.kind }}</span>
+            <span style="flex:1;font-size:12px;color:#666">
+              {{
+                ex.kind === 'forced_open'
+                  ? (ex.windows || []).map(s => `${s.start}-${s.end}`).join(',') || '默认窗'
+                  : '—'
+              }}
+            </span>
+            <NButton size="tiny" :disabled="!isOwner" @click="removeException(ex.date)">删除</NButton>
+          </div>
+          <NSpace align="center" style="margin-top:8px">
+            <NInput v-model:value="exDraft.date" :disabled="!isOwner" placeholder="YYYY-MM-DD" style="width:140px" />
+            <NSelect v-model:value="exDraft.kind" :options="kindOptions" :disabled="!isOwner" style="width:180px" />
+            <NInput
+              v-model:value="exDraft.windowsText"
+              :disabled="!isOwner || exDraft.kind !== 'forced_open'"
+              placeholder="forced_open 可选窗口"
+              style="width:220px"
+            />
+            <NButton size="small" :disabled="!isOwner" @click="addExceptionDraft">添加例外</NButton>
+          </NSpace>
         </div>
         <NButton type="primary" :loading="bhSaving" :disabled="!isOwner" @click="saveBusinessHours">保存营业时段</NButton>
       </NSpace>
