@@ -54,7 +54,7 @@ def recurrence_list(obj, as_json):
 
 
 @recurrence_cli.command(name="create")
-@click.option("--title-template", "-t", required=True, help="支持 {date}/{yyyy-mm-dd}")
+@click.option("--title-template", "-t", required=True, help="支持 {date}/{yyyy-mm-dd}（按工作区时区本地日）")
 @click.option("--interval", "-i", type=click.Choice(["daily", "weekly", "monthly"]), required=True)
 @click.option("--next-run-at", required=True, help="ISO datetime UTC naive")
 @click.option("--description", "-d", default=None)
@@ -215,7 +215,7 @@ def recurrence_delete(obj, recurrence_id, as_json):
 @click.option("--json", "as_json", is_flag=True)
 @click.pass_obj
 def recurrence_run_due(obj, as_json):
-    """创建所有到期的周期 Issue，并推进 next_run_at（UTC）。"""
+    """创建所有到期的周期 Issue；标题 {date} 按工作区时区，next_run_at 仍 UTC naive。"""
     config: Config = obj.config
     json_mode = as_json or obj.json_mode
     if not require_workspace_id(config, json_mode):

@@ -132,7 +132,7 @@ def email_test(obj, as_json):
 @click.option("--json", "as_json", is_flag=True)
 @click.pass_obj
 def run_due_reminders(obj, as_json):
-    """执行到期提醒 tick（UTC；外部调度，无内置 cron）。"""
+    """执行到期提醒 tick（工作区时区本地日历日；未设则 UTC；外部调度，无内置 cron）。"""
     config: Config = obj.config
     json_mode = as_json or obj.json_mode
     if not require_workspace_id(config, json_mode):
@@ -156,7 +156,7 @@ def run_due_reminders(obj, as_json):
 
 
 @notif_cli.command(name="due-deliveries")
-@click.option("--bucket-date", "bucket_date", default=None, help="UTC YYYY-MM-DD")
+@click.option("--bucket-date", "bucket_date", default=None, help="账本 YYYY-MM-DD（工作区本地日）")
 @click.option("--json", "as_json", is_flag=True)
 @click.pass_obj
 def due_deliveries(obj, bucket_date, as_json):
