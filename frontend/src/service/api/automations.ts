@@ -11,7 +11,10 @@ export type AutomationAction =
   | 'set_assignee'
   | 'add_label'
   | 'set_priority'
-  | 'add_comment';
+  | 'add_comment'
+  | 'set_custom_field';
+
+export type CustomFieldConditionOp = 'eq' | 'neq' | 'contains' | 'is_set' | 'is_empty';
 
 export interface AutomationRuleRow {
   id: string;
@@ -33,6 +36,14 @@ export interface AutomationListResult {
   rows: AutomationRuleRow[];
   total: number;
 }
+
+export const CF_CONDITION_OPS: Array<{ label: string; value: CustomFieldConditionOp }> = [
+  { label: 'eq', value: 'eq' },
+  { label: 'neq', value: 'neq' },
+  { label: 'contains', value: 'contains' },
+  { label: 'is_set', value: 'is_set' },
+  { label: 'is_empty', value: 'is_empty' }
+];
 
 export function fetchAutomations() {
   return request<AutomationListResult>({ url: '/api/automations', method: 'get' });
@@ -91,4 +102,58 @@ export function parseAutomationJson(raw: string, fallback: Record<string, unknow
     throw new Error('配置须为 JSON 对象');
   }
   return v as Record<string, unknown>;
+}
+
+/** 从 condition 抽出 customField 块（camel / snake） */
+export function getCustomFieldCondition(
+  condition: Record<string, unknown> | null | undefined
+): { key?: string; fieldId?: string; op: CustomFieldConditionOp; value?: unknown } | null {
+  if (!condition) return null;
+  const raw = (condition.customField ?? condition.custom_field) as Record<string, unknown> | undefined;
+  if (!raw || typeof raw !== 'object') return null;
+  const op = String(raw.op || 'eq') as CustomFieldConditionOp;
+  return {
+    key: raw.key != null ? String(raw.key) : undefined,
+    fieldId: raw.fieldId != null ? String(raw.fieldId) : raw.field_id != null ? String(raw.field_id) : undefined,
+    op,
+    value: raw.value
+  };
+}
+
+/** 合并/写入 customField 条件（保留其它 AND 条件） */
+export function withCustomFieldCondition(
+  condition: Record<string, unknown> | null | undefined,
+  cf: { key: string; op: CustomFieldConditionOp; value?: unknown } | null
+): Record<string, unknown> | null {
+  const base: Record<string, unknown> = { ...(condition || {}) };
+  delete base.custom_field;
+  if (!cf || !cf.key) {
+    delete base.customField;
+    return Object.keys(base).length ? base : null;
+  }
+  const block: Record<string, unknown> = { key: cf.key, op: cf.op };
+  if (cf.op !== 'is_set' && cf.op !== 'is_empty') {
+    block.value = cf.value;
+  }
+  base.customField = block;
+  return base;
+}
+
+export function summarizeAutomationRule(row: Pick<AutomationRuleRow, 'condition' | 'actionType' | 'actionConfig'>): string {
+  const parts: string[] = [];
+  const cf = getCustomFieldCondition(row.condition);
+  if (cf) {
+    const ref = cf.key || cf.fieldId || '?';
+    if (cf.op === 'is_set' || cf.op === 'is_empty') {
+      parts.push(`cf:${ref} ${cf.op}`);
+    } else {
+      parts.push(`cf:${ref} ${cf.op} ${JSON.stringify(cf.value)}`);
+    }
+  }
+  if (row.actionType === 'set_custom_field') {
+    const cfg = row.actionConfig || {};
+    const ref = cfg.key ?? cfg.fieldId ?? cfg.field_id ?? '?';
+    parts.push(`set cf:${ref}=${JSON.stringify(cfg.value)}`);
+  }
+  return parts.join(' · ') || '—';
 }
