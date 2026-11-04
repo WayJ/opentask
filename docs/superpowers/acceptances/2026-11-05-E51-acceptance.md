@@ -3,7 +3,7 @@
 日期：2026-11-05（Asia/Shanghai）  
 分支：`sprint/E51-S1`  
 基线：`38bd9c6`  
-**tip：** `dd0d98a`（全文 `dd0d98ac29f54f7f7fe057475e94ae83a33a9f57`）— 收口 commit 后以 HEAD 为准
+**tip：** `9f7d1db`（全文 `9f7d1db05a2f597c03a81c2984ef7da2e1dab082`）
 
 ## 范围落地
 
