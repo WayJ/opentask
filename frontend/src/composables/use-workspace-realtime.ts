@@ -2,7 +2,7 @@
  * E23：Workspace 业务实时通道（/ws/workspace）
  * 单例：连接、心跳、重连；按 workspace 切换重订。
  */
-import { computed, onScopeDispose, ref, watch } from 'vue';
+import { computed, onScopeDispose, ref } from 'vue';
 import { getToken } from '@/store/modules/auth/shared';
 import { localStg } from '@/utils/storage';
 
@@ -235,6 +235,6 @@ export function resetWorkspaceRealtimeForTests() {
   reconnectAttempt = 0;
 }
 
-export function __testBuildWsUrl(workspaceId: string, token: string) {
+export function testBuildWsUrl(workspaceId: string, token: string) {
   return buildWsUrl(workspaceId, token);
 }

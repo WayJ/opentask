@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { subscribeWorkspaceRealtime } from '@/composables/use-workspace-realtime';
 import {
   NAlert,
   NButton,
@@ -33,6 +32,7 @@ import { type CustomerRequestRow, fetchCustomerRequests } from '@/service/api/cu
 import { fetchIssueBranchName } from '@/service/api/issue-vcs';
 import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
+import { subscribeWorkspaceRealtime } from '@/composables/use-workspace-realtime';
 import { useIssueFocus } from '@/composables/use-issue-focus';
 import MarkdownEditor from '@/components/MarkdownEditor.vue';
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
@@ -1229,8 +1229,8 @@ onMounted(() => {
     if (!ev.type || !String(ev.type).startsWith('issue.')) return;
     const id = String(ev.payload?.id || '');
     if (id && id === String(issueId.value)) {
-      void loadIssue();
-      void loadComments();
+      loadIssue();
+      loadComments();
     }
   });
   loadIssue();

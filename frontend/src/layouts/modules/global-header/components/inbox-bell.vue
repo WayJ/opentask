@@ -2,8 +2,8 @@
 import { onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { fetchInboxList } from '@/service/api';
-import { subscribeWorkspaceRealtime } from '@/composables/use-workspace-realtime';
 import { useAuthStore } from '@/store/modules/auth';
+import { subscribeWorkspaceRealtime } from '@/composables/use-workspace-realtime';
 
 defineOptions({ name: 'InboxBell' });
 

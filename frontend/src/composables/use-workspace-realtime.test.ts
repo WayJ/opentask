@@ -1,9 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  debounceFn,
-  resetWorkspaceRealtimeForTests,
-  __testBuildWsUrl
-} from './use-workspace-realtime';
+import { debounceFn, resetWorkspaceRealtimeForTests, testBuildWsUrl } from './use-workspace-realtime';
 
 vi.mock('@/store/modules/auth/shared', () => ({
   getToken: vi.fn(() => 'tok')
@@ -23,7 +19,7 @@ describe('useWorkspaceRealtime helpers', () => {
   });
 
   it('buildWsUrl uses ws protocol and query', () => {
-    const url = __testBuildWsUrl('ws-1', 'abc');
+    const url = testBuildWsUrl('ws-1', 'abc');
     expect(url).toContain('/ws/workspace?');
     expect(url).toContain('token=abc');
     expect(url).toContain('workspace_id=ws-1');

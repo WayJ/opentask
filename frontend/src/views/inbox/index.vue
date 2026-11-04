@@ -10,8 +10,8 @@ import {
   fetchSnoozeInbox,
   fetchUnsnoozeInbox
 } from '@/service/api';
-import { subscribeWorkspaceRealtime } from '@/composables/use-workspace-realtime';
 import { useAuthStore } from '@/store/modules/auth';
+import { subscribeWorkspaceRealtime } from '@/composables/use-workspace-realtime';
 
 defineOptions({ name: 'InboxPage' });
 

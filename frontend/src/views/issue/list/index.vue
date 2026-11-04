@@ -49,10 +49,7 @@ import { useAuthStore } from '@/store/modules/auth';
 import { useIssueFocus } from '@/composables/use-issue-focus';
 import { useIssueListViewMode } from '@/composables/use-issue-list-view-mode';
 import { useIssueSelection } from '@/composables/use-issue-selection';
-import {
-  debounceFn,
-  subscribeWorkspaceRealtime
-} from '@/composables/use-workspace-realtime';
+import { debounceFn, subscribeWorkspaceRealtime } from '@/composables/use-workspace-realtime';
 import { localStg } from '@/utils/storage';
 import { buildSavedViewDropdownOptions, canWriteSavedView } from '@/utils/saved-view-sections';
 import { deriveListStateFromSavedView } from '@/utils/apply-saved-view';
@@ -516,7 +513,7 @@ const syntaxExamples = [
 // Load issues
 let unsubRealtime: (() => void) | null = null;
 const debouncedRealtimeReload = debounceFn(() => {
-  void loadIssues();
+  loadIssues();
 }, 400);
 
 async function loadIssues() {

@@ -3,6 +3,7 @@ import { useFullscreen } from '@vueuse/core';
 import { GLOBAL_HEADER_MENU_ID } from '@/constants/app';
 import { useAppStore } from '@/store/modules/app';
 import { useThemeStore } from '@/store/modules/theme';
+import { useWorkspaceRealtime } from '@/composables/use-workspace-realtime';
 import GlobalLogo from '../global-logo/index.vue';
 import GlobalBreadcrumb from '../global-breadcrumb/index.vue';
 import GlobalSearch from '../global-search/index.vue';
@@ -10,7 +11,6 @@ import ThemeButton from './components/theme-button.vue';
 import UserAvatar from './components/user-avatar.vue';
 import WorkspaceSwitcher from './components/workspace-switcher.vue';
 import InboxBell from './components/inbox-bell.vue';
-import { useWorkspaceRealtime } from '@/composables/use-workspace-realtime';
 
 defineOptions({
   name: 'GlobalHeader'
@@ -47,7 +47,9 @@ const { connected: realtimeConnected } = useWorkspaceRealtime();
         class="mx-4px text-12px"
         :title="realtimeConnected ? '实时已连接' : '实时未连接（重连中）'"
         :style="{ color: realtimeConnected ? '#27a644' : '#8a8f98' }"
-      >●</span>
+      >
+        ●
+      </span>
       <InboxBell />
       <GlobalSearch v-if="themeStore.header.globalSearch.visible" />
       <FullScreen v-if="!appStore.isMobile" :full="isFullscreen" @click="toggle" />
