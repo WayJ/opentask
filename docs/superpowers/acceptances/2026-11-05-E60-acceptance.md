@@ -10,32 +10,31 @@ Plan：`docs/superpowers/plans/2026-11-05-e60-search-fts-mid.md`
 
 | 项 | 状态 | 备注 |
 |----|------|------|
-| A SearchBackend + 方言 FTS | ⏳ | PG tsvector+GIN；SQLite FTS5；未知方言 ILIKE；空 q 空结果 |
-| B 实体字段 | ⏳ | Issue +description；Project name+desc；Doc title+body；Member ILIKE |
-| C 索引同步 | ⏳ | alembic；PG generated；SQLite triggers；无 reindex worker |
-| D API 契约 | ⏳ | 分组不变；可选 rank/snippet |
-| E FE | ⏳ | `/search` + global-search 薄接；vitest；build |
-| F CLI 1.44.0 | ⏳ | 顶层 `search`；pins |
-| G 安全 / no-emit | ⏳ | workspace 隔离；spy；不改 E57–E59 主表面 |
+| A SearchBackend + 方言 FTS | ✅ | `backend.py`：PostgresFTS / SQLiteFTS / ILike；空 q 空结果；limit 1..50 |
+| B 实体字段 | ✅ | Issue +description；Project name+desc；Doc title+body；Member ILIKE（Q2a） |
+| C 索引同步 | ✅ | alembic `s5b6c7d8e9f3`；PG generated tsvector+GIN；SQLite FTS5+triggers；无 reindex worker |
+| D API 契约 | ✅ | `GET /api/search` 分组不变；可选 rank/snippet |
+| E FE | ✅ | types + flatten 兼容缺省 rank；snippet≤120；vitest；build ok |
+| F CLI 1.44.0 | ✅ | 顶层 `opentask search <q> [--limit] [--json]`；pins 全钉 |
+| G 安全 / no-emit | ✅ | 跨租户 403；fire_webhooks spy；不改 E57–E59 主表面 |
 
 ## ADR
 
-D1–D7 / Q1a–Q6a 按 design 落地（待实现填 ✅）。
+D1–D7 / Q1a–Q6a 按 design 落地。
 
 ## 门禁
 
-- BE：_pending_
-- BE 定向 E60+E17：_pending_
-- CLI：_pending_
-- FE vitest / build：_pending_
-- 已知 flake：`tests/tasks/test_tasks_jira_wire.py::TestMetadata::test_user_search`（不挡）
+- BE：**1172 passed / 24 skipped / 1 failed**（已知 flake `tests/tasks/test_tasks_jira_wire.py::TestMetadata::test_user_search`，与 E60 无关）
+- BE 定向 E60+E17 search：**14 passed**（E60 API 6 + backend unit 4 + E17 4）
+- CLI：**551 passed / 89 skipped**（全钉 **1.44.0**）
+- FE vitest：**352 passed**（46 files）；`pnpm run build`：**ok**
 
 ## Tip
 
 - 分支：`sprint/E60-S1`
-- tip：_pending_
+- tip：`47c82b9`（全文 `47c82b9cb6b3d6f577ac602d3a984923f55652f8`）— 本 acceptance 入库后再写 tip→HEAD 收口 commit
 - **未 push / 未开 PR / 未开 E61**
 
 ## Receipt
 
-`superpowers: design/plan/TDD/verify/acceptance = pending`
+`superpowers: design/plan/TDD/verify/acceptance = ok`

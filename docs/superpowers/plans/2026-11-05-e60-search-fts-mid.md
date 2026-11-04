@@ -27,7 +27,7 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e60-search-ft
 - Create: `docs/superpowers/plans/2026-11-05-e60-search-fts-mid.md`（本文件）
 - Create: `docs/superpowers/acceptances/2026-11-05-E60-acceptance.md`（骨架；收口补 tip/测数）
 
-- [ ] **Step 1:** 入库 plan + acceptance 骨架并 commit
+- [x] **Step 1:** 入库 plan + acceptance 骨架并 commit
 
 ```bash
 git add docs/superpowers/plans/2026-11-05-e60-search-fts-mid.md \
