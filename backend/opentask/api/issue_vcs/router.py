@@ -18,6 +18,16 @@ from opentask.utils.response import success_response
 router = APIRouter(prefix="/api/issues", tags=["Issue VCS"])
 
 
+
+class VcsLinkUpdate(BaseModel):
+    branchName: Optional[str] = Field(None, max_length=255)
+    prUrl: Optional[str] = Field(None, max_length=500)
+    provider: Optional[str] = None
+    externalId: Optional[str] = Field(None, max_length=100)
+    status: Optional[str] = None
+    title: Optional[str] = Field(None, max_length=255)
+
+
 class VcsLinkCreate(BaseModel):
     kind: str
     branchName: Optional[str] = Field(None, max_length=255)
@@ -102,3 +112,28 @@ async def delete_link(
         workspace_id=ws.id, issue_id=issue_id, link_id=link_id
     )
     return success_response(data={"id": link_id}, message="已解除关联")
+
+
+@router.patch("/{issue_id}/vcs/links/{link_id}")
+async def update_link(
+    issue_id: str,
+    link_id: str,
+    body: VcsLinkUpdate,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    ws, member, _user = ctx
+    require_writer(member)
+    row = await IssueVcsService(session).update_link(
+        workspace_id=ws.id,
+        issue_id=issue_id,
+        link_id=link_id,
+        branch_name=body.branchName,
+        pr_url=body.prUrl,
+        provider=body.provider,
+        external_id=body.externalId,
+        status=body.status,
+        title=body.title,
+    )
+    return success_response(data=serialize_vcs_link(row), message="已更新")
+

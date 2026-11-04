@@ -160,3 +160,145 @@ class IssueVcsService:
             )
         await self.db.delete(row)
         await self.db.commit()
+
+
+    async def update_link(
+        self,
+        *,
+        workspace_id: str,
+        issue_id: str,
+        link_id: str,
+        branch_name: Optional[str] = None,
+        pr_url: Optional[str] = None,
+        provider: Optional[str] = None,
+        external_id: Optional[str] = None,
+        status: Optional[str] = None,
+        title: Optional[str] = None,
+    ) -> IssueVcsLink:
+        await self.get_issue(workspace_id=workspace_id, issue_id=issue_id)
+        result = await self.db.execute(
+            select(IssueVcsLink).where(
+                IssueVcsLink.id == link_id,
+                IssueVcsLink.workspace_id == workspace_id,
+                IssueVcsLink.issue_id == issue_id,
+            )
+        )
+        row = result.scalar_one_or_none()
+        if not row:
+            raise HTTPException(
+                status_code=http_status.HTTP_404_NOT_FOUND, detail="VCS link 不存在"
+            )
+        if status is not None:
+            if status not in VCS_LINK_STATUSES:
+                raise HTTPException(
+                    status_code=http_status.HTTP_400_BAD_REQUEST,
+                    detail=f"status 仅允许: {', '.join(VCS_LINK_STATUSES)}",
+                )
+            row.status = status
+        if branch_name is not None:
+            row.branch_name = branch_name
+        if pr_url is not None:
+            row.pr_url = pr_url
+        if provider is not None:
+            if provider not in VCS_PROVIDERS:
+                raise HTTPException(
+                    status_code=http_status.HTTP_400_BAD_REQUEST,
+                    detail=f"provider 仅允许: {', '.join(VCS_PROVIDERS)}",
+                )
+            row.provider = provider
+        if external_id is not None:
+            row.external_id = external_id
+        if title is not None:
+            row.title = title
+        row.updated_at = datetime.utcnow()
+        await self.db.commit()
+        await self.db.refresh(row)
+        return row
+
+    async def find_issue_by_code(self, issue_code: str) -> Issue | None:
+        result = await self.db.execute(
+            select(Issue).where(
+                (Issue.issue_code == issue_code) | (Issue.legacy_issue_code == issue_code)
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def find_link_by_pr(
+        self, *, pr_url: str | None = None, external_id: str | None = None
+    ) -> IssueVcsLink | None:
+        if pr_url:
+            result = await self.db.execute(
+                select(IssueVcsLink).where(
+                    IssueVcsLink.kind == "pull_request",
+                    IssueVcsLink.pr_url == pr_url,
+                )
+            )
+            row = result.scalar_one_or_none()
+            if row:
+                return row
+        if external_id:
+            result = await self.db.execute(
+                select(IssueVcsLink).where(
+                    IssueVcsLink.kind == "pull_request",
+                    IssueVcsLink.external_id == str(external_id),
+                    IssueVcsLink.provider == "github",
+                )
+            )
+            return result.scalar_one_or_none()
+        return None
+
+    async def upsert_github_pr(
+        self,
+        *,
+        pr_url: str,
+        external_id: str | None,
+        status: str,
+        title: str | None,
+        head_ref: str | None,
+    ) -> IssueVcsLink:
+        from opentask.services.vcs.branch_naming import parse_issue_code_from_branch
+
+        issue: Issue | None = None
+        existing = await self.find_link_by_pr(pr_url=pr_url, external_id=external_id)
+
+        if head_ref:
+            code = parse_issue_code_from_branch(head_ref)
+            if code:
+                issue = await self.find_issue_by_code(code)
+
+        if existing:
+            if not issue:
+                issue = await self.get_issue(
+                    workspace_id=existing.workspace_id, issue_id=existing.issue_id
+                )
+            existing.status = status
+            existing.title = title or existing.title
+            existing.branch_name = head_ref or existing.branch_name
+            if external_id:
+                existing.external_id = str(external_id)
+            if pr_url:
+                existing.pr_url = pr_url
+            existing.provider = "github"
+            existing.updated_at = datetime.utcnow()
+            await self.db.commit()
+            await self.db.refresh(existing)
+            return existing
+
+        if not issue:
+            raise HTTPException(
+                status_code=http_status.HTTP_404_NOT_FOUND,
+                detail="无法从分支名解析 Issue，且无已有 PR 关联",
+            )
+
+        return await self.create_link(
+            workspace_id=issue.workspace_id,
+            issue_id=issue.id,
+            user_id="github-webhook",
+            kind="pull_request",
+            branch_name=head_ref,
+            pr_url=pr_url,
+            provider="github",
+            external_id=str(external_id) if external_id is not None else None,
+            status=status,
+            title=title,
+        )
