@@ -36,7 +36,7 @@ date: 2026-11-04
 
 | sprint | state | note |
 |---|---|---|
-| S1 | active | **Cycle CRUD API + Alembic + Workspace Cycles 设置列表 UI**（启用开关、列表、创建 upcoming）。plan: `docs/superpowers/sprints/2026-11-04-E6-S1-plan.md` |
+| S1 | closed | **Cycle CRUD API + Alembic + Workspace Cycles 设置列表 UI**（启用开关、列表、创建 upcoming）。plan: `docs/superpowers/sprints/2026-11-04-E6-S1-plan.md` |
 | S2 | planned | **Issue.cycle_id** + 列表/看板筛选 + 指派 Cycle + ⌘K Cycles 分组跳转/筛选。可选 `estimate_points` 字段最小钩子 |
 | S3 | planned | **complete/rollover** + 容量提示 + 空状态打磨 + 全量门禁 + Epic local-complete |
 
@@ -210,3 +210,4 @@ date: 2026-11-04
 ## 进度注记
 
 - 2026-11-04（UTC+8）：E6 Phase 1 启动（仅文档）。基线 `sprint/E5-S3` @ `da13c86`；分支 `sprint/E6-S1`；worktree `/workspace/opentask-worktrees/E6-S1`。按 PRD 加厚范围写 roadmap/design/S1 stub；**无产品实现、不推远程**。
+- 2026-11-04（UTC+8）：E6-S1 本地收口 tip `bd22f89`；migration `f0e1d2c3b4a5`；pytest 632；FE lint 0 / build ok；**无 push**。Epic 仍 active → S2。

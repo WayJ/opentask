@@ -2,7 +2,7 @@
 
 日期：2026-11-04  
 Epic：E6  
-状态：active（Phase 1：roadmap + design + S1 stub；**无产品实现**）  
+状态：active（S1 本地 closed：CRUD+设置 UI；S2/S3 待做）  
 基线：`sprint/E5-S3` @ `da13c86`；worktree `/workspace/opentask-worktrees/E6-S1`（分支 `sprint/E6-S1`）  
 北星：OpenTask Linear PRD §E6
 
