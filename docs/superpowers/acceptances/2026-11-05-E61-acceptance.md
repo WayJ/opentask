@@ -31,7 +31,7 @@ D1–D7 / Q1a–Q6a 按 design 落地。
 ## Tip
 
 - 分支：`sprint/E61-S1`
-- tip：`9150b3a`（全文 `9150b3a3c94bf7751aeba06e38602657a98e93c4`）— 本 acceptance tip commit 后以 HEAD 为准
+- tip：`bf615a2`（全文 `bf615a26211c38f005d0a13de67ff852a5795302`）
 - **未 push / 未开 PR / 未开 E62**
 
 ## Receipt
