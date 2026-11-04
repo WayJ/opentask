@@ -3,7 +3,7 @@
 日期：2026-11-04（Asia/Shanghai）  
 分支：`sprint/E17-S1`  
 基线：`b4ec445`  
-tip：见 git HEAD（本文件提交后 pin）
+tip：`a8660fcb5cd11165500d63e65348b70b83cbb57c`
 
 ## A. E16 收口
 - [x] `alembic upgrade head` → `a1b2c3d4e5f9`；孤儿 Default WS 行已删
