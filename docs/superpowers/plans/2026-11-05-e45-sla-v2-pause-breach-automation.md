@@ -26,7 +26,7 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e45-sla-v2-pa
 - Create: `docs/superpowers/plans/2026-11-05-e45-sla-v2-pause-breach-automation.md`（本文件）
 - Create: `docs/superpowers/acceptances/2026-11-05-E45-acceptance.md`（骨架；收口补 tip/测数）
 
-- [ ] **Step 1:** 入库 plan + acceptance 骨架并 commit
+- [x] **Step 1:** 入库 plan + acceptance 骨架并 commit
 
 ---
 
@@ -51,8 +51,8 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e45-sla-v2-pa
 **Interfaces:**
 - Produces: ORM 字段；CLOCK/TRIGGER 常量；迁移可 upgrade
 
-- [ ] **Step 1: 红测** `CLOCK_STATUSES` 含 `paused`；`TRIGGER_TYPES` 含 `issue.sla_breached`；policy create 默认 `pauseStatuses==[]`
-- [ ] **Step 2: 跑测红 → 最小实现绿 → commit**
+- [x] **Step 1: 红测** `CLOCK_STATUSES` 含 `paused`；`TRIGGER_TYPES` 含 `issue.sla_breached`；policy create 默认 `pauseStatuses==[]`
+- [x] **Step 2: 跑测红 → 最小实现绿 → commit**
 
 ---
 
@@ -70,8 +70,8 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e45-sla-v2-pa
 - Policy JSON：既有字段 + `pauseStatuses: string[]`
 - Clock JSON：既有 + `elapsedBeforePauseMinutes:int` / `pausedAt` / `segmentStartedAt`
 
-- [ ] **Step 1: 红测** create 带 `pauseStatuses:["feedback"]`；非法 status 400；patch 清空为 `[]`；跨 WS 404；GET issue sla 含新字段
-- [ ] **Step 2: 绿 → commit**
+- [x] **Step 1: 红测** create 带 `pauseStatuses:["feedback"]`；非法 status 400；patch 清空为 `[]`；跨 WS 404；GET issue sla 含新字段
+- [x] **Step 2: 绿 → commit**
 
 ---
 
@@ -91,13 +91,13 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e45-sla-v2-pa
 **Interfaces:**
 - Consumes: policy.pause_statuses；Produces: paused/running 状态机
 
-- [ ] **Step 1: 红测**
+- [x] **Step 1: 红测**
   - in_progress→feedback → paused；elapsed>0；run-due 不 breach paused（即使 deadline 过去）
   - feedback→in_progress → running；deadline ≈ now+(target-elapsed)
   - paused→resolved → met
   - running→resolved 仍 met（无 pause 配置回归）
   - stop 优先于 pause（stop 态同时在 pause 列表 → met）
-- [ ] **Step 2: 绿 → commit**
+- [x] **Step 2: 绿 → commit**
 
 ---
 
@@ -132,8 +132,8 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e45-sla-v2-pa
 **Interfaces:**
 - Consumes: `fire_automations`；Produces: breach 路径 automation 一次火
 
-- [ ] **Step 1: 红测** breach → automation spy 含 `issue.sla_breached`；set_priority 落地；再 run-due 不双火；automation 异常记 errors 但 clock 仍 breached
-- [ ] **Step 2: 绿 → commit**
+- [x] **Step 1: 红测** breach → automation spy 含 `issue.sla_breached`；set_priority 落地；再 run-due 不双火；automation 异常记 errors 但 clock 仍 breached
+- [x] **Step 2: 绿 → commit**
 
 ---
 
@@ -153,8 +153,8 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e45-sla-v2-pa
 - Modify: `frontend/src/service/api/automations.test.ts` — 常量含新 trigger
 - Modify: `frontend/src/views/workspace/automations/index.vue` — triggerOptions += `{ label: 'SLA 违约 (issue.sla_breached)', value: 'issue.sla_breached' }`；旁注 set_status 警告
 
-- [ ] **Step 1: 红测** vitest badge/format/trigger
-- [ ] **Step 2: 绿 → commit**
+- [x] **Step 1: 红测** vitest badge/format/trigger
+- [x] **Step 2: 绿 → commit**
 
 ---
 
@@ -169,17 +169,17 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e45-sla-v2-pa
 - 全仓历史 `1.28.0` version 断言 → `1.29.0`
 - Create: `agent-harness/opentask-cli/tests/test_e45_sla_v2.py`
 
-- [ ] **Step 1: 红测** version 1.29.0；`--pause` help；TRIGGERS 含 issue.sla_breached
-- [ ] **Step 2: 绿 → commit**
+- [x] **Step 1: 红测** version 1.29.0；`--pause` help；TRIGGERS 含 issue.sla_breached
+- [x] **Step 2: 绿 → commit**
 
 ---
 
 ### Task 8 — 门禁 + acceptance tip
 
-- [ ] BE 定向 `test_e45_*` + `test_e42_*` + 相关；全量（记 passed；`test_user_search` flake 可记 Gaps）
-- [ ] CLI 全量；FE vitest + build
-- [ ] 填写 acceptance；最终 tip commit
-- [ ] **STOP**；不 push；不自开 E46
+- [x] BE 定向 `test_e45_*` + `test_e42_*` + 相关；全量（记 passed；`test_user_search` flake 可记 Gaps）
+- [x] CLI 全量；FE vitest + build
+- [x] 填写 acceptance；最终 tip commit
+- [x] **STOP**；不 push；不自开 E46
 
 ---
 
