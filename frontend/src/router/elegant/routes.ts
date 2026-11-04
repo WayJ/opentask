@@ -606,7 +606,8 @@ export const generatedRoutes: GeneratedRoute[] = [
         meta: {
           title: 'workflow_requirements',
           i18nKey: 'route.workflow_requirements',
-          icon: 'mdi:checkbox-marked-circle-outline'
+          icon: 'mdi:checkbox-marked-circle-outline',
+          hideInMenu: true
         }
       }
     ]

@@ -267,11 +267,11 @@ onMounted(() => {
       </template>
       <NSpace vertical :size="8">
         <!-- 新增：创建任务按钮 -->
-        <NButton block secondary type="primary" @click="showCreatePGETaskModal = true">
+        <NButton block tertiary @click="showCreatePGETaskModal = true">
           <template #icon>
             <icon-mdi-plus-circle />
           </template>
-          创建任务
+          创建任务（遗留·已弃用）
         </NButton>
         <NButton
           v-if="requirement.status !== 'generating'"

@@ -289,7 +289,7 @@ const local: App.I18n.Schema = {
     workflow: 'Workflow',
     workflow_projects: 'Projects',
     'workflow_project-detail': 'Project Detail',
-    workflow_requirements: 'Requirements',
+    workflow_requirements: 'Requirements (Legacy)',
     'workflow_requirement-detail': 'Requirement Detail',
     'work-management': 'Work Management',
     'work-management_rd-groups': 'R&D Groups',

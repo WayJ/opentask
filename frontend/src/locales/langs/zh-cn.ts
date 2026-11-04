@@ -259,7 +259,7 @@ const local: App.I18n.Schema = {
     projects: '项目管理',
     workflow_projects: '项目管理',
     'workflow_project-detail': '项目详情',
-    workflow_requirements: '需求管理',
+    workflow_requirements: '需求（遗留）',
     'workflow_requirement-detail': '需求详情',
     system: '系统配置',
     'knowledge-base': '知识库',
