@@ -68,6 +68,7 @@ const local: App.I18n.Schema = {
       navCycles: 'Cycles 设置',
       navInitiatives: 'Initiatives',
       navTriage: '分诊',
+      navSearch: '搜索…',
       navInbox: '收件箱'
     }
   },
@@ -259,6 +260,7 @@ const local: App.I18n.Schema = {
     'workspace_issue-templates': 'Issue 模板',
     workspace_cycles: '冲刺 Cycles',
     inbox: '收件箱',
+    search: '搜索',
     initiatives: 'Initiatives',
     initiatives_detail: 'Initiative 详情',
     triage: '分诊',
@@ -320,6 +322,15 @@ const local: App.I18n.Schema = {
     'work-management_my-work_feedback': '工作反馈'
   },
   page: {
+    search: {
+      placeholder: '搜索 Issue、项目、文档、成员…',
+      hint: '输入关键词开始搜索。也可用 ⌘K 打开命令面板。',
+      empty: '没有匹配结果',
+      groupIssues: 'Issues',
+      groupProjects: '项目',
+      groupDocs: '文档',
+      groupMembers: '成员'
+    },
     profile: {
       pwd: {
         title: '修改密码',

@@ -36,9 +36,21 @@ export function buildNavActions(
     cycles?: string;
     labels?: string;
     issueTemplates?: string;
+    search?: string;
   }
 ): PaletteItem[] {
   const items: PaletteItem[] = [
+    ...(titles.search
+      ? [
+          {
+            id: 'nav.search',
+            kind: 'action' as const,
+            title: titles.search,
+            keywords: ['search', '搜索', 'find', '查找'],
+            run: () => navigate('/search')
+          }
+        ]
+      : []),
     {
       id: 'nav.issues',
       kind: 'action',

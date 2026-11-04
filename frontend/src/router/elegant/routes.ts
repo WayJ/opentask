@@ -98,6 +98,28 @@ export const generatedRoutes: GeneratedRoute[] = [
     }
   },
   {
+    name: 'initiatives',
+    path: '/initiatives',
+    component: 'layout.base',
+    meta: {
+      title: 'initiatives',
+      i18nKey: 'route.initiatives',
+      icon: 'mdi:flag-variant',
+      order: 4
+    },
+    children: [
+      {
+        name: 'initiatives_detail',
+        path: '/initiatives/detail',
+        component: 'view.initiatives_detail',
+        meta: {
+          title: 'initiatives_detail',
+          i18nKey: 'route.initiatives_detail'
+        }
+      }
+    ]
+  },
+  {
     name: 'invite',
     path: '/invite/:token',
     component: 'layout.blank$view.invite',
@@ -421,6 +443,18 @@ export const generatedRoutes: GeneratedRoute[] = [
     ]
   },
   {
+    name: 'search',
+    path: '/search',
+    component: 'layout.base$view.search',
+    meta: {
+      title: 'search',
+      i18nKey: 'route.search',
+      icon: 'mdi:magnify',
+      order: 0,
+      hideInMenu: true
+    }
+  },
+  {
     name: 'triage',
     path: '/triage',
     component: 'layout.base$view.triage',
@@ -430,28 +464,6 @@ export const generatedRoutes: GeneratedRoute[] = [
       icon: 'mdi:inbox-arrow-down',
       order: 2.4,
       hideInMenu: true
-    }
-  },
-  {
-    name: 'initiatives',
-    path: '/initiatives',
-    component: 'layout.base$view.initiatives',
-    meta: {
-      title: 'initiatives',
-      i18nKey: 'route.initiatives',
-      icon: 'mdi:flag-variant',
-      order: 4
-    }
-  },
-  {
-    name: 'initiatives_detail',
-    path: '/initiatives/detail',
-    component: 'layout.base$view.initiatives_detail',
-    meta: {
-      title: 'initiatives_detail',
-      i18nKey: 'route.initiatives_detail',
-      hideInMenu: true,
-      activeMenu: 'initiatives'
     }
   },
   {

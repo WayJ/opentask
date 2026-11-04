@@ -50,6 +50,7 @@ watchEffect(() => {
   });
 
   const navActions = buildNavActions(navigate, {
+    search: $t('common.commandPalette.navSearch'),
     issues: $t('common.commandPalette.navIssues'),
     createIssue: $t('common.commandPalette.navCreateIssue'),
     createFromTemplate: $t('common.commandPalette.navCreateFromTemplate'),

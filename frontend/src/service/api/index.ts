@@ -24,3 +24,4 @@ export * from './cycles';
 export * from './tag';
 export * from './display-prefs';
 export * from './favorites';
+export * from './search';

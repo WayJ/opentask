@@ -25,6 +25,8 @@ declare module "@elegant-router/types" {
     "home": "/home";
     "iframe-page": "/iframe-page/:url";
     "inbox": "/inbox";
+    "initiatives": "/initiatives";
+    "initiatives_detail": "/initiatives/detail";
     "invite": "/invite/:token";
     "issue": "/issue";
     "issue_collection": "/issue/collection/:id";
@@ -55,9 +57,8 @@ declare module "@elegant-router/types" {
     "profile": "/profile";
     "profile_access-tokens": "/profile/access-tokens";
     "profile_userinfo": "/profile/userinfo";
+    "search": "/search";
     "triage": "/triage";
-    "initiatives": "/initiatives";
-    "initiatives_detail": "/initiatives/detail";
     "work-management": "/work-management";
     "work-management_cost-projects": "/work-management/cost-projects";
     "work-management_cost-projects_create": "/work-management/cost-projects/create";
@@ -123,6 +124,7 @@ declare module "@elegant-router/types" {
     | "home"
     | "iframe-page"
     | "inbox"
+    | "initiatives"
     | "invite"
     | "issue"
     | "knowledge-base"
@@ -130,9 +132,8 @@ declare module "@elegant-router/types" {
     | "manage"
     | "oauth2"
     | "profile"
+    | "search"
     | "triage"
-    | "initiatives"
-    | "initiatives_detail"
     | "work-management"
     | "workflow"
     | "workspace"
@@ -161,6 +162,8 @@ declare module "@elegant-router/types" {
     | "dashboard"
     | "home"
     | "inbox"
+    | "initiatives_detail"
+    | "initiatives"
     | "invite"
     | "issue_collection-create"
     | "issue_collection-list"
@@ -184,9 +187,8 @@ declare module "@elegant-router/types" {
     | "oauth2"
     | "profile_access-tokens"
     | "profile_userinfo"
+    | "search"
     | "triage"
-    | "initiatives"
-    | "initiatives_detail"
     | "work-management_cost-projects_create"
     | "work-management_cost-projects_detail"
     | "work-management_cost-projects_list"

@@ -376,6 +376,7 @@ declare namespace App {
           navCreateFromTemplate: string;
           navProjects: string;
           navCycles: string;
+          navSearch: string;
           navInbox: string;
           navTriage: string;
           navLabels: string;
@@ -501,6 +502,15 @@ declare namespace App {
       };
       route: Record<I18nRouteKey, string>;
       page: {
+        search: {
+          placeholder: string;
+          hint: string;
+          empty: string;
+          groupIssues: string;
+          groupProjects: string;
+          groupDocs: string;
+          groupMembers: string;
+        };
         login: {
           common: {
             loginOrRegister: string;

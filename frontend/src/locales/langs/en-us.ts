@@ -68,6 +68,7 @@ const local: App.I18n.Schema = {
       navCycles: 'Cycles settings',
       navInitiatives: 'Initiatives',
       navTriage: 'Triage',
+      navSearch: 'Search…',
       navInbox: 'Inbox'
     }
   },
@@ -261,6 +262,7 @@ const local: App.I18n.Schema = {
     'workspace_issue-templates': 'Issue Templates',
     workspace_cycles: 'Cycles',
     inbox: 'Inbox',
+    search: 'Search',
     initiatives: 'Initiatives',
     initiatives_detail: 'Initiative Detail',
     triage: 'Triage',
@@ -325,6 +327,15 @@ const local: App.I18n.Schema = {
     'issue_collection-create': 'Create Collection'
   },
   page: {
+    search: {
+      placeholder: 'Search issues, projects, docs, members…',
+      hint: 'Type to search. Or open the command palette with ⌘K.',
+      empty: 'No matches',
+      groupIssues: 'Issues',
+      groupProjects: 'Projects',
+      groupDocs: 'Docs',
+      groupMembers: 'Members'
+    },
     profile: {
       pwd: {
         title: 'Change password',
