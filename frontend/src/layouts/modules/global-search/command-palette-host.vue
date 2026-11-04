@@ -11,13 +11,13 @@ import { useAppHotkeys } from '@/composables/use-app-hotkeys';
 import { useCommandPalette } from '@/composables/use-command-palette';
 import { buildNavActions, menusToPaletteItems } from '@/utils/command-palette';
 import {
+  cyclesToPaletteItems,
   filterByNameQuery,
   issuesToPaletteItems,
   mergeIssuesById,
   projectsToPaletteItems,
   resolveIssueSearchPlan,
-  savedViewsToPaletteItems,
-  cyclesToPaletteItems
+  savedViewsToPaletteItems
 } from '@/utils/command-palette-entities';
 import { $t } from '@/locales';
 import SearchModal from './components/search-modal.vue';

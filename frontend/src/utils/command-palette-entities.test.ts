@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SavedView } from '@/service/api/saved-views';
 import {
+  cyclesToPaletteItems,
   filterByNameQuery,
   issuesToPaletteItems,
   looksLikeIssueCode,
   projectsToPaletteItems,
   resolveIssueSearchPlan,
-  savedViewsToPaletteItems,
-  cyclesToPaletteItems
+  savedViewsToPaletteItems
 } from './command-palette-entities';
 
 describe('looksLikeIssueCode', () => {
