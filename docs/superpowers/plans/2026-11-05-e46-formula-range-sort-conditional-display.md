@@ -37,7 +37,7 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e46-formula-r
 - Create: 本 plan
 - Create: `docs/superpowers/acceptances/2026-11-05-E46-acceptance.md`（骨架；收口补 tip/测数）
 
-- [ ] **Step 1:** 入库 plan + acceptance 骨架并 commit
+- [x] **Step 1:** 入库 plan + acceptance 骨架并 commit
 
 ---
 
@@ -57,7 +57,7 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e46-formula-r
 **Interfaces:**
 - Produces: `parse_cf_query_items(...) -> list[tuple[str,str,str]]`
 
-- [ ] **Step 1: 红测**
+- [x] **Step 1: 红测**
 ```python
 def test_parse_cf_ops():
     from opentask.services.custom_field.service import parse_cf_query_items
@@ -76,7 +76,7 @@ def test_parse_cf_ops():
         ("env", "eq", "prod"),
     ]
 ```
-- [ ] **Step 2: 跑红 → 实现绿 → commit**（同步修 E32 unit 断言）
+- [x] **Step 2: 跑红 → 实现绿 → commit**（同步修 E32 unit 断言）
 
 ---
 
@@ -96,8 +96,8 @@ def test_parse_cf_ops():
 **Interfaces:**
 - Consumes: `(key,op,raw)`；Produces: SQL AND filters；400 `cf_range_unsupported`
 
-- [ ] **Step 1: 红测** stored number `cf.weight[gte]=5` + `[lt]=10`；date range；text `[gt]` → 400；eq 回归绿
-- [ ] **Step 2: 绿 → commit**
+- [x] **Step 1: 红测** stored number `cf.weight[gte]=5` + `[lt]=10`；date range；text `[gt]` → 400；eq 回归绿
+- [x] **Step 2: 绿 → commit**
 
 ---
 
@@ -110,8 +110,8 @@ def test_parse_cf_ops():
   - cache 路径 **不**调用 emit / fire_automations / fire_webhooks / timeline
 - Spy 测：range 过滤后 webhook/automation 未触发
 
-- [ ] **Step 1: 红测** formula score `gte=8`/`lt=20`；与 eq AND；cap 超限仍 400 `formula_filter_too_broad`；spy no-emit
-- [ ] **Step 2: 绿 → commit**
+- [x] **Step 1: 红测** formula score `gte=8`/`lt=20`；与 eq AND；cap 超限仍 400 `formula_filter_too_broad`；spy no-emit
+- [x] **Step 2: 绿 → commit**
 
 ---
 
@@ -129,8 +129,8 @@ def test_parse_cf_ops():
 - Saved View：`sort_json` 已透传；测 `{sort_by:"cf:score",sort_order:"desc"}` 可存可读；应用 View 时 list 带同参（既有 FE 路径即可）
 - Constant: `FORMULA_SORT_CANDIDATE_CAP = FORMULA_FILTER_CANDIDATE_CAP` 导出
 
-- [ ] **Step 1: 红测** sort cf:score desc；error/null 末；multi_select 400；超 cap 400；系统 created_at 回归；saved view 存 `cf:`
-- [ ] **Step 2: 绿 → commit**
+- [x] **Step 1: 红测** sort cf:score desc；error/null 末；multi_select 400；超 cap 400；系统 created_at 回归；saved view 存 `cf:`
+- [x] **Step 2: 绿 → commit**
 
 ---
 
@@ -148,8 +148,8 @@ def test_parse_cf_ops():
 - FE: DisplayOptionsPanel 增删改规则；List/Board 行 class / cell tint
 - **不做** CSV 导出 formats
 
-- [ ] **Step 1: 红测** BE normalize；写 >10 → 400；FE vitest tint first-match
-- [ ] **Step 2: 绿 → commit**
+- [x] **Step 1: 红测** BE normalize；写 >10 → 400；FE vitest tint first-match
+- [x] **Step 2: 绿 → commit**
 
 ---
 
@@ -168,19 +168,19 @@ def test_parse_cf_ops():
   - `--cf` help 示例 `score[gte]=8`；`--sort-by cf:score`（既有 `--sort-by` 透传即可）
   - 新测 `tests/test_e46_formula_range_sort.py`：version + help 含 gte / cf:
 
-- [ ] **Step 1: 红测** parser `cf:score>=8` → op gte；CLI version 1.30.0
-- [ ] **Step 2: 绿 → commit**（确认三文件 version 齐全）
+- [x] **Step 1: 红测** parser `cf:score>=8` → op gte；CLI version 1.30.0
+- [x] **Step 2: 绿 → commit**（确认三文件 version 齐全）
 
 ---
 
 ### Task 8 — 门禁 + acceptance tip
 
-- [ ] BE：`pytest` 全量 + 定向 `test_e46*` `test_e43*` `test_e32*`（记 passed；`test_user_search` flake 可记）
-- [ ] CLI：`pytest` agent-harness/opentask-cli
-- [ ] FE：`npx vitest run` + `npm run build`
-- [ ] 确认 pyproject/`__init__`/setup/`opentask_cli` 均为 **1.30.0**
-- [ ] 写 acceptance tip（HEAD 为准）+ 最终 commit
-- [ ] **STOP**；不 push；不开 PR；不自开 E47
+- [x] BE：`pytest` 全量 + 定向 `test_e46*` `test_e43*` `test_e32*`（记 passed；`test_user_search` flake 可记）
+- [x] CLI：`pytest` agent-harness/opentask-cli
+- [x] FE：`npx vitest run` + `npm run build`
+- [x] 确认 pyproject/`__init__`/setup/`opentask_cli` 均为 **1.30.0**
+- [x] 写 acceptance tip（HEAD 为准）+ 最终 commit
+- [x] **STOP**；不 push；不开 PR；不自开 E47
 
 ---
 
