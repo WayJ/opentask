@@ -44,8 +44,8 @@
 - Create: `docs/superpowers/plans/2026-11-04-e7-s3-display-swimlanes.md` (this file)
 - Create: `docs/superpowers/sprints/2026-11-04-E7-S3-plan.md`
 
-- [ ] **Step 1:** Write sprint frontmatter `state: active`, scope Display+swimlanes, leftover none→Epic complete
-- [ ] **Step 2:** Commit `docs(E7-S3): plan + sprint stub for display prefs and swimlanes`
+- [x] **Step 1:** Write sprint frontmatter `state: active`, scope Display+swimlanes, leftover none→Epic complete
+- [x] **Step 2:** Commit `docs(E7-S3): plan + sprint stub for display prefs and swimlanes`
 
 ---
 
@@ -60,7 +60,7 @@
 - Header `X-Workspace-Id` required
 - Prefs upsert must **not** mutate any `issue_saved_views.display_json`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```python
 # helpers mirror test_saved_views (_register, _auth)
@@ -96,7 +96,7 @@ async def test_prefs_do_not_overwrite_saved_view_display(test_client):
     # GET saved-view still has original display
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 cd backend && .venv/bin/pytest tests/api/test_display_prefs.py -v --tb=short
@@ -104,7 +104,7 @@ cd backend && .venv/bin/pytest tests/api/test_display_prefs.py -v --tb=short
 
 Expected: FAIL (404 / import / router missing)
 
-- [ ] **Step 3: Commit** `test(E7-S3): red — display prefs get/put isolation`
+- [x] **Step 3: Commit** `test(E7-S3): red — display prefs get/put isolation`
 
 ---
 
@@ -143,9 +143,9 @@ DEFAULT_DISPLAY = {
 
 Serialize GET as camelCase-free nested display object (same shape as saved view display_json — FE already uses snake for display keys).
 
-- [ ] **Step 1:** Implement minimal GREEN
-- [ ] **Step 2:** pytest file GREEN
-- [ ] **Step 3:** Commit `feat(E7-S3): issue_display_prefs model + API`
+- [x] **Step 1:** Implement minimal GREEN
+- [x] **Step 2:** pytest file GREEN
+- [x] **Step 3:** Commit `feat(E7-S3): issue_display_prefs model + API`
 
 ---
 
@@ -182,7 +182,7 @@ export function displayStateToJson(state: IssueDisplayState): Record<string, unk
 - else reuse grouping keys from `groupIssuesBy` (map GroupByKey); for each lane bucket, split by status
 - if `hideEmptyLanes`, drop lanes where every status list empty
 
-- [ ] RED vitest → GREEN → Commit `feat(E7-S3): display normalize + board swimlanes helpers`
+- [x] RED vitest → GREEN → Commit `feat(E7-S3): display normalize + board swimlanes helpers`
 
 ---
 
@@ -195,19 +195,19 @@ export function displayStateToJson(state: IssueDisplayState): Record<string, unk
 
 Drag stays **within** a status cell of a lane (no cross-lane field write).
 
-- [ ] Implement + lint slice
-- [ ] Commit `feat(E7-S3): display UI + board swimlanes`
+- [x] Implement + lint slice
+- [x] Commit `feat(E7-S3): display UI + board swimlanes`
 
 ---
 
 ### Task 6: Gates + Epic local-complete
 
-- [ ] Full `.venv/bin/pytest tests/ -q`
-- [ ] `npx vitest run` for display-prefs, boardSwimlanes, apply-saved-view
-- [ ] `npm run lint` 0 errors; `npm run build` (copy `.env.prod` if needed like S2)
-- [ ] Acceptance `docs/superpowers/acceptances/2026-11-04-E7-S3-acceptance.md`
-- [ ] Sprint S3 `state: closed`; roadmap `status: local-complete`; S1–S3 closed; design status note; `merged-commit: null`
-- [ ] **No push**
+- [x] Full `.venv/bin/pytest tests/ -q`
+- [x] `npx vitest run` for display-prefs, boardSwimlanes, apply-saved-view
+- [x] `npm run lint` 0 errors; `npm run build` (copy `.env.prod` if needed like S2)
+- [x] Acceptance `docs/superpowers/acceptances/2026-11-04-E7-S3-acceptance.md`
+- [x] Sprint S3 `state: closed`; roadmap `status: local-complete`; S1–S3 closed; design status note; `merged-commit: null`
+- [x] **No push**
 
 ## Self-review
 

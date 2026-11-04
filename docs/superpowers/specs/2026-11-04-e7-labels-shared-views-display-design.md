@@ -2,7 +2,7 @@
 
 日期：2026-11-04  
 Epic：E7  
-状态：design（Phase 1；产品实现未开工）  
+状态：implemented（E7 local-complete @ `aa2efac`）  
 基线：`sprint/E6-S3` @ `7dd7c55`；worktree `/workspace/opentask-worktrees/E7-S1`（分支 `sprint/E7-S1`）  
 北星：OpenTask Linear PRD §E7
 
@@ -317,3 +317,10 @@ S3 收口 Epic。
 - 与 roadmap ADR D1–D14 一致
 - S1/S2/S3 边界清晰；本 Phase 无产品代码
 - `display_json` 新旧键兼容写明
+
+
+## 12. Implementation note（E7-S3 收口）
+
+- S1 Labels / S2 Shared Views / S3 Display+Swimlanes 均已本地 closed。
+- S3 tip：`aa2efacadc5221f203c36d0edf6d600129a5860c`；migration `d4e5f6a7b8c0`；未推远程。
+- 个人 prefs：`issue_display_prefs`；View.display 可存同键；会话加载序：URL/View → prefs → 内置缺省。

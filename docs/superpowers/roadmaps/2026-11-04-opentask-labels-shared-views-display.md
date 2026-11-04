@@ -1,6 +1,6 @@
 ---
 epic: E7
-status: active
+status: local-complete
 date: 2026-11-04
 ---
 
@@ -25,14 +25,14 @@ date: 2026-11-04
 
 ## Definition of Done
 
-- [ ] Epic 下全部 Sprint（S1–S3）已 acceptance 且 state=closed；合并证据本地台账（merged-commit 仍 null / 未推远程）
-- [ ] `cd backend && uv run pytest tests/ -v` 全绿（含标签 CRUD / 跨租户负例 / 共享 View 权限 / display·swimlane 序列化）
-- [ ] `cd frontend && npm run lint && npm run build` 通过（0 errors）
-- [ ] 可为工作区建标签（色/组）；Issue 可加减标签；列表可按 label 分组；焦点 Issue 上 L 打标
-- [ ] 可创建/列出共享 Saved View；viewer 只读；member 改他人个人视图 → 404；共享视图仅 creator+owner 可写，member Save As
-- [ ] Display 字段显隐可存；个人默认与应用 View 的 display 可区分；看板可开泳道并隐藏空泳道
-- [ ] DESIGN.md / Naive UI / soybean 令牌被前端改动遵守；无退休治理 / Insights / 强制唯一默认布局
-- [ ] 整 Epic 一次回执 Yuri/Way（路径、分支 tip、门禁、acceptance）
+- [x] Epic 下全部 Sprint（S1–S3）已 acceptance 且 state=closed；合并证据本地台账（merged-commit 仍 null / 未推远程）
+- [x] `cd backend && uv run pytest tests/ -v` 全绿（含标签 CRUD / 跨租户负例 / 共享 View 权限 / display·swimlane 序列化）
+- [x] `cd frontend && npm run lint && npm run build` 通过（0 errors）
+- [x] 可为工作区建标签（色/组）；Issue 可加减标签；列表可按 label 分组；焦点 Issue 上 L 打标
+- [x] 可创建/列出共享 Saved View；viewer 只读；member 改他人个人视图 → 404；共享视图仅 creator+owner 可写，member Save As
+- [x] Display 字段显隐可存；个人默认与应用 View 的 display 可区分；看板可开泳道并隐藏空泳道
+- [x] DESIGN.md / Naive UI / soybean 令牌被前端改动遵守；无退休治理 / Insights / 强制唯一默认布局
+- [x] 整 Epic 一次回执 Yuri/Way（路径、分支 tip、门禁、acceptance）
 
 ## Sprint Breakdown
 
@@ -40,7 +40,7 @@ date: 2026-11-04
 |---|---|---|
 | S1 | closed | **Labels 打磨** done @ `a1b59bb`：workspace tags/groups + API + Issue 打标 + groupBy label + L / ⌘K。acceptance: `docs/superpowers/acceptances/2026-11-04-E7-S1-acceptance.md` |
 | S2 | closed | **Shared Saved Views** done @ `8ca308a`：`is_shared` + personal/shared isolation + ACL + Save As + FE sections。acceptance: `docs/superpowers/acceptances/2026-11-04-E7-S2-acceptance.md` |
-| S3 | planned | **Display options + Board swimlanes** + 个人 display 默认 + Epic 全量门禁 / local-complete。plan: `docs/superpowers/sprints/2026-11-04-E7-S3-plan.md` |
+| S3 | closed | **Display options + Board swimlanes** done @ `aa2efac`：prefs + fields/swimlane/hide + Board 矩阵。acceptance: `docs/superpowers/acceptances/2026-11-04-E7-S3-acceptance.md` |
 
 推荐顺序理由：先把标签真相源与 L/groupBy 打通（S1，依赖最薄且解锁筛选语义），再放开共享 View 与权限面（S2，复用已可存 `group_by: label` 的 display），最后打磨呈现层 Display + 看板行维泳道（S3，依赖 display_json 契约稳定）。
 
@@ -111,7 +111,6 @@ date: 2026-11-04
 
 ## Next
 
-1. Design spec：`docs/superpowers/specs/2026-11-04-e7-labels-shared-views-display-design.md`
-2. S1 sprint stub（本批）：`docs/superpowers/sprints/2026-11-04-E7-S1-plan.md`
-3. **本 Phase 不写产品实现**；实现阶段再写 `docs/superpowers/plans/2026-11-04-e7-s1-*.md` 并 TDD
-4. S1→S2→S3 本地收口后整包回执，再按 PRD 自动接 E8
+1. ~~S1–S3 本地实现~~ **done** — tip `aa2efac` / Epic **local-complete**
+2. 整包回执 Yuri/Way（路径、分支、门禁、acceptance）
+3. 按 PRD 自动接 **E8**（里程碑 / 健康 / Timeline + Favorites）
