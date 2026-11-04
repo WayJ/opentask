@@ -95,6 +95,7 @@ export namespace Api.Issue {
     actual_hours?: number;
     parent_issue_id?: string | null;
     cycle_id?: string | null;
+    milestone_id?: string | null;
     estimate_points?: number | null;
   }
 
@@ -118,6 +119,7 @@ export namespace Api.Issue {
     actual_hours?: number;
     parent_issue_id?: string | null;
     cycle_id?: string | null;
+    milestone_id?: string | null;
     estimate_points?: number | null;
   }
 
@@ -163,6 +165,7 @@ export namespace Api.Issue {
     reporter_id?: string;
     search?: string;
     cycle_id?: string;
+    milestone_id?: string;
     sort_by?: string;
     sort_order?: 'asc' | 'desc';
   }

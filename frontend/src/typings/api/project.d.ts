@@ -19,6 +19,10 @@ declare namespace Api {
       created_at: string;
       /** Updated at */
       updated_at: string;
+      /** Project start (E8-S1) */
+      starts_at?: string | null;
+      /** Project target date (E8-S1) */
+      target_date?: string | null;
     }
 
     /** Create project params */
@@ -31,6 +35,38 @@ declare namespace Api {
     interface UpdateProject {
       name?: string;
       description?: string;
+      starts_at?: string | null;
+      target_date?: string | null;
+    }
+
+    /** Milestone (E8-S1) */
+    interface Milestone {
+      id: string;
+      workspace_id: string;
+      project_id: string;
+      name: string;
+      description?: string | null;
+      target_date?: string | null;
+      status: 'planned' | 'done' | string;
+      position: number;
+      created_at: string;
+      updated_at: string;
+    }
+
+    interface CreateMilestone {
+      name: string;
+      description?: string | null;
+      target_date?: string | null;
+      status?: string;
+      position?: number;
+    }
+
+    interface UpdateMilestone {
+      name?: string;
+      description?: string | null;
+      target_date?: string | null;
+      status?: string;
+      position?: number;
     }
 
     /** Repo config model */

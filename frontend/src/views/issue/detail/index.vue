@@ -23,7 +23,7 @@ import {
   issueStatusOptions,
   issueTypeOptions
 } from '@/constants/issue';
-import { projectApi } from '@/service/api/project';
+import { fetchProjectMilestones, projectApi } from '@/service/api/project';
 import { type CycleItem, fetchCycles } from '@/service/api/cycles';
 import { type TagItem, tagApi } from '@/service/api/tag';
 import { issueApi } from '@/service/api/issue';
@@ -100,6 +100,7 @@ const reactions = ref<Record<string, string[]>>({});
 // Projects list for select
 const projects = ref<Api.Project.Project[]>([]);
 const cycles = ref<CycleItem[]>([]);
+const milestones = ref<Api.Project.Milestone[]>([]);
 
 // User map for timeline display (reserved for future use)
 // const userMap = ref<Map<string, { sso_name?: string; sso_account?: string; id: string }>>(new Map());
@@ -132,6 +133,20 @@ const cycleDisplayValue = computed(() => {
   return found?.name || issue.value.cycle_id;
 });
 
+const milestoneOptions = computed(() => {
+  const opts: { label: string; value: string | null }[] = [{ label: '无 Milestone', value: null }];
+  for (const m of milestones.value) {
+    opts.push({ label: m.name, value: m.id });
+  }
+  return opts;
+});
+
+const milestoneDisplayValue = computed(() => {
+  if (!issue.value?.milestone_id) return '未分配';
+  const found = milestones.value.find(m => m.id === issue.value?.milestone_id);
+  return found?.name || issue.value.milestone_id;
+});
+
 // Editing states - 为每个字段创建独立状态
 const editingStatus = ref(false);
 const editingPriority = ref(false);
@@ -141,6 +156,7 @@ const editingReporter = ref(false);
 const editingDueDate = ref(false);
 const editingProject = ref(false);
 const editingCycle = ref(false);
+const editingMilestone = ref(false);
 
 // 临时值
 const tempStatus = ref<string | null>(null);
@@ -151,6 +167,7 @@ const tempReporter = ref<string | null>(null);
 const tempDueDate = ref<number | null>(null);
 const tempProject = ref<string | null>(null);
 const tempCycle = ref<string | null>(null);
+const tempMilestone = ref<string | null>(null);
 
 // Constants for template
 const getTypeType = getIssueTypeTagType;
@@ -574,6 +591,20 @@ async function loadCycles() {
   }
 }
 
+async function loadMilestones(projectId?: string | null) {
+  const pid = projectId || issue.value?.project_id;
+  if (!pid) {
+    milestones.value = [];
+    return;
+  }
+  try {
+    const response = await fetchProjectMilestones(pid);
+    milestones.value = response.data || [];
+  } catch {
+    milestones.value = [];
+  }
+}
+
 async function loadProjects() {
   try {
     const response = await projectApi.getList();
@@ -779,6 +810,22 @@ function cancelCycle() {
   editingCycle.value = false;
 }
 
+async function saveMilestone() {
+  if (!issueId.value) return;
+  try {
+    await issueStore.updateIssue(issueId.value, { milestone_id: tempMilestone.value || null });
+    await loadIssue();
+    window.$message?.success('Milestone 更新成功');
+  } catch {
+    window.$message?.error('Milestone 更新失败');
+  }
+}
+
+function cancelMilestone() {
+  tempMilestone.value = null;
+  editingMilestone.value = false;
+}
+
 // Add comment
 async function handleAddComment() {
   if (!newComment.value.trim() || !issueId.value) return;
@@ -956,6 +1003,13 @@ watch(
     issueFocus.ensureDetailFocus(id);
   },
   { immediate: true }
+);
+
+watch(
+  () => issue.value?.project_id,
+  pid => {
+    loadMilestones(pid);
+  }
 );
 
 onMounted(() => {
@@ -1215,6 +1269,31 @@ onMounted(() => {
                   v-model:value="tempCycle"
                   :options="cycleOptions"
                   placeholder="选择 Cycle"
+                  size="small"
+                  clearable
+                />
+              </template>
+            </EditableField>
+
+            <!-- Milestone (E8-S1) -->
+            <EditableField
+              v-model="tempMilestone"
+              v-model:editing="editingMilestone"
+              label="Milestone"
+              :display-value="milestoneDisplayValue"
+              placeholder="未分配"
+              @save="saveMilestone"
+              @cancel="cancelMilestone"
+              @start-edit="tempMilestone = issue.milestone_id || null"
+            >
+              <template #label-icon>
+                <icon-mdi-flag-checkered />
+              </template>
+              <template #editor>
+                <NSelect
+                  v-model:value="tempMilestone"
+                  :options="milestoneOptions"
+                  placeholder="选择 Milestone"
                   size="small"
                   clearable
                 />

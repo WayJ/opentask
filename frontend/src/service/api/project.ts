@@ -85,6 +85,44 @@ export function deleteRepoConfig(projectId: string, repoId: number) {
 }
 
 /**
+ * Milestone API (E8-S1)
+ */
+
+/** List milestones for a project */
+export function fetchProjectMilestones(projectId: string) {
+  return request<Api.Project.Milestone[]>({
+    url: `/api/projects/${projectId}/milestones`,
+    method: 'get'
+  });
+}
+
+/** Create milestone */
+export function createProjectMilestone(projectId: string, data: Api.Project.CreateMilestone) {
+  return request<Api.Project.Milestone>({
+    url: `/api/projects/${projectId}/milestones`,
+    method: 'post',
+    data
+  });
+}
+
+/** Update milestone */
+export function updateProjectMilestone(projectId: string, milestoneId: string, data: Api.Project.UpdateMilestone) {
+  return request<Api.Project.Milestone>({
+    url: `/api/projects/${projectId}/milestones/${milestoneId}`,
+    method: 'patch',
+    data
+  });
+}
+
+/** Delete milestone */
+export function deleteProjectMilestone(projectId: string, milestoneId: string) {
+  return request({
+    url: `/api/projects/${projectId}/milestones/${milestoneId}`,
+    method: 'delete'
+  });
+}
+
+/**
  * Project API object
  * @example
  * import { projectApi } from '@/service/api/project';
@@ -99,5 +137,9 @@ export const projectApi = {
   getRepos: fetchProjectRepos,
   createRepoConfig,
   updateRepoConfig,
-  deleteRepoConfig
+  deleteRepoConfig,
+  getMilestones: fetchProjectMilestones,
+  createMilestone: createProjectMilestone,
+  updateMilestone: updateProjectMilestone,
+  deleteMilestone: deleteProjectMilestone
 };
