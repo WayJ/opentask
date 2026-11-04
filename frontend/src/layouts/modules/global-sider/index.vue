@@ -5,6 +5,7 @@ import { useAppStore } from '@/store/modules/app';
 import { useThemeStore } from '@/store/modules/theme';
 import GlobalLogo from '../global-logo/index.vue';
 import FavoritesNav from './FavoritesNav.vue';
+import TriageNav from './TriageNav.vue';
 
 defineOptions({
   name: 'GlobalSider'
@@ -30,6 +31,7 @@ const menuWrapperClass = computed(() => (showLogo.value ? 'flex-1-hidden' : 'h-f
       :show-title="!appStore.siderCollapse"
       :style="{ height: themeStore.header.height + 'px' }"
     />
+    <TriageNav />
     <FavoritesNav />
     <div :id="GLOBAL_SIDER_MENU_ID" :class="menuWrapperClass"></div>
   </DarkModeContainer>

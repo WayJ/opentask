@@ -36,15 +36,16 @@ describe('itemMatchesQuery', () => {
 });
 
 describe('buildNavActions + groups', () => {
-  it('builds four nav actions and filters by query', () => {
+  it('builds nav actions and filters by query', () => {
     const nav = vi.fn();
     const actions = buildNavActions(nav, {
       issues: 'Issues',
       createIssue: 'Create Issue',
       projects: 'Projects',
-      inbox: 'Inbox'
+      inbox: 'Inbox',
+      triage: 'Triage'
     });
-    expect(actions.map(a => a.id)).toEqual(['nav.issues', 'nav.create_issue', 'nav.projects', 'nav.inbox']);
+    expect(actions.map(a => a.id)).toEqual(['nav.issues', 'nav.create_issue', 'nav.projects', 'nav.inbox', 'nav.triage']);
     actions[0].run();
     expect(nav).toHaveBeenCalledWith('/issue/list');
 
@@ -55,7 +56,7 @@ describe('buildNavActions + groups', () => {
       groupLabels: { actions: 'Actions', menus: 'Menus' }
     });
     expect(groupsEmpty).toHaveLength(1);
-    expect(groupsEmpty[0].items).toHaveLength(4);
+    expect(groupsEmpty[0].items).toHaveLength(5);
 
     const filtered = buildPaletteGroups({
       actions,

@@ -30,6 +30,7 @@ export function buildNavActions(
     createIssue: string;
     projects: string;
     inbox: string;
+    triage?: string;
     cycles?: string;
     labels?: string;
   }
@@ -64,6 +65,15 @@ export function buildNavActions(
       run: () => navigate('/inbox')
     }
   ];
+  if (titles.triage) {
+    items.push({
+      id: 'nav.triage',
+      kind: 'action',
+      title: titles.triage,
+      keywords: ['triage', '分诊', '入站'],
+      run: () => navigate('/triage')
+    });
+  }
   if (titles.cycles) {
     items.push({
       id: 'nav.cycles',

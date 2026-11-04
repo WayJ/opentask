@@ -97,6 +97,18 @@ export const generatedRoutes: GeneratedRoute[] = [
     }
   },
   {
+    name: 'invite',
+    path: '/invite/:token',
+    component: 'layout.blank$view.invite',
+    meta: {
+      title: 'invite',
+      i18nKey: 'route.invite',
+      constant: true,
+      hideInMenu: true
+    },
+    props: true
+  },
+  {
     name: 'issue',
     path: '/issue',
     component: 'layout.base',
@@ -407,6 +419,18 @@ export const generatedRoutes: GeneratedRoute[] = [
     ]
   },
   {
+    name: 'triage',
+    path: '/triage',
+    component: 'layout.base$view.triage',
+    meta: {
+      title: 'triage',
+      i18nKey: 'route.triage',
+      icon: 'mdi:inbox-arrow-down',
+      order: 2.4,
+      hideInMenu: true
+    }
+  },
+  {
     name: 'work-management',
     path: '/work-management',
     component: 'layout.base',
@@ -649,16 +673,5 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       }
     ]
-  },
-  {
-    name: 'invite',
-    path: '/invite/:token',
-    component: 'layout.blank$view.invite',
-    meta: {
-      title: 'invite',
-      i18nKey: 'route.invite',
-      constant: true,
-      hideInMenu: true
-    }
   }
 ];

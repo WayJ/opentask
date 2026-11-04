@@ -54,6 +54,7 @@ watchEffect(() => {
     createIssue: $t('common.commandPalette.navCreateIssue'),
     projects: $t('common.commandPalette.navProjects'),
     inbox: $t('common.commandPalette.navInbox'),
+    triage: $t('common.commandPalette.navTriage'),
     cycles: $t('common.commandPalette.navCycles'),
     labels: $t('common.commandPalette.navLabels')
   });

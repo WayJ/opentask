@@ -65,6 +65,7 @@ const local: App.I18n.Schema = {
       actionAddLabel: '添加标签…',
       navLabels: '标签 Labels',
       navCycles: 'Cycles 设置',
+      navTriage: '分诊',
       navInbox: '收件箱'
     }
   },
@@ -254,6 +255,7 @@ const local: App.I18n.Schema = {
     workspace_labels: '标签 Labels',
     workspace_cycles: '冲刺 Cycles',
     inbox: '收件箱',
+    triage: '分诊',
     dashboard: '研发效能看板',
     workflow: '研发流水线',
     projects: '项目管理',

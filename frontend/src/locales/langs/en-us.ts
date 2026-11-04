@@ -65,6 +65,7 @@ const local: App.I18n.Schema = {
       actionAddLabel: 'Add label…',
       navLabels: 'Labels',
       navCycles: 'Cycles settings',
+      navTriage: 'Triage',
       navInbox: 'Inbox'
     }
   },
@@ -256,6 +257,7 @@ const local: App.I18n.Schema = {
     workspace_labels: 'Labels',
     workspace_cycles: 'Cycles',
     inbox: 'Inbox',
+    triage: 'Triage',
     dashboard: 'Dev Dashboard',
     projects: 'Projects',
     'projects-detail': 'Project Detail',
