@@ -3,7 +3,7 @@
 日期：2026-11-04（Asia/Shanghai）  
 分支：`sprint/E38-S1`  
 基线：`9e8ce90`（E37 tip + E38 design）  
-tip：`14e7776`（`git rev-parse HEAD` = `14e7776677121874ea021c45e721f6f62f4e5e80`）
+tip：`142b8b9`（`git rev-parse HEAD` = `142b8b95b007a7c5388f4dd526190a5bbf139680`）
 
 ## 范围对照
 
@@ -41,7 +41,7 @@ tip：`14e7776`（`git rev-parse HEAD` = `14e7776677121874ea021c45e721f6f62f4e5e
 - 多步流水线 / 内置 cron/RRULE / due digest / formula CF / webhook 扩展 / pending 改期·立即执行 UI / push·PR / E39
 
 ## tip
-- SHA：`14e7776`
+- SHA：`142b8b9`
 - 未 push / 未开 PR
 - **不自开 E39** · **STOP 待命**
 
