@@ -258,6 +258,7 @@ const local: App.I18n.Schema = {
     invite: '邀请',
     workspace_labels: '标签 Labels',
     'settings': '设置',
+    'settings_webhooks': '出站 Webhooks',
     'settings_notifications': '通知偏好',
     'workspace_automations': '自动化',
     'workspace_custom-fields': '自定义字段',

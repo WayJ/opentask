@@ -34,6 +34,7 @@ from opentask.models.milestone.model import Milestone
 from opentask.services.user_center.rbac_service import RbacService
 from opentask.services.notification.service import NotificationService
 from opentask.services.automation.service import fire_automations
+from opentask.services.workspace_webhook.service import fire_webhooks
 from opentask.services.workspace_realtime import (
     publish_comment_created,
     publish_issue_created,
@@ -479,6 +480,18 @@ class IssueService:
             issue=issue,
             actor_user_id=user_id,
         )
+        await fire_webhooks(
+            self.db,
+            workspace_id=issue.workspace_id,
+            event_type="issue.created",
+            data={
+                "id": str(issue.id),
+                "issueCode": issue.issue_code,
+                "title": issue.title,
+                "status": getattr(issue.status, "value", issue.status),
+                "priority": getattr(issue.priority, "value", issue.priority),
+            },
+        )
         return issue
 
     async def update_issue(
@@ -664,6 +677,18 @@ class IssueService:
             await publish_issue_updated(
                 issue, actor_user_id=user_id, changed=changed
             )
+            await fire_webhooks(
+                self.db,
+                workspace_id=issue.workspace_id,
+                event_type="issue.updated",
+                data={
+                    "id": str(issue.id),
+                    "issueCode": issue.issue_code,
+                    "title": issue.title,
+                    "status": getattr(issue.status, "value", issue.status),
+                    "changed": changed,
+                },
+            )
             if status_changed:
                 old_s, new_s = status_changed
                 await fire_automations(
@@ -673,6 +698,17 @@ class IssueService:
                     issue=issue,
                     actor_user_id=user_id,
                     event={
+                        "from": str(getattr(old_s, "value", old_s)) if old_s is not None else None,
+                        "to": str(getattr(new_s, "value", new_s)),
+                    },
+                )
+                await fire_webhooks(
+                    self.db,
+                    workspace_id=issue.workspace_id,
+                    event_type="issue.status_changed",
+                    data={
+                        "id": str(issue.id),
+                        "issueCode": issue.issue_code,
                         "from": str(getattr(old_s, "value", old_s)) if old_s is not None else None,
                         "to": str(getattr(new_s, "value", new_s)),
                     },
@@ -960,6 +996,16 @@ class IssueService:
                 comment_id=str(comment.id),
                 issue_code=issue.issue_code,
                 actor_user_id=user_id,
+            )
+            await fire_webhooks(
+                self.db,
+                workspace_id=issue.workspace_id,
+                event_type="comment.created",
+                data={
+                    "id": str(comment.id),
+                    "issueId": str(issue_id),
+                    "issueCode": issue.issue_code,
+                },
             )
         return comment
 

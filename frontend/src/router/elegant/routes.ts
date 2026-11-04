@@ -529,6 +529,15 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'settings_notifications',
           i18nKey: 'route.settings_notifications'
         }
+      },
+      {
+        name: 'settings_webhooks',
+        path: '/settings/webhooks',
+        component: 'view.settings_webhooks',
+        meta: {
+          title: 'settings_webhooks',
+          i18nKey: 'route.settings_webhooks'
+        }
       }
     ]
   },

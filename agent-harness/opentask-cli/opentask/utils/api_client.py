@@ -888,6 +888,36 @@ class OpenTaskClient:
 
 
     # ========================================================================
+    # Outbound Webhooks (E29)
+    # ========================================================================
+
+    async def list_webhooks(self) -> dict:
+        return await self.get("/api/webhooks")
+
+    async def create_webhook(
+        self,
+        url: str,
+        events: list,
+        *,
+        name: str | None = None,
+        enabled: bool = True,
+    ) -> dict:
+        data = {"url": url, "events": events, "enabled": enabled}
+        if name is not None:
+            data["name"] = name
+        return await self.post("/api/webhooks", data=data)
+
+    async def update_webhook(self, webhook_id: str, body: dict) -> dict:
+        return await self.patch(f"/api/webhooks/{webhook_id}", data=body)
+
+    async def delete_webhook(self, webhook_id: str) -> dict:
+        return await self.delete(f"/api/webhooks/{webhook_id}")
+
+    async def test_webhook(self, webhook_id: str) -> dict:
+        return await self.post(f"/api/webhooks/{webhook_id}/test")
+
+
+    # ========================================================================
     # Notification preferences (E27)
     # ========================================================================
 
