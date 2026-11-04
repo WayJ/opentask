@@ -57,6 +57,7 @@ from opentask.models.project_health import ProjectHealthUpdate
 from opentask.models.project_watcher import ProjectWatcher
 from opentask.models.issue_watcher import IssueWatcher
 from opentask.models.favorite import Favorite
+from opentask.models.customer import Customer, CustomerRequest, CustomerRequestIssue
 from opentask.models.access_token import AccessToken
 from opentask.models.oauth2 import (
     OAuthAccessToken,
@@ -125,6 +126,9 @@ __all__ = [
     "ProjectWatcher",
     "IssueWatcher",
     "Favorite",
+    "Customer",
+    "CustomerRequest",
+    "CustomerRequestIssue",
     "AccessToken",
     "OAuthClient",
     "OAuthAuthorizationCode",
