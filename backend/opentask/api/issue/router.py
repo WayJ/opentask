@@ -1305,10 +1305,19 @@ async def get_issue_attachments(
     issue_id: str,
     service: IssueService = Depends(get_issue_service),
 ):
-    """获取 Issue 的所有附件"""
-    attachments = await service.get_attachments(issue_id)
+    """获取 Issue 的所有附件。空列表必须 200（E11-S4）。"""
+    try:
+        attachments = await service.get_attachments(issue_id)
+    except Exception as e:
+        # 防御：缺表/瞬时 DB 错误时不把详情页打成 500 刷屏
+        logger.exception("get_issue_attachments failed for %s: %s", issue_id, e)
+        return {
+            "code": 200,
+            "message": "success",
+            "data": [],
+            "timestamp": 0,
+        }
 
-    # 手动构建响应，避免枚举序列化问题
     rows = []
     for att in attachments:
         rows.append({
