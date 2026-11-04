@@ -56,6 +56,7 @@ from opentask.services.tag.service import (
     serialize_tag_brief,
 )
 from opentask.services.custom_field.service import CustomFieldService, require_writer as require_cf_writer
+from opentask.services.issue_csv import IssueCsvService, require_writer as require_csv_writer, EXPORT_MAX_ROWS
 from opentask.api.workspace.deps import get_optional_workspace_context, require_workspace_context, ensure_entity_workspace_access
 from opentask.models.workspace.model import Workspace, WorkspaceMember
 from pydantic import BaseModel, Field
@@ -213,6 +214,91 @@ async def get_issues(
             "pageSize": page_size,
             "totalPages": (total + page_size - 1) // page_size,
         },
+        "timestamp": 0,
+    }
+
+
+
+# ============================================================================
+# E28 · CSV Import / Export（静态路径，须在 /{issue_id} 之前）
+# ============================================================================
+
+
+@router.get("/export.csv")
+async def export_issues_csv(
+    status: Optional[str] = Query(None),
+    priority: Optional[str] = Query(None),
+    type: Optional[str] = Query(None),
+    project_id: Optional[str] = Query(None),
+    assignee_id: Optional[str] = Query(None, description="负责人；me=当前用户"),
+    cycle_id: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    service: IssueService = Depends(get_issue_service),
+    ctx: tuple = Depends(require_workspace_context),
+):
+    """E28：导出当前工作区 Issue 为 CSV（viewer+）。"""
+    workspace, _member, user = ctx
+    resolved_assignee = str(user.id) if assignee_id == "me" else assignee_id
+    csv_svc = IssueCsvService(service.db)
+    body, truncated = await csv_svc.build_export_csv(
+        workspace_id=workspace.id,
+        status=status,
+        priority=priority,
+        type=type,
+        project_id=project_id,
+        assignee_id=resolved_assignee,
+        cycle_id=cycle_id,
+        search=search,
+        max_rows=EXPORT_MAX_ROWS,
+    )
+    headers = {
+        "Content-Disposition": 'attachment; filename="issues-export.csv"',
+    }
+    if truncated:
+        headers["X-Export-Truncated"] = "true"
+    return StreamingResponse(
+        iter([body]),
+        media_type="text/csv; charset=utf-8",
+        headers=headers,
+    )
+
+
+@router.get("/import/template.csv")
+async def download_import_template(
+    service: IssueService = Depends(get_issue_service),
+    ctx: tuple = Depends(require_workspace_context),
+):
+    """E28：下载导入模板 CSV（viewer+）。"""
+    _workspace, _member, _user = ctx
+    body = IssueCsvService(service.db).template_csv()
+    return StreamingResponse(
+        iter([body]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="issues-import-template.csv"'},
+    )
+
+
+@router.post("/import")
+async def import_issues_csv(
+    file: UploadFile = File(...),
+    service: IssueService = Depends(get_issue_service),
+    ctx: tuple = Depends(require_workspace_context),
+):
+    """E28：CSV 导入（member+）；单行失败不阻断。"""
+    workspace, member, user = ctx
+    require_csv_writer(member)
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="空文件")
+    result = await IssueCsvService(service.db).import_csv(
+        workspace_id=workspace.id,
+        user_id=str(user.id),
+        content=raw,
+    )
+    return {
+        "code": 200,
+        "message": "success",
+        "data": result,
         "timestamp": 0,
     }
 
