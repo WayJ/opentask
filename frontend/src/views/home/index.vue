@@ -1,12 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import {
-  fetchCycles,
-  fetchInboxList,
-  fetchWorkspaceList,
-  type WorkspaceItem
-} from '@/service/api';
+import { fetchCycles, fetchInboxList, fetchWorkspaceList } from '@/service/api';
+import type { WorkspaceItem } from '@/service/api';
 import { issueApi } from '@/service/api/issue';
 import { localStg } from '@/utils/storage';
 
@@ -26,42 +22,51 @@ const greeting = computed(() => {
   return '晚上好';
 });
 
+async function loadIssueTotal() {
+  try {
+    const list = await issueApi.getIssues({ current: 1, pageSize: 1 } as any);
+    const payload: any = (list as any)?.data ?? list;
+    issueTotal.value = Number(payload?.total ?? 0);
+  } catch {
+    issueTotal.value = 0;
+  }
+}
+
+async function loadInboxUnread() {
+  try {
+    const { data: inbox } = await fetchInboxList({ page: 1, pageSize: 1 });
+    inboxUnread.value = Number(inbox?.unreadCount ?? inbox?.total ?? 0);
+  } catch {
+    inboxUnread.value = 0;
+  }
+}
+
+async function loadActiveCycle(ws: WorkspaceItem) {
+  try {
+    if (!ws.cyclesEnabled) {
+      activeCycleName.value = null;
+      return;
+    }
+    const { data: cycles } = await fetchCycles({ status: 'active' });
+    activeCycleName.value = cycles?.rows?.[0]?.name || null;
+  } catch {
+    activeCycleName.value = null;
+  }
+}
+
 async function load() {
   loading.value = true;
   try {
     const wsId = localStg.get('workspaceId') as string | null;
     const { data: workspaces } = await fetchWorkspaceList();
-    workspace.value =
-      (workspaces || []).find(w => w.id === wsId) || (workspaces || [])[0] || null;
-
+    const list = workspaces || [];
+    workspace.value = list.find(w => w.id === wsId) || list[0] || null;
     if (!workspace.value?.id) return;
-
-    try {
-      const list = await issueApi.getIssues({ current: 1, pageSize: 1 } as any);
-      const payload: any = (list as any)?.data ?? list;
-      issueTotal.value = Number(payload?.total ?? 0);
-    } catch {
-      issueTotal.value = 0;
-    }
-
-    try {
-      const { data: inbox } = await fetchInboxList({ page: 1, pageSize: 1 });
-      inboxUnread.value = Number(inbox?.unreadCount ?? inbox?.total ?? 0);
-    } catch {
-      inboxUnread.value = 0;
-    }
-
-    try {
-      if (workspace.value?.cyclesEnabled) {
-        const { data: cycles } = await fetchCycles({ status: 'active' });
-        const rows = cycles?.rows || [];
-        activeCycleName.value = rows[0]?.name || null;
-      } else {
-        activeCycleName.value = null;
-      }
-    } catch {
-      activeCycleName.value = null;
-    }
+    await Promise.all([
+      loadIssueTotal(),
+      loadInboxUnread(),
+      loadActiveCycle(workspace.value)
+    ]);
   } finally {
     loading.value = false;
   }

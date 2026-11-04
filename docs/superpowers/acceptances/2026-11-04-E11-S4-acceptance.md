@@ -4,8 +4,8 @@
 
 **Date:** 2026-11-04（Asia/Shanghai）  
 **Worktree:** `/workspace/opentask-worktrees/E11-S4` · `sprint/E11-S4`  
-**Baseline:** `sprint/E11-S3` @ `4ab29b3`  
-**Tip (this acceptance):** `3adc60e4aab8469367265dbccb6feefbf52eaad8`  
+**Baseline:** `sprint/E11-S3` @ `4b27f4ff205361d38b40d3c147fe56d5f07a43aa`  
+**Tip (this acceptance):** `4b27f4ff205361d38b40d3c147fe56d5f07a43aa`  
 **Plan:** `docs/superpowers/plans/2026-11-04-E11-S4-plan.md`  
 **Design:** `docs/superpowers/specs/2026-11-04-e11-s4-smoke-p0-hotfix-design.md`  
 **Push:** **未推远程**（Yuri 待 Way 授权）
@@ -14,7 +14,7 @@
 
 | # | 现象 | 根因 | 修复 |
 |---|---|---|---|
-| 1 | Issue 详情 attachments 500 | live DB 无 `documents` 表（Alembic 从未建；pytest 靠 create_all） | Alembic `f6a7b8c9d0e1`；端点防御空列表；FE GET attachments 失败静默 |
+| 1 | Issue 详情 attachments 500 | live DB 无 `documents` 表（Alembic 从未建；pytest 靠 create_all） | Alembic `4b27f4ff205361d38b40d3c147fe56d5f07a43aa`；端点防御空列表；FE GET attachments 失败静默 |
 | 2 | Profile「查看者」vs Members owner | 注册 `User.role=viewer`，WS member=owner；/me 只回平台 role | 注册 → `developer` + UserRole；`/me`+`getUserInfo` 下发 `workspaceRole`；Profile 优先展示工作区角色 |
 | 3 | 改 Issue Key 后序号不重置 | E12 设计「counter 单调」 | 改 key 时 `issue_counter=0` → 下一单 `NEW-1`；创建可显式 `issueKey` |
 | 4 | `/home` Soybean 假数据 | 模板首页未替换 | Home 换成工作区 Issue/Inbox/Cycle 摘要；默认路由保持 `issue_list` |

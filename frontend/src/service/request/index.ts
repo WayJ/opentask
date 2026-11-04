@@ -99,6 +99,7 @@ export const request = createFlatRequest(
 
       return null;
     },
+    // eslint-disable-next-line complexity -- 401/附件静默分支叠加，E11-S4 热修保留
     onError(error) {
       // when the request is fail, you can show error message
 

@@ -33,9 +33,9 @@ function onUpdate(value: string) {
   window.location.reload();
 }
 
-async function createWorkspace() {
+async function createWorkspace(): Promise<boolean> {
   const name = newName.value.trim();
-  if (!name) return;
+  if (!name) return false;
   const issueKey = newIssueKey.value.trim().toUpperCase() || undefined;
   const { data, error } = await fetchCreateWorkspace({ name, issueKey });
   if (error || !data) {
