@@ -3,7 +3,7 @@
 日期：2026-11-04（Asia/Shanghai）  
 分支：`sprint/E40-S1`  
 基线 design：`6d82547`  
-tip：`805cee6`（收口前；最终 tip 见本文件末次 commit）  
+tip：`27b2e4c`  
 状态：**PASS（本地齐套；未 push）**
 
 ## 交付 A–D
