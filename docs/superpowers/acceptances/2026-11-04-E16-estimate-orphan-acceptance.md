@@ -1,7 +1,7 @@
 # E16 验收：故事点 · Cycle 点容量 · 孤儿 Default WS · 坏测清零 · PGE 快扫
 
 日期：2026-11-04（Asia/Shanghai）  
-分支：`sprint/E16-S1` · tip `a84ec55`  
+分支：`sprint/E16-S1` · tip `670f420` (分支 HEAD；功能包 03d8b0c)  
 基线：`sprint/E15-S1` @ `386fc9b`  
 worktree：`/workspace/opentask-worktrees/E11-S4`  
 约束：**未 push / 未开 PR**；齐套后待命，**不自开 E17**。
