@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, h, onMounted, reactive, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, h, onMounted, reactive, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import {
   NButton,
   NCard,
@@ -39,7 +39,8 @@ import {
 } from '@/service/api/saved-views';
 import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
-import { GROUP_BY_OPTIONS, type GroupByKey, isGroupByKey } from '@/utils/groupIssuesBy';
+import { deriveListStateFromSavedView } from '@/utils/apply-saved-view';
+import { GROUP_BY_OPTIONS, type GroupByKey } from '@/utils/groupIssuesBy';
 import { nestIssuesDepth1 } from '@/utils/nestIssuesDepth1';
 import type { ParsedQuery } from '@/utils/issueSearchParser';
 import IssueSmartSearch from '@/components/IssueSmartSearch.vue';
@@ -54,6 +55,7 @@ defineOptions({
 const issueStore = useIssueStore();
 const authStore = useAuthStore();
 const router = useRouter();
+const route = useRoute();
 
 const issues = ref<Api.Issue.Issue[]>([]);
 const allIssues = ref<Api.Issue.Issue[]>([]); // 保存所有 issue，用于 tab 切换
@@ -171,37 +173,46 @@ async function confirmSaveView() {
 }
 
 async function applySavedView(view: SavedView) {
-  const f = view.filter || {};
-  filters.type = (f.type as Api.Issue.IssueType | undefined) || undefined;
-  filters.priority = (f.priority as Api.Issue.IssuePriority | undefined) || undefined;
-  filters.project_id = (f.project_id as string | undefined) || undefined;
-  filters.status = (f.status as Api.Issue.IssueStatus | undefined) || undefined;
-  filters.search = (f.search as string | undefined) || '';
+  const state = deriveListStateFromSavedView(view);
+  filters.type = state.filters.type;
+  filters.priority = state.filters.priority;
+  filters.project_id = state.filters.project_id;
+  filters.status = state.filters.status;
+  filters.search = state.filters.search;
   smartSearchValue.value = filters.search || '';
 
-  const tab = (f.tab as 'my_issues' | 'open' | 'closed' | 'all' | undefined) || undefined;
-  if (tab) {
-    activeTab.value = tab;
-  } else if (filters.status) {
-    const openStatuses: Api.Issue.IssueStatus[] = ['open', 'in_progress', 'feedback'];
-    const closedStatuses: Api.Issue.IssueStatus[] = ['closed', 'rejected', 'resolved'];
-    if (openStatuses.includes(filters.status)) activeTab.value = 'open';
-    else if (closedStatuses.includes(filters.status)) activeTab.value = 'closed';
+  if (state.tab) {
+    activeTab.value = state.tab;
   }
 
-  if (view.display?.view_mode === 'board' || view.display?.view_mode === 'list') {
-    viewMode.value = view.display.view_mode;
+  if (state.viewMode) {
+    viewMode.value = state.viewMode;
   }
-  if (isGroupByKey(view.display?.group_by)) {
-    groupBy.value = view.display.group_by;
-  } else {
-    groupBy.value = 'none';
-  }
+  groupBy.value = state.groupBy;
 
-  activeSavedViewId.value = view.id;
+  activeSavedViewId.value = state.activeSavedViewId;
   pagination.page = 1;
   await loadIssues();
   window.$message?.success(`已应用视图「${view.name}」`);
+}
+
+async function applySavedViewById(viewId: string) {
+  if (!viewId) return;
+  let view = savedViews.value.find(v => v.id === viewId);
+  if (!view) {
+    await loadSavedViews();
+    view = savedViews.value.find(v => v.id === viewId);
+  }
+  if (!view) {
+    window.$message?.warning('未找到该视图');
+    return;
+  }
+  await applySavedView(view);
+  if (route.query.view) {
+    const nextQuery = { ...route.query };
+    delete nextQuery.view;
+    router.replace({ path: route.path, query: nextQuery });
+  }
 }
 
 async function toggleActiveViewFavorite() {
@@ -701,10 +712,24 @@ const projectOptions = computed(() => {
   }));
 });
 
-onMounted(() => {
+watch(
+  () => route.query.view,
+  viewId => {
+    if (typeof viewId === 'string' && viewId) {
+      void applySavedViewById(viewId);
+    }
+  }
+);
+
+onMounted(async () => {
   loadProjects();
-  loadIssues();
-  loadSavedViews();
+  await loadSavedViews();
+  const viewId = route.query.view;
+  if (typeof viewId === 'string' && viewId) {
+    await applySavedViewById(viewId);
+  } else {
+    await loadIssues();
+  }
 });
 </script>
 

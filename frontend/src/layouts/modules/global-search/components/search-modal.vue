@@ -19,6 +19,7 @@ const {
   flatItems,
   activeItem,
   activeIndex,
+  entityLoading,
   open,
   close,
   setQuery,
@@ -42,6 +43,8 @@ const keyword = computed({
   get: () => query.value,
   set: (v: string) => setQuery(v)
 });
+
+const showSearching = computed(() => entityLoading.value && Boolean(query.value.trim()));
 
 function handleClose() {
   close();
@@ -101,8 +104,11 @@ onKeyStroke('ArrowDown', handleDown);
     </NInputGroup>
 
     <div class="mt-20px">
-      <NEmpty v-if="flatItems.length === 0" :description="$t('common.noData')" />
-      <NScrollbar v-else style="max-height: 420px">
+      <div v-if="showSearching" class="mb-8px px-8px text-12px text-#8b8b8b dark:text-#a0a0a0">
+        {{ $t('common.commandPalette.searching') }}
+      </div>
+      <NEmpty v-if="flatItems.length === 0 && !showSearching" :description="$t('common.noData')" />
+      <NScrollbar v-else-if="flatItems.length > 0" style="max-height: 420px">
         <div class="pb-12px">
           <template v-for="group in groups" :key="group.id">
             <div class="mb-4px mt-8px px-8px text-12px text-#8b8b8b dark:text-#a0a0a0">
@@ -111,7 +117,7 @@ onKeyStroke('ArrowDown', handleDown);
             <div
               v-for="item in group.items"
               :key="item.id"
-              class="mt-8px h-56px flex-y-center cursor-pointer justify-between rounded-4px bg-#e5e7eb px-14px dark:bg-dark"
+              class="mt-8px min-h-56px flex-y-center cursor-pointer justify-between rounded-4px bg-#e5e7eb px-14px py-8px dark:bg-dark"
               :style="{
                 background: item.id === activeItem?.id ? theme.themeColor : '',
                 color: item.id === activeItem?.id ? '#fff' : ''
@@ -119,7 +125,16 @@ onKeyStroke('ArrowDown', handleDown);
               @click="run(item)"
               @mouseenter="handleHover(item)"
             >
-              <span class="ml-5px flex-1">{{ item.title }}</span>
+              <div class="ml-5px flex-1 overflow-hidden">
+                <div class="truncate">{{ item.title }}</div>
+                <div
+                  v-if="item.subtitle"
+                  class="truncate text-12px opacity-80"
+                  :style="{ color: item.id === activeItem?.id ? '#fff' : undefined }"
+                >
+                  {{ item.subtitle }}
+                </div>
+              </div>
               <icon-ant-design-enter-outlined class="icon mr-3px p-2px text-20px" />
             </div>
           </template>

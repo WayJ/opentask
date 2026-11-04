@@ -366,6 +366,10 @@ declare namespace App {
           placeholder: string;
           groupActions: string;
           groupMenus: string;
+          groupIssues: string;
+          groupProjects: string;
+          groupViews: string;
+          searching: string;
           navIssues: string;
           navCreateIssue: string;
           navProjects: string;
