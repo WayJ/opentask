@@ -5,7 +5,6 @@ import uuid
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select
 
 
 async def _register(client: AsyncClient, prefix: str = "e37"):
