@@ -11,6 +11,7 @@ export interface InboxNotification {
   title: string;
   body?: string | null;
   readAt?: string | null;
+  snoozedUntil?: string | null;
   createdAt: string;
 }
 
@@ -22,12 +23,18 @@ export interface InboxListResult {
   unreadCount: number;
 }
 
-export function fetchInboxList(params?: { unreadOnly?: boolean; page?: number; pageSize?: number }) {
+export function fetchInboxList(params?: {
+  unreadOnly?: boolean;
+  includeSnoozed?: boolean;
+  page?: number;
+  pageSize?: number;
+}) {
   return request<InboxListResult>({
     url: '/api/inbox',
     method: 'get',
     params: {
       unread_only: params?.unreadOnly ?? false,
+      include_snoozed: params?.includeSnoozed ?? false,
       page: params?.page ?? 1,
       page_size: params?.pageSize ?? 20
     }
@@ -44,6 +51,21 @@ export function fetchMarkInboxRead(id: string) {
 export function fetchMarkAllInboxRead() {
   return request<{ updated: number }>({
     url: '/api/inbox/read-all',
+    method: 'post'
+  });
+}
+
+export function fetchSnoozeInbox(id: string, until: string) {
+  return request<InboxNotification>({
+    url: `/api/inbox/${id}/snooze`,
+    method: 'post',
+    data: { until }
+  });
+}
+
+export function fetchUnsnoozeInbox(id: string) {
+  return request<InboxNotification>({
+    url: `/api/inbox/${id}/unsnooze`,
     method: 'post'
   });
 }
