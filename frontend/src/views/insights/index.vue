@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import {
+  type CycleItem,
   type InsightsSummary,
   countOpenFromStatus,
   fetchCycles,
-  fetchInsightsSummary,
-  type CycleItem
+  fetchInsightsSummary
 } from '@/service/api';
 
 defineOptions({ name: 'InsightsPage' });
@@ -41,10 +41,7 @@ const maxAssignee = computed(() =>
   Math.max(1, ...(summary.value?.assigneeCounts || []).map(a => Number(a.count || 0)))
 );
 const maxDay = computed(() =>
-  Math.max(
-    1,
-    ...(summary.value?.createdVsCompleted || []).flatMap(d => [d.created, d.completed])
-  )
+  Math.max(1, ...(summary.value?.createdVsCompleted || []).flatMap(d => [d.created, d.completed]))
 );
 
 const cycleOptions = computed(() =>
@@ -113,7 +110,7 @@ onMounted(async () => {
           clearable
           placeholder="默认 Active"
           :options="cycleOptions"
-          style="width: 220px"
+          class="cycle-select"
           size="small"
           @update:value="onCycleChange"
         />
@@ -249,6 +246,9 @@ onMounted(async () => {
 <style scoped>
 .insights-page {
   padding: 16px 20px 32px;
+}
+.cycle-select {
+  width: 220px;
 }
 .trend-table {
   font-size: 12px;

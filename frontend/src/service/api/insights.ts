@@ -47,10 +47,7 @@ export function countOpenFromStatus(statusCounts: Record<string, number> | undef
 }
 
 /** 近 N 日 completed 合计 */
-export function sumCompletedLastDays(
-  rows: InsightsDayBucket[] | undefined | null,
-  days: number
-): number {
+export function sumCompletedLastDays(rows: InsightsDayBucket[] | undefined | null, days: number): number {
   if (!rows?.length) return 0;
   return rows.slice(-days).reduce((sum, row) => sum + Number(row.completed || 0), 0);
 }

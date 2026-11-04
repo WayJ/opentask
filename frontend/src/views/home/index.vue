@@ -72,7 +72,6 @@ async function loadInboxUnread() {
   }
 }
 
-
 async function loadInsightsStrip() {
   try {
     const { data } = await fetchInsightsSummary();
@@ -110,7 +109,13 @@ async function load() {
     const list = workspaces || [];
     workspace.value = list.find(w => w.id === wsId) || list[0] || null;
     if (!workspace.value?.id) return;
-    await Promise.all([loadIssueTotal(), loadInboxUnread(), loadActiveCycle(workspace.value), loadMySections(), loadInsightsStrip()]);
+    await Promise.all([
+      loadIssueTotal(),
+      loadInboxUnread(),
+      loadActiveCycle(workspace.value),
+      loadMySections(),
+      loadInsightsStrip()
+    ]);
   } finally {
     loading.value = false;
   }
@@ -205,8 +210,7 @@ onMounted(load);
         </NGrid>
       </NCard>
 
-
-      <NCard size="small" class="mt-16px insights-strip cursor-pointer" hoverable @click="goInsights">
+      <NCard size="small" class="insights-strip mt-16px cursor-pointer" hoverable @click="goInsights">
         <div class="flex flex-wrap items-center justify-between gap-12px">
           <div>
             <div class="text-13px font-medium">Insights</div>
