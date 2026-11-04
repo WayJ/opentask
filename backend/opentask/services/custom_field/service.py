@@ -14,6 +14,7 @@ from opentask.models.custom_field.model import (
     FIELD_TYPES,
     CustomField,
     IssueCustomFieldValue,
+    IssueFormulaCache,
 )
 from opentask.models.workspace.model import WorkspaceMember
 from opentask.services.custom_field.formula import (
@@ -365,6 +366,9 @@ class CustomFieldService:
         elif archive is False:
             row.archived_at = None
         row.updated_at = datetime.utcnow()
+        formula_def_changed = bool(
+            set_formula or formula_expr is not None or formula_result_type is not None
+        ) and row.type == "formula"
         try:
             await self.db.commit()
         except IntegrityError:
@@ -373,6 +377,10 @@ class CustomFieldService:
                 status_code=http_status.HTTP_409_CONFLICT, detail="更新冲突"
             )
         await self.db.refresh(row)
+        if formula_def_changed:
+            await self.invalidate_formula_cache(
+                workspace_id=workspace_id, field_id=row.id
+            )
         return row
 
     async def _value_count(self, field_id: str) -> int:
@@ -801,6 +809,20 @@ class CustomFieldService:
                 changes=changes,
                 actor_user_id=actor_user_id,
             )
+            # E43: best-effort refresh formulas depending on changed CF keys (NEVER emit)
+            try:
+                changed_keys = [c["field_key"] for c in changes]
+                await self.refresh_formula_cache_for_issue(
+                    workspace_id=workspace_id,
+                    issue_id=issue_id,
+                    depending_on_cf_keys=changed_keys,
+                )
+            except Exception:
+                import logging
+
+                logging.getLogger(__name__).exception(
+                    "formula cache refresh failed issue=%s", issue_id
+                )
 
         return (await self.values_for_issues(
             workspace_id=workspace_id, issue_ids=[issue_id]
@@ -980,24 +1002,235 @@ class CustomFieldService:
         expected: Any,
         candidate_ids: list[str],
     ) -> list[str]:
-        """Equality match formula values for candidates (cache optional; Task 3)."""
-        bundled = await self.values_for_issues(
-            workspace_id=workspace_id, issue_ids=candidate_ids
+        """Equality match via cache when ok; miss/error → batch eval + backfill."""
+        cache_map = await self._load_formula_cache_map(
+            workspace_id=workspace_id,
+            field_id=field.id,
+            issue_ids=candidate_ids,
         )
         matched: list[str] = []
+        miss_ids: list[str] = []
         for iid in candidate_ids:
-            items = bundled.get(iid) or []
-            entry = next((x for x in items if x.get("key") == field.key), None)
-            if not entry:
-                continue
-            if entry.get("error"):
-                continue
-            val = entry.get("value")
-            if val is None:
-                continue
-            if _formula_values_equal(val, expected, field.formula_result_type or "number"):
-                matched.append(iid)
+            row = cache_map.get(iid)
+            if row is not None and row.error is None:
+                val = row.value_json
+                if val is None:
+                    continue
+                if _formula_values_equal(
+                    val, expected, field.formula_result_type or "number"
+                ):
+                    matched.append(iid)
+            else:
+                miss_ids.append(iid)
+
+        if miss_ids:
+            bundled = await self.values_for_issues(
+                workspace_id=workspace_id, issue_ids=miss_ids
+            )
+            # backfill cache (best-effort; never emit)
+            try:
+                await self._upsert_formula_cache_from_bundled(
+                    workspace_id=workspace_id,
+                    field=field,
+                    bundled=bundled,
+                    issue_ids=miss_ids,
+                )
+            except Exception:
+                import logging
+
+                logging.getLogger(__name__).exception(
+                    "formula cache backfill failed field=%s", field.id
+                )
+            for iid in miss_ids:
+                items = bundled.get(iid) or []
+                entry = next((x for x in items if x.get("key") == field.key), None)
+                if not entry or entry.get("error"):
+                    continue
+                val = entry.get("value")
+                if val is None:
+                    continue
+                if _formula_values_equal(
+                    val, expected, field.formula_result_type or "number"
+                ):
+                    matched.append(iid)
         return matched
+
+    async def _load_formula_cache_map(
+        self, *, workspace_id: str, field_id: str, issue_ids: list[str]
+    ) -> dict[str, IssueFormulaCache]:
+        if not issue_ids:
+            return {}
+        result = await self.db.execute(
+            select(IssueFormulaCache).where(
+                IssueFormulaCache.workspace_id == workspace_id,
+                IssueFormulaCache.field_id == field_id,
+                IssueFormulaCache.issue_id.in_(issue_ids),
+            )
+        )
+        return {r.issue_id: r for r in result.scalars().all()}
+
+    async def _upsert_formula_cache_from_bundled(
+        self,
+        *,
+        workspace_id: str,
+        field: CustomField,
+        bundled: dict[str, list[dict]],
+        issue_ids: list[str],
+    ) -> None:
+        """Write cache rows from values_for_issues output. NEVER emits."""
+        now = datetime.utcnow()
+        for iid in issue_ids:
+            entry = next(
+                (x for x in (bundled.get(iid) or []) if x.get("key") == field.key),
+                None,
+            )
+            if entry is None:
+                continue
+            await self._upsert_one_formula_cache(
+                workspace_id=workspace_id,
+                issue_id=iid,
+                field_id=field.id,
+                value_json=entry.get("value"),
+                error=entry.get("error"),
+                computed_at=now,
+            )
+        await self.db.commit()
+
+    async def _upsert_one_formula_cache(
+        self,
+        *,
+        workspace_id: str,
+        issue_id: str,
+        field_id: str,
+        value_json: Any,
+        error: str | None,
+        computed_at: datetime | None = None,
+    ) -> None:
+        result = await self.db.execute(
+            select(IssueFormulaCache).where(
+                IssueFormulaCache.issue_id == issue_id,
+                IssueFormulaCache.field_id == field_id,
+            )
+        )
+        row = result.scalar_one_or_none()
+        ts = computed_at or datetime.utcnow()
+        if row is None:
+            self.db.add(
+                IssueFormulaCache(
+                    workspace_id=workspace_id,
+                    issue_id=issue_id,
+                    field_id=field_id,
+                    value_json=value_json,
+                    error=error,
+                    computed_at=ts,
+                )
+            )
+        else:
+            row.value_json = value_json
+            row.error = error
+            row.computed_at = ts
+            row.workspace_id = workspace_id
+
+    async def invalidate_formula_cache(
+        self, *, workspace_id: str, field_id: str
+    ) -> None:
+        """Delete all cache rows for a formula field in the workspace. No emit."""
+        await self.db.execute(
+            delete(IssueFormulaCache).where(
+                IssueFormulaCache.workspace_id == workspace_id,
+                IssueFormulaCache.field_id == field_id,
+            )
+        )
+        await self.db.commit()
+
+    async def list_formula_fields(self, *, workspace_id: str) -> list[CustomField]:
+        result = await self.db.execute(
+            select(CustomField).where(
+                CustomField.workspace_id == workspace_id,
+                CustomField.type == "formula",
+                CustomField.archived_at.is_(None),
+            )
+        )
+        return list(result.scalars().all())
+
+    def _formula_depends_on_cf_keys(
+        self, field: CustomField, keys: set[str]
+    ) -> bool:
+        if not keys or field.type != "formula" or not field.formula_expr:
+            return False
+        try:
+            parsed = parse_formula(field.formula_expr)
+        except FormulaError:
+            return False
+        return bool(set(parsed.cf_keys) & keys)
+
+    def _formula_depends_on_issue_attrs(
+        self, field: CustomField, attrs: set[str]
+    ) -> bool:
+        """attrs subset of {priority,status,due_date,estimate_points,days_until_due}."""
+        if not attrs or field.type != "formula" or not field.formula_expr:
+            return False
+        expr = field.formula_expr
+        if "days_until_due" in attrs and "days_until_due" in expr:
+            return True
+        mapping = {
+            "priority": "issue.priority",
+            "status": "issue.status",
+            "estimate_points": "issue.estimate_points",
+            "due_date": "days_until_due",  # due_date feeds days_until_due
+        }
+        for a in attrs:
+            token = mapping.get(a)
+            if token and token in expr:
+                return True
+        return False
+
+    async def refresh_formula_cache_for_issue(
+        self,
+        *,
+        workspace_id: str,
+        issue_id: str,
+        depending_on_cf_keys: list[str] | None = None,
+        depending_on_issue_attrs: list[str] | None = None,
+        field_ids: list[str] | None = None,
+    ) -> None:
+        """Recompute and upsert formula cache rows. NEVER calls emit/webhook/timeline."""
+        formulas = await self.list_formula_fields(workspace_id=workspace_id)
+        if field_ids is not None:
+            wanted = set(field_ids)
+            formulas = [f for f in formulas if f.id in wanted]
+        else:
+            key_set = set(depending_on_cf_keys or [])
+            attr_set = set(depending_on_issue_attrs or [])
+            if key_set or attr_set:
+                formulas = [
+                    f
+                    for f in formulas
+                    if (key_set and self._formula_depends_on_cf_keys(f, key_set))
+                    or (attr_set and self._formula_depends_on_issue_attrs(f, attr_set))
+                ]
+        if not formulas:
+            return
+        bundled = await self.values_for_issues(
+            workspace_id=workspace_id, issue_ids=[issue_id]
+        )
+        now = datetime.utcnow()
+        for field in formulas:
+            entry = next(
+                (x for x in (bundled.get(issue_id) or []) if x.get("key") == field.key),
+                None,
+            )
+            if entry is None:
+                continue
+            await self._upsert_one_formula_cache(
+                workspace_id=workspace_id,
+                issue_id=issue_id,
+                field_id=field.id,
+                value_json=entry.get("value"),
+                error=entry.get("error"),
+                computed_at=now,
+            )
+        await self.db.commit()
 
 
 def _formula_values_equal(actual: Any, expected: Any, result_type: str) -> bool:

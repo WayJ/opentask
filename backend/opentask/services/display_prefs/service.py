@@ -152,6 +152,16 @@ async def _resolve_cf_dim(
                 detail=f"自定义字段不可用于分组: {key}",
             )
         return "none"
+    if field.type == "formula":
+        rt = (field.formula_result_type or "number").strip() or "number"
+        if rt not in {"number", "text", "boolean"}:
+            if on_write:
+                raise HTTPException(
+                    status_code=http_status.HTTP_400_BAD_REQUEST,
+                    detail=f"公式结果类型 {rt} 不支持作为泳道/分组",
+                )
+            return "none"
+        return dim_value
     if field.type not in CF_GROUPING_TYPES:
         if on_write:
             raise HTTPException(

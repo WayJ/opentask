@@ -752,6 +752,32 @@ class IssueService:
                 old_due=old_d,
                 new_due=new_d,
             )
+        # E43: best-effort formula cache refresh when issue attrs used by formulas change
+        if issue and issue.workspace_id:
+            formula_attrs: list[str] = []
+            if status_changed:
+                formula_attrs.append("status")
+            if "priority" in update_data:
+                formula_attrs.append("priority")
+            if due_date_changed:
+                formula_attrs.extend(["due_date", "days_until_due"])
+            if "estimate_points" in update_data:
+                formula_attrs.append("estimate_points")
+            if formula_attrs:
+                try:
+                    from opentask.services.custom_field.service import CustomFieldService
+
+                    await CustomFieldService(self.db).refresh_formula_cache_for_issue(
+                        workspace_id=issue.workspace_id,
+                        issue_id=issue_id,
+                        depending_on_issue_attrs=formula_attrs,
+                    )
+                except Exception:
+                    import logging
+
+                    logging.getLogger(__name__).exception(
+                        "formula cache refresh on issue update failed issue=%s", issue_id
+                    )
         if issue:
             # exclude internal bookkeeping keys from changed summary
             changed = [

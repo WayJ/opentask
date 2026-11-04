@@ -104,3 +104,43 @@ class IssueCustomFieldValue(DBModel):
         UniqueConstraint("issue_id", "field_id", name="uq_issue_cf_values_issue_field"),
         Index("idx_issue_cf_values_field", "field_id"),
     )
+
+
+
+class IssueFormulaCache(DBModel):
+    """E43: query cache for formula results (filter acceleration; never emit)."""
+
+    __tablename__ = "issue_formula_cache"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, insert_default=_uuid)
+    workspace_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    issue_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("issues.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    field_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("custom_fields.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    value_json: Mapped[Any] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"),
+        nullable=True,
+    )
+    error: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    computed_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, insert_default=datetime.utcnow
+    )
+
+    __table_args__ = (
+        UniqueConstraint("issue_id", "field_id", name="uq_issue_formula_cache_issue_field"),
+        Index("idx_issue_formula_cache_ws_field", "workspace_id", "field_id"),
+    )
