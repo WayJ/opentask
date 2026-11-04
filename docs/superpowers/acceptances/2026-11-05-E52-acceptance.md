@@ -3,7 +3,7 @@
 日期：2026-11-05（Asia/Shanghai）  
 分支：`sprint/E52-S1`  
 基线：`abb96db`  
-**tip：** _(见收口 commit；本文件随 tip 一并更新)_
+**tip：** `1896ed0`（全文 `1896ed0becd27ed8a822cb4089cccac1ab6c86b5`）
 
 ## 范围落地
 
