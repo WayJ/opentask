@@ -46,7 +46,7 @@ date: 2026-11-04
 | sprint | state | note |
 |---|---|---|
 | S1 ✅ | **done** | Initiative 表/API + 多 Project 关联 + 列表/详情 FE 骨架 |
-| S2 | planned | 健康汇总 + 侧栏/⌘K + Favorites 可钉 Initiative（可选） |
+| S2 ✅ | **done** | 健康汇总 + 侧栏/⌘K + Favorites 可钉 Initiative（可选） |
 | S3 | planned | Docs（附属 MD 或 KB 深链）+ 打磨 + Epic local-complete |
 
 推荐顺序理由：无存量 Initiative 实体，先立模型与多 Project 关联（S1）；健康汇总依赖 E8 Project health 与 S1 关联数据（S2）；Docs 可独立但需挂接实体类型，放 S3 与整包验收同频，避免与 S1 API 夹具互相打断。
@@ -88,9 +88,10 @@ date: 2026-11-04
 |---|---|
 | 2026-11-04 | Phase 1：roadmap + design + S1 stub；基线 E9-S3 `f06dc9f`；Yuri 禁 PGE 双轴写入 |
 | 2026-11-04 | **S1 local-complete**：CRUD+M2M+FE；Alembic `b2c3d4e5f6a7`；758 pytest；无 PGE/push |
+| 2026-11-04 | **S2 local-complete**：healthSummary + ⌘K + Favorites initiative；764 pytest；无 Docs/push |
 
 ## Sprint status
 
 - [x] E10-S1 Initiative CRUD local-complete
-- [ ] E10-S2 health rollup + nav
+- [x] E10-S2 health rollup + nav/⌘K (+ Favorites)
 - [ ] E10-S3 Docs + Epic DoD
