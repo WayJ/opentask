@@ -95,3 +95,41 @@ describe('flatten + clamp', () => {
     expect(clampActiveIndex(0, 0)).toBe(0);
   });
 });
+
+describe('buildPaletteGroups entity sections', () => {
+  it('appends entity groups when query non-empty', () => {
+    const groups = buildPaletteGroups({
+      actions: [{ id: 'nav.issues', kind: 'action', title: 'Issues', run: () => undefined }],
+      menus: [],
+      query: 'fix',
+      groupLabels: {
+        actions: 'Actions',
+        menus: 'Menus',
+        issues: 'Issues',
+        projects: 'Projects',
+        views: 'Views'
+      },
+      issues: [{ id: 'issue.1', kind: 'issue', title: 'Fix', run: () => undefined }],
+      projects: [{ id: 'project.1', kind: 'project', title: 'Alpha', run: () => undefined }],
+      savedViews: [{ id: 'view.1', kind: 'saved_view', title: 'Mine', run: () => undefined }]
+    });
+    expect(groups.map(g => g.id)).toEqual(['issues', 'projects', 'views']);
+  });
+
+  it('hides entity groups when query empty even if sources present', () => {
+    const groups = buildPaletteGroups({
+      actions: [{ id: 'nav.issues', kind: 'action', title: 'Issues', run: () => undefined }],
+      menus: [],
+      query: '',
+      groupLabels: {
+        actions: 'Actions',
+        menus: 'Menus',
+        issues: 'Issues',
+        projects: 'Projects',
+        views: 'Views'
+      },
+      issues: [{ id: 'issue.1', kind: 'issue', title: 'Fix', run: () => undefined }]
+    });
+    expect(groups.map(g => g.id)).toEqual(['actions']);
+  });
+});

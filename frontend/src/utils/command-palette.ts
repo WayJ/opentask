@@ -77,9 +77,19 @@ export function buildPaletteGroups(opts: {
   actions: PaletteItem[];
   menus: PaletteItem[];
   query: string;
-  groupLabels: { actions: string; menus: string };
+  groupLabels: {
+    actions: string;
+    menus: string;
+    issues?: string;
+    projects?: string;
+    views?: string;
+  };
+  issues?: PaletteItem[];
+  projects?: PaletteItem[];
+  savedViews?: PaletteItem[];
 }): PaletteGroup[] {
   const groups: PaletteGroup[] = [];
+  const q = opts.query.trim();
   const actionItems = opts.actions.filter(i => itemMatchesQuery(i, opts.query));
   if (actionItems.length) {
     groups.push({ id: 'actions', label: opts.groupLabels.actions, items: actionItems });
@@ -87,8 +97,33 @@ export function buildPaletteGroups(opts: {
 
   // Menus require a non-empty query (legacy soybean search behavior).
   const menuItems = opts.menus.filter(i => itemMatchesQuery(i, opts.query));
-  if (opts.query.trim() && menuItems.length) {
+  if (q && menuItems.length) {
     groups.push({ id: 'menus', label: opts.groupLabels.menus, items: menuItems });
+  }
+
+  // Entity groups only when the user is actively searching.
+  if (q) {
+    if (opts.issues?.length) {
+      groups.push({
+        id: 'issues',
+        label: opts.groupLabels.issues ?? 'Issues',
+        items: opts.issues
+      });
+    }
+    if (opts.projects?.length) {
+      groups.push({
+        id: 'projects',
+        label: opts.groupLabels.projects ?? 'Projects',
+        items: opts.projects
+      });
+    }
+    if (opts.savedViews?.length) {
+      groups.push({
+        id: 'views',
+        label: opts.groupLabels.views ?? 'Views',
+        items: opts.savedViews
+      });
+    }
   }
 
   return groups;
