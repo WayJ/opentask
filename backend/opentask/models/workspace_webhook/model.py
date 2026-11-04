@@ -65,6 +65,14 @@ class WorkspaceWebhook(DBModel):
         insert_default=list,
     )
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, insert_default=True)
+    alert_settings: Mapped[Optional[Any]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"),
+        nullable=True,
+        comment="E57 per-hook overlay; null=inherit WS",
+    )
+    paused_reason: Mapped[Optional[str]] = mapped_column(
+        String(64), nullable=True, comment="E57: auto_dead_letter_alert when auto-disabled"
+    )
     created_by: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, insert_default=datetime.utcnow

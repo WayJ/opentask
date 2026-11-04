@@ -19,6 +19,7 @@ PREF_KEYS = (
     "automation_comment",
     "due_reminder",
     "sla_breached",
+    "webhook_delivery_alert",
 )
 
 # Inbox Notification.type → preference column
@@ -33,6 +34,8 @@ TYPE_TO_PREF_KEY: dict[str, str] = {
     "due_reminder": "due_reminder",
     "due_reminder_digest": "due_reminder",
     "sla_breached": "sla_breached",
+    "webhook_dead_letter_alert": "webhook_delivery_alert",
+    "webhook_auto_disabled": "webhook_delivery_alert",
 }
 
 
@@ -66,6 +69,10 @@ class NotificationPreference(DBModel):
     due_reminder_digest: Mapped[bool] = mapped_column(Boolean, nullable=False, insert_default=False)
     # E42：SLA 违约通知（默认开）
     sla_breached: Mapped[bool] = mapped_column(Boolean, nullable=False, insert_default=True)
+    # E57：Webhook 死信告警 / 自动停用（默认开；受 WS 总闸约束）
+    webhook_delivery_alert: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, insert_default=True
+    )
     # E30：邮件通道总开关（opt-in，默认关；不在 PREF_KEYS 类型映射内）
     email_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, insert_default=False)
     created_at: Mapped[datetime] = mapped_column(

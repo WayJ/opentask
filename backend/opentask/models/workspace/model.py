@@ -88,6 +88,11 @@ class Workspace(DBModel):
         nullable=True,
         comment="E50: {enabled, windows{mon..sun:[{start,end}]}}",
     )
+    webhook_alert_settings: Mapped[Optional[dict]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"),
+        nullable=True,
+        comment="E57: {enabled, windowHours, deadThreshold, consecutiveDeadThreshold?, autoDisable, muteUntil?}",
+    )
     created_by: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, insert_default=datetime.utcnow
