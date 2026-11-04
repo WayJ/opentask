@@ -3,7 +3,7 @@
 日期：2026-11-04（Asia/Shanghai）  
 分支：`sprint/E39-S1`  
 基线 design：`019e552`  
-tip：`22dcc90`
+tip：`b3430f0`
 状态：**PASS（本地齐套；未 push）**
 
 ## 交付 A–D
@@ -37,7 +37,7 @@ tip：`22dcc90`
 | FE build | **ok**（vite prod） |
 
 ### flake 复测
-- `pytest tests/tasks/test_tasks_jira_wire.py::TestMetadata::test_user_search`：见收口 commit 当时结果（不阻塞 E39）。
+- `pytest tests/tasks/test_tasks_jira_wire.py::TestMetadata::test_user_search`：单跑 **PASSED**（不阻塞 E39）。
 
 ## 非目标（未做）
 进程内 cron；可配 LEAD；Formula CF；webhook CF outbound；Slack；snooze 联动；push/PR；E40。
