@@ -49,6 +49,15 @@ const local: App.I18n.Schema = {
     yesOrNo: {
       yes: 'Yes',
       no: 'No'
+    },
+    commandPalette: {
+      placeholder: 'Type a command or search…',
+      groupActions: 'Actions',
+      groupMenus: 'Menus',
+      navIssues: 'Issues',
+      navCreateIssue: 'Create Issue',
+      navProjects: 'Projects',
+      navInbox: 'Inbox'
     }
   },
   request: {

@@ -361,6 +361,16 @@ declare namespace App {
           yes: string;
           no: string;
         };
+        profile: string;
+        commandPalette: {
+          placeholder: string;
+          groupActions: string;
+          groupMenus: string;
+          navIssues: string;
+          navCreateIssue: string;
+          navProjects: string;
+          navInbox: string;
+        };
       };
       request: {
         logout: string;

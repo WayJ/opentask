@@ -1,10 +1,10 @@
 import { computed, ref } from 'vue';
 import {
+  type PaletteGroup,
+  type PaletteItem,
   buildPaletteGroups,
   clampActiveIndex,
-  flattenGroupItems,
-  type PaletteGroup,
-  type PaletteItem
+  flattenGroupItems
 } from '@/utils/command-palette';
 
 const isOpen = ref(false);
@@ -15,7 +15,7 @@ const menuSource = ref<PaletteItem[]>([]);
 const groupLabels = ref({ actions: 'Actions', menus: 'Menus' });
 
 /** Test-only reset of module singleton state. */
-export function __resetCommandPaletteForTests() {
+export function resetCommandPaletteForTests() {
   isOpen.value = false;
   query.value = '';
   activeIndex.value = 0;

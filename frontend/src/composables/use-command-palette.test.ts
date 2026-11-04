@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PaletteItem } from '@/utils/command-palette';
-import { __resetCommandPaletteForTests, useCommandPalette } from './use-command-palette';
+import { resetCommandPaletteForTests, useCommandPalette } from './use-command-palette';
 
 describe('useCommandPalette', () => {
   beforeEach(() => {
-    __resetCommandPaletteForTests();
+    resetCommandPaletteForTests();
   });
 
   it('open/close/toggle and clears query on close', () => {

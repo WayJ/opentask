@@ -49,6 +49,15 @@ const local: App.I18n.Schema = {
     yesOrNo: {
       yes: '是',
       no: '否'
+    },
+    commandPalette: {
+      placeholder: '输入命令或搜索…',
+      groupActions: '操作',
+      groupMenus: '菜单',
+      navIssues: 'Issue 列表',
+      navCreateIssue: '创建 Issue',
+      navProjects: '项目',
+      navInbox: '收件箱'
     }
   },
   request: {

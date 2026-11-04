@@ -1,18 +1,16 @@
 <script lang="ts" setup>
-import { useBoolean } from '@sa/hooks';
+import { useCommandPalette } from '@/composables/use-command-palette';
 import { $t } from '@/locales';
-import SearchModal from './components/search-modal.vue';
 
 defineOptions({ name: 'GlobalSearch' });
 
-const { bool: show, toggle } = useBoolean();
+const { open } = useCommandPalette();
 </script>
 
 <template>
-  <ButtonIcon :tooltip-content="$t('common.search')" @click="toggle">
+  <ButtonIcon :tooltip-content="$t('common.search')" @click="open">
     <icon-uil-search />
   </ButtonIcon>
-  <SearchModal v-model:show="show" />
 </template>
 
 <style lang="scss" scoped></style>
