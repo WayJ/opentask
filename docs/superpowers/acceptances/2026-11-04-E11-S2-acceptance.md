@@ -3,7 +3,7 @@
 **Date:** 2026-11-04 (Asia/Shanghai)  
 **Worktree:** `/workspace/opentask-worktrees/E11-S2` · `sprint/E11-S2`  
 **Plan SHA:** `b638f96452e6caaeb23f87799abff318750a4d76`  
-**HEAD at acceptance:** `87516cbf8930a884a818d1f77836e08e3d2834c8` (docs tip; impl `fe50a90`)
+**HEAD at acceptance:** `02f0ecbf21b6ff3877f5bec027f1f5c211476ed0` · impl tip `fe50a90`
 **Baseline:** E11-S1 `c2823c7` (783 pytest)
 
 ## Scope delivered
