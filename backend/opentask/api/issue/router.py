@@ -1309,6 +1309,7 @@ async def patch_issue_custom_fields(
         workspace_id=ws.id,
         issue_id=issue.id,
         entries=list(body.values or []),
+        actor_user_id=str(user.id),
     )
     return {
         "code": 200,

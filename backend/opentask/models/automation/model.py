@@ -24,6 +24,7 @@ TRIGGER_TYPES = (
     "issue.status_changed",
     "issue.assignee_changed",
     "label_added",
+    "custom_field_changed",  # E36
 )
 
 ACTION_TYPES = (

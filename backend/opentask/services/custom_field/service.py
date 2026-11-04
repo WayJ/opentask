@@ -367,12 +367,19 @@ class CustomFieldService:
         workspace_id: str,
         issue_id: str,
         entries: list[dict],
+        actor_user_id: Optional[str] = None,
     ) -> list[dict]:
-        """entries: [{fieldId?, key?, value}] ; value null clears."""
+        """entries: [{fieldId?, key?, value}] ; value null clears.
+
+        E36: after commit, emit custom_field_changed per actually-changed field
+        (best-effort; respects automation depth anti-loop).
+        """
         if not entries:
             return (await self.values_for_issues(
                 workspace_id=workspace_id, issue_ids=[issue_id]
             )).get(issue_id, [])
+
+        changes: list[dict[str, Any]] = []
 
         for entry in entries:
             field_id = entry.get("fieldId") or entry.get("field_id")
@@ -400,9 +407,20 @@ class CustomFieldService:
                 )
             )
             row = result.scalar_one_or_none()
+            old_value = row.value_json if row is not None else None
+
             if normalized is None:
                 if row:
                     await self.db.delete(row)
+                    if old_value is not None:
+                        changes.append(
+                            {
+                                "field_id": field.id,
+                                "field_key": field.key,
+                                "from": old_value,
+                                "to": None,
+                            }
+                        )
                 continue
             if row is None:
                 row = IssueCustomFieldValue(
@@ -411,14 +429,88 @@ class CustomFieldService:
                     value_json=normalized,
                 )
                 self.db.add(row)
+                changes.append(
+                    {
+                        "field_id": field.id,
+                        "field_key": field.key,
+                        "from": None,
+                        "to": normalized,
+                    }
+                )
             else:
+                if old_value == normalized:
+                    continue
                 row.value_json = normalized
                 row.updated_at = datetime.utcnow()
+                changes.append(
+                    {
+                        "field_id": field.id,
+                        "field_key": field.key,
+                        "from": old_value,
+                        "to": normalized,
+                    }
+                )
 
         await self.db.commit()
+
+        if changes:
+            await self._emit_custom_field_changed(
+                workspace_id=workspace_id,
+                issue_id=issue_id,
+                changes=changes,
+                actor_user_id=actor_user_id,
+            )
+
         return (await self.values_for_issues(
             workspace_id=workspace_id, issue_ids=[issue_id]
         )).get(issue_id, [])
+
+    async def _emit_custom_field_changed(
+        self,
+        *,
+        workspace_id: str,
+        issue_id: str,
+        changes: list[dict[str, Any]],
+        actor_user_id: Optional[str] = None,
+    ) -> None:
+        """Best-effort E36 emit; never raises to caller."""
+        try:
+            from opentask.models.issue.model import Issue
+            from opentask.services.automation.service import fire_automations
+
+            issue = await self.db.get(Issue, issue_id)
+            if issue is None or getattr(issue, "is_deleted", False):
+                return
+            if issue.workspace_id != workspace_id:
+                return
+            for ch in changes:
+                await fire_automations(
+                    self.db,
+                    workspace_id=workspace_id,
+                    trigger_type="custom_field_changed",
+                    issue=issue,
+                    actor_user_id=actor_user_id,
+                    event={
+                        "issue_id": issue_id,
+                        "field_key": ch["field_key"],
+                        "field_id": ch["field_id"],
+                        "from": ch["from"],
+                        "to": ch["to"],
+                        "old_value": ch["from"],
+                        "new_value": ch["to"],
+                        "workspace_id": workspace_id,
+                    },
+                )
+                # refresh in case prior rule mutated
+                issue = await self.db.get(Issue, issue_id)
+                if issue is None:
+                    return
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception(
+                "custom_field_changed emit failed issue=%s", issue_id
+            )
 
     async def get_by_key_optional(
         self, *, workspace_id: str, key: str

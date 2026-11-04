@@ -24,6 +24,8 @@ from opentask.models.workspace.model import WorkspaceMember
 
 logger = logging.getLogger(__name__)
 
+MAX_CUSTOM_FIELD_CONDITIONS = 5
+
 # Anti-loop: user write depth=0 may fire rules; while executing actions depth>=1 → skip.
 _automation_depth: contextvars.ContextVar[int] = contextvars.ContextVar(
     "automation_depth", default=0
@@ -91,6 +93,7 @@ class AutomationService:
         position: int | None = None,
     ) -> AutomationRule:
         self._validate_enums(trigger_type, action_type)
+        self._validate_condition(condition)
         if position is None:
             q = await self.db.execute(
                 select(func.coalesce(func.max(AutomationRule.position), -1)).where(
@@ -142,6 +145,7 @@ class AutomationService:
         if set_trigger_config:
             row.trigger_config_json = dict(trigger_config or {})
         if set_condition:
+            self._validate_condition(condition)
             row.condition_json = condition
         if action_type is not None:
             if action_type not in ACTION_TYPES:
@@ -186,6 +190,24 @@ class AutomationService:
             raise HTTPException(status_code=400, detail=f"非法 trigger: {trigger_type}")
         if action_type not in ACTION_TYPES:
             raise HTTPException(status_code=400, detail=f"非法 action: {action_type}")
+
+    @staticmethod
+    def _validate_condition(condition: Optional[dict]) -> None:
+        """E36: customFields AND list max 5."""
+        if not condition or not isinstance(condition, dict):
+            return
+        cfs = condition.get("customFields")
+        if cfs is None:
+            cfs = condition.get("custom_fields")
+        if cfs is None:
+            return
+        if not isinstance(cfs, list):
+            raise HTTPException(status_code=400, detail="customFields 须为数组")
+        if len(cfs) > MAX_CUSTOM_FIELD_CONDITIONS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"customFields 最多 {MAX_CUSTOM_FIELD_CONDITIONS} 条",
+            )
 
     # ── match / execute ──────────────────────────────────────────────
 
@@ -255,6 +277,28 @@ class AutomationService:
             if want is not None and int(want) != int(event.get("tagId") or event.get("tag_id") or -1):
                 return False
             return True
+        if t == "custom_field_changed":
+            # Optional field filter: field_key / key / field_id / fieldId
+            want_key = cfg.get("field_key")
+            if want_key is None:
+                want_key = cfg.get("key")
+            want_id = cfg.get("field_id")
+            if want_id is None:
+                want_id = cfg.get("fieldId")
+            ev_key = event.get("field_key") or event.get("key")
+            ev_id = event.get("field_id") or event.get("fieldId")
+            if want_key is not None and str(ev_key or "") != str(want_key):
+                return False
+            if want_id is not None and str(ev_id or "") != str(want_id):
+                return False
+            if cfg.get("from") is not None and event.get("from") != cfg.get("from"):
+                # Also allow string compare for scalars
+                if str(event.get("from")) != str(cfg.get("from")):
+                    return False
+            if cfg.get("to") is not None and event.get("to") != cfg.get("to"):
+                if str(event.get("to")) != str(cfg.get("to")):
+                    return False
+            return True
         return False
 
     async def _match_condition(self, rule: AutomationRule, issue: Issue) -> bool:
@@ -277,12 +321,22 @@ class AutomationService:
         if has_label is not None:
             if not await self._issue_has_label(issue.id, issue.workspace_id, has_label):
                 return False
-        cf_cond = cond.get("customField")
-        if cf_cond is None:
-            cf_cond = cond.get("custom_field")
-        if cf_cond is not None:
-            if not await self._match_custom_field_condition(issue, cf_cond):
+        cf_list = cond.get("customFields")
+        if cf_list is None:
+            cf_list = cond.get("custom_fields")
+        if cf_list is not None:
+            if not isinstance(cf_list, list):
                 return False
+            for item in cf_list:
+                if not await self._match_custom_field_condition(issue, item):
+                    return False
+        else:
+            cf_cond = cond.get("customField")
+            if cf_cond is None:
+                cf_cond = cond.get("custom_field")
+            if cf_cond is not None:
+                if not await self._match_custom_field_condition(issue, cf_cond):
+                    return False
         return True
 
     async def _resolve_custom_field(
