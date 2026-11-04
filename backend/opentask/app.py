@@ -23,6 +23,7 @@ from opentask.api.triage import router as triage_router
 from opentask.api.issue_templates import router as issue_templates_router
 from opentask.api.initiatives import router as initiatives_router
 from opentask.api.entity_documents import router as entity_documents_router
+from opentask.api.issue_vcs import router as issue_vcs_router
 from opentask.api.invites import router as invites_router
 from opentask.api.tags.router import tags_router, groups_router as tag_groups_router
 # from opentask.api.ai.router import router as ai_router  # 模块不存在，已注释
@@ -113,6 +114,7 @@ class App(fastapi.FastAPI):
         self.include_router(issue_templates_router)
         self.include_router(initiatives_router)
         self.include_router(entity_documents_router)
+        self.include_router(issue_vcs_router)
         self.include_router(invites_router)
         self.include_router(tags_router)
         self.include_router(tag_groups_router)

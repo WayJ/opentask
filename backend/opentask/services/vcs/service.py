@@ -1,0 +1,162 @@
+"""Issue VCS links service (E11-S1) — Issue axis only."""
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Optional
+
+from fastapi import HTTPException, status as http_status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from opentask.models.issue.model import Issue
+from opentask.models.issue_vcs_link.model import (
+    VCS_LINK_KINDS,
+    VCS_LINK_STATUSES,
+    VCS_PROVIDERS,
+    IssueVcsLink,
+)
+from opentask.models.workspace.model import WorkspaceMember
+from opentask.services.vcs.branch_naming import slugify_title, suggest_branch_name
+
+
+def require_writer(member: WorkspaceMember) -> None:
+    if member.role not in ("owner", "member"):
+        raise HTTPException(
+            status_code=http_status.HTTP_403_FORBIDDEN,
+            detail="仅 member/owner 可写",
+        )
+
+
+def serialize_vcs_link(row: IssueVcsLink) -> dict:
+    return {
+        "id": row.id,
+        "workspaceId": row.workspace_id,
+        "issueId": row.issue_id,
+        "kind": row.kind,
+        "branchName": row.branch_name,
+        "prUrl": row.pr_url,
+        "provider": row.provider,
+        "externalId": row.external_id,
+        "status": row.status,
+        "repoConfigId": row.repo_config_id,
+        "title": row.title,
+        "createdBy": row.created_by,
+        "createdAt": row.created_at.isoformat() if row.created_at else None,
+        "updatedAt": row.updated_at.isoformat() if row.updated_at else None,
+    }
+
+
+class IssueVcsService:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def get_issue(self, *, workspace_id: str, issue_id: str) -> Issue:
+        result = await self.db.execute(
+            select(Issue).where(Issue.id == issue_id, Issue.workspace_id == workspace_id)
+        )
+        issue = result.scalar_one_or_none()
+        if not issue:
+            raise HTTPException(
+                status_code=http_status.HTTP_404_NOT_FOUND,
+                detail="Issue 不存在或不属于当前工作区",
+            )
+        return issue
+
+    async def branch_name(self, *, workspace_id: str, issue_id: str) -> dict:
+        issue = await self.get_issue(workspace_id=workspace_id, issue_id=issue_id)
+        slug = slugify_title(issue.title)
+        branch = suggest_branch_name(issue.issue_code, issue.title)
+        return {
+            "branchName": branch,
+            "issueCode": issue.issue_code,
+            "slug": slug,
+            "issueId": issue.id,
+        }
+
+    async def list_links(self, *, workspace_id: str, issue_id: str) -> list[IssueVcsLink]:
+        await self.get_issue(workspace_id=workspace_id, issue_id=issue_id)
+        result = await self.db.execute(
+            select(IssueVcsLink)
+            .where(
+                IssueVcsLink.workspace_id == workspace_id,
+                IssueVcsLink.issue_id == issue_id,
+            )
+            .order_by(IssueVcsLink.updated_at.desc())
+        )
+        return list(result.scalars().all())
+
+    async def create_link(
+        self,
+        *,
+        workspace_id: str,
+        issue_id: str,
+        user_id: str,
+        kind: str,
+        branch_name: Optional[str] = None,
+        pr_url: Optional[str] = None,
+        provider: str = "manual",
+        external_id: Optional[str] = None,
+        status: str = "unknown",
+        title: Optional[str] = None,
+        repo_config_id: Optional[int] = None,
+    ) -> IssueVcsLink:
+        await self.get_issue(workspace_id=workspace_id, issue_id=issue_id)
+        if kind not in VCS_LINK_KINDS:
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail=f"kind 仅允许: {', '.join(VCS_LINK_KINDS)}",
+            )
+        if provider not in VCS_PROVIDERS:
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail=f"provider 仅允许: {', '.join(VCS_PROVIDERS)}",
+            )
+        if status not in VCS_LINK_STATUSES:
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail=f"status 仅允许: {', '.join(VCS_LINK_STATUSES)}",
+            )
+        if kind == "branch" and not (branch_name or "").strip():
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail="kind=branch 需要 branchName",
+            )
+        if kind == "pull_request" and not (pr_url or "").strip():
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail="kind=pull_request 需要 prUrl",
+            )
+        row = IssueVcsLink(
+            workspace_id=workspace_id,
+            issue_id=issue_id,
+            kind=kind,
+            branch_name=(branch_name or None),
+            pr_url=(pr_url or None),
+            provider=provider,
+            external_id=external_id,
+            status=status,
+            repo_config_id=repo_config_id,
+            title=title,
+            created_by=user_id,
+        )
+        self.db.add(row)
+        await self.db.commit()
+        await self.db.refresh(row)
+        return row
+
+    async def delete_link(self, *, workspace_id: str, issue_id: str, link_id: str) -> None:
+        await self.get_issue(workspace_id=workspace_id, issue_id=issue_id)
+        result = await self.db.execute(
+            select(IssueVcsLink).where(
+                IssueVcsLink.id == link_id,
+                IssueVcsLink.workspace_id == workspace_id,
+                IssueVcsLink.issue_id == issue_id,
+            )
+        )
+        row = result.scalar_one_or_none()
+        if not row:
+            raise HTTPException(
+                status_code=http_status.HTTP_404_NOT_FOUND, detail="VCS link 不存在"
+            )
+        await self.db.delete(row)
+        await self.db.commit()
