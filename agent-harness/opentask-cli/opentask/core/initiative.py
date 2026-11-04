@@ -1,0 +1,143 @@
+"""Initiative commands (E14)."""
+from __future__ import annotations
+
+import asyncio
+import click
+
+from ..utils.api_client import APIError
+from ..utils.cli_output import echo_json, handle_api_error, make_client, require_workspace_id
+from ..utils.config import Config
+
+
+@click.group(name="initiative")
+def initiative_cli():
+    """Initiatives（战略主题）。"""
+    pass
+
+
+@initiative_cli.command(name="list")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def initiative_list(obj, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.list_initiatives())
+        if json_mode:
+            echo_json(True, data=data)
+            return
+        rows = (data or {}).get("rows", []) if isinstance(data, dict) else []
+        if not rows:
+            obj.skin.info("无 Initiative")
+            return
+        obj.skin.table(
+            ["ID", "Name", "Status"],
+            [[(r.get("id") or "")[:8], r.get("name") or "", r.get("status") or ""] for r in rows],
+        )
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@initiative_cli.command(name="show")
+@click.argument("initiative_id")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def initiative_show(obj, initiative_id, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.get_initiative(initiative_id))
+        if json_mode:
+            echo_json(True, data=data)
+            return
+        obj.skin.status_block({
+            "ID": data.get("id", ""),
+            "Name": data.get("name", ""),
+            "Status": data.get("status", ""),
+            "Description": (data.get("description") or "")[:80],
+        })
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@initiative_cli.command(name="create")
+@click.option("--name", "-n", required=True)
+@click.option("--description", "-d", default=None)
+@click.option("--status", default="active")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def initiative_create(obj, name, description, status, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        kwargs = {"status": status}
+        if description is not None:
+            kwargs["description"] = description
+        data = asyncio.run(client.create_initiative(name, **kwargs))
+        if json_mode:
+            echo_json(True, data=data, message="created")
+            return
+        obj.skin.success(f"已创建: {data.get('id', '')}")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@initiative_cli.command(name="update")
+@click.argument("initiative_id")
+@click.option("--name", "-n", default=None)
+@click.option("--description", "-d", default=None)
+@click.option("--status", default=None)
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def initiative_update(obj, initiative_id, name, description, status, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    body = {}
+    if name is not None:
+        body["name"] = name
+    if description is not None:
+        body["description"] = description
+    if status is not None:
+        body["status"] = status
+    if not body:
+        raise click.UsageError("至少提供一个更新字段")
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.update_initiative(initiative_id, **body))
+        if json_mode:
+            echo_json(True, data=data)
+            return
+        obj.skin.success("已更新")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@initiative_cli.command(name="delete")
+@click.argument("initiative_id")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def initiative_delete(obj, initiative_id, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.delete_initiative(initiative_id))
+        if json_mode:
+            echo_json(True, data=data or {"id": initiative_id})
+            return
+        obj.skin.success("已删除")
+    except APIError as e:
+        handle_api_error(e, json_mode)

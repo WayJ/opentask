@@ -517,21 +517,321 @@ class OpenTaskClient:
         """Make GET request."""
         return await self._request("GET", endpoint, params=params)
 
-    async def post(self, endpoint: str, data: dict | None = None) -> dict[str, Any]:
+    async def post(self, endpoint: str, data: dict | None = None, params: dict | None = None) -> dict[str, Any]:
         """Make POST request."""
-        return await self._request("POST", endpoint, json=data)
+        kwargs: dict[str, Any] = {"json": data}
+        if params is not None:
+            kwargs["params"] = params
+        return await self._request("POST", endpoint, **kwargs)
 
     async def put(self, endpoint: str, data: dict | None = None) -> dict[str, Any]:
         """Make PUT request."""
         return await self._request("PUT", endpoint, json=data)
 
-    async def delete(self, endpoint: str) -> dict[str, Any]:
+    async def delete(self, endpoint: str, params: dict | None = None) -> dict[str, Any]:
         """Make DELETE request."""
+        if params is not None:
+            return await self._request("DELETE", endpoint, params=params)
         return await self._request("DELETE", endpoint)
+
+    async def patch(self, endpoint: str, data: dict | None = None, params: dict | None = None) -> dict[str, Any]:
+        """Make PATCH request."""
+        kwargs: dict[str, Any] = {"json": data}
+        if params is not None:
+            kwargs["params"] = params
+        return await self._request("PATCH", endpoint, **kwargs)
+
+    # ============================================================================
+    # Workspace API (E14)
+    # ============================================================================
+
+    async def list_workspaces(self) -> list:
+        """List workspaces for current user."""
+        data = await self.get("/api/workspaces")
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            return data.get("rows") or data.get("data") or []
+        return []
+
+    async def get_workspace(self, workspace_id: str) -> dict:
+        """Get workspace details."""
+        return await self.get(f"/api/workspaces/{workspace_id}")
+
+    async def list_workspace_members(self, workspace_id: str) -> list:
+        data = await self.get(f"/api/workspaces/{workspace_id}/members")
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            return data.get("rows") or data.get("data") or []
+        return []
+
+    async def add_workspace_member(self, workspace_id: str, user_id: str, role: str = "member") -> dict:
+        return await self.post(
+            f"/api/workspaces/{workspace_id}/members",
+            data={"userId": user_id, "role": role},
+        )
+
+    async def remove_workspace_member(self, workspace_id: str, user_id: str) -> dict:
+        return await self.delete(f"/api/workspaces/{workspace_id}/members/{user_id}")
+
+    async def update_workspace_member_role(self, workspace_id: str, user_id: str, role: str) -> dict:
+        return await self.patch(
+            f"/api/workspaces/{workspace_id}/members/{user_id}",
+            data={"role": role},
+        )
+
+    async def list_workspace_invites(self, workspace_id: str) -> list:
+        data = await self.get(f"/api/workspaces/{workspace_id}/invites")
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            return data.get("rows") or data.get("data") or []
+        return []
+
+    async def create_workspace_invite(self, workspace_id: str, email: str | None = None, role: str = "member") -> dict:
+        body: dict = {"role": role}
+        if email:
+            body["email"] = email
+        return await self.post(f"/api/workspaces/{workspace_id}/invites", data=body)
+
+    async def revoke_workspace_invite(self, workspace_id: str, invite_id: str) -> dict:
+        return await self.delete(f"/api/workspaces/{workspace_id}/invites/{invite_id}")
+
+    async def preview_invite(self, token: str) -> dict:
+        return await self.get(f"/api/invites/{token}")
+
+    async def accept_invite(self, token: str) -> dict:
+        return await self.post(f"/api/invites/{token}/accept")
+
+    # ============================================================================
+    # Cycles API
+    # ============================================================================
+
+    async def list_cycles(self, status: str | None = None) -> dict:
+        params = {}
+        if status:
+            params["status"] = status
+        return await self.get("/api/cycles", params=params or None)
+
+    async def get_cycle(self, cycle_id: str) -> dict:
+        return await self.get(f"/api/cycles/{cycle_id}")
+
+    async def create_cycle(self, starts_at: str, ends_at: str, name: str | None = None) -> dict:
+        data = {"starts_at": starts_at, "ends_at": ends_at}
+        if name:
+            data["name"] = name
+        return await self.post("/api/cycles", data=data)
+
+    async def activate_cycle(self, cycle_id: str) -> dict:
+        return await self.post(f"/api/cycles/{cycle_id}/activate")
+
+    async def complete_cycle(self, cycle_id: str) -> dict:
+        return await self.post(f"/api/cycles/{cycle_id}/complete")
+
+    # ============================================================================
+    # Tags / Labels API
+    # ============================================================================
+
+    async def list_tags(self, group_id: str | None = None, q: str | None = None) -> dict:
+        params = {}
+        if group_id:
+            params["group_id"] = group_id
+        if q:
+            params["q"] = q
+        return await self.get("/api/tags", params=params or None)
+
+    async def create_tag(self, name: str, color: str | None = None, group_id: str | None = None) -> dict:
+        data: dict = {"name": name}
+        if color:
+            data["color"] = color
+        if group_id:
+            data["group_id"] = group_id
+        return await self.post("/api/tags", data=data)
+
+    async def delete_tag(self, tag_id: str | int) -> dict:
+        return await self.delete(f"/api/tags/{tag_id}")
+
+    async def attach_issue_tag(self, issue_id: str, tag_id: str | int) -> dict:
+        return await self.post(f"/api/issues/{issue_id}/tags/{tag_id}")
+
+    async def detach_issue_tag(self, issue_id: str, tag_id: str | int) -> dict:
+        return await self.delete(f"/api/issues/{issue_id}/tags/{tag_id}")
+
+    async def list_issue_tags(self, issue_id: str) -> dict:
+        return await self.get(f"/api/issues/{issue_id}/tags")
+
+    # ============================================================================
+    # Triage API
+    # ============================================================================
+
+    async def list_triage(self, page: int = 1, page_size: int = 50) -> dict:
+        return await self.get("/api/triage", params={"page": page, "page_size": page_size})
+
+    async def enqueue_triage(self, issue_id: str | None = None, title: str | None = None, **kwargs) -> dict:
+        data = dict(kwargs)
+        if issue_id:
+            data["issueId"] = issue_id
+        if title:
+            data["title"] = title
+        return await self.post("/api/triage", data=data)
+
+    async def accept_triage(self, issue_id: str) -> dict:
+        return await self.post(f"/api/triage/{issue_id}/accept")
+
+    async def decline_triage(self, issue_id: str) -> dict:
+        return await self.post(f"/api/triage/{issue_id}/decline")
+
+    async def duplicate_triage(self, issue_id: str, duplicate_of_issue_id: str) -> dict:
+        return await self.post(
+            f"/api/triage/{issue_id}/duplicate",
+            data={"duplicateOfIssueId": duplicate_of_issue_id},
+        )
+
+    # ============================================================================
+    # Inbox API
+    # ============================================================================
+
+    async def list_inbox(
+        self,
+        unread_only: bool = False,
+        include_snoozed: bool = False,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> dict:
+        return await self.get(
+            "/api/inbox",
+            params={
+                "unread_only": unread_only,
+                "include_snoozed": include_snoozed,
+                "page": page,
+                "page_size": page_size,
+            },
+        )
+
+    async def inbox_read(self, notification_id: str) -> dict:
+        return await self.post(f"/api/inbox/{notification_id}/read")
+
+    async def inbox_read_all(self) -> dict:
+        return await self.post("/api/inbox/read-all")
+
+    async def inbox_snooze(self, notification_id: str, until: str) -> dict:
+        return await self.post(f"/api/inbox/{notification_id}/snooze", data={"until": until})
+
+    async def inbox_unsnooze(self, notification_id: str) -> dict:
+        return await self.post(f"/api/inbox/{notification_id}/unsnooze")
+
+    # ============================================================================
+    # Favorites API
+    # ============================================================================
+
+    async def list_favorites(self) -> dict:
+        return await self.get("/api/favorites")
+
+    async def add_favorite(self, target_type: str, target_id: str) -> dict:
+        return await self.post(
+            "/api/favorites",
+            data={"target_type": target_type, "target_id": target_id},
+        )
+
+    async def remove_favorite(self, favorite_id: str) -> dict:
+        return await self.delete(f"/api/favorites/{favorite_id}")
+
+    # ============================================================================
+    # Saved Views API
+    # ============================================================================
+
+    async def list_saved_views(self) -> dict:
+        return await self.get("/api/saved-views")
+
+    async def get_saved_view(self, view_id: str) -> dict:
+        return await self.get(f"/api/saved-views/{view_id}")
+
+    # ============================================================================
+    # Initiatives API
+    # ============================================================================
+
+    async def list_initiatives(self) -> dict:
+        return await self.get("/api/initiatives")
+
+    async def get_initiative(self, initiative_id: str) -> dict:
+        return await self.get(f"/api/initiatives/{initiative_id}")
+
+    async def create_initiative(self, name: str, **kwargs) -> dict:
+        data = {"name": name, **kwargs}
+        return await self.post("/api/initiatives", data=data)
+
+    async def update_initiative(self, initiative_id: str, **kwargs) -> dict:
+        return await self.patch(f"/api/initiatives/{initiative_id}", data=kwargs)
+
+    async def delete_initiative(self, initiative_id: str) -> dict:
+        return await self.delete(f"/api/initiatives/{initiative_id}")
+
+    # ============================================================================
+    # Entity Documents API
+    # ============================================================================
+
+    async def list_entity_docs(self, parent_type: str, parent_id: str) -> dict:
+        return await self.get(
+            "/api/entity-documents",
+            params={"parentType": parent_type, "parentId": parent_id},
+        )
+
+    async def get_entity_doc(self, doc_id: str) -> dict:
+        return await self.get(f"/api/entity-documents/{doc_id}")
+
+    async def create_entity_doc(
+        self, parent_type: str, parent_id: str, title: str, body_md: str = ""
+    ) -> dict:
+        return await self.post(
+            "/api/entity-documents",
+            data={
+                "parentType": parent_type,
+                "parentId": parent_id,
+                "title": title,
+                "bodyMd": body_md,
+            },
+        )
+
+    async def update_entity_doc(self, doc_id: str, **kwargs) -> dict:
+        body = {}
+        if "title" in kwargs and kwargs["title"] is not None:
+            body["title"] = kwargs["title"]
+        if "body_md" in kwargs and kwargs["body_md"] is not None:
+            body["bodyMd"] = kwargs["body_md"]
+        if "bodyMd" in kwargs and kwargs["bodyMd"] is not None:
+            body["bodyMd"] = kwargs["bodyMd"]
+        return await self.patch(f"/api/entity-documents/{doc_id}", data=body)
+
+    async def delete_entity_doc(self, doc_id: str) -> dict:
+        return await self.delete(f"/api/entity-documents/{doc_id}")
+
+    # ============================================================================
+    # Issue relations / children
+    # ============================================================================
+
+    async def list_issue_children(self, issue_id: str) -> dict:
+        return await self.get(f"/api/issues/{issue_id}/children")
+
+    async def list_issue_relations(self, issue_id: str) -> dict:
+        return await self.get(f"/api/issues/{issue_id}/relations")
+
+    async def add_issue_relation(self, issue_id: str, target_id: str, relation_type: str) -> dict:
+        return await self.post(
+            f"/api/issues/{issue_id}/relations",
+            params={"target_id": target_id, "relation_type": relation_type},
+        )
+
+    async def remove_issue_relation(self, issue_id: str, target_id: str, relation_type: str) -> dict:
+        return await self.delete(
+            f"/api/issues/{issue_id}/relations",
+            params={"target_id": target_id, "relation_type": relation_type},
+        )
 
     # ============================================================================
     # Project API
     # ============================================================================
+
 
     async def list_projects(self, active_only: bool = True) -> dict:
         """List all projects.
@@ -673,7 +973,7 @@ class OpenTaskClient:
         self,
         title: str,
         description: str = "",
-        type: str = "task",
+        type: str = "feature",
         status: str = "open",
         priority: str = "medium",
         project_id: str | None = None,

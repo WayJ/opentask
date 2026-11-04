@@ -449,7 +449,7 @@ def batch_get_issues(obj: "Context", ids, as_json):
 @click.argument("keyword")
 @click.option("--in-title", is_flag=True, help="Search in title only")
 @click.option("--in-description", is_flag=True, help="Search in description only")
-@click.option("--type", "-t", "issue_type", type=click.Choice(["task", "bug", "feature", "improvement"], case_sensitive=False), help="Filter by type")
+@click.option("--type", "-t", "issue_type", type=click.Choice(["bug", "feature", "question", "feedback", "incident", "improvement"], case_sensitive=False), help="Filter by type")
 @click.option("--status", "-s", help="Filter by status")
 @click.option("--priority", "-p", help="Filter by priority")
 @click.option("--project", "-P", "project_id", help="Filter by project ID")
@@ -634,8 +634,8 @@ def list_my_issues(obj: "Context", status, issue_type, priority, project_id, ope
 @issue_cli.command(name="create")
 @click.option("--title", "-t", required=True, help="Issue title [REQUIRED]")
 @click.option("--description", "-d", help="Issue description [RECOMMENDED]")
-@click.option("--type", "-ty", "issue_type", default="task",
-              type=click.Choice(["task", "bug", "feature", "improvement"], case_sensitive=False),
+@click.option("--type", "-ty", "issue_type", default="feature",
+              type=click.Choice(["bug", "feature", "question", "feedback", "incident", "improvement"], case_sensitive=False),
               help="Issue type (default: task)")
 @click.option("--status", "-s", default="open",
               type=click.Choice(["open", "in_progress", "resolved", "closed"], case_sensitive=False),
@@ -751,7 +751,7 @@ def create_issue(obj: "Context", title: str, description: str, issue_type: str, 
 @click.argument("issue_id")
 @click.option("--title", "-t", help="New title")
 @click.option("--description", "-d", help="New description")
-@click.option("--type", "-ty", "issue_type", type=click.Choice(["task", "bug", "feature", "improvement"], case_sensitive=False), help="New issue type")
+@click.option("--type", "-ty", "issue_type", type=click.Choice(["bug", "feature", "question", "feedback", "incident", "improvement"], case_sensitive=False), help="New issue type")
 @click.option("--status", "-s", type=click.Choice(["open", "in_progress", "resolved", "closed"], case_sensitive=False), help="New status")
 @click.option("--priority", "-p", type=click.Choice(["low", "medium", "high", "critical"], case_sensitive=False), help="New priority")
 @click.option("--assignee", "-a", "assignee_id", help="New assignee user ID")
@@ -2498,4 +2498,113 @@ def issue_vcs_links(obj: "Context", issue_id: str, as_json: bool):
             )
     except APIError as e:
         _handle_error(skin, e, "Failed to list VCS links", json_mode)
+        sys.exit(1)
+
+
+@issue_cli.command(name="children")
+@click.argument("issue_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def issue_children(obj: "Context", issue_id: str, as_json: bool):
+    """List direct child issues (sub-issues)."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    try:
+        real_id, _ = asyncio.run(_resolve_issue_id(client, issue_id))
+        data = asyncio.run(client.list_issue_children(real_id))
+        if json_mode:
+            click.echo(_format_json_response(success=True, data=data, message="children"))
+            return
+        rows = (data or {}).get("rows") or []
+        if not rows:
+            skin.info("No children")
+            return
+        skin.table(
+            ["Code", "Title", "Status"],
+            [[r.get("issue_code") or "", (r.get("title") or "")[:40], r.get("status") or ""] for r in rows],
+        )
+    except APIError as e:
+        _handle_error(skin, e, "Failed to list children", json_mode)
+        sys.exit(1)
+
+
+@issue_cli.group(name="relation")
+def relation_cli():
+    """Issue relations (blocks / related / …)."""
+    pass
+
+
+@relation_cli.command(name="list")
+@click.argument("issue_id")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def relation_list(obj: "Context", issue_id: str, as_json: bool):
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    try:
+        real_id, _ = asyncio.run(_resolve_issue_id(client, issue_id))
+        data = asyncio.run(client.list_issue_relations(real_id))
+        if json_mode:
+            click.echo(_format_json_response(success=True, data=data, message="relations"))
+            return
+        skin.section("Relations")
+        click.echo(str(data))
+    except APIError as e:
+        _handle_error(skin, e, "Failed to list relations", json_mode)
+        sys.exit(1)
+
+
+@relation_cli.command(name="add")
+@click.argument("issue_id")
+@click.option("--target", required=True, help="Target issue id or KEY-N")
+@click.option("--type", "relation_type", required=True, help="Relation type")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def relation_add(obj: "Context", issue_id: str, target: str, relation_type: str, as_json: bool):
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    try:
+        async def run():
+            src, _ = await _resolve_issue_id(client, issue_id)
+            tgt, _ = await _resolve_issue_id(client, target)
+            return await client.add_issue_relation(src, tgt, relation_type)
+        data = asyncio.run(run())
+        if json_mode:
+            click.echo(_format_json_response(success=True, data=data, message="relation added"))
+            return
+        skin.success("Relation added")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to add relation", json_mode)
+        sys.exit(1)
+
+
+@relation_cli.command(name="remove")
+@click.argument("issue_id")
+@click.option("--target", required=True)
+@click.option("--type", "relation_type", required=True)
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def relation_remove(obj: "Context", issue_id: str, target: str, relation_type: str, as_json: bool):
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    try:
+        async def run():
+            src, _ = await _resolve_issue_id(client, issue_id)
+            tgt, _ = await _resolve_issue_id(client, target)
+            return await client.remove_issue_relation(src, tgt, relation_type)
+        data = asyncio.run(run())
+        if json_mode:
+            click.echo(_format_json_response(success=True, data=data, message="relation removed"))
+            return
+        skin.success("Relation removed")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to remove relation", json_mode)
         sys.exit(1)

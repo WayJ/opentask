@@ -2,6 +2,7 @@
 import asyncio
 import click
 from ..utils.api_client import OpenTaskClient, APIError
+from ..utils.cli_output import echo_json, handle_api_error
 from ..utils.config import Config
 from ..utils.repl_skin import ReplSkin
 
@@ -49,18 +50,27 @@ def list_projects(obj: "Context", active_only: bool, as_json: bool):
     json_mode = as_json or obj.json_mode
 
     try:
-        projects = asyncio.run(client.list_projects(active_only=active_only))
+        result = asyncio.run(client.list_projects(active_only=active_only))
+        if isinstance(result, dict):
+            projects = result.get("rows") or result.get("data") or []
+        elif isinstance(result, list):
+            projects = result
+        else:
+            projects = []
 
         if json_mode:
             import json
-            click.echo(json.dumps(projects, indent=2, ensure_ascii=False))
+            click.echo(json.dumps({"rows": projects, "total": len(projects)}, indent=2, ensure_ascii=False, default=str))
             return
 
         if not projects:
             skin.info("No projects found")
+            skin.hint("Ensure workspace is selected: opentask workspace use <id>")
             return
 
         skin.section("Projects")
+        if config.active_workspace_name:
+            skin.hint(f"workspace: {config.active_workspace_name}")
 
         headers = ["ID", "Name", "Description", "Active", "Created"]
         rows = []
@@ -77,7 +87,10 @@ def list_projects(obj: "Context", active_only: bool, as_json: bool):
         skin.table(headers, rows, max_col_width=30)
 
     except APIError as e:
-        skin.error(f"Failed to list projects: {e.message}")
+        if json_mode:
+            click.echo(e.to_json())
+        else:
+            skin.error(f"Failed to list projects: {e.message}")
 
 
 @project_cli.command(name="show")
@@ -124,12 +137,12 @@ def create_project(obj: "Context", name: str, description: str, as_json: bool):
     client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
 
+    json_mode = as_json or getattr(obj, "json_mode", False)
     try:
         project = asyncio.run(client.create_project(name, description))
 
-        if as_json:
-            import json
-            click.echo(json.dumps(project, indent=2, ensure_ascii=False))
+        if json_mode:
+            echo_json(True, data=project, message="project created")
             return
 
         skin.success(f"Project created: {name}")

@@ -1,0 +1,145 @@
+"""Cycle commands (E14)."""
+from __future__ import annotations
+
+import asyncio
+import click
+
+from ..utils.api_client import APIError
+from ..utils.cli_output import echo_json, handle_api_error, make_client, require_workspace_id, unwrap_rows
+from ..utils.config import Config
+from ..utils.repl_skin import ReplSkin
+
+
+@click.group(name="cycle")
+def cycle_cli():
+    """迭代 Cycle（需已 workspace use）。"""
+    pass
+
+
+@cycle_cli.command(name="list")
+@click.option("--status", "-s", help="Filter status")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def cycle_list(obj, status, as_json):
+    config: Config = obj.config
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.list_cycles(status=status))
+        rows = unwrap_rows(data) if not (isinstance(data, dict) and "rows" in data) else data.get("rows", [])
+        if isinstance(data, dict) and "rows" in data:
+            rows = data["rows"]
+            total = data.get("total", len(rows))
+        else:
+            total = len(rows)
+        if json_mode:
+            echo_json(True, data={"rows": rows, "total": total})
+            return
+        if not rows:
+            skin.info("暂无 Cycle")
+            return
+        skin.section("Cycles")
+        skin.table(
+            ["ID", "Name", "Status", "Starts", "Ends"],
+            [[
+                (r.get("id") or "")[:8],
+                r.get("name") or "",
+                r.get("status") or "",
+                str(r.get("startsAt") or r.get("starts_at") or "")[:10],
+                str(r.get("endsAt") or r.get("ends_at") or "")[:10],
+            ] for r in rows],
+        )
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@cycle_cli.command(name="show")
+@click.argument("cycle_id")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def cycle_show(obj, cycle_id, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.get_cycle(cycle_id))
+        if json_mode:
+            echo_json(True, data=data)
+            return
+        d = data or {}
+        obj.skin.status_block({
+            "ID": d.get("id", ""),
+            "Name": d.get("name", ""),
+            "Status": d.get("status", ""),
+            "Starts": str(d.get("startsAt") or d.get("starts_at") or ""),
+            "Ends": str(d.get("endsAt") or d.get("ends_at") or ""),
+        })
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@cycle_cli.command(name="create")
+@click.option("--name", "-n", default=None)
+@click.option("--starts-at", required=True, help="ISO datetime")
+@click.option("--ends-at", required=True, help="ISO datetime")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def cycle_create(obj, name, starts_at, ends_at, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.create_cycle(starts_at=starts_at, ends_at=ends_at, name=name))
+        if json_mode:
+            echo_json(True, data=data, message="cycle created")
+            return
+        obj.skin.success(f"Cycle 已创建: {data.get('id', '')}")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@cycle_cli.command(name="activate")
+@click.argument("cycle_id")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def cycle_activate(obj, cycle_id, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.activate_cycle(cycle_id))
+        if json_mode:
+            echo_json(True, data=data, message="activated")
+            return
+        obj.skin.success("Cycle 已激活")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@cycle_cli.command(name="complete")
+@click.argument("cycle_id")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def cycle_complete(obj, cycle_id, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.complete_cycle(cycle_id))
+        if json_mode:
+            echo_json(True, data=data, message="completed")
+            return
+        obj.skin.success("Cycle 已完成")
+    except APIError as e:
+        handle_api_error(e, json_mode)

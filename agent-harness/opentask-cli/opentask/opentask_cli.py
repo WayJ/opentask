@@ -31,10 +31,20 @@ from .core.requirement import requirement_cli
 from .core.collection import collection_cli
 from .core.update import update_cli
 from .core.task import task_cli
+from .core.workspace import workspace_cli
+from .core.cycle import cycle_cli
+from .core.label import label_cli
+from .core.triage import triage_cli
+from .core.inbox import inbox_cli
+from .core.favorite import favorite_cli
+from .core.view import view_cli
+from .core.member import member_cli, invite_cli
+from .core.initiative import initiative_cli
+from .core.doc import doc_cli
 
 
 # Global version
-VERSION = "1.0.6"
+VERSION = "1.1.0"
 
 # Context object passed to commands
 class Context:
@@ -57,24 +67,22 @@ class Context:
 @click.option("--version", is_flag=True, help="Show version and exit")
 @click.pass_context
 def cli(ctx, api_url: Optional[str], token: Optional[str], as_json: bool, version: bool):
-    """OpenTask CLI - AI Agent interface for OpenTask platform.
+    """OpenTask CLI — Workspace + Issue 主轴（AI Agent / 人类）。
 
     \b
     Examples:
-        # Interactive mode
-        opentask
-
-        # One-shot commands
+        opentask login
+        opentask workspace list
+        opentask workspace use <workspace-id>
         opentask project list
-        opentask issue list --status open
+        opentask issue create -t "Fix bug"
+        opentask issue show KEY-1
+        opentask cycle list
+        opentask label list
+        opentask triage list
 
-        # JSON output for agents
-        opentask --json project list
-        opentask --json issue create -t "Fix bug"
-
-        # With active project context
-        opentask project use <project-id>
-        opentask issue list
+        # JSON for agents
+        opentask --json issue list --status open
     """
     if version:
         click.echo(f"opentask v{VERSION}")
@@ -122,7 +130,11 @@ def config_show(obj: Context):
         "API URL": config.api_url,
         "Token": f"{config.token[:20]}..." if config.token else "Not set",
         "Access Token": f"{config.access_token[:10]}..." if config.access_token else "Not set",
-        "Active Project": config.active_project_name or "None"
+        "Active Workspace": (
+            f"{config.active_workspace_name} ({config.active_workspace_id})"
+            if config.active_workspace_id else "None"
+        ),
+        "Active Project": config.active_project_name or "None",
     })
 
 
@@ -367,8 +379,19 @@ def repl(ctx):
 # Register Command Groups
 # ============================================================================
 
+cli.add_command(workspace_cli)
 cli.add_command(project_cli)
 cli.add_command(issue_cli)
+cli.add_command(cycle_cli)
+cli.add_command(label_cli)
+cli.add_command(triage_cli)
+cli.add_command(inbox_cli)
+cli.add_command(favorite_cli)
+cli.add_command(view_cli)
+cli.add_command(member_cli)
+cli.add_command(invite_cli)
+cli.add_command(initiative_cli)
+cli.add_command(doc_cli)
 cli.add_command(requirement_cli)
 cli.add_command(task_cli)
 cli.add_command(collection_cli)
