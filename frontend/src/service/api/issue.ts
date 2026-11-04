@@ -542,10 +542,38 @@ export const issueApi = {
   },
 
   /**
-   * 获取附件下载链接（公共访问，无需认证）
+   * E66: 签发短 TTL 签名 URL（预览/下载内联用；须成员会话）
+   */
+  createAttachmentSignedUrl: (
+    attachmentId: string,
+    purpose: 'download' | 'preview',
+    ttlSeconds?: number
+  ) => {
+    return request<{ url: string; expiresAt: string }>({
+      url: `/api/attachments/${attachmentId}/signed-url`,
+      method: 'POST',
+      data: {
+        purpose,
+        ...(ttlSeconds != null ? { ttlSeconds } : {})
+      }
+    });
+  },
+
+  /**
+   * E66: 鉴权会话下载附件为 Blob（显式「下载」按钮）
+   */
+  downloadAttachmentBlob: (attachmentId: string) => {
+    return downloadRequest<Blob>({
+      url: `/api/attachments/${attachmentId}/download`,
+      method: 'GET',
+      responseType: 'blob'
+    });
+  },
+
+  /**
+   * @deprecated E66: 裸公共 URL 已废除；请用 createAttachmentSignedUrl / downloadAttachmentBlob
    */
   getAttachmentDownloadUrl: (_issueId: string, attachmentId: string) => {
-    // 使用独立的附件路由，不需要 issueId
     return `/api/attachments/${attachmentId}/download`;
   },
 
