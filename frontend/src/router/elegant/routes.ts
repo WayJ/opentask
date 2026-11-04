@@ -540,6 +540,15 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       },
       {
+        name: 'settings_recurrences',
+        path: '/settings/recurrences',
+        component: 'view.settings_recurrences',
+        meta: {
+          title: 'settings_recurrences',
+          i18nKey: 'route.settings_recurrences'
+        }
+      },
+      {
         name: 'settings_webhooks',
         path: '/settings/webhooks',
         component: 'view.settings_webhooks',

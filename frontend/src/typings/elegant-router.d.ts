@@ -66,6 +66,7 @@ declare module "@elegant-router/types" {
     "settings": "/settings";
     "settings_forms": "/settings/forms";
     "settings_notifications": "/settings/notifications";
+    "settings_recurrences": "/settings/recurrences";
     "settings_webhooks": "/settings/webhooks";
     "triage": "/triage";
     "work-management": "/work-management";
@@ -210,6 +211,7 @@ declare module "@elegant-router/types" {
     | "search"
     | "settings_forms"
     | "settings_notifications"
+    | "settings_recurrences"
     | "settings_webhooks"
     | "triage"
     | "work-management_cost-projects_create"

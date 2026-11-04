@@ -259,6 +259,7 @@ const local: App.I18n.Schema = {
     workspace_labels: '标签 Labels',
     'settings': '设置',
     'settings_webhooks': '出站 Webhooks',
+    'settings_recurrences': '周期建单',
     'settings_forms': '公开表单',
     'public-form': '公开表单',
     'settings_notifications': '通知偏好',

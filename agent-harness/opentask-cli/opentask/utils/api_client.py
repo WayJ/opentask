@@ -984,6 +984,30 @@ class OpenTaskClient:
         return await self.get("/api/insights/summary", params=params or None)
 
 
+
+
+    # ========================================================================
+    # Issue Recurrences (E35)
+    # ========================================================================
+
+    async def list_recurrences(self) -> dict:
+        return await self.get("/api/recurrences")
+
+    async def get_recurrence(self, recurrence_id: str) -> dict:
+        return await self.get(f"/api/recurrences/{recurrence_id}")
+
+    async def create_recurrence(self, body: dict) -> dict:
+        return await self.post("/api/recurrences", data=body)
+
+    async def update_recurrence(self, recurrence_id: str, body: dict) -> dict:
+        return await self.patch(f"/api/recurrences/{recurrence_id}", data=body)
+
+    async def delete_recurrence(self, recurrence_id: str) -> dict:
+        return await self.delete(f"/api/recurrences/{recurrence_id}")
+
+    async def run_due_recurrences(self) -> dict:
+        return await self.post("/api/recurrences/run-due")
+
     # ============================================================================
     # Entity Documents API
     # ============================================================================

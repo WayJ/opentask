@@ -212,6 +212,7 @@ const routeMap: RouteMap = {
   "settings": "/settings",
   "settings_forms": "/settings/forms",
   "settings_notifications": "/settings/notifications",
+  "settings_recurrences": "/settings/recurrences",
   "settings_webhooks": "/settings/webhooks",
   "triage": "/triage",
   "work-management": "/work-management",

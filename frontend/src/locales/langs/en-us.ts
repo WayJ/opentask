@@ -261,6 +261,7 @@ const local: App.I18n.Schema = {
     workspace_labels: 'Labels',
     'settings': 'Settings',
     'settings_webhooks': 'Webhooks',
+    'settings_recurrences': 'Recurrences',
     'settings_forms': 'Public Forms',
     'public-form': 'Public Form',
     'settings_notifications': 'Notifications',

@@ -383,6 +383,16 @@ const customRoutes: CustomRoute[] = [
           i18nKey: 'route.settings_forms',
           order: 3
         }
+      },
+      {
+        name: 'settings_recurrences',
+        path: '/settings/recurrences',
+        component: 'view.settings_recurrences',
+        meta: {
+          title: 'settings_recurrences',
+          i18nKey: 'route.settings_recurrences',
+          order: 4
+        }
       }
     ]
   },
