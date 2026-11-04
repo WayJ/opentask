@@ -2,8 +2,8 @@
 
 日期：2026-11-04  
 Epic：E5  
-状态：active（S1 启动；未推远程）  
-基线：`sprint/E4-S3` @ `1e03724`；worktree `/workspace/opentask-worktrees/E5-S1`
+状态：active（S2 closed；S3 待做；未推远程）  
+基线：`sprint/E5-S1` @ `3075de2` → `sprint/E5-S2`；worktree `/workspace/opentask-worktrees/E5-S2`
 
 ## 1. 目标
 
