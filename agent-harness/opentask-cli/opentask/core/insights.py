@@ -1,7 +1,9 @@
-"""Insights commands (E24 + E55 thicken)."""
+"""Insights commands (E24 + E55 + E59 reports/digest)."""
 from __future__ import annotations
 
 import asyncio
+import json
+
 import click
 
 from ..utils.api_client import APIError
@@ -11,22 +13,37 @@ from ..utils.config import Config
 
 @click.group(name="insights")
 def insights_cli():
-    """Workspace Insights（只读效能）。"""
+    """Workspace Insights（效能 / 报表 / digest）。"""
     pass
+
+
+def _parse_label_ids(label_ids: str | None) -> list[int] | None:
+    if not label_ids:
+        return None
+    out: list[int] = []
+    for part in str(label_ids).split(","):
+        part = part.strip()
+        if not part:
+            continue
+        out.append(int(part))
+    return out or None
 
 
 @insights_cli.command(name="summary")
 @click.option("--cycle", "cycle_id", default=None, help="Cycle ID；默认 active")
 @click.option("--project-id", "project_id", default=None, help="Project 切片")
-@click.option("--label-id", "label_id", default=None, type=int, help="Label(Tag) 切片")
+@click.option("--label-id", "label_id", default=None, type=int, help="Label(Tag) 单切片")
+@click.option("--label-ids", "label_ids", default=None, help="多 Label OR，逗号分隔")
 @click.option("--json", "as_json", is_flag=True)
 @click.pass_obj
-def insights_summary(obj, cycle_id, project_id, label_id, as_json):
+def insights_summary(obj, cycle_id, project_id, label_id, label_ids, as_json):
     """拉取 Insights summary。"""
     config: Config = obj.config
     json_mode = as_json or obj.json_mode
     if not require_workspace_id(config, json_mode):
         raise SystemExit(1)
+    if label_id is not None and label_ids:
+        raise click.ClickException("不可同时传 --label-id 与 --label-ids")
     client = make_client(config)
     try:
         data = asyncio.run(
@@ -34,6 +51,7 @@ def insights_summary(obj, cycle_id, project_id, label_id, as_json):
                 cycle_id=cycle_id,
                 project_id=project_id,
                 label_id=label_id,
+                label_ids=_parse_label_ids(label_ids),
             )
         )
         if json_mode:
@@ -71,15 +89,18 @@ def insights_summary(obj, cycle_id, project_id, label_id, as_json):
 @insights_cli.command(name="export")
 @click.option("--cycle", "cycle_id", default=None, help="Cycle ID；默认 active")
 @click.option("--project-id", "project_id", default=None, help="Project 切片")
-@click.option("--label-id", "label_id", default=None, type=int, help="Label(Tag) 切片")
+@click.option("--label-id", "label_id", default=None, type=int, help="Label(Tag) 单切片")
+@click.option("--label-ids", "label_ids", default=None, help="多 Label OR，逗号分隔")
 @click.option("-o", "--output", "out_path", default=None, help="写入文件；默认 stdout")
 @click.pass_obj
-def insights_export(obj, cycle_id, project_id, label_id, out_path):
+def insights_export(obj, cycle_id, project_id, label_id, label_ids, out_path):
     """导出 Insights CSV（默认 stdout）。"""
     config: Config = obj.config
     json_mode = obj.json_mode
     if not require_workspace_id(config, json_mode):
         raise SystemExit(1)
+    if label_id is not None and label_ids:
+        raise click.ClickException("不可同时传 --label-id 与 --label-ids")
     client = make_client(config)
     try:
         content = asyncio.run(
@@ -87,6 +108,7 @@ def insights_export(obj, cycle_id, project_id, label_id, out_path):
                 cycle_id=cycle_id,
                 project_id=project_id,
                 label_id=label_id,
+                label_ids=_parse_label_ids(label_ids),
             )
         )
         text = content.decode("utf-8") if isinstance(content, (bytes, bytearray)) else str(content)
@@ -96,5 +118,115 @@ def insights_export(obj, cycle_id, project_id, label_id, out_path):
             obj.skin.success(f"Exported to {out_path}")
         else:
             click.echo(text, nl=False if text.endswith("\n") else True)
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@insights_cli.group(name="reports")
+def insights_reports_cli():
+    """我的 Insights 报表（personal）。"""
+    pass
+
+
+@insights_reports_cli.command(name="list")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def insights_reports_list(obj, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.insights_reports_list())
+        if json_mode:
+            echo_json(True, data=data)
+            return
+        rows = (data or {}).get("rows") or []
+        if not rows:
+            obj.skin.info("(no reports)")
+            return
+        for r in rows:
+            flag = " ★" if r.get("isDefault") else ""
+            obj.skin.info(f"{r.get('id')}  {r.get('name')}{flag}")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@insights_reports_cli.command(name="create")
+@click.option("--name", required=True, help="报表名称")
+@click.option("--filters-json", "filters_json", default="{}", help="filters JSON")
+@click.option("--default", "is_default", is_flag=True, help="设为 digest 默认")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def insights_reports_create(obj, name, filters_json, is_default, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    try:
+        filters = json.loads(filters_json or "{}")
+    except json.JSONDecodeError as exc:
+        raise click.ClickException(f"filters-json 非法: {exc}") from exc
+    client = make_client(config)
+    try:
+        data = asyncio.run(
+            client.insights_reports_create(
+                name=name, filters=filters, is_default=is_default
+            )
+        )
+        if json_mode:
+            echo_json(True, data=data)
+            return
+        obj.skin.success(f"Created {data.get('id')} {data.get('name')}")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@insights_reports_cli.command(name="delete")
+@click.argument("report_id")
+@click.option("--yes", is_flag=True, help="跳过确认")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def insights_reports_delete(obj, report_id, yes, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    if not yes and not json_mode:
+        click.confirm(f"Delete report {report_id}?", abort=True)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.insights_reports_delete(report_id))
+        if json_mode:
+            echo_json(True, data=data)
+            return
+        obj.skin.success(f"Deleted {report_id}")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@insights_cli.command(name="run-digest")
+@click.option("--yes", is_flag=True, help="跳过确认")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def insights_run_digest(obj, yes, as_json):
+    """触发 Insights digest tick（writer+）。"""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    if not yes and not json_mode:
+        click.confirm("Run insights digest for this workspace?", abort=True)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.insights_run_digest())
+        if json_mode:
+            echo_json(True, data=data)
+            return
+        obj.skin.success(
+            f"created={data.get('created')} skipped={data.get('skipped')} "
+            f"bucket={data.get('bucketDate')}"
+        )
     except APIError as e:
         handle_api_error(e, json_mode)

@@ -1091,6 +1091,7 @@ class OpenTaskClient:
         assignee_limit: int | None = None,
         project_id: str | None = None,
         label_id: int | None = None,
+        label_ids: list[int] | None = None,
     ) -> dict:
         params = {}
         if cycle_id:
@@ -1099,7 +1100,9 @@ class OpenTaskClient:
             params["assigneeLimit"] = assignee_limit
         if project_id:
             params["projectId"] = project_id
-        if label_id is not None:
+        if label_ids:
+            params["labelIds"] = ",".join(str(x) for x in label_ids)
+        elif label_id is not None:
             params["labelId"] = label_id
         return await self.get("/api/insights/summary", params=params or None)
 
@@ -1108,8 +1111,9 @@ class OpenTaskClient:
         cycle_id: str | None = None,
         project_id: str | None = None,
         label_id: int | None = None,
+        label_ids: list[int] | None = None,
     ) -> bytes:
-        """E55: download insights CSV for current workspace."""
+        """E55/E59: download insights CSV for current workspace."""
         import httpx
         url = f"{self.base_url}/api/insights/export.csv"
         headers = self._get_headers()
@@ -1118,13 +1122,36 @@ class OpenTaskClient:
             params["cycleId"] = cycle_id
         if project_id:
             params["projectId"] = project_id
-        if label_id is not None:
+        if label_ids:
+            params["labelIds"] = ",".join(str(x) for x in label_ids)
+        elif label_id is not None:
             params["labelId"] = label_id
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.get(url, params=params or None, headers=headers)
             if response.status_code >= 400:
                 raise APIError(response.status_code, response.text)
             return response.content
+
+    async def insights_reports_list(self) -> dict:
+        return await self.get("/api/insights/reports")
+
+    async def insights_reports_create(
+        self,
+        *,
+        name: str,
+        filters: dict | None = None,
+        is_default: bool = False,
+    ) -> dict:
+        return await self.post(
+            "/api/insights/reports",
+            data={"name": name, "filters": filters or {}, "isDefault": bool(is_default)},
+        )
+
+    async def insights_reports_delete(self, report_id: str) -> dict:
+        return await self.delete(f"/api/insights/reports/{report_id}")
+
+    async def insights_run_digest(self) -> dict:
+        return await self.post("/api/insights/run-digest")
 
 
 

@@ -1,4 +1,4 @@
-"""E31 CLI: form list|create|update|delete|url + version 1.42.0."""
+"""E31 CLI: form list|create|update|delete|url + version 1.43.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli
@@ -8,7 +8,7 @@ def test_version_1_15_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.42.0" in result.output
+    assert "1.43.0" in result.output
 
 
 def test_form_help():
