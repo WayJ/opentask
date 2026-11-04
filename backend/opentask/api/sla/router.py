@@ -26,6 +26,7 @@ class PolicyCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=80)
     startStatuses: list[str]
     stopStatuses: Optional[list[str]] = None
+    pauseStatuses: Optional[list[str]] = None
     targetMinutes: Optional[int] = 1440
     metric: str = "time_in_status"
     notifyAssignee: bool = True
@@ -37,6 +38,7 @@ class PolicyUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=80)
     startStatuses: Optional[list[str]] = None
     stopStatuses: Optional[list[str]] = None
+    pauseStatuses: Optional[list[str]] = None
     targetMinutes: Optional[int] = None
     metric: Optional[str] = None
     notifyAssignee: Optional[bool] = None
@@ -68,6 +70,7 @@ async def create_policy(
         name=body.name,
         start_statuses=body.startStatuses,
         stop_statuses=body.stopStatuses,
+        pause_statuses=body.pauseStatuses,
         target_minutes=body.targetMinutes if body.targetMinutes is not None else 1440,
         metric=body.metric,
         notify_assignee=body.notifyAssignee,

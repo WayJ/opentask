@@ -25,6 +25,7 @@ TRIGGER_TYPES = (
     "issue.assignee_changed",
     "label_added",
     "custom_field_changed",  # E36
+    "issue.sla_breached",  # E45
 )
 
 ACTION_TYPES = (

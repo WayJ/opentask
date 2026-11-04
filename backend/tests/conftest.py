@@ -240,6 +240,14 @@ async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
                 "ALTER TABLE IF EXISTS webhook_delivery_logs ADD COLUMN IF NOT EXISTS max_attempts INTEGER NOT NULL DEFAULT 5",
             ):
                 await conn.execute(_sql_text(_stmt))
+            # E45 SLA v2 pause
+            for _stmt in (
+                "ALTER TABLE IF EXISTS sla_policies ADD COLUMN IF NOT EXISTS pause_statuses JSON NOT NULL DEFAULT '[]'",
+                "ALTER TABLE IF EXISTS issue_sla_clocks ADD COLUMN IF NOT EXISTS elapsed_before_pause_minutes INTEGER NOT NULL DEFAULT 0",
+                "ALTER TABLE IF EXISTS issue_sla_clocks ADD COLUMN IF NOT EXISTS paused_at TIMESTAMP",
+                "ALTER TABLE IF EXISTS issue_sla_clocks ADD COLUMN IF NOT EXISTS segment_started_at TIMESTAMP",
+            ):
+                await conn.execute(_sql_text(_stmt))
             print(f"[OK] Test database ({TEST_DB_NAME}) tables created")
     except Exception as e:
         import logging

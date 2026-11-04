@@ -365,6 +365,9 @@ class AutomationService:
                 if str(event.get("to")) != str(cfg.get("to")):
                     return False
             return True
+        if t == "issue.sla_breached":
+            # E45: no trigger_config filters in v1
+            return True
         return False
 
     async def _match_condition(self, rule: AutomationRule, issue: Issue) -> bool:

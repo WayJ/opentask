@@ -1,4 +1,4 @@
-"""SLA policies + clocks + run-due (E42)."""
+"""SLA policies + clocks + run-due (E42) + pause/automation (E45)."""
 from __future__ import annotations
 
 import logging
@@ -23,6 +23,7 @@ from opentask.models.sla.model import (
 )
 from opentask.models.workspace.model import WorkspaceMember
 from opentask.services.notification.service import NotificationService
+from opentask.services.automation.service import fire_automations
 from opentask.services.workspace_webhook.service import fire_webhooks
 
 logger = logging.getLogger(__name__)
@@ -59,6 +60,7 @@ def serialize_policy(row: SlaPolicy) -> dict:
         "metric": row.metric,
         "startStatuses": list(row.start_statuses or []),
         "stopStatuses": list(row.stop_statuses or []),
+        "pauseStatuses": list(row.pause_statuses or []),
         "targetMinutes": int(row.target_minutes),
         "notifyAssignee": bool(row.notify_assignee),
         "notifyWatchers": bool(row.notify_watchers),
@@ -80,6 +82,9 @@ def serialize_clock(row: IssueSlaClock, *, policy_name: Optional[str] = None) ->
         "stoppedAt": row.stopped_at.isoformat() if row.stopped_at else None,
         "breachedAt": row.breached_at.isoformat() if row.breached_at else None,
         "startStatus": row.start_status,
+        "elapsedBeforePauseMinutes": int(row.elapsed_before_pause_minutes or 0),
+        "pausedAt": row.paused_at.isoformat() if row.paused_at else None,
+        "segmentStartedAt": row.segment_started_at.isoformat() if row.segment_started_at else None,
     }
 
 
@@ -143,6 +148,7 @@ class SlaService:
         name: str,
         start_statuses: list[str],
         stop_statuses: Optional[list[str]] = None,
+        pause_statuses: Optional[list[str]] = None,
         target_minutes: int = DEFAULT_TARGET_MINUTES,
         metric: str = "time_in_status",
         notify_assignee: bool = True,
@@ -156,6 +162,7 @@ class SlaService:
             raise HTTPException(status_code=400, detail=f"不支持的 metric: {metric}")
         starts = _validate_statuses(start_statuses, field="startStatuses", allow_empty=False)
         stops = _validate_statuses(stop_statuses or [], field="stopStatuses", allow_empty=True)
+        pauses = _validate_statuses(pause_statuses or [], field="pauseStatuses", allow_empty=True)
         minutes = _validate_target(target_minutes)
         row = SlaPolicy(
             workspace_id=workspace_id,
@@ -164,6 +171,7 @@ class SlaService:
             metric=metric,
             start_statuses=starts,
             stop_statuses=stops,
+            pause_statuses=pauses,
             target_minutes=minutes,
             notify_assignee=bool(notify_assignee),
             notify_watchers=bool(notify_watchers),
@@ -199,6 +207,10 @@ class SlaService:
         if "stopStatuses" in updates and updates["stopStatuses"] is not None:
             row.stop_statuses = _validate_statuses(
                 updates["stopStatuses"], field="stopStatuses", allow_empty=True
+            )
+        if "pauseStatuses" in updates and updates["pauseStatuses"] is not None:
+            row.pause_statuses = _validate_statuses(
+                updates["pauseStatuses"], field="pauseStatuses", allow_empty=True
             )
         if "targetMinutes" in updates and updates["targetMinutes"] is not None:
             row.target_minutes = _validate_target(updates["targetMinutes"])
@@ -247,7 +259,7 @@ class SlaService:
         old_status: Optional[str],
         new_status: Optional[str],
     ) -> None:
-        """Start/stop clocks for enabled time_in_status policies. Same txn as caller."""
+        """Start/pause/resume/stop clocks. Same txn as caller. Priority: stop > pause > start."""
         if new_status is None:
             return
         new_s = _status_str(new_status)
@@ -271,42 +283,65 @@ class SlaService:
         now = datetime.utcnow()
         for policy in policies:
             starts = list(policy.start_statuses or [])
-            # stop running first if stop condition met
-            rq = await self.db.execute(
+            pauses = list(policy.pause_statuses or [])
+
+            aq = await self.db.execute(
                 select(IssueSlaClock).where(
                     IssueSlaClock.issue_id == issue.id,
                     IssueSlaClock.policy_id == policy.id,
-                    IssueSlaClock.status == "running",
+                    IssueSlaClock.status.in_(("running", "paused")),
                 )
             )
-            running = rq.scalar_one_or_none()
-            if running and _should_stop(policy, new_s):
-                running.status = "met"
-                running.stopped_at = now
+            active = aq.scalar_one_or_none()
+
+            # 1) stop wins (running or paused)
+            if active is not None and _should_stop(policy, new_s):
+                active.status = "met"
+                active.stopped_at = now
                 continue
 
-            if new_s in starts:
-                # ensure no double running
-                if running is None:
-                    # re-check in case we didn't load (shouldn't)
-                    rq2 = await self.db.execute(
-                        select(IssueSlaClock).where(
-                            IssueSlaClock.issue_id == issue.id,
-                            IssueSlaClock.policy_id == policy.id,
-                            IssueSlaClock.status == "running",
-                        )
-                    )
-                    if rq2.scalar_one_or_none() is None:
-                        clock = IssueSlaClock(
-                            workspace_id=issue.workspace_id,
-                            issue_id=issue.id,
-                            policy_id=policy.id,
-                            status="running",
-                            started_at=now,
-                            deadline_at=now + timedelta(minutes=int(policy.target_minutes)),
-                            start_status=new_s,
-                        )
-                        self.db.add(clock)
+            # 2) running → pause
+            if active is not None and active.status == "running" and new_s in pauses:
+                seg = active.segment_started_at or active.started_at
+                if seg is not None:
+                    delta_min = max(0, int((now - seg).total_seconds() // 60))
+                    active.elapsed_before_pause_minutes = int(
+                        active.elapsed_before_pause_minutes or 0
+                    ) + delta_min
+                active.status = "paused"
+                active.paused_at = now
+                # Q3: keep old deadline_at
+                continue
+
+            # 3) paused → resume (not stop, not still in pause)
+            if (
+                active is not None
+                and active.status == "paused"
+                and new_s not in pauses
+            ):
+                elapsed = int(active.elapsed_before_pause_minutes or 0)
+                remaining = max(0, int(policy.target_minutes) - elapsed)
+                active.status = "running"
+                active.paused_at = None
+                active.segment_started_at = now
+                active.deadline_at = now + timedelta(minutes=remaining)
+                continue
+
+            # 4) start new running if no active clock
+            if new_s in starts and active is None:
+                clock = IssueSlaClock(
+                    workspace_id=issue.workspace_id,
+                    issue_id=issue.id,
+                    policy_id=policy.id,
+                    status="running",
+                    started_at=now,
+                    deadline_at=now + timedelta(minutes=int(policy.target_minutes)),
+                    start_status=new_s,
+                    elapsed_before_pause_minutes=0,
+                    paused_at=None,
+                    segment_started_at=now,
+                )
+                self.db.add(clock)
 
     async def run_due(
         self,
@@ -415,6 +450,31 @@ class SlaService:
                     )
                 except Exception as wh_err:  # noqa: BLE001
                     logger.exception("sla webhook failed: %s", wh_err)
+
+                try:
+                    await fire_automations(
+                        self.db,
+                        workspace_id=workspace_id,
+                        trigger_type="issue.sla_breached",
+                        issue=issue,
+                        actor_user_id=None,
+                        event={
+                            "policyId": policy.id,
+                            "policyName": policy.name,
+                            "deadlineAt": clock.deadline_at.isoformat()
+                            if clock.deadline_at
+                            else None,
+                            "breachedAt": clock.breached_at.isoformat()
+                            if clock.breached_at
+                            else None,
+                            "clockId": clock.id,
+                        },
+                    )
+                except Exception as auto_err:  # noqa: BLE001
+                    logger.exception("sla automation failed: %s", auto_err)
+                    errors.append(
+                        {"clockId": clock.id, "message": f"automation: {auto_err}"}
+                    )
 
                 await self.db.commit()
             except Exception as e:  # noqa: BLE001

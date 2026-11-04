@@ -20,7 +20,7 @@ from sqlalchemy.types import JSON
 from opentask.models.base import DBModel
 
 SLA_METRICS = ("time_in_status",)
-CLOCK_STATUSES = ("running", "met", "breached", "cancelled")
+CLOCK_STATUSES = ("running", "paused", "met", "breached", "cancelled")
 CLOSED_STOP_STATUSES = frozenset({"resolved", "closed", "rejected"})
 TARGET_MINUTES_MIN = 1
 TARGET_MINUTES_MAX = 10080
@@ -61,6 +61,11 @@ class SlaPolicy(DBModel):
     )
     notify_assignee: Mapped[bool] = mapped_column(Boolean, nullable=False, insert_default=True)
     notify_watchers: Mapped[bool] = mapped_column(Boolean, nullable=False, insert_default=False)
+    pause_statuses: Mapped[list[Any]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"),
+        nullable=False,
+        insert_default=list,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, insert_default=datetime.utcnow
     )
@@ -103,6 +108,11 @@ class IssueSlaClock(DBModel):
     stopped_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     breached_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     start_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    elapsed_before_pause_minutes: Mapped[int] = mapped_column(
+        Integer, nullable=False, insert_default=0
+    )
+    paused_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    segment_started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     __table_args__ = (
         Index("idx_issue_sla_clocks_ws_status_deadline", "workspace_id", "status", "deadline_at"),
