@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { isIssueCodeToken, parseSearchString, parsedQueryToFilters } from './issueSearchParser';
+import {
+  customFieldsToCfParams,
+  isIssueCodeToken,
+  parseSearchString,
+  parsedQueryToFilters
+} from './issueSearchParser';
 
 describe('parseSearchString E21', () => {
   it('parses assignee:@me and assignee:me as me', () => {
@@ -34,5 +39,24 @@ describe('parseSearchString E21', () => {
     expect(f.assignee_id).toBe('me');
     expect(f.status).toBe('open');
     expect(f.labels).toEqual(['bug']);
+  });
+});
+
+describe('parseSearchString E32 custom fields', () => {
+  it('parses field:key:value and cf:key:value', () => {
+    const q = parseSearchString('field:severity:s1 is:open');
+    expect(q.custom_fields).toEqual([{ key: 'severity', value: 's1' }]);
+    expect(q.status).toBe('open');
+    const q2 = parseSearchString('cf:stack:fe cf:shipped:true');
+    expect(q2.custom_fields).toEqual([
+      { key: 'stack', value: 'fe' },
+      { key: 'shipped', value: 'true' }
+    ]);
+  });
+
+  it('maps custom_fields via parsedQueryToFilters and cf params', () => {
+    const f = parsedQueryToFilters(parseSearchString('field:severity:s1'));
+    expect(f.custom_fields).toEqual([{ key: 'severity', value: 's1' }]);
+    expect(customFieldsToCfParams(f.custom_fields)).toEqual({ 'cf.severity': 's1' });
   });
 });

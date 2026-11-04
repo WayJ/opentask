@@ -16,18 +16,30 @@ const props = defineProps<{
   swimlaneBy: SwimlaneBy;
   hideEmptyLanes: boolean;
   saving?: boolean;
+  /** E32：可选自定义字段 */
+  customFieldOptions?: { key: string; name: string }[];
+  customFieldKeys?: string[];
 }>();
 
 const emit = defineEmits<{
   'update:fields': [IssueDisplayFields];
   'update:swimlaneBy': [SwimlaneBy];
   'update:hideEmptyLanes': [boolean];
+  'update:customFieldKeys': [string[]];
   'set-personal-default': [];
   reset: [];
 }>();
 
 function toggleField(key: DisplayFieldKey, checked: boolean) {
   emit('update:fields', { ...props.fields, [key]: checked });
+}
+
+function toggleCustomField(key: string, checked: boolean) {
+  const cur = [...(props.customFieldKeys || [])];
+  const idx = cur.indexOf(key);
+  if (checked && idx < 0) cur.push(key);
+  if (!checked && idx >= 0) cur.splice(idx, 1);
+  emit('update:customFieldKeys', cur);
 }
 </script>
 
@@ -44,6 +56,19 @@ function toggleField(key: DisplayFieldKey, checked: boolean) {
           @update:checked="(v: boolean) => toggleField(key, v)"
         >
           {{ DISPLAY_FIELD_LABELS[key] }}
+        </NCheckbox>
+      </div>
+    </div>
+    <div v-if="customFieldOptions?.length" class="section">
+      <NText depth="3" class="section-title">自定义字段列</NText>
+      <div class="field-grid">
+        <NCheckbox
+          v-for="opt in customFieldOptions"
+          :key="opt.key"
+          :checked="(customFieldKeys || []).includes(opt.key)"
+          @update:checked="(v: boolean) => toggleCustomField(opt.key, v)"
+        >
+          {{ opt.name }}
         </NCheckbox>
       </div>
     </div>

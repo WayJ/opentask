@@ -522,6 +522,15 @@ export const generatedRoutes: GeneratedRoute[] = [
     },
     children: [
       {
+        name: 'settings_forms',
+        path: '/settings/forms',
+        component: 'view.settings_forms',
+        meta: {
+          title: 'settings_forms',
+          i18nKey: 'route.settings_forms'
+        }
+      },
+      {
         name: 'settings_notifications',
         path: '/settings/notifications',
         component: 'view.settings_notifications',
@@ -538,29 +547,8 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'settings_webhooks',
           i18nKey: 'route.settings_webhooks'
         }
-      },
-      {
-        name: 'settings_forms',
-        path: '/settings/forms',
-        component: 'view.settings_forms',
-        meta: {
-          title: 'settings_forms',
-          i18nKey: 'route.settings_forms'
-        }
       }
     ]
-  },
-  {
-    name: 'public-form',
-    path: '/f/:token',
-    component: 'layout.blank$view.f',
-    meta: {
-      title: 'public-form',
-      i18nKey: 'route.public-form',
-      constant: true,
-      hideInMenu: true
-    },
-    props: true
   },
   {
     name: 'triage',

@@ -1143,6 +1143,8 @@ class OpenTaskClient:
         due_soon: bool = False,
         due_before: str | None = None,
         cycle_id: str | None = None,
+        cf: list[str] | None = None,
+        include: str | None = None,
     ) -> dict:
         """List issues with filtering.
 
@@ -1198,7 +1200,19 @@ class OpenTaskClient:
             params["due_before"] = due_before
         if cycle_id:
             params["cycle_id"] = cycle_id
-
+        if include:
+            params["include"] = include
+        # E32: --cf key=value → cf.<key>=value (httpx MultiDict via list of tuples)
+        if cf:
+            items = [(k, params[k]) for k in params]
+            for raw in cf:
+                if "=" not in raw:
+                    continue
+                key, _, val = raw.partition("=")
+                key = key.strip()
+                if key:
+                    items.append((f"cf.{key}", val))
+            return await self.get("/api/issues", params=items)
         return await self.get("/api/issues", params=params)
 
     async def get_issue(self, issue_id: str, by_code: bool = False) -> dict:

@@ -16,6 +16,8 @@ export interface IssueDisplayState {
   swimlaneBy: SwimlaneBy;
   hideEmptyLanes: boolean;
   fields: IssueDisplayFields;
+  /** E32：要在列表显示的自定义字段 key（有序） */
+  customFieldKeys: string[];
 }
 
 export const DISPLAY_FIELD_KEYS: DisplayFieldKey[] = [
@@ -72,7 +74,8 @@ export function defaultIssueDisplay(): IssueDisplayState {
     groupBy: 'none',
     swimlaneBy: 'none',
     hideEmptyLanes: false,
-    fields: { ...DEFAULT_FIELDS }
+    fields: { ...DEFAULT_FIELDS },
+    customFieldKeys: []
   };
 }
 
@@ -102,6 +105,12 @@ export function normalizeIssueDisplay(raw: unknown): IssueDisplayState {
       }
     }
   }
+  const cfKeys = obj.custom_field_keys;
+  if (Array.isArray(cfKeys)) {
+    out.customFieldKeys = cfKeys
+      .map(k => String(k || '').trim().toLowerCase())
+      .filter(Boolean);
+  }
   return out;
 }
 
@@ -111,8 +120,16 @@ export function displayStateToJson(state: IssueDisplayState): Record<string, unk
     group_by: state.groupBy,
     swimlane_by: state.swimlaneBy,
     hide_empty_lanes: state.hideEmptyLanes,
-    fields: { ...state.fields }
+    fields: { ...state.fields },
+    custom_field_keys: [...(state.customFieldKeys || [])]
   };
+}
+
+export function formatCustomFieldCellValue(value: unknown): string {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'boolean') return value ? '是' : '否';
+  if (Array.isArray(value)) return value.map(String).join(', ') || '—';
+  return String(value);
 }
 
 export function isSwimlaneByKey(value: unknown): value is SwimlaneBy {

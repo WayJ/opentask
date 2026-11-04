@@ -9,7 +9,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  placeholder: '搜索 Issue... (支持 is:open, label:bug 等语法)'
+  placeholder: '搜索 Issue... (支持 is:open, field:key:value 等)'
 });
 
 const emit = defineEmits<{
@@ -55,6 +55,11 @@ const activeFilters = computed(() => {
   if (parsedQuery.value.cycle_id) filters.push(`Cycle: ${parsedQuery.value.cycle_id}`);
   if (parsedQuery.value.project_id) filters.push(`项目: ${parsedQuery.value.project_id}`);
   if (parsedQuery.value.labels?.length) filters.push(`标签: ${parsedQuery.value.labels.join(',')}`);
+  if (parsedQuery.value.custom_fields?.length) {
+    for (const cf of parsedQuery.value.custom_fields) {
+      filters.push(`字段 ${cf.key}: ${cf.value}`);
+    }
+  }
   if (parsedQuery.value.search) filters.push(`搜索: ${parsedQuery.value.search}`);
   return filters;
 });

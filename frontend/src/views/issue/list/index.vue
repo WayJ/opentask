@@ -59,10 +59,17 @@ import {
   type SwimlaneBy,
   defaultIssueDisplay,
   displayStateToJson,
+  formatCustomFieldCellValue,
   normalizeIssueDisplay
 } from '@/utils/display-prefs';
 import { nestIssuesDepth1 } from '@/utils/nestIssuesDepth1';
-import { type ParsedQuery, parseSearchString, parsedQueryToFilters } from '@/utils/issueSearchParser';
+import {
+  type ParsedQuery,
+  customFieldsToCfParams,
+  parseSearchString,
+  parsedQueryToFilters
+} from '@/utils/issueSearchParser';
+import { fetchCustomFields, type CustomFieldRow } from '@/service/api/custom-fields';
 import IssueSmartSearch from '@/components/IssueSmartSearch.vue';
 import type { Api } from '@/typings/api';
 import IssueBulkBar from '@/components/IssueBulkBar.vue';
@@ -118,6 +125,8 @@ const activeGroupBy = computed(() => groupBy.value as Exclude<GroupByKey, 'none'
 
 /** E7-S3：会话 Display（View 覆盖会话；prefs 为个人默认） */
 const displayFields = ref<IssueDisplayFields>(defaultIssueDisplay().fields);
+const customFieldKeys = ref<string[]>([]);
+const customFieldDefs = ref<CustomFieldRow[]>([]);
 const swimlaneBy = ref<SwimlaneBy>('none');
 const hideEmptyLanes = ref(false);
 const displayPrefsSaving = ref(false);
@@ -129,7 +138,8 @@ function currentDisplayJson() {
     groupBy: groupBy.value,
     swimlaneBy: swimlaneBy.value,
     hideEmptyLanes: hideEmptyLanes.value,
-    fields: displayFields.value
+    fields: displayFields.value,
+    customFieldKeys: customFieldKeys.value
   });
 }
 
@@ -139,12 +149,27 @@ function applyDisplayState(partial: {
   swimlaneBy?: SwimlaneBy;
   hideEmptyLanes?: boolean;
   fields?: IssueDisplayFields;
+  customFieldKeys?: string[];
 }) {
   if (partial.viewMode) viewMode.value = partial.viewMode;
   if (partial.groupBy) groupBy.value = partial.groupBy;
   if (partial.swimlaneBy) swimlaneBy.value = partial.swimlaneBy;
   if (typeof partial.hideEmptyLanes === 'boolean') hideEmptyLanes.value = partial.hideEmptyLanes;
   if (partial.fields) displayFields.value = { ...partial.fields };
+  if (partial.customFieldKeys) customFieldKeys.value = [...partial.customFieldKeys];
+}
+
+async function loadCustomFieldDefs() {
+  try {
+    const { data, error } = await fetchCustomFields();
+    if (error || !data?.rows) {
+      customFieldDefs.value = [];
+      return;
+    }
+    customFieldDefs.value = data.rows;
+  } catch {
+    customFieldDefs.value = [];
+  }
 }
 
 async function loadPersonalDisplayPrefs() {
@@ -157,7 +182,8 @@ async function loadPersonalDisplayPrefs() {
       groupBy: normalized.groupBy,
       swimlaneBy: normalized.swimlaneBy,
       hideEmptyLanes: normalized.hideEmptyLanes,
-      fields: normalized.fields
+      fields: normalized.fields,
+      customFieldKeys: normalized.customFieldKeys
     });
   } catch {
     /* ignore prefs load */
@@ -185,6 +211,7 @@ function resetDisplayOptions() {
   swimlaneBy.value = d.swimlaneBy;
   hideEmptyLanes.value = d.hideEmptyLanes;
   displayFields.value = { ...d.fields };
+  customFieldKeys.value = [];
 }
 
 /** E4-S3：当前页 depth-1 嵌套（父不在本页则子作顶层） */
@@ -208,7 +235,8 @@ const filters = reactive({
   reporter_id: undefined as string | undefined,
   watching: undefined as boolean | undefined,
   due_soon: undefined as boolean | undefined,
-  labels: undefined as string[] | undefined
+  labels: undefined as string[] | undefined,
+  custom_fields: undefined as { key: string; value: string }[] | undefined
 });
 
 const scopeTitle = computed(() => {
@@ -366,6 +394,7 @@ async function applySavedView(view: SavedView) {
   swimlaneBy.value = state.swimlaneBy;
   hideEmptyLanes.value = state.hideEmptyLanes;
   displayFields.value = { ...state.fields };
+  customFieldKeys.value = [...(state.customFieldKeys || [])];
 
   activeSavedViewId.value = state.activeSavedViewId;
   pagination.page = 1;
@@ -507,7 +536,8 @@ const syntaxExamples = [
   { text: 'type:feature', desc: '只显示功能类型的 Issue' },
   { text: 'type:bug', desc: '只显示缺陷类型的 Issue' },
   { text: 'priority:urgent', desc: '只显示紧急优先级的 Issue' },
-  { text: 'priority:high', desc: '只显示高优先级的 Issue' }
+  { text: 'priority:high', desc: '只显示高优先级的 Issue' },
+  { text: 'field:severity:s1', desc: '按自定义字段过滤（亦可用 cf:key:value）' }
 ];
 
 // Load issues
@@ -527,6 +557,9 @@ async function loadIssues() {
 
     /* eslint-disable no-await-in-loop */
     while (hasMore) {
+      const cfParams = customFieldsToCfParams(filters.custom_fields);
+      const needCf =
+        Boolean(customFieldKeys.value.length) || Boolean(filters.custom_fields?.length);
       const response = await issueApi.getIssues({
         page,
         page_size: 100,
@@ -539,8 +572,10 @@ async function loadIssues() {
         assignee_id: filters.assignee_id,
         reporter_id: filters.reporter_id,
         watching: filters.watching,
-        due_soon: filters.due_soon
-      });
+        due_soon: filters.due_soon,
+        include: needCf ? 'custom_fields' : undefined,
+        ...cfParams
+      } as any);
 
       if (response.data?.rows) {
         fetchedIssues.push(...response.data.rows);
@@ -652,6 +687,7 @@ async function handleSmartSearch(query: ParsedQuery, raw?: string) {
   filters.assignee_id = mapped.assignee_id || undefined;
   filters.reporter_id = mapped.reporter_id || undefined;
   filters.labels = mapped.labels;
+  filters.custom_fields = mapped.custom_fields;
   filters.search = mapped.search || '';
 
   if (mapped.assignee_id === 'me') {
@@ -999,6 +1035,12 @@ function onDisplayFieldsUpdate(next: IssueDisplayFields) {
   syncActiveViewDisplay();
 }
 
+function onCustomFieldKeysUpdate(next: string[]) {
+  customFieldKeys.value = next;
+  syncActiveViewDisplay();
+  loadIssues();
+}
+
 function onSwimlaneByUpdate(next: SwimlaneBy) {
   swimlaneBy.value = next;
   syncActiveViewDisplay();
@@ -1016,6 +1058,7 @@ function clearFilters() {
   filters.type = undefined;
   filters.status = undefined;
   filters.priority = undefined;
+  filters.custom_fields = undefined;
   filters.search = '';
   filters.assignee_id = undefined;
   filters.reporter_id = undefined;
@@ -1061,7 +1104,7 @@ function getPriorityLabel(priority: Api.Issue.IssuePriority): string {
 }
 
 // Table columns
-const columns: DataTableColumns<Api.Issue.Issue> = [
+const baseColumns: DataTableColumns<Api.Issue.Issue> = [
   {
     title: '编号',
     key: 'issue_code',
@@ -1189,6 +1232,27 @@ const columns: DataTableColumns<Api.Issue.Issue> = [
       })
   }
 ];
+
+const columns = computed<DataTableColumns<Api.Issue.Issue>>(() => {
+  const cols = [...baseColumns];
+  const defsByKey = Object.fromEntries(customFieldDefs.value.map(d => [d.key, d]));
+  for (const key of customFieldKeys.value) {
+    const def = defsByKey[key];
+    cols.splice(cols.length - 1, 0, {
+      title: def?.name || key,
+      key: `cf_${key}`,
+      width: 120,
+      ellipsis: { tooltip: true },
+      render: (row: Api.Issue.Issue) => {
+        const list = (row as any).customFields || (row as any).custom_fields || [];
+        const hit = list.find((x: any) => x.key === key);
+        return formatCustomFieldCellValue(hit?.value);
+      }
+    });
+  }
+  return cols;
+});
+
 
 // Project options
 const projectOptions = computed(() => {
@@ -1480,9 +1544,12 @@ onUnmounted(() => {
                 :swimlane-by="swimlaneBy"
                 :hide-empty-lanes="hideEmptyLanes"
                 :saving="displayPrefsSaving"
+                :custom-field-options="customFieldDefs.map(f => ({ key: f.key, name: f.name }))"
+                :custom-field-keys="customFieldKeys"
                 @update:fields="onDisplayFieldsUpdate"
                 @update:swimlane-by="onSwimlaneByUpdate"
                 @update:hide-empty-lanes="onHideEmptyLanesUpdate"
+                @update:custom-field-keys="onCustomFieldKeysUpdate"
                 @set-personal-default="setPersonalDisplayDefault"
                 @reset="resetDisplayOptions"
               />

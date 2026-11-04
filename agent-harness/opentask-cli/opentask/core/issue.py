@@ -299,9 +299,10 @@ def _resolve_user_id(skin: ReplSkin, client: OpenTaskClient, assignee_input: str
 @click.option("--page-size", default=20, help="Page size")
 @click.option("--sort-by", default="created_at", help="Sort field")
 @click.option("--sort-order", default="desc", help="Sort order (asc/desc)")
+@click.option("--cf", multiple=True, help="E32: custom field filter key=value (repeatable)")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.pass_obj
-def list_issues(obj: "Context", status, issue_type, priority, project_id, assignee_id, mine, watching, due_soon, cycle_id, search, open_only, recent, updated_today, overdue, unassigned, page, page_size, sort_by, sort_order, as_json):
+def list_issues(obj: "Context", status, issue_type, priority, project_id, assignee_id, mine, watching, due_soon, cycle_id, search, open_only, recent, updated_today, overdue, unassigned, page, page_size, sort_by, sort_order, cf, as_json):
     """List issues with filtering and pagination.
 
     Advanced filters:
@@ -375,6 +376,8 @@ def list_issues(obj: "Context", status, issue_type, priority, project_id, assign
             watching=watching,
             due_soon=due_soon,
             cycle_id=cycle_id,
+            cf=list(cf) if cf else None,
+            include="custom_fields" if cf else None,
         ))
 
         if json_mode:

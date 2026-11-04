@@ -12,6 +12,7 @@ describe('normalizeIssueDisplay', () => {
     expect(d.fields.priority).toBe(true);
     expect(d.fields.issue_code).toBe(true);
     expect(d.fields.estimate_points).toBe(true);
+    expect(d.customFieldKeys).toEqual([]);
   });
 
   it('merges known keys and ignores unknown', () => {
@@ -44,5 +45,15 @@ describe('normalizeIssueDisplay', () => {
     const again = normalizeIssueDisplay(json);
     expect(again.swimlaneBy).toBe('priority');
     expect(again.fields.type).toBe(true);
+  });
+
+  it('persists custom_field_keys', () => {
+    const d = normalizeIssueDisplay({
+      custom_field_keys: ['Severity', ' shipped ', '']
+    });
+    expect(d.customFieldKeys).toEqual(['severity', 'shipped']);
+    const json = displayStateToJson(d);
+    expect(json.custom_field_keys).toEqual(['severity', 'shipped']);
+    expect(normalizeIssueDisplay(json).customFieldKeys).toEqual(['severity', 'shipped']);
   });
 });

@@ -64,6 +64,7 @@ declare module "@elegant-router/types" {
     "requests_detail": "/requests/detail";
     "search": "/search";
     "settings": "/settings";
+    "settings_forms": "/settings/forms";
     "settings_notifications": "/settings/notifications";
     "settings_webhooks": "/settings/webhooks";
     "triage": "/triage";
@@ -207,6 +208,7 @@ declare module "@elegant-router/types" {
     | "requests_detail"
     | "requests"
     | "search"
+    | "settings_forms"
     | "settings_notifications"
     | "settings_webhooks"
     | "triage"

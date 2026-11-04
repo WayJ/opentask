@@ -4,8 +4,14 @@
  * - label:bug（客户端按 tags 名过滤）
  * - type: / priority: / assignee:@me|me|uuid / author: / creator: / project: / cycle:
  * - KEY-N → search
+ * - field:key:value / cf:key:value（E32 自定义字段）
  * - 普通文本 → search
  */
+
+export interface CustomFieldFilter {
+  key: string;
+  value: string;
+}
 
 export interface ParsedQuery {
   search?: string;
@@ -17,6 +23,8 @@ export interface ParsedQuery {
   reporter_id?: string;
   project_id?: string;
   cycle_id?: string;
+  /** E32：field:key:value */
+  custom_fields?: CustomFieldFilter[];
   [key: string]: unknown;
 }
 
@@ -31,6 +39,7 @@ export interface SmartSearchListFilters {
   project_id?: string;
   cycle_id?: string;
   labels?: string[];
+  custom_fields?: CustomFieldFilter[];
 }
 
 export interface SearchToken {
@@ -201,6 +210,20 @@ export function buildQueryFromTokens(tokens: SearchToken[]): ParsedQuery {
           break;
         }
 
+        case 'field':
+        case 'cf': {
+          // field:key:value — token.value is "key:value..." (\S+ keeps colons)
+          const raw = token.value;
+          const colon = raw.indexOf(':');
+          if (colon <= 0) break;
+          const key = raw.slice(0, colon).trim().toLowerCase();
+          const value = raw.slice(colon + 1);
+          if (!key) break;
+          if (!query.custom_fields) query.custom_fields = [];
+          query.custom_fields.push({ key, value });
+          break;
+        }
+
         default: {
           break;
         }
@@ -236,8 +259,24 @@ export function parsedQueryToFilters(query: ParsedQuery): SmartSearchListFilters
     reporter_id: query.reporter_id,
     project_id: query.project_id,
     cycle_id: query.cycle_id,
-    labels: query.labels?.length ? [...query.labels] : undefined
+    labels: query.labels?.length ? [...query.labels] : undefined,
+    custom_fields: query.custom_fields?.length
+      ? query.custom_fields.map(f => ({ key: f.key, value: f.value }))
+      : undefined
   };
+}
+
+/** E32：custom_fields → axios params cf.<key>=value */
+export function customFieldsToCfParams(
+  filters?: CustomFieldFilter[] | null
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!filters?.length) return out;
+  for (const f of filters) {
+    if (!f?.key) continue;
+    out[`cf.${f.key}`] = f.value ?? '';
+  }
+  return out;
 }
 
 export function isIssueCodeToken(value: string): boolean {
@@ -257,7 +296,8 @@ export function generateSearchSuggestions(): string[] {
     'type:feature - 只显示类型为功能的 Issue',
     'priority:urgent - 只显示紧急优先级的 Issue',
     'cycle:__none__ - 无 Cycle',
-    'project:<id> - 按项目过滤'
+    'project:<id> - 按项目过滤',
+    'field:severity:s1 - 自定义字段过滤（cf:key:value 亦可）'
   ];
 }
 
