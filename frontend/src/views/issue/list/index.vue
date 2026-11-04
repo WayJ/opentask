@@ -1750,7 +1750,7 @@ onUnmounted(() => {
 
     <NModal v-model:show="showImportModal" preset="card" title="导入 Issue CSV" style="width: 480px">
       <NSpace vertical>
-        <NText depth="3">列需含 title；可选 issue_code（本工作区已存在则更新）。</NText>
+        <NText depth="3">列需含 title；可选 issue_code（本工作区已存在则更新）。自定义字段用 <code>cf.&lt;key&gt;</code> 列（模板已含当前工作区字段；multi 逗号分隔，boolean 用 true/false）。未知 key 不阻断主字段写入。</NText>
         <NButton size="small" secondary @click="downloadImportTemplate">下载模板 CSV</NButton>
         <input ref="importFileInput" type="file" accept=".csv,text/csv" @change="onImportFileChange" />
         <NText v-if="importSummary" type="success">{{ importSummary }}</NText>

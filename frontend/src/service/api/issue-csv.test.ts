@@ -20,4 +20,13 @@ describe('issue csv helpers (E28)', () => {
       })
     ).toContain('错误 1');
   });
+  it('import summary surfaces cf errors (E34)', () => {
+    expect(
+      formatIssueImportSummary({
+        created: 1,
+        updated: 0,
+        errors: [{ row: 2, message: 'cf.unknown: 未知自定义字段' }]
+      })
+    ).toContain('cf.unknown');
+  });
 });

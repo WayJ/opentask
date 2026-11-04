@@ -1,4 +1,4 @@
-"""Issue CSV import / export (E28)."""
+"""Issue CSV import / export (E28) + custom fields (E34)."""
 from __future__ import annotations
 
 import csv
@@ -21,6 +21,11 @@ from opentask.models.tag.model import Tag
 from opentask.models.user.model import UserModel
 from opentask.models.workspace.model import WorkspaceMember
 from opentask.services.issue_service import IssueService
+from opentask.services.custom_field.service import (
+    CustomFieldService,
+    validate_value,
+)
+from opentask.models.custom_field.model import CustomField
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +103,75 @@ def _split_labels(raw: str) -> list[str]:
         seen.add(key)
         out.append(p)
     return out
+
+
+CF_PREFIX = "cf."
+
+
+def cf_column_name(key: str) -> str:
+    return f"{CF_PREFIX}{key}"
+
+
+def parse_cf_header(name: str) -> str | None:
+    """Return field key if header is cf.<key>, else None."""
+    raw = (name or "").strip()
+    lower = raw.lower()
+    if not lower.startswith(CF_PREFIX):
+        return None
+    key = raw[len(CF_PREFIX) :].strip()
+    return key or None
+
+
+def format_cf_csv_value(value: Any, field_type: str) -> str:
+    if value is None:
+        return ""
+    if field_type == "boolean":
+        return "true" if value else "false"
+    if field_type == "multi_select":
+        if isinstance(value, list):
+            return ",".join(str(x) for x in value)
+        return str(value)
+    return str(value)
+
+
+def parse_cf_csv_value(field: CustomField, raw: str) -> Any:
+    """Convert CSV cell text → typed value for validate_value. Raises ValueError."""
+    text = (raw or "").strip()
+    t = field.type
+    if t == "text":
+        return text
+    if t == "number":
+        try:
+            if "." in text:
+                return float(text)
+            return int(text)
+        except ValueError as exc:
+            raise ValueError(f"cf.{field.key}: 需要 number") from exc
+    if t == "boolean":
+        low = text.lower()
+        if low == "true":
+            return True
+        if low == "false":
+            return False
+        raise ValueError(f"cf.{field.key}: boolean 须为 true/false")
+    if t == "date":
+        return text  # validate_value checks YYYY-MM-DD
+    if t == "single_select":
+        return text
+    if t == "multi_select":
+        if not text:
+            return []
+        parts: list[str] = []
+        seen: set[str] = set()
+        for chunk in text.split(","):
+            item = chunk.strip()
+            if not item or item in seen:
+                continue
+            seen.add(item)
+            parts.append(item)
+        return parts
+    raise ValueError(f"cf.{field.key}: 未知类型 {t}")
+
 
 
 class IssueCsvService:
@@ -179,51 +253,90 @@ class IssueCsvService:
             ).all()
             cycle_names = {r[0]: r[1] for r in rows}
 
+        cf_svc = CustomFieldService(self.db)
+        cf_fields = await cf_svc.list(workspace_id=workspace_id, include_archived=False)
+        cf_cols = [cf_column_name(f.key) for f in cf_fields]
+        fieldnames = list(CSV_COLUMNS) + cf_cols
+
+        cf_values_by_issue: dict[str, dict[str, Any]] = {}
+        if cf_fields and issues:
+            bundled = await cf_svc.values_for_issues(
+                workspace_id=workspace_id,
+                issue_ids=[i.id for i in issues],
+            )
+            for iid, items in bundled.items():
+                cmap: dict[str, Any] = {}
+                for item in items:
+                    if item.get("archived"):
+                        continue
+                    cmap[item["key"]] = item.get("value")
+                cf_values_by_issue[iid] = cmap
+
         buf = io.StringIO()
-        writer = csv.DictWriter(buf, fieldnames=CSV_COLUMNS, extrasaction="ignore")
+        writer = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         for issue in issues:
             labels = [t.name for t in tag_map.get(issue.id, []) if t.name]
             assignee = issue.assignee
             reporter = issue.reporter
-            writer.writerow(
-                {
-                    "issue_code": issue.issue_code or "",
-                    "title": issue.title or "",
-                    "status": issue.status if isinstance(issue.status, str) else getattr(issue.status, "value", ""),
-                    "priority": issue.priority if isinstance(issue.priority, str) else getattr(issue.priority, "value", ""),
-                    "assignee_email": (assignee.username if assignee else "") or "",
-                    "reporter_email": (reporter.username if reporter else "") or "",
-                    "labels": ";".join(labels),
-                    "cycle": cycle_names.get(issue.cycle_id or "", ""),
-                    "estimate": "" if issue.estimate_points is None else str(issue.estimate_points),
-                    "due_date": _fmt_dt(issue.due_date)[:10] if issue.due_date else "",
-                    "created_at": _fmt_dt(issue.created_at),
-                    "updated_at": _fmt_dt(issue.updated_at),
-                }
-            )
+            row: dict[str, Any] = {
+                "issue_code": issue.issue_code or "",
+                "title": issue.title or "",
+                "status": issue.status if isinstance(issue.status, str) else getattr(issue.status, "value", ""),
+                "priority": issue.priority if isinstance(issue.priority, str) else getattr(issue.priority, "value", ""),
+                "assignee_email": (assignee.username if assignee else "") or "",
+                "reporter_email": (reporter.username if reporter else "") or "",
+                "labels": ";".join(labels),
+                "cycle": cycle_names.get(issue.cycle_id or "", ""),
+                "estimate": "" if issue.estimate_points is None else str(issue.estimate_points),
+                "due_date": _fmt_dt(issue.due_date)[:10] if issue.due_date else "",
+                "created_at": _fmt_dt(issue.created_at),
+                "updated_at": _fmt_dt(issue.updated_at),
+            }
+            issue_cf = cf_values_by_issue.get(issue.id, {})
+            for field in cf_fields:
+                row[cf_column_name(field.key)] = format_cf_csv_value(
+                    issue_cf.get(field.key), field.type
+                )
+            writer.writerow(row)
         return buf.getvalue(), truncated
 
-    def template_csv(self) -> str:
-        buf = io.StringIO()
-        writer = csv.DictWriter(buf, fieldnames=CSV_COLUMNS)
-        writer.writeheader()
-        writer.writerow(
-            {
-                "issue_code": "",
-                "title": "Example issue",
-                "status": "open",
-                "priority": "medium",
-                "assignee_email": "",
-                "reporter_email": "",
-                "labels": "bug;frontend",
-                "cycle": "",
-                "estimate": "1",
-                "due_date": "2026-12-31",
-                "created_at": "",
-                "updated_at": "",
-            }
+    async def template_csv(self, *, workspace_id: str) -> str:
+        cf_fields = await CustomFieldService(self.db).list(
+            workspace_id=workspace_id, include_archived=False
         )
+        cf_cols = [cf_column_name(f.key) for f in cf_fields]
+        fieldnames = list(CSV_COLUMNS) + cf_cols
+        buf = io.StringIO()
+        writer = csv.DictWriter(buf, fieldnames=fieldnames)
+        writer.writeheader()
+        example: dict[str, Any] = {
+            "issue_code": "",
+            "title": "Example issue",
+            "status": "open",
+            "priority": "medium",
+            "assignee_email": "",
+            "reporter_email": "",
+            "labels": "bug;frontend",
+            "cycle": "",
+            "estimate": "1",
+            "due_date": "2026-12-31",
+            "created_at": "",
+            "updated_at": "",
+        }
+        for field in cf_fields:
+            col = cf_column_name(field.key)
+            if field.type == "boolean":
+                example[col] = "false"
+            elif field.type == "number":
+                example[col] = "0"
+            elif field.type == "multi_select":
+                example[col] = ""
+            elif field.type == "date":
+                example[col] = "2026-12-31"
+            else:
+                example[col] = ""
+        writer.writerow(example)
         return buf.getvalue()
 
     # ------------------------------------------------------------------ import
@@ -251,7 +364,8 @@ class IssueCsvService:
             reader = csv.DictReader(io.StringIO(text))
             if not reader.fieldnames:
                 raise HTTPException(status_code=400, detail="CSV 缺少表头")
-            field_map = {((f or "").strip().lower()): f for f in reader.fieldnames}
+            header_names = list(reader.fieldnames)
+            field_map = {((f or "").strip().lower()): f for f in header_names}
             if "title" not in field_map:
                 raise HTTPException(status_code=400, detail="CSV 缺少必填列 title")
             rows = list(reader)
@@ -265,6 +379,22 @@ class IssueCsvService:
         created = 0
         updated = 0
         errors: list[dict[str, Any]] = []
+
+        # CF headers from original fieldnames (preserve key casing from slug)
+        cf_headers: list[tuple[str, str]] = []  # (key, original_header)
+        seen_cf_keys: set[str] = set()
+        for header in header_names:
+            key = parse_cf_header(header or "")
+            if key is None:
+                continue
+            if key in seen_cf_keys:
+                continue
+            seen_cf_keys.add(key)
+            cf_headers.append((key, header))
+
+        cf_svc = CustomFieldService(self.db)
+        cf_defs = await cf_svc.list(workspace_id=workspace_id, include_archived=True)
+        cf_by_key: dict[str, CustomField] = {f.key: f for f in cf_defs}
 
         # Preload WS members → username
         member_rows = (
@@ -354,6 +484,7 @@ class IssueCsvService:
                     tag_by_name=tag_by_name,
                 )
 
+                target_issue_id: str | None = None
                 if existing is not None:
                     patch_data: dict[str, Any] = {
                         "title": title,
@@ -378,6 +509,7 @@ class IssueCsvService:
                             user_id=user_id,
                         )
                     updated += 1
+                    target_issue_id = existing.id
                 else:
                     create = IssueCreate(
                         title=title,
@@ -401,6 +533,20 @@ class IssueCsvService:
                             user_id=user_id,
                         )
                     created += 1
+                    target_issue_id = issue.id
+
+                # E34: apply cf.* after main upsert (partial success on CF errors)
+                if target_issue_id and cf_headers:
+                    await self._apply_cf_cells(
+                        cf_svc=cf_svc,
+                        cf_by_key=cf_by_key,
+                        workspace_id=workspace_id,
+                        issue_id=target_issue_id,
+                        raw=raw,
+                        cf_headers=cf_headers,
+                        row_idx=idx,
+                        errors=errors,
+                    )
             except HTTPException as exc:
                 await self.db.rollback()
                 errors.append({"row": idx, "message": str(exc.detail)})
@@ -409,6 +555,58 @@ class IssueCsvService:
                 errors.append({"row": idx, "message": str(exc)})
 
         return {"created": created, "updated": updated, "errors": errors}
+
+    async def _apply_cf_cells(
+        self,
+        *,
+        cf_svc: CustomFieldService,
+        cf_by_key: dict[str, CustomField],
+        workspace_id: str,
+        issue_id: str,
+        raw: dict,
+        cf_headers: list[tuple[str, str]],
+        row_idx: int,
+        errors: list[dict[str, Any]],
+    ) -> None:
+        entries: list[dict[str, Any]] = []
+        for key, header in cf_headers:
+            cell = raw.get(header)
+            cell_text = "" if cell is None else str(cell).strip()
+            if cell_text == "":
+                continue  # D4: empty = skip
+            field = cf_by_key.get(key)
+            if field is None:
+                errors.append({"row": row_idx, "message": f"cf.{key}: 未知自定义字段"})
+                continue
+            if field.archived_at is not None:
+                errors.append({"row": row_idx, "message": f"cf.{key}: 字段已归档，不可写入"})
+                continue
+            try:
+                typed = parse_cf_csv_value(field, cell_text)
+                normalized = validate_value(field, typed)
+            except HTTPException as exc:
+                errors.append({"row": row_idx, "message": f"cf.{key}: {exc.detail}"})
+                continue
+            except ValueError as exc:
+                errors.append({"row": row_idx, "message": str(exc)})
+                continue
+            if normalized is None:
+                continue
+            entries.append({"key": key, "value": normalized})
+        if not entries:
+            return
+        try:
+            await cf_svc.upsert_issue_values(
+                workspace_id=workspace_id,
+                issue_id=issue_id,
+                entries=entries,
+            )
+        except HTTPException as exc:
+            await self.db.rollback()
+            errors.append({"row": row_idx, "message": f"cf: {exc.detail}"})
+        except Exception as exc:  # noqa: BLE001
+            await self.db.rollback()
+            errors.append({"row": row_idx, "message": f"cf: {exc}"})
 
     async def _ensure_tags(
         self,

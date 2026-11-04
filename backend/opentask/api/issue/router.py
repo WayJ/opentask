@@ -273,9 +273,9 @@ async def download_import_template(
     service: IssueService = Depends(get_issue_service),
     ctx: tuple = Depends(require_workspace_context),
 ):
-    """E28：下载导入模板 CSV（viewer+）。"""
-    _workspace, _member, _user = ctx
-    body = IssueCsvService(service.db).template_csv()
+    """E28/E34：下载导入模板 CSV（viewer+；含当前 WS 未归档 cf.<key> 列）。"""
+    workspace, _member, _user = ctx
+    body = await IssueCsvService(service.db).template_csv(workspace_id=workspace.id)
     return StreamingResponse(
         iter([body]),
         media_type="text/csv; charset=utf-8",

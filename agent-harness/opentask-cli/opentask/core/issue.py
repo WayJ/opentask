@@ -2863,7 +2863,7 @@ def set_issue_field(obj: "Context", issue_id: str, key: str, value: str, as_json
 @click.option("--json", "as_json", is_flag=True, help="JSON wrapper (meta only; body still CSV unless --out)")
 @click.pass_obj
 def export_issues(obj, out_path, status, priority, project_id, assignee_id, cycle_id, search, as_json):
-    """E28: Export workspace issues as CSV."""
+    """E28/E34: Export workspace issues as CSV (includes cf.<key> custom field columns)."""
     config: Config = obj.config
     client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
@@ -2907,7 +2907,7 @@ def export_issues(obj, out_path, status, priority, project_id, assignee_id, cycl
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.pass_obj
 def import_issues(obj, file_path, as_json):
-    """E28: Import issues from CSV (upsert by issue_code)."""
+    """E28/E34: Import issues from CSV (upsert by issue_code; cf.<key> columns supported)."""
     config: Config = obj.config
     client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
