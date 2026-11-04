@@ -1925,7 +1925,7 @@ class IssueService:
         return result.scalar_one_or_none()
 
     async def get_attachment_by_id(self, attachment_id: str) -> Optional[Document]:
-        """通过附件 ID 直接获取附件（用于公共下载接口）"""
+        """通过附件 ID 直接获取附件（E66：调用方须自行做 WS 成员鉴权）"""
         query = select(Document).where(
             and_(
                 Document.id == attachment_id,

@@ -2137,9 +2137,11 @@ async def delete_issue_attachment(
 async def download_issue_attachment(
     issue_id: str,
     attachment_id: str,
+    current_user: UserModel = Depends(authenticate),
     service: IssueService = Depends(get_issue_service),
 ):
-    """下载 Issue 附件"""
+    """下载 Issue 附件（E66：须登录且为 Issue 工作区成员）"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     attachment = await service.get_attachment(issue_id, attachment_id)
 
     if not attachment:
