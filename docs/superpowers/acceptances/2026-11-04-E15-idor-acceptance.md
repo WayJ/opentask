@@ -1,7 +1,7 @@
 # E15 验收：租户 IDOR 硬化
 
 日期：2026-11-04（Asia/Shanghai）  
-分支：`sprint/E15-S1`  
+分支：`sprint/E15-S1` · tip `d748d59`  
 基线：`sprint/E14-S1` @ `0f64111`  
 worktree：`/workspace/opentask-worktrees/E11-S4`  
 约束：**未 push / 未开 PR**；齐套后待命，不自开更远 Epic。
@@ -52,6 +52,6 @@ worktree：`/workspace/opentask-worktrees/E11-S4`
 
 ## 回执要点
 
-- tip：见 git log HEAD
+- tip：`d748d59`（功能包 `04a143b`）
 - 路由硬化清单见上表
 - 停，不开 E16+
