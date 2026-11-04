@@ -1070,6 +1070,10 @@ class OpenTaskClient:
             "ids": issue_ids
         })
 
+    async def bulk_update_issues(self, payload: dict) -> dict:
+        """E20: POST /api/issues/bulk/update (requires X-Workspace-Id)."""
+        return await self.post("/api/issues/bulk/update", data=payload)
+
     async def update_issue_status(self, issue_id: str, status: str) -> dict:
         """Quick update issue status."""
         return await self.put(f"/api/issues/{issue_id}/status", params={"status": status})

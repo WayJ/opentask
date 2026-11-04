@@ -44,7 +44,7 @@ from .core.doc import doc_cli
 
 
 # Global version
-VERSION = "1.4.0"
+VERSION = "1.5.0"
 
 # Context object passed to commands
 class Context:

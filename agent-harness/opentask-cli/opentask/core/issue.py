@@ -2408,6 +2408,70 @@ def download_all_documents(obj: "Context", issue_id: str, save_dir: str, as_json
         skin.error(f"Batch download failed: {str(e)}")
 
 
+@issue_cli.command(name="bulk-update")
+@click.option("--ids", required=True, help="Comma-separated issue IDs / KEY-N")
+@click.option("--status", default=None, help="New status")
+@click.option("--priority", default=None, help="New priority")
+@click.option("--assignee", default=None, help="Assignee user id / me / none")
+@click.option("--cycle-id", default=None, help="Cycle id")
+@click.option("--tag-ids", default=None, help="Comma-separated tag ids (replace)")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def bulk_update_issues(obj: "Context", ids: str, status, priority, assignee, cycle_id, tag_ids, as_json):
+    """E20: Bulk update issues in current workspace (status/priority/assignee/cycle/tags)."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        sys.exit(1)
+
+    import re
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
+    raw_ids = [x.strip() for x in ids.split(',') if x.strip()]
+    resolved = []
+    for iid in raw_ids:
+        if issue_code_pattern.match(iid):
+            try:
+                info = asyncio.run(client.get_issue(iid, by_code=True))
+                resolved.append(info.get('id', iid))
+            except APIError as e:
+                _handle_error(skin, e, f"Failed to resolve {iid}", json_mode)
+                return
+        else:
+            resolved.append(iid)
+
+    payload = {"issue_ids": resolved}
+    if status:
+        payload["status"] = status
+    if priority:
+        payload["priority"] = priority
+    if cycle_id:
+        payload["cycle_id"] = cycle_id
+    if tag_ids is not None and tag_ids != "":
+        payload["tag_ids"] = [int(x.strip()) for x in tag_ids.split(',') if x.strip()]
+    if assignee is not None:
+        aid = _resolve_user_id(skin, client, assignee)
+        if aid == "CANCELLED":
+            return
+        payload["assignee_id"] = aid
+
+    if len(payload) == 1:
+        skin.error("Specify at least one of --status/--priority/--assignee/--cycle-id/--tag-ids")
+        sys.exit(1)
+
+    try:
+        data = asyncio.run(client.bulk_update_issues(payload))
+        body = data.get("data", data) if isinstance(data, dict) else data
+        if json_mode:
+            click.echo(_format_json_response(success=True, data=body, message="bulk updated"))
+        else:
+            skin.success(f"Bulk updated: {body}")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to bulk update", json_mode)
+
+
+
 @issue_cli.command(name="delete")
 @click.argument("issue_id")
 @click.option("--force", "-f", is_flag=True, help="Skip confirmation")
