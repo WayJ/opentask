@@ -1,4 +1,4 @@
-"""SLA policies + clocks + run-due (E42) + pause/automation (E45) + first_response/pause timeline (E48)."""
+"""SLA policies + clocks + run-due (E42/E45/E48) + business hours (E50)."""
 from __future__ import annotations
 
 import logging
@@ -21,12 +21,43 @@ from opentask.models.sla.model import (
     TARGET_MINUTES_MAX,
     TARGET_MINUTES_MIN,
 )
-from opentask.models.workspace.model import WorkspaceMember
+from opentask.models.workspace.model import Workspace, WorkspaceMember
+from opentask.services.sla.business_hours import (
+    add_business_minutes,
+    elapsed_business_minutes,
+    is_business_hours_enabled,
+    normalize_windows,
+)
 from opentask.services.notification.service import NotificationService
 from opentask.services.automation.service import fire_automations
 from opentask.services.workspace_webhook.service import fire_webhooks
 
 logger = logging.getLogger(__name__)
+
+RECOMPUTE_CAP = 500
+
+
+def _wall_deadline(now: datetime, minutes: int) -> datetime:
+    return now + timedelta(minutes=int(minutes))
+
+
+def _wall_elapsed(start: datetime, end: datetime) -> int:
+    return max(0, int((end - start).total_seconds() // 60))
+
+
+def compute_deadline(now: datetime, minutes: int, ws: Workspace | None) -> datetime:
+    if ws is not None and is_business_hours_enabled(ws.timezone, ws.business_hours):
+        windows = normalize_windows((ws.business_hours or {}).get("windows"))
+        return add_business_minutes(now, int(minutes), str(ws.timezone), windows)
+    return _wall_deadline(now, minutes)
+
+
+def compute_elapsed(start: datetime, end: datetime, ws: Workspace | None) -> int:
+    if ws is not None and is_business_hours_enabled(ws.timezone, ws.business_hours):
+        windows = normalize_windows((ws.business_hours or {}).get("windows"))
+        return elapsed_business_minutes(start, end, str(ws.timezone), windows)
+    return _wall_elapsed(start, end)
+
 
 _KNOWN_STATUSES = frozenset(s.value for s in IssueStatus)
 
@@ -285,6 +316,11 @@ class SlaService:
         if not policies:
             return
 
+        wq = await self.db.execute(
+            select(Workspace).where(Workspace.id == issue.workspace_id)
+        )
+        ws = wq.scalar_one_or_none()
+
         now = datetime.utcnow()
         for policy in policies:
             starts = list(policy.start_statuses or [])
@@ -309,7 +345,7 @@ class SlaService:
             if active is not None and active.status == "running" and new_s in pauses:
                 seg = active.segment_started_at or active.started_at
                 if seg is not None:
-                    delta_min = max(0, int((now - seg).total_seconds() // 60))
+                    delta_min = compute_elapsed(seg, now, ws)
                     active.elapsed_before_pause_minutes = int(
                         active.elapsed_before_pause_minutes or 0
                     ) + delta_min
@@ -347,7 +383,7 @@ class SlaService:
                 active.status = "running"
                 active.paused_at = None
                 active.segment_started_at = now
-                active.deadline_at = now + timedelta(minutes=remaining)
+                active.deadline_at = compute_deadline(now, remaining, ws)
                 self.db.add(
                     IssueTimeline(
                         issue_id=issue.id,
@@ -376,7 +412,7 @@ class SlaService:
                     policy_id=policy.id,
                     status="running",
                     started_at=now,
-                    deadline_at=now + timedelta(minutes=int(policy.target_minutes)),
+                    deadline_at=compute_deadline(now, int(policy.target_minutes), ws),
                     start_status=new_s,
                     elapsed_before_pause_minutes=0,
                     paused_at=None,
@@ -532,6 +568,54 @@ class SlaService:
             "skipped": skipped,
             "errors": errors,
         }
+
+
+    async def recompute_deadlines_for_workspace(
+        self,
+        *,
+        workspace_id: str,
+        cap: int = RECOMPUTE_CAP,
+    ) -> dict:
+        """Batch-recompute running/paused deadline_at after business-hours config change."""
+        wq = await self.db.execute(select(Workspace).where(Workspace.id == workspace_id))
+        ws = wq.scalar_one_or_none()
+        if ws is None:
+            return {"recomputed": 0, "scanned": 0, "capped": False}
+
+        q = await self.db.execute(
+            select(IssueSlaClock, SlaPolicy)
+            .join(SlaPolicy, SlaPolicy.id == IssueSlaClock.policy_id)
+            .where(
+                IssueSlaClock.workspace_id == workspace_id,
+                IssueSlaClock.status.in_(("running", "paused")),
+            )
+            .order_by(IssueSlaClock.started_at.asc())
+            .limit(int(cap) + 1)
+        )
+        rows = list(q.all())
+        capped = len(rows) > cap
+        if capped:
+            logger.warning(
+                "sla business-hours recompute capped at %s for workspace %s",
+                cap,
+                workspace_id,
+            )
+            rows = rows[:cap]
+
+        now = datetime.utcnow()
+        recomputed = 0
+        for clock, policy in rows:
+            if clock.status == "paused":
+                elapsed = int(clock.elapsed_before_pause_minutes or 0)
+            else:
+                seg = clock.segment_started_at or clock.started_at or now
+                elapsed = int(clock.elapsed_before_pause_minutes or 0) + compute_elapsed(
+                    seg, now, ws
+                )
+            remaining = max(0, int(policy.target_minutes) - elapsed)
+            clock.deadline_at = compute_deadline(now, remaining, ws)
+            recomputed += 1
+        return {"recomputed": recomputed, "scanned": recomputed, "capped": capped}
 
     async def mark_first_response(
         self,

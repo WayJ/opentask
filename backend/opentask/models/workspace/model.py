@@ -6,6 +6,8 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.types import JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
 from opentask.models.base import DBModel
@@ -74,6 +76,17 @@ class Workspace(DBModel):
         insert_default="resolved",
         server_default="resolved",
         comment="PR merged 目标 Issue 状态",
+    )
+
+    timezone: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        nullable=True,
+        comment="IANA timezone for SLA business hours",
+    )
+    business_hours: Mapped[Optional[dict]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"),
+        nullable=True,
+        comment="E50: {enabled, windows{mon..sun:[{start,end}]}}",
     )
     created_by: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(

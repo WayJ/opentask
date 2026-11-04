@@ -248,6 +248,12 @@ async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
                 "ALTER TABLE IF EXISTS issue_sla_clocks ADD COLUMN IF NOT EXISTS segment_started_at TIMESTAMP",
             ):
                 await conn.execute(_sql_text(_stmt))
+            # E50 workspace business hours
+            for _stmt in (
+                "ALTER TABLE IF EXISTS workspaces ADD COLUMN IF NOT EXISTS timezone VARCHAR(64)",
+                "ALTER TABLE IF EXISTS workspaces ADD COLUMN IF NOT EXISTS business_hours JSON",
+            ):
+                await conn.execute(_sql_text(_stmt))
             # E48 timeline_action enum values (no alembic per Q6a)
             for _val in ("sla_paused", "sla_resumed"):
                 await conn.execute(

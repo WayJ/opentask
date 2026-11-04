@@ -11,6 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from opentask.models.workspace.model import Workspace, WorkspaceMember
 from opentask.schemas.workspace import WorkspaceCreate, WorkspaceUpdate
+from opentask.services.sla.business_hours import (
+    normalize_business_hours,
+    validate_timezone,
+)
 from opentask.services.workspace.issue_key import (
     derive_issue_key_from_slug,
     normalize_issue_key,
@@ -197,7 +201,27 @@ class WorkspaceService:
             ws.git_hook_on_pr_open = str(dto.gitHookOnPrOpen).strip() or "in_progress"
         if dto.gitHookOnPrMerged is not None:
             ws.git_hook_on_pr_merged = str(dto.gitHookOnPrMerged).strip() or "resolved"
+
+        bh_changed = False
+        if dto.timezone is not None:
+            try:
+                ws.timezone = validate_timezone(dto.timezone)
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e)) from e
+            bh_changed = True
+        if dto.businessHours is not None:
+            try:
+                ws.business_hours = normalize_business_hours(dto.businessHours)
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e)) from e
+            bh_changed = True
         ws.updated_at = datetime.utcnow()
+        await self.session.flush()
+        if bh_changed:
+            from opentask.services.sla.service import SlaService
+            await SlaService(self.session).recompute_deadlines_for_workspace(
+                workspace_id=workspace_id
+            )
         await self.session.commit()
         await self.session.refresh(ws)
         return ws

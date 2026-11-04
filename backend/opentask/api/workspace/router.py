@@ -37,6 +37,8 @@ def _ws_out(ws, role: str | None = None) -> dict:
         "gitStatusHooksEnabled": bool(getattr(ws, "git_status_hooks_enabled", False)),
         "gitHookOnPrOpen": getattr(ws, "git_hook_on_pr_open", None) or "in_progress",
         "gitHookOnPrMerged": getattr(ws, "git_hook_on_pr_merged", None) or "resolved",
+        "timezone": getattr(ws, "timezone", None),
+        "businessHours": getattr(ws, "business_hours", None) or {"enabled": False, "windows": {}},
         "createdAt": ws.created_at,
         "updatedAt": ws.updated_at,
     }
