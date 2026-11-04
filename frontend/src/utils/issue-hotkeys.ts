@@ -16,17 +16,22 @@ export type IssueHotkeyAction =
   | { type: 'priority' }
   | { type: 'assign_me' }
   | { type: 'labels' }
-  | { type: 'toggle_view' };
+  | { type: 'toggle_view' }
+  | { type: 'toggle_select' }
+  | { type: 'range_select' }
+  | { type: 'clear_selection' };
 
 export interface ResolveIssueHotkeyInput {
   key: string;
   metaKey: boolean;
   ctrlKey: boolean;
   altKey?: boolean;
+  shiftKey?: boolean;
   paletteOpen: boolean;
   editable: boolean;
   hasFocusedIssue: boolean;
   onIssueListRoute: boolean;
+  hasSelection?: boolean;
 }
 
 /**
@@ -43,12 +48,24 @@ export function resolveIssueHotkeyAction(input: ResolveIssueHotkeyInput): IssueH
     return null;
   }
 
+  // Esc clears multi-select when present (E20); editable still allows Esc clear outside inputs? no — ignore in inputs
+  if (input.key === 'Escape') {
+    if (input.editable) return null;
+    if (input.hasSelection) return { type: 'clear_selection' };
+    return null;
+  }
+
   if (input.paletteOpen || input.editable) {
     return null;
   }
 
   const key = input.key.toLowerCase();
   if (key === 'c') return { type: 'create' };
+
+  // X / Shift+X multi-select on list/board
+  if (key === 'x' && input.onIssueListRoute && input.hasFocusedIssue) {
+    return input.shiftKey ? { type: 'range_select' } : { type: 'toggle_select' };
+  }
 
   if (!input.hasFocusedIssue) return null;
 

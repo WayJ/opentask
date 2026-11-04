@@ -1,4 +1,4 @@
-/** E18: orphan/flaky Issue component suites skipped (UserMention/IssueReference missing; SmartSearch/TemplateSelector/Reactions pre-broken pinia/NSpin mocks). Imports for missing components removed. Prefer green over leaving transform failures. */
+/** E20: UserMention/IssueReference revived. SmartSearch/TemplateSelector/Reactions remain skipped (pre-broken pinia/NSpin mocks). */
 /**
  * Issue 相关组件测试
  */
@@ -7,15 +7,26 @@ import type { VueWrapper } from '@vue/test-utils';
 import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('vue-router', async importOriginal => {
+  const actual = await importOriginal<typeof import('vue-router')>();
+  return {
+    ...actual,
+    useRouter: () => ({ push: vi.fn() })
+  };
+});
 import { ISSUE_TEMPLATES } from '@/constants/issueTemplates';
 import { generateSearchSuggestions, parseSearchString } from '@/utils/issueSearchParser';
 import IssueSmartSearch from '@/components/IssueSmartSearch.vue';
 import IssueTemplateSelector from '@/components/IssueTemplateSelector.vue';
 import IssueReactions from '@/components/IssueReactions.vue';
+import UserMention from '@/components/UserMention.vue';
+import IssueReference from '@/components/IssueReference.vue';
 
 // Mock Naive UI 组件
 vi.mock('naive-ui', () => ({
   NButton: { template: '<button @click="$emit(\'click\')"><slot /></button>' },
+  NTag: { template: '<span class="n-tag"><slot /></span>' },
   NCard: { template: '<div><slot /></div>' },
   NEmpty: { template: '<div>Empty</div>' },
   NInput: { template: '<input />' },
@@ -305,15 +316,30 @@ describe.skip('IssueReactions Component', () => {
   });
 });
 
-describe.skip('UserMention Component', () => {
-  it('placeholder — UserMention.vue missing (E18 orphan suite)', () => {
-    expect(true).toBe(true);
+describe('UserMention Component', () => {
+  it('renders @username', () => {
+    const wrapper = mount(UserMention, { props: { username: 'alice' } });
+    expect(wrapper.text()).toContain('@alice');
+  });
+
+  it('strips duplicate @ prefix', () => {
+    const wrapper = mount(UserMention, { props: { username: '@bob' } });
+    expect(wrapper.text()).toContain('@bob');
+    expect(wrapper.text()).not.toContain('@@');
   });
 });
 
-describe.skip('IssueReference Component', () => {
-  it('placeholder — IssueReference.vue missing (E18 orphan suite)', () => {
-    expect(true).toBe(true);
+describe('IssueReference Component', () => {
+  it('renders issue code', () => {
+    const wrapper = mount(IssueReference, {
+      props: { issueId: 'uuid-1', issueCode: 'SMK-2' },
+      global: {
+        mocks: {
+          $router: { push: vi.fn() }
+        }
+      }
+    });
+    expect(wrapper.text()).toContain('SMK-2');
   });
 });
 

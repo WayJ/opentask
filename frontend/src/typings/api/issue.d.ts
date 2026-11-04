@@ -138,6 +138,9 @@ export namespace Api.Issue {
   export interface Issue extends IssueBase {
     id: string;
     issue_code: string;
+    /** E20 relation badges */
+    blocks_count?: number;
+    blocked_by_count?: number;
     view_count: number;
     comment_count: number;
     attachment_count: number;
@@ -278,6 +281,8 @@ export namespace Api.Issue {
     status?: IssueStatus;
     priority?: IssuePriority;
     assignee_id?: string;
+    cycle_id?: string | null;
+    tag_ids?: number[];
   }
 
   /** 批量删除 Issue */

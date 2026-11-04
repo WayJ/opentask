@@ -6,6 +6,7 @@ import { VueDraggable } from 'vue-draggable-plus';
 import { getIssuePriorityLabel, getIssuePriorityTagType, getIssueStatusTagType, getIssueTypeTagType } from '@/constants/issue';
 import { issueApi } from '@/service/api/issue';
 import { useIssueFocus } from '@/composables/use-issue-focus';
+import { useIssueSelection } from '@/composables/use-issue-selection';
 import { buildIssueDetailLocation } from '@/utils/issue-board-nav';
 import { BOARD_STATUS_COLUMNS, type BoardSwimlane, buildBoardSwimlanes } from '@/utils/boardSwimlanes';
 import type { IssueDisplayFields, SwimlaneBy } from '@/utils/display-prefs';
@@ -38,6 +39,7 @@ const props = withDefaults(
 );
 
 const issueFocus = useIssueFocus();
+const issueSelection = useIssueSelection();
 
 const emit = defineEmits<{
   changed: [];
@@ -197,7 +199,10 @@ function showField(key: keyof IssueDisplayFields): boolean {
                 size="small"
                 hoverable
                 class="board-card"
-                :class="{ 'is-focused': issueFocus.focusedIssueId === issue.id }"
+                :class="{
+                  'is-focused': issueFocus.focusedIssueId === issue.id,
+                  'is-selected': issueSelection.isSelected(issue.id)
+                }"
                 @click="focusIssue(issue)"
                 @dblclick="openDetail(issue)"
               >
@@ -213,6 +218,28 @@ function showField(key: keyof IssueDisplayFields): boolean {
                   </NTag>
                 </div>
                 <div class="board-card-title">{{ issue.title }}</div>
+                <div v-if="(issue.blocked_by_count || 0) > 0 || (issue.blocks_count || 0) > 0" class="board-card-meta">
+                  <NTag
+                    v-if="(issue.blocked_by_count || 0) > 0"
+                    size="tiny"
+                    type="error"
+                    :bordered="false"
+                    style="cursor: pointer"
+                    @click.stop="openDetail(issue)"
+                  >
+                    被阻塞 {{ issue.blocked_by_count }}
+                  </NTag>
+                  <NTag
+                    v-if="(issue.blocks_count || 0) > 0"
+                    size="tiny"
+                    type="warning"
+                    :bordered="false"
+                    style="cursor: pointer; margin-left: 4px"
+                    @click.stop="openDetail(issue)"
+                  >
+                    阻塞 {{ issue.blocks_count }}
+                  </NTag>
+                </div>
                 <div v-if="showField('type')" class="board-card-meta">
                   <NTag size="small" :type="getIssueTypeTagType(issue.type)" :bordered="false">
                     {{ issue.type }}
@@ -322,6 +349,12 @@ function showField(key: keyof IssueDisplayFields): boolean {
 .board-card {
   cursor: grab;
   border-radius: var(--radius-md);
+}
+
+.board-card.is-selected {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 55%, transparent);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--color-primary) 6%, transparent);
 }
 
 .board-card.is-focused {

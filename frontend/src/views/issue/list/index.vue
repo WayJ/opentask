@@ -64,6 +64,8 @@ import type { ParsedQuery } from '@/utils/issueSearchParser';
 import IssueSmartSearch from '@/components/IssueSmartSearch.vue';
 import type { Api } from '@/typings/api';
 import IssueBoard from './modules/IssueBoard.vue';
+import IssueBulkBar from '@/components/IssueBulkBar.vue';
+import { useIssueSelection } from '@/composables/use-issue-selection';
 import IssueListGrouped from './modules/IssueListGrouped.vue';
 import DisplayOptionsPanel from './modules/DisplayOptionsPanel.vue';
 
@@ -102,6 +104,7 @@ const activeTab = ref<'my_issues' | 'open' | 'closed' | 'all'>('open');
 // 双视图：list | board（同数据源；与 ⌘B 共享单例）
 const { viewMode, setMode: setViewMode } = useIssueListViewMode();
 const issueFocus = useIssueFocus();
+const issueSelection = useIssueSelection();
 const focusedIssueId = issueFocus.focusedIssueId;
 const filteredIssues = ref<Api.Issue.Issue[]>([]);
 
@@ -776,15 +779,76 @@ function focusIssueRow(issue: Api.Issue.Issue) {
   });
 }
 
+function publishIssueOrder(rows: Api.Issue.Issue[]) {
+  (window as unknown as { __opentaskIssueOrder?: string[] }).__opentaskIssueOrder = rows.map(r => r.id);
+}
+
+watch(
+  () => filteredIssues.value,
+  rows => {
+    publishIssueOrder(rows || []);
+  },
+  { immediate: true }
+);
+
 function issueRowProps(row: Api.Issue.Issue) {
+  const focused = issueFocus.focusedIssueId.value === row.id;
+  const selected = issueSelection.isSelected(row.id);
+  const classes = [focused ? 'issue-row-focused' : '', selected ? 'issue-row-selected' : '']
+    .filter(Boolean)
+    .join(' ');
   return {
-    class: issueFocus.focusedIssueId.value === row.id ? 'issue-row-focused' : undefined,
-    style:
-      issueFocus.focusedIssueId.value === row.id
-        ? 'outline: 2px solid var(--color-primary); outline-offset: -2px;'
+    class: classes || undefined,
+    style: focused
+      ? 'outline: 2px solid var(--color-primary); outline-offset: -2px;'
+      : selected
+        ? 'background: color-mix(in srgb, var(--color-primary) 8%, transparent);'
         : undefined,
     onClick: () => focusIssueRow(row)
   };
+}
+
+function relationBadgeNodes(row: Api.Issue.Issue) {
+  const nodes = [];
+  const blocked = row.blocked_by_count || 0;
+  const blocks = row.blocks_count || 0;
+  if (blocked > 0) {
+    nodes.push(
+      h(
+        NTag,
+        {
+          size: 'tiny',
+          type: 'error',
+          bordered: false,
+          style: 'margin-right: 4px; cursor: pointer',
+          onClick: (e: Event) => {
+            e.stopPropagation();
+            viewIssue(row);
+          }
+        },
+        { default: () => `被阻塞 ${blocked}` }
+      )
+    );
+  }
+  if (blocks > 0) {
+    nodes.push(
+      h(
+        NTag,
+        {
+          size: 'tiny',
+          type: 'warning',
+          bordered: false,
+          style: 'cursor: pointer',
+          onClick: (e: Event) => {
+            e.stopPropagation();
+            viewIssue(row);
+          }
+        },
+        { default: () => `阻塞 ${blocks}` }
+      )
+    );
+  }
+  return nodes;
 }
 
 // View issue detail
@@ -950,7 +1014,10 @@ const columns: DataTableColumns<Api.Issue.Issue> = [
                 '↳'
               )
             : null,
-          row.title
+          row.title,
+          ...relationBadgeNodes(row).map(n =>
+            h('span', { style: 'margin-left: 6px; display: inline-flex; vertical-align: middle;' }, [n])
+          )
         ]
       );
     }
@@ -1487,6 +1554,7 @@ onMounted(async () => {
           </div>
         </template>
       </NSpin>
+      <IssueBulkBar @done="loadIssues" />
     </NCard>
 
     <NModal

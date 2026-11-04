@@ -79,4 +79,27 @@ describe('resolveIssueHotkeyAction', () => {
       })
     ).toBeNull();
   });
+
+  it('E20: X toggles select / Shift+X range on list', () => {
+    expect(resolveIssueHotkeyAction({ ...base, key: 'x' })).toEqual({ type: 'toggle_select' });
+    expect(resolveIssueHotkeyAction({ ...base, key: 'x', shiftKey: true })).toEqual({
+      type: 'range_select'
+    });
+    expect(resolveIssueHotkeyAction({ ...base, key: 'x', editable: true })).toBeNull();
+    expect(
+      resolveIssueHotkeyAction({ ...base, key: 'x', onIssueListRoute: false })
+    ).toBeNull();
+  });
+
+  it('E20: Escape clears selection when present', () => {
+    expect(
+      resolveIssueHotkeyAction({ ...base, key: 'Escape', hasSelection: true })
+    ).toEqual({ type: 'clear_selection' });
+    expect(
+      resolveIssueHotkeyAction({ ...base, key: 'Escape', hasSelection: false })
+    ).toBeNull();
+    expect(
+      resolveIssueHotkeyAction({ ...base, key: 'Escape', hasSelection: true, editable: true })
+    ).toBeNull();
+  });
 });

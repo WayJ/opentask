@@ -91,6 +91,17 @@ const relations = ref<{
   as_source: Api.Issue.IssueRelation[];
   as_target: Api.Issue.IssueRelation[];
 } | null>(null);
+const showAddRelation = ref(false);
+const pendingRelationTarget = ref('');
+const pendingRelationType = ref<Api.Issue.RelationType>('blocks');
+const relationBusy = ref(false);
+const relationTypeOptions = [
+  { label: '阻塞', value: 'blocks' },
+  { label: '被阻塞', value: 'is_blocked_by' },
+  { label: '关联', value: 'relates_to' },
+  { label: '重复', value: 'duplicates' },
+  { label: '依赖', value: 'depends_on' }
+];
 
 // E4-S3 父子
 const parentIssue = ref<Api.Issue.Issue | null>(null);
@@ -531,6 +542,46 @@ async function loadRelations() {
     relations.value = data;
   } catch {
     // Silently fail
+  }
+}
+
+async function handleAddRelation() {
+  if (!issueId.value || !pendingRelationTarget.value.trim()) return;
+  relationBusy.value = true;
+  try {
+    let targetId = pendingRelationTarget.value.trim();
+    if (/^[A-Z][A-Z0-9]*-\d+$/i.test(targetId)) {
+      const { data, error } = await issueApi.getIssue(targetId, { byCode: true });
+      if (error || !data?.id) {
+        window.$message?.error?.('找不到目标 Issue');
+        return;
+      }
+      targetId = data.id;
+    }
+    await issueStore.addRelation(
+      issueId.value,
+      targetId,
+      pendingRelationType.value
+    );
+    pendingRelationTarget.value = '';
+    showAddRelation.value = false;
+    await loadRelations();
+    window.$message?.success?.('关系已添加');
+  } catch {
+    window.$message?.error?.('添加关系失败');
+  } finally {
+    relationBusy.value = false;
+  }
+}
+
+async function handleRemoveRelation(targetId: string, relationType: Api.Issue.RelationType) {
+  if (!issueId.value) return;
+  try {
+    await issueStore.removeRelation(issueId.value, targetId, relationType);
+    await loadRelations();
+    window.$message?.success?.('关系已移除');
+  } catch {
+    window.$message?.error?.('移除关系失败');
   }
 }
 
@@ -1607,15 +1658,15 @@ onMounted(() => {
               </div>
             </div>
 
-            <!-- Linked Issues -->
-            <div
-              v-if="relations && (relations.as_source.length > 0 || relations.as_target.length > 0)"
-              class="sidebar-section"
-            >
-              <div class="sidebar-section-title">关联 Issue</div>
+            <!-- Linked Issues / Relations CRUD (E20) -->
+            <div class="sidebar-section" id="issue-relations">
+              <div class="sidebar-section-title">
+                <span>关联 Issue</span>
+                <NButton text size="tiny" @click="showAddRelation = !showAddRelation">+ 添加</NButton>
+              </div>
               <div class="linked-issues">
                 <div
-                  v-for="(rel, idx) in relations.as_source"
+                  v-for="(rel, idx) in relations?.as_source || []"
                   :key="'source-' + idx + '-' + rel.target_id"
                   class="linked-issue"
                 >
@@ -1627,13 +1678,21 @@ onMounted(() => {
                   >
                     {{ rel.target_issue?.issue_code || rel.target_id }}
                   </NButton>
+                  <NButton
+                    text
+                    size="tiny"
+                    type="error"
+                    @click="handleRemoveRelation(rel.target_id, rel.relation_type)"
+                  >
+                    移除
+                  </NButton>
                 </div>
                 <div
-                  v-for="(rel, idx) in relations.as_target"
+                  v-for="(rel, idx) in relations?.as_target || []"
                   :key="'target-' + idx + '-' + rel.source_id"
                   class="linked-issue"
                 >
-                  <NTag size="tiny" :bordered="false">{{ getRelationLabel(rel.relation_type) }}</NTag>
+                  <NTag size="tiny" :bordered="false">{{ getRelationLabel(rel.relation_type) }} ←</NTag>
                   <NButton
                     text
                     size="tiny"
@@ -1642,6 +1701,36 @@ onMounted(() => {
                     {{ rel.source_issue?.issue_code || rel.source_id }}
                   </NButton>
                 </div>
+                <NText
+                  v-if="!relations || (!relations.as_source.length && !relations.as_target.length)"
+                  depth="3"
+                  style="font-size: 12px"
+                >
+                  暂无关联
+                </NText>
+              </div>
+              <div v-if="showAddRelation" class="mt-2">
+                <NInput
+                  v-model:value="pendingRelationTarget"
+                  size="small"
+                  placeholder="目标 Issue ID 或 KEY-N"
+                  class="mb-2"
+                />
+                <NSelect
+                  v-model:value="pendingRelationType"
+                  :options="relationTypeOptions"
+                  size="small"
+                  class="mb-2"
+                />
+                <NButton
+                  size="tiny"
+                  type="primary"
+                  :loading="relationBusy"
+                  :disabled="!pendingRelationTarget.trim()"
+                  @click="handleAddRelation"
+                >
+                  确认添加
+                </NButton>
               </div>
             </div>
 
