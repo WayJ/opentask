@@ -259,6 +259,8 @@ const local: App.I18n.Schema = {
     'workspace_issue-templates': 'Issue Templates',
     workspace_cycles: 'Cycles',
     inbox: 'Inbox',
+    initiatives: 'Initiatives',
+    initiatives_detail: 'Initiative Detail',
     triage: 'Triage',
     dashboard: 'Dev Dashboard',
     projects: 'Projects',

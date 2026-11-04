@@ -202,6 +202,8 @@ const routeMap: RouteMap = {
   "profile_access-tokens": "/profile/access-tokens",
   "profile_userinfo": "/profile/userinfo",
   "triage": "/triage",
+  "initiatives": "/initiatives",
+  "initiatives_detail": "/initiatives/detail",
   "work-management": "/work-management",
   "work-management_cost-projects": "/work-management/cost-projects",
   "work-management_cost-projects_create": "/work-management/cost-projects/create",

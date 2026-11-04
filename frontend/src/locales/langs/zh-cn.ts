@@ -257,6 +257,8 @@ const local: App.I18n.Schema = {
     'workspace_issue-templates': 'Issue 模板',
     workspace_cycles: '冲刺 Cycles',
     inbox: '收件箱',
+    initiatives: 'Initiatives',
+    initiatives_detail: 'Initiative 详情',
     triage: '分诊',
     dashboard: '研发效能看板',
     workflow: '研发流水线',

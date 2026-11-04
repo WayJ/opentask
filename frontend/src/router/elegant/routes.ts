@@ -431,6 +431,28 @@ export const generatedRoutes: GeneratedRoute[] = [
     }
   },
   {
+    name: 'initiatives',
+    path: '/initiatives',
+    component: 'layout.base$view.initiatives',
+    meta: {
+      title: 'initiatives',
+      i18nKey: 'route.initiatives',
+      icon: 'mdi:flag-variant',
+      order: 2.5
+    }
+  },
+  {
+    name: 'initiatives_detail',
+    path: '/initiatives/detail',
+    component: 'layout.base$view.initiatives_detail',
+    meta: {
+      title: 'initiatives_detail',
+      i18nKey: 'route.initiatives_detail',
+      hideInMenu: true,
+      activeMenu: 'initiatives'
+    }
+  },
+  {
     name: 'work-management',
     path: '/work-management',
     component: 'layout.base',
