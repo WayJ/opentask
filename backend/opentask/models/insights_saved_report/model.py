@@ -1,4 +1,4 @@
-"""Insights saved reports (E59) — personal-only named filter presets."""
+"""Insights saved reports (E59 personal + E61 visibility share)."""
 from __future__ import annotations
 
 import uuid
@@ -16,7 +16,7 @@ def _uuid() -> str:
 
 
 class InsightsSavedReport(DBModel):
-    """Personal Insights report preset (Q2a / Q3a / Q6a)."""
+    """Insights report preset — personal or workspace-shared (E59/E61)."""
 
     __tablename__ = "insights_saved_reports"
 
@@ -31,6 +31,9 @@ class InsightsSavedReport(DBModel):
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     filters: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, insert_default=dict)
     is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, insert_default=False)
+    visibility: Mapped[str] = mapped_column(
+        String(16), nullable=False, insert_default="personal", server_default="personal"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, insert_default=datetime.utcnow
     )
@@ -41,4 +44,5 @@ class InsightsSavedReport(DBModel):
     __table_args__ = (
         Index("idx_insights_reports_ws_owner", "workspace_id", "owner_user_id"),
         Index("idx_insights_reports_owner_default", "owner_user_id", "is_default"),
+        Index("idx_insights_reports_ws_visibility", "workspace_id", "visibility"),
     )

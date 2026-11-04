@@ -1,4 +1,4 @@
-"""Insights API（E24 + E55 + E59）— summary / export / saved reports / digest tick。"""
+"""Insights API（E24 + E55 + E59 + E61）— summary / export / saved reports / share / digest。"""
 from __future__ import annotations
 
 from typing import Any, List, Optional
@@ -27,12 +27,18 @@ class ReportCreateBody(BaseModel):
     name: str = Field(..., min_length=1, max_length=128)
     filters: Optional[dict[str, Any]] = None
     isDefault: bool = False
+    visibility: Optional[str] = "personal"
 
 
 class ReportPatchBody(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=128)
     filters: Optional[dict[str, Any]] = None
     isDefault: Optional[bool] = None
+    visibility: Optional[str] = None
+
+
+class ReportForkBody(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=128)
 
 
 @router.get("/summary")
@@ -117,13 +123,15 @@ async def create_insights_report(
     ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
     session: AsyncSession = Depends(get_session),
 ):
-    ws, _member, user = ctx
+    ws, member, user = ctx
     data = await InsightsService(session).create_report(
         workspace_id=ws.id,
         owner_user_id=str(user.id),
         name=body.name,
         filters=body.filters,
         is_default=body.isDefault,
+        visibility=body.visibility,
+        actor_role=getattr(member, "role", None),
     )
     return success_response(data=data, message="已创建")
 
@@ -135,7 +143,7 @@ async def patch_insights_report(
     ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
     session: AsyncSession = Depends(get_session),
 ):
-    ws, _member, user = ctx
+    ws, member, user = ctx
     data = await InsightsService(session).update_report(
         workspace_id=ws.id,
         owner_user_id=str(user.id),
@@ -143,6 +151,8 @@ async def patch_insights_report(
         name=body.name,
         filters=body.filters,
         is_default=body.isDefault,
+        visibility=body.visibility,
+        actor_role=getattr(member, "role", None),
     )
     return success_response(data=data, message="已更新")
 
@@ -160,6 +170,25 @@ async def delete_insights_report(
         report_id=report_id,
     )
     return success_response(data={"id": report_id}, message="已删除")
+
+
+@router.post("/reports/{report_id}/fork")
+async def fork_insights_report(
+    report_id: str,
+    body: ReportForkBody = ReportForkBody(),
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    """E61：另存为我的 — 复制 filters 为本人 personal。"""
+    ws, member, user = ctx
+    data = await InsightsService(session).fork_report(
+        workspace_id=ws.id,
+        owner_user_id=str(user.id),
+        report_id=report_id,
+        name=body.name,
+        actor_role=getattr(member, "role", None),
+    )
+    return success_response(data=data, message="已另存为我的")
 
 
 @router.post("/run-digest")

@@ -269,6 +269,11 @@ async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
                 "ALTER TABLE IF EXISTS notification_preferences ADD COLUMN IF NOT EXISTS insights_digest BOOLEAN NOT NULL DEFAULT FALSE",
             ):
                 await conn.execute(_sql_text(_stmt))
+            # E61 insights report visibility
+            await conn.execute(_sql_text(
+                "ALTER TABLE IF EXISTS insights_saved_reports "
+                "ADD COLUMN IF NOT EXISTS visibility VARCHAR(16) NOT NULL DEFAULT 'personal'"
+            ))
             # E60 search FTS mid — PG tsvector + GIN
             for _tbl, _expr, _idx in (
                 (

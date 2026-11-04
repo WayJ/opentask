@@ -1,4 +1,4 @@
-"""Workspace Insights 只读聚合（E24 + E55 thicken + E59 multi-label / reports / digest）。"""
+"""Workspace Insights 只读聚合（E24 + E55 + E59 + E61 shared reports）。"""
 from __future__ import annotations
 
 import csv
@@ -8,7 +8,7 @@ from datetime import date, datetime, timedelta
 from typing import Any, Optional
 
 from fastapi import HTTPException, status as http_status
-from sqlalchemy import case, exists, func, select, update
+from sqlalchemy import case, exists, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opentask.models.cycle.model import Cycle
@@ -24,7 +24,24 @@ DONE_STATUSES = frozenset({"resolved", "closed"})
 DEFAULT_ASSIGNEE_LIMIT = 10
 TREND_DAYS = 14
 VELOCITY_DAYS = 14
-REPORT_CAP = 20
+REPORT_CAP = 20  # personal per user per WS (E59/E61)
+SHARED_REPORT_CAP = 50  # workspace-visibility per WS (E61 Q6a)
+VIS_PERSONAL = "personal"
+VIS_WORKSPACE = "workspace"
+WRITER_ROLES = frozenset({"owner", "member"})
+
+
+def normalize_visibility(raw: Optional[str], *, default: str = VIS_PERSONAL) -> str:
+    if raw is None or str(raw).strip() == "":
+        return default
+    v = str(raw).strip().lower()
+    if v not in (VIS_PERSONAL, VIS_WORKSPACE):
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail="visibility 须为 personal 或 workspace",
+        )
+    return v
+
 
 
 def normalize_label_ids(
@@ -82,14 +99,20 @@ def parse_label_ids_query(
     return None
 
 
-def serialize_saved_report(row: InsightsSavedReport) -> dict[str, Any]:
+def serialize_saved_report(
+    row: InsightsSavedReport, *, viewer_user_id: Optional[str] = None
+) -> dict[str, Any]:
+    owner = str(row.owner_user_id)
+    viewer = str(viewer_user_id) if viewer_user_id is not None else owner
     return {
         "id": row.id,
         "workspaceId": row.workspace_id,
-        "ownerUserId": row.owner_user_id,
+        "ownerUserId": owner,
         "name": row.name,
         "filters": dict(row.filters or {}),
         "isDefault": bool(row.is_default),
+        "visibility": getattr(row, "visibility", None) or VIS_PERSONAL,
+        "canEdit": owner == viewer,
         "createdAt": row.created_at.isoformat() if row.created_at else None,
         "updatedAt": row.updated_at.isoformat() if row.updated_at else None,
     }
@@ -181,15 +204,22 @@ class InsightsService:
     # ------------------------------------------------------------------ reports
 
     async def list_reports(self, *, workspace_id: str, owner_user_id: str) -> list[dict]:
+        """Q2a: mine (any visibility) ∪ workspace-shared in this WS."""
+        uid = str(owner_user_id)
         result = await self.db.execute(
             select(InsightsSavedReport)
             .where(
                 InsightsSavedReport.workspace_id == workspace_id,
-                InsightsSavedReport.owner_user_id == str(owner_user_id),
+                or_(
+                    InsightsSavedReport.owner_user_id == uid,
+                    InsightsSavedReport.visibility == VIS_WORKSPACE,
+                ),
             )
             .order_by(InsightsSavedReport.updated_at.desc())
         )
-        return [serialize_saved_report(r) for r in result.scalars().all()]
+        return [
+            serialize_saved_report(r, viewer_user_id=uid) for r in result.scalars().all()
+        ]
 
     async def create_report(
         self,
@@ -199,6 +229,8 @@ class InsightsService:
         name: str,
         filters: Optional[dict] = None,
         is_default: bool = False,
+        visibility: Optional[str] = None,
+        actor_role: Optional[str] = None,
     ) -> dict:
         name = (name or "").strip()
         if not name:
@@ -206,19 +238,9 @@ class InsightsService:
                 status_code=http_status.HTTP_400_BAD_REQUEST,
                 detail="name 必填",
             )
-        count_q = await self.db.execute(
-            select(func.count())
-            .select_from(InsightsSavedReport)
-            .where(
-                InsightsSavedReport.workspace_id == workspace_id,
-                InsightsSavedReport.owner_user_id == str(owner_user_id),
-            )
-        )
-        if int(count_q.scalar_one() or 0) >= REPORT_CAP:
-            raise HTTPException(
-                status_code=http_status.HTTP_400_BAD_REQUEST,
-                detail=f"每用户每工作区最多 {REPORT_CAP} 份报表",
-            )
+        vis = normalize_visibility(visibility, default=VIS_PERSONAL)
+        self._ensure_can_share(actor_role, vis)
+        await self._ensure_cap(workspace_id, owner_user_id, vis)
         filters = self._normalize_filters(filters or {})
         await self._ensure_filter_refs(workspace_id, filters)
         if is_default:
@@ -230,11 +252,12 @@ class InsightsService:
             name=name[:128],
             filters=filters,
             is_default=bool(is_default),
+            visibility=vis,
         )
         self.db.add(row)
         await self.db.commit()
         await self.db.refresh(row)
-        return serialize_saved_report(row)
+        return serialize_saved_report(row, viewer_user_id=str(owner_user_id))
 
     async def update_report(
         self,
@@ -245,6 +268,8 @@ class InsightsService:
         name: Optional[str] = None,
         filters: Optional[dict] = None,
         is_default: Optional[bool] = None,
+        visibility: Optional[str] = None,
+        actor_role: Optional[str] = None,
     ) -> dict:
         row = await self._get_own_report(workspace_id, owner_user_id, report_id)
         if name is not None:
@@ -259,6 +284,17 @@ class InsightsService:
             filters = self._normalize_filters(filters)
             await self._ensure_filter_refs(workspace_id, filters)
             row.filters = filters
+        if visibility is not None:
+            new_vis = normalize_visibility(visibility)
+            if new_vis != (row.visibility or VIS_PERSONAL):
+                self._ensure_can_share(actor_role, new_vis)
+                await self._ensure_cap(
+                    workspace_id,
+                    owner_user_id,
+                    new_vis,
+                    exclude_report_id=row.id,
+                )
+                row.visibility = new_vis
         if is_default is True:
             await self._clear_defaults(workspace_id, owner_user_id)
             row.is_default = True
@@ -267,7 +303,7 @@ class InsightsService:
         row.updated_at = datetime.utcnow()
         await self.db.commit()
         await self.db.refresh(row)
-        return serialize_saved_report(row)
+        return serialize_saved_report(row, viewer_user_id=str(owner_user_id))
 
     async def delete_report(
         self, *, workspace_id: str, owner_user_id: str, report_id: str
@@ -275,6 +311,27 @@ class InsightsService:
         row = await self._get_own_report(workspace_id, owner_user_id, report_id)
         await self.db.delete(row)
         await self.db.commit()
+
+    async def fork_report(
+        self,
+        *,
+        workspace_id: str,
+        owner_user_id: str,
+        report_id: str,
+        name: Optional[str] = None,
+        actor_role: Optional[str] = None,
+    ) -> dict:
+        src = await self._get_readable_report(workspace_id, owner_user_id, report_id)
+        fork_name = (name or "").strip() or f"副本 · {src.name}"
+        return await self.create_report(
+            workspace_id=workspace_id,
+            owner_user_id=owner_user_id,
+            name=fork_name[:128],
+            filters=dict(src.filters or {}),
+            is_default=False,
+            visibility=VIS_PERSONAL,
+            actor_role=actor_role,
+        )
 
     async def _get_own_report(
         self, workspace_id: str, owner_user_id: str, report_id: str
@@ -293,6 +350,82 @@ class InsightsService:
                 detail="报表不存在",
             )
         return row
+
+    async def _get_readable_report(
+        self, workspace_id: str, viewer_user_id: str, report_id: str
+    ) -> InsightsSavedReport:
+        uid = str(viewer_user_id)
+        result = await self.db.execute(
+            select(InsightsSavedReport).where(
+                InsightsSavedReport.id == report_id,
+                InsightsSavedReport.workspace_id == workspace_id,
+                or_(
+                    InsightsSavedReport.owner_user_id == uid,
+                    InsightsSavedReport.visibility == VIS_WORKSPACE,
+                ),
+            )
+        )
+        row = result.scalar_one_or_none()
+        if row is None:
+            raise HTTPException(
+                status_code=http_status.HTTP_404_NOT_FOUND,
+                detail="报表不存在",
+            )
+        return row
+
+    def _ensure_can_share(self, actor_role: Optional[str], visibility: str) -> None:
+        if visibility != VIS_WORKSPACE:
+            return
+        role = (actor_role or "").strip().lower()
+        if role not in WRITER_ROLES:
+            raise HTTPException(
+                status_code=http_status.HTTP_403_FORBIDDEN,
+                detail="仅 member/owner 可分享为工作区报表",
+            )
+
+    async def _ensure_cap(
+        self,
+        workspace_id: str,
+        owner_user_id: str,
+        visibility: str,
+        *,
+        exclude_report_id: Optional[str] = None,
+    ) -> None:
+        if visibility == VIS_WORKSPACE:
+            q = (
+                select(func.count())
+                .select_from(InsightsSavedReport)
+                .where(
+                    InsightsSavedReport.workspace_id == workspace_id,
+                    InsightsSavedReport.visibility == VIS_WORKSPACE,
+                )
+            )
+            if exclude_report_id:
+                q = q.where(InsightsSavedReport.id != exclude_report_id)
+            count_q = await self.db.execute(q)
+            if int(count_q.scalar_one() or 0) >= SHARED_REPORT_CAP:
+                raise HTTPException(
+                    status_code=http_status.HTTP_400_BAD_REQUEST,
+                    detail=f"每工作区最多 {SHARED_REPORT_CAP} 份共享报表",
+                )
+            return
+        q = (
+            select(func.count())
+            .select_from(InsightsSavedReport)
+            .where(
+                InsightsSavedReport.workspace_id == workspace_id,
+                InsightsSavedReport.owner_user_id == str(owner_user_id),
+                InsightsSavedReport.visibility == VIS_PERSONAL,
+            )
+        )
+        if exclude_report_id:
+            q = q.where(InsightsSavedReport.id != exclude_report_id)
+        count_q = await self.db.execute(q)
+        if int(count_q.scalar_one() or 0) >= REPORT_CAP:
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail=f"每用户每工作区最多 {REPORT_CAP} 份个人报表",
+            )
 
     async def _clear_defaults(self, workspace_id: str, owner_user_id: str) -> None:
         await self.db.execute(
