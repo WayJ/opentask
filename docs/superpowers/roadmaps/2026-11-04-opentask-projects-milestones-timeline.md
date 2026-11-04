@@ -1,6 +1,6 @@
 ---
 epic: E8
-status: active
+status: local-complete
 date: 2026-11-04
 ---
 
@@ -24,15 +24,15 @@ date: 2026-11-04
 
 ## Definition of Done
 
-- [ ] Epic 下全部 Sprint（S1–S3）已 acceptance 且 state=closed；合并证据本地台账（merged-commit 仍 null / 未推远程）
-- [ ] `cd backend && uv run pytest tests/ -v` 全绿（含 milestones CRUD / 跨租户 / health+Inbox / favorites ACL）
-- [ ] `cd frontend && npm run lint && npm run build` 通过（0 errors）
-- [ ] 可为项目建/改/删里程碑；Issue 可挂/换/清空里程碑；项目 UI 可见里程碑列表
-- [ ] 可发健康更新；项目 header 显示最新状态；watchers 收到 Inbox（type=`project_health`）
-- [ ] 项目 Timeline 可 week/month 缩放；无日期时空状态有引导
-- [ ] 侧栏 Favorites 可 pin/unpin Project、Saved View、Issue 并跳转；与 View 星标语义分离
-- [ ] DESIGN.md / Naive UI / soybean 令牌被前端改动遵守；无 Initiative 依赖图 / Slack / 原生移动端
-- [ ] 整 Epic 一次回执 Yuri/Way（路径、分支 tip、门禁、acceptance）
+- [x] Epic 下全部 Sprint（S1–S3）已 acceptance 且 state=closed；合并证据本地台账（merged-commit 仍 null / 未推远程）
+- [x] `cd backend && uv run pytest tests/ -v` 全绿（含 milestones CRUD / 跨租户 / health+Inbox / favorites ACL）
+- [x] `cd frontend && npm run lint && npm run build` 通过（0 errors）
+- [x] 可为项目建/改/删里程碑；Issue 可挂/换/清空里程碑；项目 UI 可见里程碑列表
+- [x] 可发健康更新；项目 header 显示最新状态；watchers 收到 Inbox（type=`project_health`）
+- [x] 项目 Timeline 可 week/month 缩放；无日期时空状态有引导
+- [x] 侧栏 Favorites 可 pin/unpin Project、Saved View、Issue 并跳转；与 View 星标语义分离
+- [x] DESIGN.md / Naive UI / soybean 令牌被前端改动遵守；无 Initiative 依赖图 / Slack / 原生移动端
+- [x] 整 Epic 一次回执 Yuri/Way（路径、分支 tip、门禁、acceptance）
 
 ## Sprint Breakdown
 
@@ -40,7 +40,7 @@ date: 2026-11-04
 |---|---|---|
 | S1 | **closed** | Milestones + `issue.milestone_id` + 项目日期 + 项目 UI。acceptance: `docs/superpowers/acceptances/2026-11-04-E8-S1-acceptance.md`；impl `56c886e` |
 | S2 | **closed** | Health + watchers + Inbox + Timeline MVP。acceptance: `docs/superpowers/acceptances/2026-11-04-E8-S2-acceptance.md` |
-| S3 | **active** | **Sidebar Favorites** + 打磨 + Epic local-complete。plan: `docs/superpowers/sprints/2026-11-04-E8-S3-plan.md` |
+| S3 | **closed** | Sidebar Favorites + Epic local-complete。acceptance: `docs/superpowers/acceptances/2026-11-04-E8-S3-acceptance.md`；impl `f9c3f73` |
 
 推荐顺序理由：先固化里程碑与项目时间盒真相源（S1，解锁 Issue 归属与 Timeline 数据），再做健康广播与 Timeline 呈现（S2，依赖日期/里程碑），最后侧栏 Favorites 与整包打磨（S3，Favorites 可兼作 health watcher 补源）。
 
@@ -114,6 +114,5 @@ date: 2026-11-04
 
 ## Next
 
-1. ~~Phase 1 / S1 / S2~~ → closed
-2. 实现 E8-S3 Favorites → Epic local-complete
-3. 整 Epic E8 本地收口后一次回执；controller 接 **E12**（invites + KEY-N + de-PGE），**不**接 E9
+1. ~~Phase 1 / S1 / S2 / S3~~ → **Epic local-complete**
+2. 整 Epic E8 一次回执；**controller** 接 **E12**（invites + KEY-N + de-PGE），**不**接 E9；本 worktree **未**开 E12

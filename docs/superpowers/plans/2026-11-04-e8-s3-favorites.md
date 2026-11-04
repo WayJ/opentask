@@ -38,8 +38,8 @@
 
 ### Task 1: Docs
 
-- [ ] Write this plan; expand sprint stub Wave 1
-- [ ] Commit `docs(E8-S3): TDD plan for sidebar Favorites`
+- [x] Write this plan; expand sprint stub Wave 1
+- [x] Commit `docs(E8-S3): TDD plan for sidebar Favorites`
 
 ### Task 2: Pytest RED — favorites CRUD / ACL / pin→watcher
 
@@ -54,37 +54,37 @@
 - Cross-WS / missing target → 404; invalid `target_type` → 400
 - Pinning saved_view does **not** flip `is_favorite`
 
-- [ ] Write failing tests (mirror `test_project_health` helpers)
-- [ ] Run `pytest tests/api/test_favorites.py -v` → FAIL (404/missing)
-- [ ] Commit RED tests
+- [x] Write failing tests (mirror `test_project_health` helpers)
+- [x] Run `pytest tests/api/test_favorites.py -v` → FAIL (404/missing)
+- [x] Commit RED tests
 
 ### Task 3: Models + Alembic GREEN foundation
 
-- [ ] Add `Favorite` model; export in `models/__init__.py`
-- [ ] Migration `a7b8c9d0e1f3` revises `f6a7b8c9d0e2`
-- [ ] Commit models + migration
+- [x] Add `Favorite` model; export in `models/__init__.py`
+- [x] Migration `a7b8c9d0e1f3` revises `f6a7b8c9d0e2`
+- [x] Commit models + migration
 
 ### Task 4: Services + API GREEN
 
-- [ ] `FavoriteService`: list/add/remove/reorder; validate target in WS; serialize with summary; pin project → `ProjectWatcherService.watch`
-- [ ] Router `/api/favorites`; register in `app.py`
-- [ ] Run pytest file → PASS; commit
+- [x] `FavoriteService`: list/add/remove/reorder; validate target in WS; serialize with summary; pin project → `ProjectWatcherService.watch`
+- [x] Router `/api/favorites`; register in `app.py`
+- [x] Run pytest file → PASS; commit
 
 ### Task 5: FE + vitest
 
-- [ ] `favorites.ts` API client + types
-- [ ] `utils/favorites.ts`: group/sort/nav path helpers + vitest
-- [ ] `FavoritesNav.vue` in `global-sider` (Logo ↔ menu); collapse = icons
-- [ ] Pin/Unpin on project-detail header, issue-detail header, saved-view menu (label 「收藏到侧栏」; do not call `/favorite` star API)
-- [ ] lint 0 errors; build; vitest favorites utils
-- [ ] Commit FE
+- [x] `favorites.ts` API client + types
+- [x] `utils/favorites.ts`: group/sort/nav path helpers + vitest
+- [x] `FavoritesNav.vue` in `global-sider` (Logo ↔ menu); collapse = icons
+- [x] Pin/Unpin on project-detail header, issue-detail header, saved-view menu (label 「收藏到侧栏」; do not call `/favorite` star API)
+- [x] lint 0 errors; build; vitest favorites utils
+- [x] Commit FE
 
 ### Task 6: Gates + Epic local-complete
 
-- [ ] Full pytest; eslint --quiet; build; vitest
-- [ ] Acceptance `docs/superpowers/acceptances/2026-11-04-E8-S3-acceptance.md`
-- [ ] Sprint S3 `state: closed`; roadmap S1–S3 closed; Epic **local-complete**; `merged-commit: null`
-- [ ] **No push**; **do not** start E12
+- [x] Full pytest; eslint --quiet; build; vitest
+- [x] Acceptance `docs/superpowers/acceptances/2026-11-04-E8-S3-acceptance.md`
+- [x] Sprint S3 `state: closed`; roadmap S1–S3 closed; Epic **local-complete**; `merged-commit: null`
+- [x] **No push**; **do not** start E12
 
 ## Acceptance criteria (S3 / Epic)
 
