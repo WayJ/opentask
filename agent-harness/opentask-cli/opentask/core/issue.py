@@ -2343,3 +2343,112 @@ def delete_issue(obj: "Context", issue_id: str, force: bool, as_json: bool):
     # 返回错误码
     raise SystemExit(1)
 
+
+
+def _looks_like_issue_code(issue_id: str) -> bool:
+    import re
+    return (
+        re.compile(r"^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$", re.IGNORECASE).match(issue_id)
+        is not None
+    )
+
+
+async def _resolve_issue_id(client: OpenTaskClient, issue_id: str) -> tuple[str, dict]:
+    """Return (uuid, issue_dict) resolving KEY-N / legacy codes."""
+    by_code = _looks_like_issue_code(issue_id)
+    issue = await client.get_issue(issue_id, by_code=by_code)
+    return issue.get("id", issue_id), issue
+
+
+@issue_cli.command(name="branch-name")
+@click.argument("issue_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.option("--copy", "do_copy", is_flag=True, help="Also print hint to copy (stdout is the name)")
+@click.pass_obj
+def issue_branch_name(obj: "Context", issue_id: str, as_json: bool, do_copy: bool):
+    """Suggest Linear-like git branch name for an Issue (same HTTP as FE).
+
+    Examples:
+        issue branch-name WAY-42
+        issue branch-name WAY-42 --json
+    """
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+
+    try:
+        real_id, _issue = asyncio.run(_resolve_issue_id(client, issue_id))
+        data = asyncio.run(client.get_issue_branch_name(real_id))
+        if json_mode:
+            click.echo(_format_json_response(success=True, data=data, message="branch-name"))
+            return
+        name = data.get("branchName") or data.get("branch_name") or ""
+        click.echo(name)
+        if do_copy:
+            skin.hint(f"Copied suggestion: {name}")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to get branch name", json_mode)
+        sys.exit(1)
+
+
+@issue_cli.command(name="link-branch")
+@click.argument("issue_id")
+@click.argument("branch_name")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def issue_link_branch(obj: "Context", issue_id: str, branch_name: str, as_json: bool):
+    """Attach a branch name to an Issue via POST /vcs/links (same HTTP as FE).
+
+    Examples:
+        issue link-branch WAY-42 WAY-42-fix-login
+    """
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+
+    try:
+        real_id, _issue = asyncio.run(_resolve_issue_id(client, issue_id))
+        row = asyncio.run(
+            client.create_issue_vcs_link(
+                real_id, kind="branch", branchName=branch_name, provider="manual"
+            )
+        )
+        if json_mode:
+            click.echo(_format_json_response(success=True, data=row, message="linked branch"))
+            return
+        skin.success(f"Linked branch {branch_name} → {row.get('id', '')}")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to link branch", json_mode)
+        sys.exit(1)
+
+
+@issue_cli.command(name="vcs-links")
+@click.argument("issue_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def issue_vcs_links(obj: "Context", issue_id: str, as_json: bool):
+    """List VCS links on an Issue (same HTTP as FE)."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+
+    try:
+        real_id, _issue = asyncio.run(_resolve_issue_id(client, issue_id))
+        data = asyncio.run(client.list_issue_vcs_links(real_id))
+        if json_mode:
+            click.echo(_format_json_response(success=True, data=data, message="vcs-links"))
+            return
+        rows = data.get("rows") or []
+        if not rows:
+            skin.info("No VCS links")
+            return
+        for r in rows:
+            skin.info(
+                f"{r.get('kind')}: {r.get('branchName') or r.get('prUrl')} [{r.get('status')}] id={r.get('id')}"
+            )
+    except APIError as e:
+        _handle_error(skin, e, "Failed to list VCS links", json_mode)
+        sys.exit(1)

@@ -649,6 +649,21 @@ class OpenTaskClient:
         params = {"by_code": "true"} if by_code else {}
         return await self.get(f"/api/issues/{issue_id}", params=params)
 
+    async def get_issue_branch_name(self, issue_id: str) -> dict:
+        """GET /api/issues/{id}/vcs/branch-name — same contract as FE."""
+        return await self.get(f"/api/issues/{issue_id}/vcs/branch-name")
+
+    async def list_issue_vcs_links(self, issue_id: str) -> dict:
+        return await self.get(f"/api/issues/{issue_id}/vcs/links")
+
+    async def create_issue_vcs_link(self, issue_id: str, **kwargs) -> dict:
+        """POST link; kwargs use camelCase keys (kind, branchName, prUrl, ...)."""
+        return await self.post(f"/api/issues/{issue_id}/vcs/links", data=kwargs)
+
+    async def delete_issue_vcs_link(self, issue_id: str, link_id: str) -> dict:
+        return await self.delete(f"/api/issues/{issue_id}/vcs/links/{link_id}")
+
+
     async def create_issue(
         self,
         title: str,
