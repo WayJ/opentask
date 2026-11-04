@@ -763,7 +763,7 @@ def update_issue(obj: "Context", issue_id: str, title, description, issue_type, 
     """Update an issue.
 
     Issue identifier format is auto-detected:
-    - If starts with "ISSUE" followed by year: treated as issue code (e.g., ISSUE2026-32)
+    - If KEY-N or legacy ISSUE{year}-N: treated as issue code (e.g., OT-1, ISSUE2026-32)
     - Otherwise: treated as UUID ID (e.g., 5ee3420e-2d69-4509-9ae7-524e8c40d6d1)
 
     Examples:
@@ -781,7 +781,7 @@ def update_issue(obj: "Context", issue_id: str, title, description, issue_type, 
 
     # Auto-detect: check if it's an issue code (ISSUE + digits + hyphen + digits)
     import re
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
     if issue_code_pattern.match(issue_id):
         # It's a code, need to get the real ID first
         try:
@@ -877,7 +877,7 @@ def start_issue(obj: "Context", issue_ids: tuple, as_json: bool):
     json_mode = as_json or obj.json_mode
 
     import re
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
 
     # Start all issues
     results = []
@@ -959,7 +959,7 @@ def reopen_issue(obj: "Context", issue_ids: tuple, reason: str, as_json: bool):
     json_mode = as_json or obj.json_mode
 
     import re
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
 
     # Prepare comment if reason provided
     comment_text = None
@@ -1283,7 +1283,7 @@ def resolve_issue(obj: "Context", issue_ids: tuple, reason: str, commit_id: str,
     json_mode = as_json or obj.json_mode
 
     import re
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
 
     # Prepare comment if reason or commit-id provided
     comment_text = None
@@ -1388,7 +1388,7 @@ def close_issue(obj: "Context", issue_ids: tuple, reason: str, commit_id: str, a
     json_mode = as_json or obj.json_mode
 
     import re
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
 
     # Prepare comment if reason or commit-id provided
     comment_text = None
@@ -1477,7 +1477,7 @@ def show_issue(obj: "Context", issue_id: str, as_json: bool, show_comments: bool
     """Show issue details by ID or code (auto-detected).
 
     Issue identifier format is auto-detected:
-    - If starts with "ISSUE" followed by year: treated as issue code (e.g., ISSUE2026-32)
+    - If KEY-N or legacy ISSUE{year}-N: treated as issue code (e.g., OT-1, ISSUE2026-32)
     - Otherwise: treated as UUID ID (e.g., 5ee3420e-2d69-4509-9ae7-524e8c40d6d1)
 
     Examples:
@@ -1494,7 +1494,7 @@ def show_issue(obj: "Context", issue_id: str, as_json: bool, show_comments: bool
     json_mode = as_json or obj.json_mode
 
     import re
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
     by_code = issue_code_pattern.match(issue_id) is not None
 
     try:
@@ -1551,7 +1551,7 @@ def assign_issue(obj: "Context", issue_id: str, assignee_input: str, as_json: bo
     """Assign an issue to a user.
 
     Issue identifier format is auto-detected:
-    - If starts with "ISSUE" followed by year: treated as issue code (e.g., ISSUE2026-32)
+    - If KEY-N or legacy ISSUE{year}-N: treated as issue code (e.g., OT-1, ISSUE2026-32)
     - Otherwise: treated as UUID ID (e.g., 5ee3420e-2d69-4509-9ae7-524e8c40d6d1)
 
     Assignee formats:
@@ -1574,7 +1574,7 @@ def assign_issue(obj: "Context", issue_id: str, assignee_input: str, as_json: bo
 
     # Auto-detect: check if it's an issue code (ISSUE + digits + hyphen + digits)
     import re
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
     if issue_code_pattern.match(issue_id):
         # It's a code, need to get the real ID first
         try:
@@ -1659,7 +1659,7 @@ def batch_assign_issues(obj: "Context", issue_ids: tuple, assignee_input: str, a
     """Batch assign multiple issues to a user.
 
     Issue identifier format is auto-detected:
-    - If starts with "ISSUE" followed by year: treated as issue code (e.g., ISSUE2026-32)
+    - If KEY-N or legacy ISSUE{year}-N: treated as issue code (e.g., OT-1, ISSUE2026-32)
     - Otherwise: treated as UUID ID (e.g., 5ee3420e-2d69-4509-9ae7-524e8c40d6d1)
 
     Assignee formats:
@@ -1685,7 +1685,7 @@ def batch_assign_issues(obj: "Context", issue_ids: tuple, assignee_input: str, a
         return
 
     import re
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
 
     # Assign all issues
     results = []
@@ -1775,7 +1775,7 @@ def add_comment(obj: "Context", issue_id: str, content: str, message_content: st
     """Add a comment to an issue.
 
     Issue identifier format is auto-detected:
-    - If starts with "ISSUE" followed by year: treated as issue code (e.g., ISSUE2026-32)
+    - If KEY-N or legacy ISSUE{year}-N: treated as issue code (e.g., OT-1, ISSUE2026-32)
     - Otherwise: treated as UUID ID (e.g., 5ee3420e-2d69-4509-9ae7-524e8c40d6d1)
 
     Examples:
@@ -1798,7 +1798,7 @@ def add_comment(obj: "Context", issue_id: str, content: str, message_content: st
 
     # Auto-detect: check if it's an issue code (ISSUE + digits + hyphen + digits)
     import re
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
     if issue_code_pattern.match(issue_id):
         # It's a code, need to get the real ID first
         try:
@@ -1840,7 +1840,7 @@ def list_comments(obj: "Context", issue_id: str, as_json: bool):
     """List all comments for an issue.
 
     Issue identifier format is auto-detected:
-    - If starts with "ISSUE" followed by year: treated as issue code (e.g., ISSUE2026-32)
+    - If KEY-N or legacy ISSUE{year}-N: treated as issue code (e.g., OT-1, ISSUE2026-32)
     - Otherwise: treated as UUID ID (e.g., 5ee3420e-2d69-4509-9ae7-524e8c40d6d1)
 
     Examples:
@@ -1856,7 +1856,7 @@ def list_comments(obj: "Context", issue_id: str, as_json: bool):
 
     # Auto-detect: check if it's an issue code
     import re
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
     by_code = issue_code_pattern.match(issue_id) is not None
 
     try:
@@ -1959,7 +1959,7 @@ def list_documents(obj: "Context", issue_id: str, as_json: bool):
 
     # Auto-detect: check if it's an issue code
     import re
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
     by_code = issue_code_pattern.match(issue_id) is not None
 
     try:
@@ -2027,7 +2027,7 @@ def upload_document(obj: "Context", issue_id: str, file_path: str, description: 
     # Auto-detect: check if it's an issue code
     import re
     import os
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
     by_code = issue_code_pattern.match(issue_id) is not None
 
     try:
@@ -2091,7 +2091,7 @@ def delete_document(obj: "Context", issue_id: str, document_id: str, as_json: bo
 
     # Auto-detect: check if it's an issue code
     import re
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
     by_code = issue_code_pattern.match(issue_id) is not None
 
     try:
@@ -2145,7 +2145,7 @@ def download_document(obj: "Context", issue_id: str, document_id: str, save_path
     # Auto-detect: check if it's an issue code
     import re
     import os
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
     by_code = issue_code_pattern.match(issue_id) is not None
 
     try:
@@ -2214,7 +2214,7 @@ def download_all_documents(obj: "Context", issue_id: str, save_dir: str, as_json
     # Auto-detect: check if it's an issue code
     import re
     import os
-    issue_code_pattern = re.compile(r'^ISSUE\d+-\d+', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
     by_code = issue_code_pattern.match(issue_id) is not None
 
     try:

@@ -12,6 +12,7 @@ export interface WorkspaceItem {
   cycleDurationDays?: number;
   cycleRolloverPolicy?: CycleRolloverPolicy | string;
   cycleCapacityLookback?: number;
+  issueKey?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -37,6 +38,7 @@ export function fetchUpdateWorkspace(
     cycleDurationDays?: number;
     cycleRolloverPolicy?: CycleRolloverPolicy;
     cycleCapacityLookback?: number;
+    issueKey?: string;
   }
 ) {
   return request<WorkspaceItem>({ url: `/api/workspaces/${id}`, method: 'patch', data });

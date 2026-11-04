@@ -44,7 +44,8 @@ const activeCycle = computed(() => rows.value.find(r => r.status === 'active') |
 const settingsForm = reactive({
   cycleDurationDays: 14,
   cycleRolloverPolicy: 'into_next' as 'into_next' | 'leave_unassigned',
-  cycleCapacityLookback: 3
+  cycleCapacityLookback: 3,
+  issueKey: 'OT'
 });
 
 const createForm = reactive({
@@ -112,6 +113,7 @@ async function load() {
     settingsForm.cycleRolloverPolicy =
       (wsRes.data.cycleRolloverPolicy as 'into_next' | 'leave_unassigned') || 'into_next';
     settingsForm.cycleCapacityLookback = wsRes.data.cycleCapacityLookback ?? 3;
+    settingsForm.issueKey = (wsRes.data.issueKey || 'OT').toUpperCase();
 
     if (cyRes.error) {
       window.$message?.error(cyRes.error.message || '加载 Cycles 失败');
@@ -160,7 +162,8 @@ async function saveSettings() {
   const { data, error } = await fetchUpdateWorkspace(workspace.value.id, {
     cycleDurationDays: settingsForm.cycleDurationDays,
     cycleRolloverPolicy: settingsForm.cycleRolloverPolicy,
-    cycleCapacityLookback: settingsForm.cycleCapacityLookback
+    cycleCapacityLookback: settingsForm.cycleCapacityLookback,
+    issueKey: settingsForm.issueKey
   });
   if (error || !data) {
     window.$message?.error(error?.message || '保存失败');
@@ -169,6 +172,24 @@ async function saveSettings() {
   workspace.value = data;
   window.$message?.success('设置已保存');
   await loadCapacity();
+}
+
+function onIssueKeyInput(v: string) {
+  settingsForm.issueKey = (v || '').toUpperCase();
+}
+
+async function saveIssueKeyOnly() {
+  if (!workspace.value || !isOwner.value) return;
+  const { data, error } = await fetchUpdateWorkspace(workspace.value.id, {
+    issueKey: settingsForm.issueKey
+  });
+  if (error || !data) {
+    window.$message?.error(error?.message || '保存失败');
+    return;
+  }
+  workspace.value = data;
+  settingsForm.issueKey = (data.issueKey || settingsForm.issueKey).toUpperCase();
+  window.$message?.success('Issue Key 已保存');
 }
 
 function openCreate() {
@@ -337,6 +358,23 @@ onMounted(load);
 
     <NSpin :show="loading">
       <template v-if="workspace && !enabled">
+        <NCard title="Issue 单号前缀" size="small" class="mb-16px">
+          <div class="flex-y-center flex-wrap gap-12px">
+            <div class="flex-y-center gap-8px">
+              <span class="text-13px">Issue Key</span>
+              <NInput
+                v-model:value="settingsForm.issueKey"
+                :disabled="!isOwner"
+                maxlength="6"
+                placeholder="OT"
+                style="width: 120px; text-transform: uppercase"
+                @update:value="onIssueKeyInput"
+              />
+            </div>
+            <NButton type="primary" secondary :disabled="!isOwner" @click="saveIssueKeyOnly">保存</NButton>
+            <p class="text-12px text-gray-400">2–6 位大写字母或数字；仅影响新建 Issue</p>
+          </div>
+        </NCard>
         <NCard>
           <NEmpty description="尚未启用 Cycles">
             <template #extra>
@@ -382,6 +420,17 @@ onMounted(load);
                   :max="20"
                   :disabled="!isOwner"
                   style="width: 120px"
+                />
+              </div>
+              <div class="flex-y-center gap-8px">
+                <span class="text-13px">Issue Key</span>
+                <NInput
+                  v-model:value="settingsForm.issueKey"
+                  :disabled="!isOwner"
+                  maxlength="6"
+                  placeholder="OT"
+                  style="width: 120px; text-transform: uppercase"
+                  @update:value="onIssueKeyInput"
                 />
               </div>
               <NButton type="primary" secondary :disabled="!isOwner" @click="saveSettings">保存设置</NButton>
