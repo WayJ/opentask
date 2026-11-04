@@ -27,12 +27,21 @@ class Config:
     """
 
     DEFAULT_CONFIG_DIR = Path.home() / ".opentask"
-    CONFIG_FILE = DEFAULT_CONFIG_DIR / "config.json"
+    # 类属性占位：允许测试 monkeypatch.setattr(Config, "CONFIG_FILE", ...)
+    CONFIG_FILE = Path.home() / ".opentask" / "config.json"
 
     def __init__(self):
         """Initialize configuration."""
-        self.config_dir = self.DEFAULT_CONFIG_DIR
-        self.config_file = self.CONFIG_FILE
+        home_cfg = Path.home() / ".opentask"
+        self.config_dir = Path(self.DEFAULT_CONFIG_DIR)
+        class_file = getattr(type(self), "CONFIG_FILE", None)
+        if isinstance(class_file, Path) and class_file.parent != home_cfg:
+            # 测试显式 patch 了 CONFIG_FILE
+            self.config_file = class_file
+            self.config_dir = class_file.parent
+        else:
+            # 跟随 DEFAULT_CONFIG_DIR（含测试只 patch 目录的情况）
+            self.config_file = self.config_dir / "config.json"
         self._data: dict[str, Any] = {}
         self._load()
 
