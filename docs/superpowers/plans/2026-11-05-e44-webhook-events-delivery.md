@@ -27,7 +27,7 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e44-webhook-e
 - Create: `docs/superpowers/plans/2026-11-05-e44-webhook-events-delivery.md`（本文件）
 - Create: `docs/superpowers/acceptances/2026-11-05-E44-acceptance.md`（骨架）
 
-- [ ] **Step 1:** 入库 plan + acceptance 骨架并 commit
+- [x] **Step 1:** 入库 plan + acceptance 骨架并 commit
 
 ---
 
@@ -42,8 +42,8 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e44-webhook-e
 **Interfaces:**
 - Produces: 三事件可订阅；assignee 双发；label 专用
 
-- [ ] **Step 1: 红测** WEBHOOK_EVENTS 含三项；PATCH assignee → spy 含 assignee_changed(from/to) + updated；未订阅不调用专用；add/remove label → 对应事件；无标签变更不发；不发假 updated
-- [ ] **Step 2: 跑测红 → 最小实现绿 → commit**
+- [x] **Step 1: 红测** WEBHOOK_EVENTS 含三项；PATCH assignee → spy 含 assignee_changed(from/to) + updated；未订阅不调用专用；add/remove label → 对应事件；无标签变更不发；不发假 updated
+- [x] **Step 2: 跑测红 → 最小实现绿 → commit**
 
 ---
 
@@ -65,8 +65,8 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e44-webhook-e
 **Interfaces:**
 - Produces: 扩列模型；失败入队语义
 
-- [ ] **Step 1: 红测** mock httpx 全失败 → log `pending_retry` + payload；成功无 payload（或清空）；attempt 计数
-- [ ] **Step 2: 绿 → commit**
+- [x] **Step 1: 红测** mock httpx 全失败 → log `pending_retry` + payload；成功无 payload（或清空）；attempt 计数
+- [x] **Step 2: 绿 → commit**
 
 ---
 
@@ -84,8 +84,8 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e44-webhook-e
 **Interfaces:**
 - Produces: tick + replay 端点
 
-- [ ] **Step 1: 红测** 拨 `next_attempt_at` 过去 + run-due → 再 POST 成功；超限 dead；retry 拉起；无 payload 400；跨 WS 404；viewer run-due 403
-- [ ] **Step 2: 绿 → commit**
+- [x] **Step 1: 红测** 拨 `next_attempt_at` 过去 + run-due → 再 POST 成功；超限 dead；retry 拉起；无 payload 400；跨 WS 404；viewer run-due 403
+- [x] **Step 2: 绿 → commit**
 
 ---
 
@@ -99,7 +99,7 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e44-webhook-e
 - Modify: `frontend/src/service/api/webhooks.test.ts` — 新事件；replayable 逻辑
 - Modify: `frontend/src/views/settings/webhooks/index.vue` — 事件多选自动含新三项；点行打开详情：投递表（状态列、失败/死信筛选、重试按钮、dead 高亮）
 
-- [ ] **Step 1: 红测 vitest → 绿 → commit**
+- [x] **Step 1: 红测 vitest → 绿 → commit**
 
 ---
 
@@ -112,15 +112,15 @@ Yuri：**design ok，开写**（`docs/superpowers/specs/2026-11-05-e44-webhook-e
 - Modify: `api_client.py` — `get_webhook` / `list_webhook_deliveries`（或 get）/ `retry_webhook_delivery` / `run_due_webhook_deliveries`
 - Create: `agent-harness/opentask-cli/tests/test_e44_webhook_events_delivery.py`
 
-- [ ] **Step 1: 红测 version/help → 绿 → commit**
+- [x] **Step 1: 红测 version/help → 绿 → commit**
 
 ---
 
 ### Task 7 — F：门禁 + acceptance tip
 
-- [ ] BE 定向 `test_e44*` + 回归 webhooks/E41/E42；全量记 passed（`test_user_search` flake 可记）
-- [ ] CLI 全量；FE vitest + build
-- [ ] 填 acceptance；最终 tip；**STOP**；不 push；不 E45
+- [x] BE 定向 `test_e44*` + 回归 webhooks/E41/E42；全量记 passed（`test_user_search` flake 可记）
+- [x] CLI 全量；FE vitest + build
+- [x] 填 acceptance；最终 tip；**STOP**；不 push；不 E45
 
 ---
 
