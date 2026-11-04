@@ -1,4 +1,4 @@
-"""Display prefs API（E7-S3）"""
+"""Display prefs API（E7-S3 + E37）"""
 from __future__ import annotations
 
 from typing import Any
@@ -33,7 +33,10 @@ async def get_issue_display_prefs(
     row = await DisplayPrefsService(session).get(
         workspace_id=ws.id, user_id=str(user.id)
     )
-    return success_response(data=serialize_display_prefs(row))
+    data = await serialize_display_prefs(
+        session, workspace_id=ws.id, row=row
+    )
+    return success_response(data=data)
 
 
 @router.put("/issue")
@@ -46,4 +49,7 @@ async def put_issue_display_prefs(
     row = await DisplayPrefsService(session).upsert(
         workspace_id=ws.id, user_id=str(user.id), display=body.display
     )
-    return success_response(data=serialize_display_prefs(row))
+    data = await serialize_display_prefs(
+        session, workspace_id=ws.id, row=row
+    )
+    return success_response(data=data)
