@@ -532,6 +532,7 @@ class IssueTimeline(DBModel):
              "project_changed",
              "sla_paused", "sla_resumed",
              "start_date_changed",
+             "link_added", "link_removed",
              name="timeline_action"),
         nullable=False,
         index=True,

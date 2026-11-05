@@ -64,6 +64,8 @@ class TimelineAction(str, Enum):
     RELATION_REMOVED = "relation_removed"    # 移除关系
     ATTACHMENT_ADDED = "attachment_added"    # 添加附件
     ATTACHMENT_REMOVED = "attachment_removed"  # 移除附件
+    LINK_ADDED = "link_added"                  # E76：添加外链
+    LINK_REMOVED = "link_removed"              # E76：移除外链
     LABEL_ADDED = "label_added"              # 添加标签
     LABEL_REMOVED = "label_removed"          # 移除标签
     REACTION_ADDED = "reaction_added"        # 添加反应

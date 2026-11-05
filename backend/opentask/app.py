@@ -37,6 +37,7 @@ from opentask.api.public_forms import router as public_forms_router
 from opentask.api.public_customer_requests import router as public_customer_requests_router
 from opentask.api.entity_documents import router as entity_documents_router
 from opentask.api.issue_vcs import router as issue_vcs_router
+from opentask.api.issue_links import router as issue_links_router
 from opentask.api.webhooks_github import router as webhooks_github_router
 from opentask.api.invites import router as invites_router
 from opentask.api.tags.router import tags_router, groups_router as tag_groups_router
@@ -142,6 +143,7 @@ class App(fastapi.FastAPI):
         self.include_router(public_customer_requests_router)
         self.include_router(entity_documents_router)
         self.include_router(issue_vcs_router)
+        self.include_router(issue_links_router)
         self.include_router(webhooks_github_router)
         self.include_router(invites_router)
         self.include_router(tags_router)

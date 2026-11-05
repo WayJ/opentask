@@ -52,6 +52,7 @@ from opentask.models.project_template import ProjectTemplate
 from opentask.models.initiative import Initiative, InitiativeProject, InitiativeRelation
 from opentask.models.entity_document import EntityDocument
 from opentask.models.issue_vcs_link import IssueVcsLink
+from opentask.models.issue_link import IssueLink
 from opentask.models.issue_saved_view import IssueSavedView
 from opentask.models.issue_display_prefs import IssueDisplayPrefs
 from opentask.models.cycle import Cycle
@@ -142,6 +143,7 @@ __all__ = [
     "ProjectWatcher",
     "IssueWatcher",
     "IssueAssignee",
+    "IssueLink",
     "ActivityReadCursor",
     "Favorite",
     "Customer",
