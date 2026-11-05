@@ -6,15 +6,22 @@ import uuid
 from datetime import datetime
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opentask.models.workspace.model import Workspace, WorkspaceMember
 from opentask.schemas.workspace import WorkspaceCreate, WorkspaceUpdate
+from opentask.services.sla.business_hours import (
+    normalize_business_hours,
+    validate_timezone,
+)
 from opentask.services.workspace.issue_key import (
     derive_issue_key_from_slug,
     normalize_issue_key,
 )
+
+# E3 tenant seed — orphan when 0 members (E16 cleanup target)
+DEFAULT_WORKSPACE_ID = "00000000-0000-4000-8000-000000000001"
 
 
 _SLUG_RE = re.compile(r"[^a-z0-9-]+")
@@ -105,7 +112,12 @@ class WorkspaceService:
             .where(WorkspaceMember.user_id == user_id)
             .order_by(Workspace.created_at.asc())
         )
-        return [(row[0], row[1]) for row in result.all()]
+        # Belt-and-suspenders: never surface the legacy orphan Default Workspace id
+        return [
+            (row[0], row[1])
+            for row in result.all()
+            if row[0].id != DEFAULT_WORKSPACE_ID
+        ]
 
     async def get_membership(self, workspace_id: str, user_id: str) -> WorkspaceMember | None:
         result = await self.session.execute(
@@ -189,7 +201,27 @@ class WorkspaceService:
             ws.git_hook_on_pr_open = str(dto.gitHookOnPrOpen).strip() or "in_progress"
         if dto.gitHookOnPrMerged is not None:
             ws.git_hook_on_pr_merged = str(dto.gitHookOnPrMerged).strip() or "resolved"
+
+        bh_changed = False
+        if dto.timezone is not None:
+            try:
+                ws.timezone = validate_timezone(dto.timezone)
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e)) from e
+            bh_changed = True
+        if dto.businessHours is not None:
+            try:
+                ws.business_hours = normalize_business_hours(dto.businessHours)
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e)) from e
+            bh_changed = True
         ws.updated_at = datetime.utcnow()
+        await self.session.flush()
+        if bh_changed:
+            from opentask.services.sla.service import SlaService
+            await SlaService(self.session).recompute_deadlines_for_workspace(
+                workspace_id=workspace_id
+            )
         await self.session.commit()
         await self.session.refresh(ws)
         return ws
@@ -280,3 +312,45 @@ class WorkspaceService:
                 raise HTTPException(status_code=400, detail="唯一 owner 不能离开，请先转让")
         await self.session.delete(member)
         await self.session.commit()
+
+    async def cleanup_orphan_default_workspace(self) -> dict:
+        """E16: delete seeded Default Workspace when it has zero members.
+
+        Detaches projects/issues first (SET workspace_id NULL) so FK does not block.
+        Safe no-op if missing or still has members.
+        """
+        from opentask.models.issue.model import Issue
+        from opentask.models.requirement.model import Project
+
+        ws = await self.session.get(Workspace, DEFAULT_WORKSPACE_ID)
+        if ws is None:
+            return {"deleted": False, "reason": "missing"}
+
+        member_count = await self.session.execute(
+            select(func.count())
+            .select_from(WorkspaceMember)
+            .where(WorkspaceMember.workspace_id == DEFAULT_WORKSPACE_ID)
+        )
+        n = int(member_count.scalar_one() or 0)
+        if n > 0:
+            return {"deleted": False, "reason": "has_members", "memberCount": n}
+
+        await self.session.execute(
+            update(Project)
+            .where(Project.workspace_id == DEFAULT_WORKSPACE_ID)
+            .values(workspace_id=None)
+        )
+        await self.session.execute(
+            update(Issue)
+            .where(Issue.workspace_id == DEFAULT_WORKSPACE_ID)
+            .values(workspace_id=None)
+        )
+        await self.session.execute(
+            delete(WorkspaceMember).where(
+                WorkspaceMember.workspace_id == DEFAULT_WORKSPACE_ID
+            )
+        )
+        await self.session.delete(ws)
+        await self.session.flush()
+        return {"deleted": True, "reason": "orphan", "id": DEFAULT_WORKSPACE_ID}
+

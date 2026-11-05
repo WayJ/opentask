@@ -58,6 +58,7 @@ export namespace Api.Issue {
     ASSIGNED = 'assigned',
     PRIORITY_CHANGED = 'priority_changed',
     DUE_DATE_CHANGED = 'due_date_changed',
+    START_DATE_CHANGED = 'start_date_changed',
     RELATION_ADDED = 'relation_added',
     RELATION_REMOVED = 'relation_removed',
     ATTACHMENT_ADDED = 'attachment_added',
@@ -66,7 +67,13 @@ export namespace Api.Issue {
     LABEL_REMOVED = 'label_removed',
     RESOLVED = 'resolved',
     CLOSED = 'closed',
-    REOPENED = 'reopened'
+    REOPENED = 'reopened',
+    CUSTOM_FIELD_CHANGED = 'custom_field_changed',
+    CYCLE_CHANGED = 'cycle_changed',
+    ESTIMATE_CHANGED = 'estimate_changed',
+    PROJECT_CHANGED = 'project_changed'
+    SLA_PAUSED = 'sla_paused',
+    SLA_RESUMED = 'sla_resumed',
   }
 
   /** 用户信息 */
@@ -88,9 +95,12 @@ export namespace Api.Issue {
     task_id?: string;
     requirement_id?: string;
     assignee_id?: string;
+      /** E71 */
+      assignee_ids?: string[];
     reporter_id: string;
     position?: number;
     due_date?: string;
+    start_date?: string;
     estimated_hours?: number;
     actual_hours?: number;
     parent_issue_id?: string | null;
@@ -116,8 +126,11 @@ export namespace Api.Issue {
     task_id?: string;
     requirement_id?: string;
     assignee_id?: string;
+      /** E71 */
+      assignee_ids?: string[];
     position?: number;
     due_date?: string;
+    start_date?: string;
     estimated_hours?: number;
     actual_hours?: number;
     parent_issue_id?: string | null;
@@ -135,9 +148,21 @@ export namespace Api.Issue {
     status: IssueStatus | string;
   }
 
+  /** E70: direct-child progress rollup */
+  export interface ChildProgress {
+    total: number;
+    done: number;
+    open: number;
+    percent: number | null;
+    byStatus?: Record<string, number>;
+  }
+
   export interface Issue extends IssueBase {
     id: string;
     issue_code: string;
+    /** E20 relation badges */
+    blocks_count?: number;
+    blocked_by_count?: number;
     view_count: number;
     comment_count: number;
     attachment_count: number;
@@ -151,8 +176,12 @@ export namespace Api.Issue {
     updated_by?: string;
     project?: Api.Project.Project;
     assignee?: UserInfo;
+      /** E71 ordered assignees; first = primary */
+      assignees?: UserInfo[];
     reporter?: UserInfo;
     children?: IssueChildSummary[];
+    /** E70: present on detail by default; list when ?include=childProgress */
+    childProgress?: ChildProgress;
     tags?: IssueTag[];
   }
 
@@ -165,10 +194,15 @@ export namespace Api.Issue {
     priority?: IssuePriority;
     project_id?: string;
     assignee_id?: string;
+      /** E71 */
+      assignee_ids?: string[];
     reporter_id?: string;
     search?: string;
     cycle_id?: string;
     milestone_id?: string;
+    watching?: boolean;
+    due_before?: string;
+    due_soon?: boolean;
     sort_by?: string;
     sort_order?: 'asc' | 'desc';
   }
@@ -210,6 +244,13 @@ export namespace Api.Issue {
     created_at: string;
     updated_at: string;
     user_info?: UserInfo;
+    /** E69 thin attachment summary */
+    attachments?: Array<{
+      id: string;
+      file_name: string;
+      file_size: number;
+      file_type: string;
+    }>;
   }
 
   /** Issue 关系基础信息 */
@@ -275,6 +316,10 @@ export namespace Api.Issue {
     status?: IssueStatus;
     priority?: IssuePriority;
     assignee_id?: string;
+      /** E71 */
+      assignee_ids?: string[];
+    cycle_id?: string | null;
+    tag_ids?: number[];
   }
 
   /** 批量删除 Issue */

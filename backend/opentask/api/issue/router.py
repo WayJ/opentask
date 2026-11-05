@@ -15,6 +15,7 @@ from opentask.models.user.model import UserModel
 from opentask.auth import authenticate
 from opentask.models.issue.schema import (
     IssueCreate,
+    IssueDuplicateRequest,
     IssueUpdate,
     IssueResponse,
     IssueChildSummary,
@@ -55,7 +56,32 @@ from opentask.services.tag.service import (
     require_writer as require_tag_writer,
     serialize_tag_brief,
 )
-from opentask.api.workspace.deps import get_optional_workspace_context, require_workspace_context
+from opentask.services.custom_field.service import CustomFieldService, parse_cf_query_items, require_writer as require_cf_writer
+from opentask.services.issue_csv import IssueCsvService, require_writer as require_csv_writer, EXPORT_MAX_ROWS
+from opentask.services.issue_timeline_export import (
+    build_timeline_csv,
+    EXPORT_DEFAULT_LIMIT,
+    EXPORT_HARD_CAP,
+    ACTIVITY_DEFAULT_LIMIT,
+    ACTIVITY_HARD_CAP,
+    clamp_activity_limit,
+    clamp_unread_count,
+    encode_activity_cursor,
+    decode_activity_cursor,
+    query_timeline_entries,
+    serialize_activity_item,
+    reactions_payload_for_row,
+    extract_comment_id,
+)
+from opentask.models.issue.enums import TimelineAction
+from opentask.models.issue.model import Issue
+from opentask.api.workspace.deps import get_optional_workspace_context, require_workspace_context, ensure_entity_workspace_access
+from opentask.services.sla.service import SlaService, serialize_clock
+from opentask.services.issue_assignee.service import (
+    list_assignee_user_infos,
+    list_assignee_user_infos_for_issues,
+)
+from opentask.utils.response import success_response
 from opentask.models.workspace.model import Workspace, WorkspaceMember
 from pydantic import BaseModel, Field
 from opentask.services.user_center.rbac_service import RbacService
@@ -65,6 +91,13 @@ from opentask.services.issue_collection_service import IssueCollectionService
 from opentask.auth import authenticate
 
 logger = logging.getLogger(__name__)
+
+
+async def _embed_assignees(db, payload: dict, issue_id: str) -> dict:
+    """E71: attach ordered assignees[] to a serialized issue payload."""
+    payload["assignees"] = await list_assignee_user_infos(db, issue_id)
+    return payload
+
 
 router = APIRouter(prefix="/api/issues", tags=["Issue 管理"])
 
@@ -76,23 +109,71 @@ async def get_issue_service(
     return IssueService(db)
 
 
+async def _require_issue_access(
+    issue_id: str,
+    *,
+    service: IssueService,
+    user: UserModel,
+    by_code: bool = False,
+    workspace_id: str | None = None,
+):
+    """E15：加载 Issue 并校验调用者对其 workspace_id 的成员资格。"""
+    issue = await service.get_issue(issue_id, by_code=by_code, workspace_id=workspace_id)
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue 不存在")
+    await ensure_entity_workspace_access(service.db, str(user.id), issue.workspace_id)
+    return issue
+
+
+async def _require_comment_issue_access(
+    comment_id: str,
+    *,
+    service: IssueService,
+    user: UserModel,
+):
+    """E15：按评论所属 Issue 校验成员。"""
+    from opentask.models.issue.model import IssueComment
+
+    result = await service.db.execute(
+        select(IssueComment).where(
+            IssueComment.id == comment_id,
+            IssueComment.is_deleted == False,
+        )
+    )
+    comment = result.scalar_one_or_none()
+    if comment is None:
+        raise HTTPException(status_code=404, detail="评论不存在")
+    await _require_issue_access(comment.issue_id, service=service, user=user)
+    return comment
+
+
+
+
 # ========================================================================
 # Issue CRUD 操作
 # ========================================================================
 
 @router.get("")
 async def get_issues(
+    request: Request,
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
     type: Optional[str] = Query(None, description="类型筛选"),
     status: Optional[str] = Query(None, description="状态筛选"),
     priority: Optional[str] = Query(None, description="优先级筛选"),
     project_id: Optional[str] = Query(None, description="项目 ID"),
-    assignee_id: Optional[str] = Query(None, description="负责人 ID"),
-    reporter_id: Optional[str] = Query(None, description="报告人 ID"),
+    assignee_id: Optional[str] = Query(None, description="负责人 ID；传 me 表示当前用户"),
+    assignee_any: Optional[str] = Query(None, description="E71：primary 或任一协作者；me=当前用户"),
+    reporter_id: Optional[str] = Query(None, description="报告人 ID；传 me 表示当前用户"),
     search: Optional[str] = Query(None, description="搜索关键词"),
     cycle_id: Optional[str] = Query(None, description="Cycle ID；__none__ 表示无 Cycle"),
     milestone_id: Optional[str] = Query(None, description="Milestone ID；__none__ 表示无里程碑"),
+    watching: Optional[bool] = Query(None, description="E19：仅我关注的"),
+    due_before: Optional[str] = Query(None, description="E19：due_date ≤ YYYY-MM-DD"),
+    start_before: Optional[str] = Query(None, description="E73：start_date ≤ YYYY-MM-DD"),
+    start_after: Optional[str] = Query(None, description="E73：start_date ≥ YYYY-MM-DD"),
+    due_soon: Optional[bool] = Query(None, description="E19：3 日内到期且未关闭"),
+    include: Optional[str] = Query(None, description="E25/E70：逗号分隔附加；custom_fields,childProgress"),
     sort_by: str = Query("created_at", description="排序字段"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$", description="排序方向"),
     service: IssueService = Depends(get_issue_service),
@@ -101,6 +182,9 @@ async def get_issues(
 ):
     """获取 Issue 列表（部门数据范围 + 工作区隔离）"""
     workspace, _member, user = ws_ctx
+    resolved_assignee = str(user.id) if assignee_id == "me" else assignee_id
+    resolved_assignee_any = str(user.id) if assignee_any == "me" else assignee_any
+    resolved_reporter = str(user.id) if reporter_id == "me" else reporter_id
     params = IssueQueryParams(
         page=page,
         page_size=page_size,
@@ -108,14 +192,23 @@ async def get_issues(
         status=status,  # type: ignore
         priority=priority,  # type: ignore
         project_id=project_id,
-        assignee_id=assignee_id,
-        reporter_id=reporter_id,
+        assignee_id=resolved_assignee,
+        assignee_any=resolved_assignee_any,
+        reporter_id=resolved_reporter,
         search=search,
         cycle_id=cycle_id,
         milestone_id=milestone_id,
+        watching=watching,
+        due_before=due_before,
+        start_before=start_before,
+        start_after=start_after,
+        due_soon=due_soon,
         sort_by=sort_by,
         sort_order=sort_order,
     )
+
+    # E32：cf.<key>=value 或 cf=key=value
+    cf_filters = parse_cf_query_items(list(request.query_params.multi_items()))
 
     ws_id = workspace.id if workspace is not None else None
     allowed = None
@@ -131,14 +224,40 @@ async def get_issues(
         user_id=str(user.id),
         workspace_id=ws_id,
         allowed_workspace_ids=allowed,
+        custom_field_filters=cf_filters or None,
     )
 
     # 使用 IssueResponse 的 field_validator 自动处理用户信息转换
     tag_map = await load_tags_for_issues(service.db, issues)
+    block_map = await service.relation_block_counts([i.id for i in issues])
+    include_set = {p.strip() for p in (include or "").split(",") if p.strip()}
+    cf_map = {}
+    if "custom_fields" in include_set and ws_id is not None:
+        cf_map = await CustomFieldService(service.db).values_for_issues(
+            workspace_id=ws_id, issue_ids=[i.id for i in issues]
+        )
+    progress_map = {}
+    if "childProgress" in include_set:
+        progress_map = await service.child_progress_for_parents([i.id for i in issues])
+    assignees_map = await list_assignee_user_infos_for_issues(
+        service.db, [i.id for i in issues]
+    )
     rows = []
     for issue in issues:
         payload = IssueResponse.model_validate(issue).model_dump(mode="json", exclude_none=False)
+        payload.pop("childProgress", None)  # list default: omit unless include
+        payload["assignees"] = assignees_map.get(issue.id, [])
         payload["tags"] = [serialize_tag_brief(t) for t in tag_map.get(issue.id, [])]
+        counts = block_map.get(issue.id, {"blocks_count": 0, "blocked_by_count": 0})
+        payload["blocks_count"] = counts["blocks_count"]
+        payload["blocked_by_count"] = counts["blocked_by_count"]
+        if "custom_fields" in include_set:
+            payload["customFields"] = cf_map.get(issue.id, [])
+        if "childProgress" in include_set:
+            payload["childProgress"] = progress_map.get(
+                issue.id,
+                {"total": 0, "done": 0, "open": 0, "percent": None, "byStatus": {}},
+            )
         rows.append(payload)
 
     return {
@@ -151,6 +270,470 @@ async def get_issues(
             "pageSize": page_size,
             "totalPages": (total + page_size - 1) // page_size,
         },
+        "timestamp": 0,
+    }
+
+
+
+# ============================================================================
+# E77 · Trash（静态路径，须在 /{issue_id} 之前）
+# ============================================================================
+
+
+@router.get("/trash")
+async def list_trashed_issues(
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    service: IssueService = Depends(get_issue_service),
+    ctx: tuple = Depends(require_workspace_context),
+):
+    """E77: list soft-deleted Issues in current workspace (viewer+)."""
+    workspace, _member, _user = ctx
+    issues, total = await service.list_trashed(
+        workspace_id=workspace.id, page=page, page_size=page_size
+    )
+    rows = []
+    for issue in issues:
+        payload = IssueResponse.model_validate(issue).model_dump(
+            mode="json", exclude_none=False
+        )
+        # slim: keep list-ish fields; drop heavy nests if any
+        slim = {
+            "id": payload.get("id"),
+            "issueCode": payload.get("issueCode") or payload.get("issue_code"),
+            "issue_code": payload.get("issue_code") or payload.get("issueCode"),
+            "title": payload.get("title"),
+            "status": payload.get("status"),
+            "priority": payload.get("priority"),
+            "type": payload.get("type"),
+            "projectId": payload.get("projectId") or payload.get("project_id"),
+            "project_id": payload.get("project_id") or payload.get("projectId"),
+            "project": payload.get("project"),
+            "updatedAt": payload.get("updatedAt") or payload.get("updated_at"),
+            "updated_at": payload.get("updated_at") or payload.get("updatedAt"),
+            "updatedBy": payload.get("updatedBy") or payload.get("updated_by"),
+            "updated_by": payload.get("updated_by") or payload.get("updatedBy"),
+            "isDeleted": True,
+            "is_deleted": True,
+        }
+        rows.append(slim)
+    return {
+        "code": 200,
+        "message": "success",
+        "data": {
+            "rows": rows,
+            "total": total,
+            "current": page,
+            "pageSize": page_size,
+            "totalPages": (total + page_size - 1) // page_size if page_size else 0,
+        },
+        "timestamp": 0,
+    }
+
+
+@router.post("/{issue_id}/restore")
+async def restore_issue(
+    issue_id: str,
+    service: IssueService = Depends(get_issue_service),
+    ctx: tuple = Depends(require_workspace_context),
+):
+    """E77: restore soft-deleted Issue (member+; Q3a idempotent; Q2a no cascade)."""
+    workspace, member, user = ctx
+    if member.role not in ("owner", "member"):
+        raise HTTPException(status_code=403, detail="仅 member/owner 可恢复 Issue")
+    try:
+        issue = await service.restore_issue(
+            issue_id, str(user.id), workspace_id=workspace.id
+        )
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Issue 不存在")
+    payload = IssueResponse.model_validate(issue).model_dump(
+        mode="json", exclude_none=False
+    )
+    await _embed_assignees(service.db, payload, issue.id)
+    return {
+        "code": 200,
+        "message": "Issue 已恢复",
+        "data": payload,
+        "timestamp": 0,
+    }
+
+
+# ============================================================================
+# E28 · CSV Import / Export（静态路径，须在 /{issue_id} 之前）
+# ============================================================================
+
+
+@router.get("/export.csv")
+async def export_issues_csv(
+    status: Optional[str] = Query(None),
+    priority: Optional[str] = Query(None),
+    type: Optional[str] = Query(None),
+    project_id: Optional[str] = Query(None),
+    assignee_id: Optional[str] = Query(None, description="负责人；me=当前用户"),
+    cycle_id: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    service: IssueService = Depends(get_issue_service),
+    ctx: tuple = Depends(require_workspace_context),
+):
+    """E28：导出当前工作区 Issue 为 CSV（viewer+）。"""
+    workspace, _member, user = ctx
+    resolved_assignee = str(user.id) if assignee_id == "me" else assignee_id
+    csv_svc = IssueCsvService(service.db)
+    body, truncated = await csv_svc.build_export_csv(
+        workspace_id=workspace.id,
+        status=status,
+        priority=priority,
+        type=type,
+        project_id=project_id,
+        assignee_id=resolved_assignee,
+        cycle_id=cycle_id,
+        search=search,
+        max_rows=EXPORT_MAX_ROWS,
+    )
+    headers = {
+        "Content-Disposition": 'attachment; filename="issues-export.csv"',
+    }
+    if truncated:
+        headers["X-Export-Truncated"] = "true"
+    return StreamingResponse(
+        iter([body]),
+        media_type="text/csv; charset=utf-8",
+        headers=headers,
+    )
+
+
+
+
+@router.get("/timeline/export.csv")
+async def export_workspace_timeline_csv(
+    since: Optional[str] = Query(None, description="ISO datetime lower bound on created_at"),
+    issueId: Optional[str] = Query(None, description="Filter to one issue id"),
+    actionType: Optional[List[str]] = Query(None, description="Filter action_type (repeatable)"),
+    limit: int = Query(EXPORT_DEFAULT_LIMIT, ge=1, le=EXPORT_HARD_CAP),
+    service: IssueService = Depends(get_issue_service),
+    ctx: tuple = Depends(require_workspace_context),
+):
+    """E41：工作区级 timeline CSV export（viewer+）。"""
+    from datetime import datetime as _dt
+
+    workspace, _member, _user = ctx
+    since_dt = None
+    if since:
+        try:
+            since_dt = _dt.fromisoformat(since.replace("Z", "+00:00")).replace(tzinfo=None)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"invalid since: {e}") from e
+    if issueId:
+        issue = await service.get_issue(issueId)
+        if not issue or issue.workspace_id != workspace.id:
+            raise HTTPException(status_code=404, detail="Issue 不存在")
+    body, truncated = await build_timeline_csv(
+        service.db,
+        workspace_id=workspace.id,
+        issue_id=issueId,
+        since=since_dt,
+        action_types=actionType,
+        limit=limit,
+    )
+    headers = {
+        "Content-Disposition": 'attachment; filename="workspace-timeline.csv"',
+    }
+    if truncated:
+        headers["X-OpenTask-Truncated"] = "true"
+    return StreamingResponse(
+        iter([body]),
+        media_type="text/csv; charset=utf-8",
+        headers=headers,
+    )
+
+
+@router.get("/activity")
+async def list_workspace_activity(
+    since: Optional[str] = Query(None, description="ISO datetime lower bound on created_at"),
+    until: Optional[str] = Query(None, description="ISO datetime upper bound on created_at"),
+    actionType: Optional[List[str]] = Query(None, description="Filter action_type (repeatable)"),
+    actorId: Optional[str] = Query(None, description="Filter by actor user id"),
+    issueId: Optional[str] = Query(None, description="Filter to one issue id"),
+    watching: Optional[bool] = Query(None, description="E52：仅我关注的 Issue（对齐 E19）"),
+    cursor: Optional[str] = Query(None, description="Opaque pagination cursor"),
+    limit: int = Query(ACTIVITY_DEFAULT_LIMIT, ge=1, description="Page size (clamped to 200)"),
+    service: IssueService = Depends(get_issue_service),
+    ctx: tuple = Depends(require_workspace_context),
+):
+    """E47/E52：工作区级 Activity Feed JSON（viewer+；游标分页；硬顶 clamp 200）。"""
+    from datetime import datetime as _dt
+
+    workspace, _member, user = ctx
+
+    def _parse_iso(raw: str, field: str):
+        try:
+            return _dt.fromisoformat(raw.replace("Z", "+00:00")).replace(tzinfo=None)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"invalid {field}: {e}") from e
+
+    since_dt = _parse_iso(since, "since") if since else None
+    until_dt = _parse_iso(until, "until") if until else None
+
+    # Validate action types against TimelineAction enum
+    if actionType:
+        valid = {a.value for a in TimelineAction}
+        bad = [t for t in actionType if t not in valid]
+        # also allow comma-separated bundled values
+        expanded: list[str] = []
+        for t in actionType:
+            for part in str(t).split(","):
+                part = part.strip()
+                if not part:
+                    continue
+                if part not in valid:
+                    raise HTTPException(status_code=400, detail=f"invalid actionType: {part}")
+                expanded.append(part)
+        actionType = expanded
+
+    cursor_tuple = None
+    if cursor:
+        try:
+            cursor_tuple = decode_activity_cursor(cursor)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"invalid cursor: {e}") from e
+
+    if issueId:
+        issue = await service.get_issue(issueId)
+        if not issue or issue.workspace_id != workspace.id:
+            raise HTTPException(status_code=404, detail="Issue 不存在")
+
+    page_limit = clamp_activity_limit(limit)
+    watcher_uid = str(user.id) if watching is True else None
+    rows = await query_timeline_entries(
+        service.db,
+        workspace_id=workspace.id,
+        issue_id=issueId,
+        since=since_dt,
+        until=until_dt,
+        action_types=actionType,
+        actor_id=actorId,
+        cursor=cursor_tuple,
+        limit=page_limit + 1,
+        watcher_user_id=watcher_uid,
+    )
+    has_more = len(rows) > page_limit
+    rows = rows[:page_limit]
+
+    issue_ids = list({r.issue_id for r in rows})
+    issue_map: dict = {}
+    if issue_ids:
+        ires = await service.db.execute(select(Issue).where(Issue.id.in_(issue_ids)))
+        for iss in ires.scalars().all():
+            issue_map[iss.id] = iss
+
+    user_ids = list({r.user_id for r in rows if r.user_id})
+    user_map: dict = {}
+    if user_ids:
+        ures = await service.db.execute(select(UserModel).where(UserModel.id.in_(user_ids)))
+        for u in ures.scalars().all():
+            user_map[str(u.id)] = u
+
+    # E52：批量挂载 issue/comment 反应摘要（无 entry 反应表）
+    from opentask.models.issue.model import IssueReaction, CommentReaction
+
+    issue_rx_maps: dict = {iid: {} for iid in issue_ids}
+    if issue_ids:
+        rx_res = await service.db.execute(
+            select(IssueReaction).where(IssueReaction.issue_id.in_(issue_ids))
+        )
+        for rx in rx_res.scalars().all():
+            issue_rx_maps.setdefault(rx.issue_id, {}).setdefault(rx.emoji, []).append(rx.user_id)
+
+    comment_ids = []
+    for r in rows:
+        cid = extract_comment_id(r.action_data or {})
+        if cid:
+            comment_ids.append(cid)
+    comment_ids = list(dict.fromkeys(comment_ids))
+    comment_rx_maps: dict = {cid: {} for cid in comment_ids}
+    if comment_ids:
+        cr_res = await service.db.execute(
+            select(CommentReaction).where(CommentReaction.comment_id.in_(comment_ids))
+        )
+        for rx in cr_res.scalars().all():
+            comment_rx_maps.setdefault(rx.comment_id, {}).setdefault(rx.emoji, []).append(rx.user_id)
+
+    viewer_id = str(user.id) if user is not None else None
+    items = [
+        serialize_activity_item(
+            r,
+            issue=issue_map.get(r.issue_id),
+            actor_user=user_map.get(str(r.user_id)) if r.user_id else None,
+            reactions=reactions_payload_for_row(
+                r,
+                issue_maps=issue_rx_maps,
+                comment_maps=comment_rx_maps,
+                viewer_id=viewer_id,
+            ),
+        )
+        for r in rows
+    ]
+    next_cursor = None
+    if has_more and rows:
+        last = rows[-1]
+        next_cursor = encode_activity_cursor(last.created_at, last.id)
+
+    return success_response(data={"items": items, "nextCursor": next_cursor})
+
+
+
+@router.get("/activity/unread-count")
+async def activity_unread_count(
+    watching: bool = Query(True, description="E52：默认仅统计关注 Issue 的未读"),
+    service: IssueService = Depends(get_issue_service),
+    ctx: tuple = Depends(require_workspace_context),
+):
+    """E52：薄铃铛未读数（硬顶 99+；非 Push）。"""
+    from datetime import datetime as _dt
+    from sqlalchemy import func, and_, or_
+    from opentask.models.issue.model import IssueTimeline
+    from opentask.models.issue_watcher.model import IssueWatcher
+    from opentask.models.activity_read_cursor import ActivityReadCursor
+
+    workspace, _member, user = ctx
+    viewer_id = str(user.id)
+
+    cur_res = await service.db.execute(
+        select(ActivityReadCursor).where(
+            ActivityReadCursor.user_id == viewer_id,
+            ActivityReadCursor.workspace_id == workspace.id,
+        )
+    )
+    cursor_row = cur_res.scalar_one_or_none()
+
+    q = (
+        select(func.count())
+        .select_from(IssueTimeline)
+        .join(Issue, Issue.id == IssueTimeline.issue_id)
+        .where(
+            Issue.workspace_id == workspace.id,
+            Issue.is_deleted == False,  # noqa: E712
+        )
+    )
+    if watching:
+        q = q.join(
+            IssueWatcher,
+            and_(
+                IssueWatcher.issue_id == IssueTimeline.issue_id,
+                IssueWatcher.user_id == viewer_id,
+                IssueWatcher.workspace_id == workspace.id,
+            ),
+        )
+    if cursor_row is not None:
+        c_at = cursor_row.last_seen_at
+        c_id = cursor_row.last_seen_id or ""
+        q = q.where(
+            or_(
+                IssueTimeline.created_at > c_at,
+                and_(IssueTimeline.created_at == c_at, IssueTimeline.id > c_id),
+            )
+        )
+
+    raw = int((await service.db.execute(q)).scalar() or 0)
+    count, capped = clamp_unread_count(raw)
+    return success_response(data={"count": count, "capped": capped})
+
+
+class ActivityMarkReadBody(BaseModel):
+    watching: Optional[bool] = Field(True, description="对齐 unread-count 范围；默认关注流")
+
+
+@router.post("/activity/mark-read")
+async def activity_mark_read(
+    body: Optional[ActivityMarkReadBody] = Body(None),
+    service: IssueService = Depends(get_issue_service),
+    ctx: tuple = Depends(require_workspace_context),
+):
+    """E52：打开 Feed 后抬高已读水位到当前可见最新一行。"""
+    from datetime import datetime as _dt
+    from opentask.models.activity_read_cursor import ActivityReadCursor
+
+    workspace, _member, user = ctx
+    viewer_id = str(user.id)
+    watching = True if body is None or body.watching is None else bool(body.watching)
+
+    rows = await query_timeline_entries(
+        service.db,
+        workspace_id=workspace.id,
+        watcher_user_id=viewer_id if watching else None,
+        limit=1,
+    )
+    if rows:
+        last_seen_at = rows[0].created_at or _dt.utcnow()
+        last_seen_id = rows[0].id
+    else:
+        last_seen_at = _dt.utcnow()
+        last_seen_id = ""
+
+    existing = await service.db.execute(
+        select(ActivityReadCursor).where(
+            ActivityReadCursor.user_id == viewer_id,
+            ActivityReadCursor.workspace_id == workspace.id,
+        )
+    )
+    row = existing.scalar_one_or_none()
+    if row is None:
+        row = ActivityReadCursor(
+            user_id=viewer_id,
+            workspace_id=workspace.id,
+            last_seen_at=last_seen_at,
+            last_seen_id=last_seen_id,
+        )
+        service.db.add(row)
+    else:
+        row.last_seen_at = last_seen_at
+        row.last_seen_id = last_seen_id
+    await service.db.commit()
+    return success_response(
+        data={
+            "lastSeenAt": last_seen_at.isoformat() if last_seen_at else None,
+            "lastSeenId": last_seen_id,
+        }
+    )
+
+
+@router.get("/import/template.csv")
+async def download_import_template(
+    service: IssueService = Depends(get_issue_service),
+    ctx: tuple = Depends(require_workspace_context),
+):
+    """E28/E34：下载导入模板 CSV（viewer+；含当前 WS 未归档 cf.<key> 列）。"""
+    workspace, _member, _user = ctx
+    body = await IssueCsvService(service.db).template_csv(workspace_id=workspace.id)
+    return StreamingResponse(
+        iter([body]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="issues-import-template.csv"'},
+    )
+
+
+@router.post("/import")
+async def import_issues_csv(
+    file: UploadFile = File(...),
+    service: IssueService = Depends(get_issue_service),
+    ctx: tuple = Depends(require_workspace_context),
+):
+    """E28：CSV 导入（member+）；单行失败不阻断。"""
+    workspace, member, user = ctx
+    require_csv_writer(member)
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="空文件")
+    result = await IssueCsvService(service.db).import_csv(
+        workspace_id=workspace.id,
+        user_id=str(user.id),
+        content=raw,
+    )
+    return {
+        "code": 200,
+        "message": "success",
+        "data": result,
         "timestamp": 0,
     }
 
@@ -242,18 +825,66 @@ async def create_issue(
             dept_id=dept_id,
             workspace_id=workspace.id if workspace else None,
         )
+        payload = IssueResponse.model_validate(issue).model_dump(mode="json", exclude_none=False)
+        await _embed_assignees(service.db, payload, issue.id)
         return {
             "code": 200,
             "message": "Issue 创建成功",
-            "data": IssueResponse.model_validate(issue),
+            "data": payload,
             "timestamp": 0,
         }
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"创建 Issue 失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+
+@router.post("/{issue_id}/duplicate")
+async def duplicate_issue(
+    issue_id: str,
+    body: IssueDuplicateRequest = Body(default_factory=IssueDuplicateRequest),
+    service: IssueService = Depends(get_issue_service),
+    ws_ctx=Depends(require_workspace_context),
+):
+    """E75: Linear-style Issue duplicate (member+; cross-WS 404).
+
+    Distinct from triage POST /triage/{id}/duplicate (mark-as-duplicate).
+    """
+    workspace, member, user = ws_ctx
+    if member.role not in ("owner", "member"):
+        raise HTTPException(status_code=403, detail="仅 member/owner 可复制 Issue")
+    try:
+        dept_id = await RbacService(service.db).get_primary_dept_id(user)
+        issue = await service.duplicate_issue(
+            issue_id,
+            user_id=str(user.id),
+            workspace_id=workspace.id,
+            dept_id=dept_id,
+            overrides=body,
+        )
+        payload = IssueResponse.model_validate(issue).model_dump(
+            mode="json", exclude_none=False
+        )
+        await _embed_assignees(service.db, payload, issue.id)
+        return {
+            "code": 200,
+            "message": "Issue 复制成功",
+            "data": payload,
+            "timestamp": 0,
+        }
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Issue 不存在")
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"复制 Issue 失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/board/move")
@@ -555,6 +1186,7 @@ async def get_statistics(
 async def get_issue(
     issue_id: str,
     by_code: bool = Query(False, description="是否通过 issue_code 查询（默认通过 ID 查询）"),
+    include_deleted: bool = Query(False, description="E77：是否包含软删 Issue（回收站详情）"),
     service: IssueService = Depends(get_issue_service),
     db: AsyncSession = Depends(get_session),
     ws_ctx=Depends(get_optional_workspace_context),
@@ -564,22 +1196,44 @@ async def get_issue(
     Args:
         issue_id: Issue ID 或 Issue Code
         by_code: 设为 true 时，通过 issue_code / legacy_issue_code 查询；默认通过 ID 查询
+        include_deleted: E77 回收站深链；默认仍 404 软删
 
     Examples:
         GET /api/issues/5ee3420e-2d69-4509-9ae7-524e8c40d6d1  # 通过 ID 查询
         GET /api/issues/OT-1?by_code=true                  # 通过 KEY-N 查询
         GET /api/issues/ISSUE2026-32?by_code=true          # 通过 legacy code 查询
     """
-    workspace, _member, _user = ws_ctx
+    workspace, _member, user = ws_ctx
+    # by_code 仍用 header WS 精确过滤（不回退）；按 UUID 不靠 header，靠实体 membership
     workspace_id = workspace.id if (workspace is not None and by_code) else None
-    issue = await service.get_issue(issue_id, by_code=by_code, workspace_id=workspace_id)
-    if not issue:
-        raise HTTPException(status_code=404, detail="Issue 不存在")
+    if include_deleted:
+        issue = await service.get_issue(
+            issue_id,
+            by_code=by_code,
+            workspace_id=workspace_id,
+            include_deleted=True,
+        )
+        if not issue:
+            raise HTTPException(status_code=404, detail="Issue 不存在")
+        # when WS header present, enforce same-WS for deleted reads
+        if workspace is not None and issue.workspace_id != workspace.id:
+            raise HTTPException(status_code=404, detail="Issue 不存在")
+        await ensure_entity_workspace_access(service.db, str(user.id), issue.workspace_id)
+    else:
+        issue = await _require_issue_access(
+            issue_id, service=service, user=user, by_code=by_code, workspace_id=workspace_id
+        )
 
     # 转换为字典，使用 mode='json' 确保所有字段都被序列化
     issue_dict = IssueResponse.model_validate(issue).model_dump(mode='json', exclude_none=False)
     detail_tags = await load_tags_for_issues(db, [issue])
     issue_dict["tags"] = [serialize_tag_brief(t) for t in detail_tags.get(issue.id, [])]
+
+    # E25：详情默认带 customFields
+    cf_map = await CustomFieldService(db).values_for_issues(
+        workspace_id=issue.workspace_id, issue_ids=[issue.id]
+    )
+    issue_dict["customFields"] = cf_map.get(issue.id, [])
 
     # E4-S3：子 Issue 轻量摘要
     children = await service.list_child_issues(issue.id)
@@ -592,6 +1246,12 @@ async def get_issue(
         ).model_dump(mode="json")
         for c in children
     ]
+    # E70: childProgress always on detail
+    from opentask.services.child_progress import compute_child_progress
+    issue_dict["childProgress"] = compute_child_progress([c.status for c in children])
+
+    # E71: assignees always on detail
+    await _embed_assignees(db, issue_dict, issue.id)
 
     # 如果有关联项目，查询项目信息
     if issue.project_id:
@@ -622,7 +1282,24 @@ async def update_issue(
     service: IssueService = Depends(get_issue_service),
     current_user: UserModel = Depends(authenticate),
 ):
-    """更新 Issue"""
+    """更新 Issue（E15：成员校验；E78 parent / E80 project|milestone 需 member+）"""
+    issue_row = await _require_issue_access(issue_id, service=service, user=current_user)
+
+    # E78/E80: viewer 不可改 parent / project / milestone（复用 PUT，字段级加严）
+    _member_plus_fields = {"parent_issue_id", "project_id", "milestone_id"}
+    if _member_plus_fields & set(data.model_fields_set):
+        from opentask.services.workspace.service import WorkspaceService
+
+        ws_id = getattr(issue_row, "workspace_id", None)
+        if ws_id:
+            member = await WorkspaceService(service.db).require_member(
+                ws_id, str(current_user.id)
+            )
+            if getattr(member, "role", None) not in ("owner", "member"):
+                raise HTTPException(
+                    status_code=403,
+                    detail="仅 member/owner 可修改父子关系或项目/里程碑",
+                )
 
     try:
         issue = await service.update_issue(issue_id, data, str(current_user.id))
@@ -631,10 +1308,12 @@ async def update_issue(
     if not issue:
         raise HTTPException(status_code=404, detail="Issue 不存在")
 
+    payload = IssueResponse.model_validate(issue).model_dump(mode="json", exclude_none=False)
+    await _embed_assignees(service.db, payload, issue.id)
     return {
         "code": 200,
         "message": "Issue 更新成功",
-        "data": IssueResponse.model_validate(issue),
+        "data": payload,
         "timestamp": 0,
     }
 
@@ -645,7 +1324,8 @@ async def delete_issue(
     service: IssueService = Depends(get_issue_service),
     current_user: UserModel = Depends(authenticate),
 ):
-    """删除 Issue（软删除）"""
+    """删除 Issue（软删除；E15：成员校验）"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
 
     success = await service.delete_issue(issue_id, str(current_user.id))
     if not success:
@@ -667,11 +1347,18 @@ async def delete_issue(
 async def bulk_update_issues(
     data: IssueBulkUpdate,
     service: IssueService = Depends(get_issue_service),
-    current_user: UserModel = Depends(authenticate),
+    ctx: tuple = Depends(require_workspace_context),
 ):
-    """批量更新 Issue"""
-
-    affected_rows = await service.bulk_update_issues(data, str(current_user.id))
+    """批量更新 Issue（E20：强制 X-Workspace-Id + 本 WS 过滤）"""
+    ws, _member, user = ctx
+    try:
+        affected_rows = await service.bulk_update_issues(
+            data, str(user.id), workspace_id=ws.id
+        )
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     return {
         "code": 200,
@@ -685,10 +1372,25 @@ async def bulk_update_issues(
 async def bulk_delete_issues(
     data: IssueBulkDelete,
     service: IssueService = Depends(get_issue_service),
-    current_user: UserModel = Depends(authenticate),
+    ctx: tuple = Depends(require_workspace_context),
 ):
-    """批量删除 Issue（软删除）"""
-    affected_rows = await service.bulk_delete_issues(data.issue_ids, str(current_user.id))
+    """批量删除 Issue（软删除；E20：强制本 WS）"""
+    ws, _member, user = ctx
+    # 仅删除本工作区可见 ID
+    from sqlalchemy import select as sa_select
+    from opentask.models.issue.model import Issue as IssueModel
+
+    allowed_q = await service.db.execute(
+        sa_select(IssueModel.id).where(
+            IssueModel.id.in_(data.issue_ids),
+            IssueModel.workspace_id == ws.id,
+            IssueModel.is_deleted == False,  # noqa: E712
+        )
+    )
+    allowed_ids = [row[0] for row in allowed_q.all()]
+    if not allowed_ids:
+        raise HTTPException(status_code=403, detail="无权批量删除这些 Issue")
+    affected_rows = await service.bulk_delete_issues(allowed_ids, str(user.id))
 
     return {
         "code": 200,
@@ -707,8 +1409,10 @@ async def get_comments(
     issue_id: str,
     service: IssueService = Depends(get_issue_service),
     db: AsyncSession = Depends(get_session),
+    current_user: UserModel = Depends(authenticate),
 ):
-    """获取 Issue 的所有评论"""
+    """获取 Issue 的所有评论（E15：成员校验）"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     comments = await service.get_comments(issue_id)
 
     # 收集所有唯一的 user_id
@@ -731,12 +1435,32 @@ async def get_comments(
             for user in users
         }
 
-    # 构建响应，添加用户信息
+    # E27：批量加载评论反应
+    reaction_maps = await service.get_comments_reaction_maps([c.id for c in comments])
+    # E69：批量加载评论附件薄摘要（cap 20）
+    attachment_maps = await service.get_comments_attachments_map([c.id for c in comments], cap_per=20)
+
+    # 构建响应，添加用户信息 + reactions + attachments
+    # 注意：ORM 上也有 reactions 关系，勿 model_validate(ORM) 以免懒加载
     rows = []
     for comment in comments:
-        comment_dict = IssueCommentResponse.model_validate(comment).model_dump()
+        raw = {
+            "id": comment.id,
+            "issue_id": comment.issue_id,
+            "user_id": comment.user_id,
+            "content": comment.content,
+            "parent_id": comment.parent_id,
+            "comment_type": comment.comment_type,
+            "meta_data": comment.meta_data,
+            "is_deleted": comment.is_deleted,
+            "created_at": comment.created_at,
+            "updated_at": comment.updated_at,
+        }
+        comment_dict = IssueCommentResponse.model_validate(raw).model_dump()
         if comment.user_id and str(comment.user_id) in user_info_map:
             comment_dict["user_info"] = user_info_map[str(comment.user_id)]
+        comment_dict["reactions"] = reaction_maps.get(comment.id, {})
+        comment_dict["attachments"] = attachment_maps.get(comment.id, [])
         rows.append(IssueCommentResponse(**comment_dict))
 
     return {
@@ -763,6 +1487,7 @@ async def add_comment(
     限制：
     - content: 1-500 字符
     """
+    await _require_issue_access(issue_id, service=service, user=current_user)
     user_id = str(current_user.id)
     content = data.content
 
@@ -808,6 +1533,8 @@ async def add_comment(
             },
             "timestamp": 0,
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"添加评论失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -825,6 +1552,7 @@ async def update_comment(
     限制：
     - content: 1-500 字符
     """
+    await _require_comment_issue_access(comment_id, service=service, user=current_user)
     if not comment_data.content:
         raise HTTPException(status_code=400, detail="评论内容不能为空")
 
@@ -853,7 +1581,8 @@ async def delete_comment(
     service: IssueService = Depends(get_issue_service),
     current_user: UserModel = Depends(authenticate),
 ):
-    """删除评论（软删除）"""
+    """删除评论（软删除；E15：成员校验）"""
+    await _require_comment_issue_access(comment_id, service=service, user=current_user)
     success = await service.delete_comment(comment_id, str(current_user.id))
     if not success:
         raise HTTPException(status_code=404, detail="评论不存在或无权限删除")
@@ -873,10 +1602,8 @@ async def get_issue_children(
     service: IssueService = Depends(get_issue_service),
     current_user: UserModel = Depends(authenticate),
 ):
-    """列出 Issue 的直接子项（depth-1 摘要）"""
-    issue = await service.get_issue(issue_id)
-    if not issue:
-        raise HTTPException(status_code=404, detail="Issue 不存在")
+    """列出 Issue 的直接子项（depth-1 摘要；E15：成员校验；E70: childProgress）"""
+    issue = await _require_issue_access(issue_id, service=service, user=current_user)
     children = await service.list_child_issues(issue_id)
     rows = [
         IssueChildSummary(
@@ -887,10 +1614,12 @@ async def get_issue_children(
         )
         for c in children
     ]
+    from opentask.services.child_progress import compute_child_progress
+    cp = compute_child_progress([c.status for c in children])
     return {
         "code": 200,
         "message": "success",
-        "data": {"rows": rows, "total": len(rows)},
+        "data": {"rows": rows, "total": len(rows), "childProgress": cp},
         "timestamp": 0,
     }
 
@@ -903,8 +1632,10 @@ async def get_issue_children(
 async def get_relations(
     issue_id: str,
     service: IssueService = Depends(get_issue_service),
+    current_user: UserModel = Depends(authenticate),
 ):
-    """获取 Issue 的所有关系"""
+    """获取 Issue 的所有关系（E15：成员校验）"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     source_relations, target_relations = await service.get_relations(issue_id)
 
     source_rows = [IssueRelationResponse.model_validate(r) for r in source_relations]
@@ -929,7 +1660,8 @@ async def add_relation(
     service: IssueService = Depends(get_issue_service),
     current_user: UserModel = Depends(authenticate),
 ):
-    """添加 Issue 关系"""
+    """添加 Issue 关系（E15：成员校验）"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     try:
         relation = await service.add_relation(
             source_id=issue_id,
@@ -954,8 +1686,10 @@ async def remove_relation(
     target_id: str = Query(..., description="目标 Issue ID"),
     relation_type: RelationType = Query(..., description="关系类型"),
     service: IssueService = Depends(get_issue_service),
+    current_user: UserModel = Depends(authenticate),
 ):
-    """移除 Issue 关系"""
+    """移除 Issue 关系（E15：成员校验）"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     success = await service.remove_relation(
         source_id=issue_id,
         target_id=target_id,
@@ -1072,6 +1806,123 @@ async def remove_tag(
     }
 
 
+
+
+# ========================================================================
+# Custom Fields (E25)
+# ========================================================================
+
+class IssueCustomFieldsPatch(BaseModel):
+    values: list[dict] = Field(default_factory=list, description="[{fieldId|key, value}]")
+
+
+@router.patch("/{issue_id}/custom-fields")
+async def patch_issue_custom_fields(
+    issue_id: str,
+    body: IssueCustomFieldsPatch,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+    service: IssueService = Depends(get_issue_service),
+):
+    """批量 upsert Issue 自定义字段取值（value=null 清除）"""
+    ws, member, user = ctx
+    require_cf_writer(member)
+    issue = await _require_issue_access(issue_id, service=service, user=user)
+    if issue.workspace_id != ws.id:
+        raise HTTPException(status_code=404, detail="Issue 不存在")
+    rows = await CustomFieldService(session).upsert_issue_values(
+        workspace_id=ws.id,
+        issue_id=issue.id,
+        entries=list(body.values or []),
+        actor_user_id=str(user.id),
+    )
+    return {
+        "code": 200,
+        "message": "自定义字段已更新",
+        "data": {"customFields": rows},
+        "timestamp": 0,
+    }
+
+
+# ========================================================================
+# 评论反应（E27）
+# ========================================================================
+
+@router.get("/{issue_id}/comments/{comment_id}/reactions")
+async def get_comment_reactions(
+    issue_id: str,
+    comment_id: str,
+    service: IssueService = Depends(get_issue_service),
+    current_user: UserModel = Depends(authenticate),
+):
+    """获取评论反应映射 emoji → userId[]"""
+    comment = await _require_comment_issue_access(
+        comment_id, service=service, user=current_user
+    )
+    if comment.issue_id != issue_id:
+        raise HTTPException(status_code=404, detail="评论不存在")
+    mapping = await service.get_comment_reaction_map(comment_id)
+    return {
+        "code": 200,
+        "message": "success",
+        "data": {"reactions": mapping},
+        "timestamp": 0,
+    }
+
+
+@router.post("/{issue_id}/comments/{comment_id}/reactions")
+async def add_comment_reaction(
+    issue_id: str,
+    comment_id: str,
+    data: IssueReactionCreate,
+    service: IssueService = Depends(get_issue_service),
+    current_user: UserModel = Depends(authenticate),
+):
+    comment = await _require_comment_issue_access(
+        comment_id, service=service, user=current_user
+    )
+    if comment.issue_id != issue_id:
+        raise HTTPException(status_code=404, detail="评论不存在")
+    reaction = await service.add_comment_reaction(
+        comment_id, data.emoji, str(current_user.id)
+    )
+    return {
+        "code": 200,
+        "message": "反应添加成功",
+        "data": {
+            "reaction_id": reaction.id,
+            "reactions": await service.get_comment_reaction_map(comment_id),
+        },
+        "timestamp": 0,
+    }
+
+
+@router.delete("/{issue_id}/comments/{comment_id}/reactions")
+async def remove_comment_reaction(
+    issue_id: str,
+    comment_id: str,
+    emoji: str = Query(..., description="表情符号"),
+    service: IssueService = Depends(get_issue_service),
+    current_user: UserModel = Depends(authenticate),
+):
+    comment = await _require_comment_issue_access(
+        comment_id, service=service, user=current_user
+    )
+    if comment.issue_id != issue_id:
+        raise HTTPException(status_code=404, detail="评论不存在")
+    success = await service.remove_comment_reaction(
+        comment_id, emoji, str(current_user.id)
+    )
+    if not success:
+        raise HTTPException(status_code=404, detail="反应不存在")
+    return {
+        "code": 200,
+        "message": "反应移除成功",
+        "data": {"reactions": await service.get_comment_reaction_map(comment_id)},
+        "timestamp": 0,
+    }
+
+
 # ========================================================================
 # 反应操作
 # ========================================================================
@@ -1080,8 +1931,10 @@ async def remove_tag(
 async def get_reactions(
     issue_id: str,
     service: IssueService = Depends(get_issue_service),
+    current_user: UserModel = Depends(authenticate),
 ):
-    """获取 Issue 的所有反应"""
+    """获取 Issue 的所有反应（E15：成员校验）"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     stats = await service.get_reaction_stats(issue_id)
 
     return {
@@ -1102,7 +1955,8 @@ async def add_reaction(
     current_user: UserModel = Depends(authenticate),
     service: IssueService = Depends(get_issue_service),
 ):
-    """添加反应"""
+    """添加反应（E15：成员校验）"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     logger.info(f"DEBUG: add_reaction called, user_id={current_user.id}")
     user_id = str(current_user.id)
 
@@ -1126,7 +1980,8 @@ async def remove_reaction(
     current_user: UserModel = Depends(authenticate),
     service: IssueService = Depends(get_issue_service),
 ):
-    """移除反应"""
+    """移除反应（E15：成员校验）"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     user_id = str(current_user.id)
 
     try:
@@ -1151,14 +2006,74 @@ async def remove_reaction(
 # 时间线操作
 # ========================================================================
 
+
+
+@router.get("/{issue_id}/timeline/export.csv")
+async def export_issue_timeline_csv(
+    issue_id: str,
+    limit: int = Query(EXPORT_DEFAULT_LIMIT, ge=1, le=EXPORT_HARD_CAP),
+    actionType: Optional[List[str]] = Query(None, description="Filter action_type (repeatable)"),
+    service: IssueService = Depends(get_issue_service),
+    ctx: tuple = Depends(require_workspace_context),
+    current_user: UserModel = Depends(authenticate),
+):
+    """E41：单 Issue timeline CSV export（viewer+；跨租户 404）。"""
+    workspace, _member, user = ctx
+    issue = await service.get_issue(issue_id)
+    if not issue or issue.workspace_id != workspace.id:
+        raise HTTPException(status_code=404, detail="Issue 不存在")
+    await ensure_entity_workspace_access(service.db, str(user.id), issue.workspace_id)
+    body, truncated = await build_timeline_csv(
+        service.db,
+        workspace_id=workspace.id,
+        issue_id=issue.id,
+        action_types=actionType,
+        limit=limit,
+    )
+    code = issue.issue_code or issue.id
+    headers = {
+        "Content-Disposition": f'attachment; filename="issue-{code}-timeline.csv"',
+    }
+    if truncated:
+        headers["X-OpenTask-Truncated"] = "true"
+    return StreamingResponse(
+        iter([body]),
+        media_type="text/csv; charset=utf-8",
+        headers=headers,
+    )
+
+
+
+@router.get("/{issue_id}/sla")
+async def get_issue_sla(
+    issue_id: str,
+    service: IssueService = Depends(get_issue_service),
+    ctx: tuple = Depends(require_workspace_context),
+    current_user: UserModel = Depends(authenticate),
+):
+    """E42：Issue SLA 时钟列表（跨租户 404）。"""
+    workspace, _member, user = ctx
+    issue = await service.get_issue(issue_id)
+    if not issue or issue.workspace_id != workspace.id:
+        raise HTTPException(status_code=404, detail="Issue 不存在")
+    await ensure_entity_workspace_access(service.db, str(user.id), issue.workspace_id)
+    pairs = await SlaService(service.db).list_issue_clocks(
+        workspace_id=workspace.id, issue_id=issue.id
+    )
+    rows = [serialize_clock(c, policy_name=name, metric=metric) for c, name, metric in pairs]
+    return success_response(data={"rows": rows, "total": len(rows)})
+
+
 @router.get("/{issue_id}/timeline")
 async def get_timeline(
     issue_id: str,
     limit: int = Query(50, ge=1, le=100, description="返回数量"),
     service: IssueService = Depends(get_issue_service),
     db: AsyncSession = Depends(get_session),
+    current_user: UserModel = Depends(authenticate),
 ):
-    """获取 Issue 时间线"""
+    """获取 Issue 时间线（E15：成员校验）"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     timeline = await service.get_timeline(issue_id, limit)
 
     # 收集所有唯一的 user_id
@@ -1216,6 +2131,7 @@ async def update_status(
     current_user: UserModel = Depends(authenticate),
 ):
     """快速更新 Issue 状态"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     update_data = IssueUpdate(status=status)  # type: ignore
     issue = await service.update_issue(issue_id, update_data, str(current_user.id))
 
@@ -1238,6 +2154,7 @@ async def update_assignee(
     current_user: UserModel = Depends(authenticate),
 ):
     """快速更新 Issue 负责人"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     update_data = IssueUpdate(assignee_id=assignee_id)
     issue = await service.update_issue(issue_id, update_data, str(current_user.id))
 
@@ -1260,6 +2177,7 @@ async def update_priority(
     current_user: UserModel = Depends(authenticate),
 ):
     """快速更新 Issue 优先级"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     update_data = IssueUpdate(priority=priority)  # type: ignore
     issue = await service.update_issue(issue_id, update_data, str(current_user.id))
 
@@ -1282,6 +2200,7 @@ async def update_reporter(
     current_user: UserModel = Depends(authenticate),
 ):
     """快速更新 Issue 报告人"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     update_data = IssueUpdate(reporter_id=reporter_id)
     issue = await service.update_issue(issue_id, update_data, str(current_user.id))
 
@@ -1300,12 +2219,136 @@ async def update_reporter(
 # 附件操作
 # ============================================================================
 
+
+# ========================================================================
+# E69: Comment attachments (entity_type=issue_comment)
+# ========================================================================
+
+def _serialize_attachment_row(att) -> dict:
+    return {
+        "id": att.id,
+        "entity_type": att.entity_type,
+        "entity_id": att.entity_id,
+        "file_path": att.file_path,
+        "file_name": att.file_name,
+        "file_type": att.file_type,
+        "file_size": att.file_size,
+        "status": att.status.value if hasattr(att.status, "value") else str(att.status),
+        "created_at": att.created_at.isoformat() if att.created_at else None,
+        "updated_at": att.updated_at.isoformat() if att.updated_at else None,
+        "created_by": att.created_by,
+        "updated_by": att.updated_by,
+    }
+
+
+@router.get("/{issue_id}/comments/{comment_id}/attachments")
+async def get_comment_attachments(
+    issue_id: str,
+    comment_id: str,
+    service: IssueService = Depends(get_issue_service),
+    current_user: UserModel = Depends(authenticate),
+):
+    """List attachments on an issue comment (E69)."""
+    await _require_issue_access(issue_id, service=service, user=current_user)
+    comment = await service.get_comment_by_id(comment_id, include_deleted=True)
+    if comment is None or comment.issue_id != issue_id:
+        raise HTTPException(status_code=404, detail="评论不存在")
+    attachments = await service.get_comment_attachments(comment_id)
+    return {
+        "code": 200,
+        "message": "success",
+        "data": [_serialize_attachment_row(att) for att in attachments],
+        "timestamp": 0,
+    }
+
+
+@router.post("/{issue_id}/comments/{comment_id}/attachments")
+async def upload_comment_attachment(
+    issue_id: str,
+    comment_id: str,
+    file: UploadFile = File(...),
+    description: Optional[str] = Form(None),
+    current_user: UserModel = Depends(authenticate),
+    service: IssueService = Depends(get_issue_service),
+):
+    """Upload an attachment onto an issue comment (E69; writer+ via membership)."""
+    await _require_issue_access(issue_id, service=service, user=current_user)
+    user_id = str(current_user.id)
+    comment = await service.get_comment_by_id(comment_id)
+    if comment is None or comment.issue_id != issue_id:
+        raise HTTPException(status_code=404, detail="评论不存在")
+
+    try:
+        storage_service = get_storage_service()
+        file_path, original_filename, file_size = await storage_service.save_upload_file(
+            upload_file=file,
+            subdir=f"issues/{issue_id}/comments/{comment_id}",
+        )
+        file_type = file.content_type or "application/octet-stream"
+        dept_id = await RbacService(service.db).get_primary_dept_id(current_user)
+        attachment = await service.add_comment_attachment(
+            issue_id=issue_id,
+            comment_id=comment_id,
+            file_path=file_path,
+            file_name=original_filename,
+            file_type=file_type,
+            file_size=file_size,
+            user_id=user_id,
+            dept_id=dept_id,
+        )
+        return {
+            "code": 200,
+            "message": "附件上传成功",
+            "data": {
+                "id": attachment.id,
+                "file_name": attachment.file_name,
+                "file_type": attachment.file_type,
+                "file_size": attachment.file_size,
+                "entity_type": attachment.entity_type,
+                "entity_id": attachment.entity_id,
+                "created_at": attachment.created_at.isoformat() if attachment.created_at else None,
+            },
+            "timestamp": 0,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"上传评论附件失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/{issue_id}/comments/{comment_id}/attachments/{attachment_id}")
+async def delete_comment_attachment(
+    issue_id: str,
+    comment_id: str,
+    attachment_id: str,
+    current_user: UserModel = Depends(authenticate),
+    service: IssueService = Depends(get_issue_service),
+):
+    """Delete a comment attachment (E69)."""
+    await _require_issue_access(issue_id, service=service, user=current_user)
+    user_id = str(current_user.id)
+    success = await service.delete_comment_attachment(
+        issue_id, comment_id, attachment_id, user_id
+    )
+    if not success:
+        raise HTTPException(status_code=404, detail="附件不存在")
+    return {
+        "code": 200,
+        "message": "附件删除成功",
+        "data": None,
+        "timestamp": 0,
+    }
+
+
 @router.get("/{issue_id}/attachments")
 async def get_issue_attachments(
     issue_id: str,
     service: IssueService = Depends(get_issue_service),
+    current_user: UserModel = Depends(authenticate),
 ):
-    """获取 Issue 的所有附件。空列表必须 200（E11-S4）。"""
+    """获取 Issue 的所有附件。空列表必须 200（E11-S4）。E15：成员校验。"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     try:
         attachments = await service.get_attachments(issue_id)
     except Exception as e:
@@ -1351,7 +2394,8 @@ async def upload_issue_attachment(
     current_user: UserModel = Depends(authenticate),
     service: IssueService = Depends(get_issue_service),
 ):
-    """上传附件到 Issue"""
+    """上传附件到 Issue（E15：成员校验）"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     user_id = str(current_user.id)
 
     try:
@@ -1405,7 +2449,8 @@ async def delete_issue_attachment(
     current_user: UserModel = Depends(authenticate),
     service: IssueService = Depends(get_issue_service),
 ):
-    """删除 Issue 附件"""
+    """删除 Issue 附件（E15：成员校验）"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     user_id = str(current_user.id)
 
     success = await service.delete_attachment(issue_id, attachment_id, user_id)
@@ -1425,9 +2470,11 @@ async def delete_issue_attachment(
 async def download_issue_attachment(
     issue_id: str,
     attachment_id: str,
+    current_user: UserModel = Depends(authenticate),
     service: IssueService = Depends(get_issue_service),
 ):
-    """下载 Issue 附件"""
+    """下载 Issue 附件（E66：须登录且为 Issue 工作区成员）"""
+    await _require_issue_access(issue_id, service=service, user=current_user)
     attachment = await service.get_attachment(issue_id, attachment_id)
 
     if not attachment:
@@ -1694,3 +2741,78 @@ async def handle_task_create_command(
             status_code=500,
             detail=f"任务创建失败: {str(e)}"
         )
+
+
+# ============================================================================
+# Issue Watchers (E18)
+# ============================================================================
+
+watchers_router = APIRouter(prefix="/{issue_id}/watchers", tags=["Issue Watchers"])
+
+
+@watchers_router.get("")
+async def list_issue_watchers(
+    issue_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    from opentask.services.issue_watcher.service import (
+        IssueWatcherService,
+        enrich_watchers,
+    )
+
+    ws, _member, _user = ctx
+    rows = await IssueWatcherService(db).list(issue_id=issue_id, workspace_id=ws.id)
+    return {
+        "code": 200,
+        "message": "success",
+        "data": await enrich_watchers(db, rows),
+
+        "timestamp": 0,
+    }
+
+
+@watchers_router.post("")
+async def watch_issue(
+    issue_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    from opentask.services.issue_watcher.service import (
+        IssueWatcherService,
+        serialize_watcher,
+    )
+
+    ws, _member, user = ctx
+    row = await IssueWatcherService(db).watch(
+        issue_id=issue_id, workspace_id=ws.id, user_id=str(user.id)
+    )
+    return {
+        "code": 200,
+        "message": "已关注",
+        "data": serialize_watcher(row),
+        "timestamp": 0,
+    }
+
+
+@watchers_router.delete("")
+async def unwatch_issue(
+    issue_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    from opentask.services.issue_watcher.service import IssueWatcherService
+
+    ws, _member, user = ctx
+    await IssueWatcherService(db).unwatch(
+        issue_id=issue_id, workspace_id=ws.id, user_id=str(user.id)
+    )
+    return {
+        "code": 200,
+        "message": "已取消关注",
+        "data": None,
+        "timestamp": 0,
+    }
+
+
+router.include_router(watchers_router)

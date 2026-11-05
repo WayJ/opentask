@@ -69,12 +69,14 @@ function handleCancel() {
 
     <!-- 非编辑模式 -->
     <div v-else-if="!editing" class="field-value">
-      <NTag v-if="tagType && displayValue" :type="tagType" size="small">
-        {{ displayValue }}
-      </NTag>
-      <span v-else :class="{ 'text-placeholder': !displayValue || displayValue === placeholder }">
-        {{ displayValue || placeholder }}
-      </span>
+      <slot name="display">
+        <NTag v-if="tagType && displayValue" :type="tagType" size="small">
+          {{ displayValue }}
+        </NTag>
+        <span v-else :class="{ 'text-placeholder': !displayValue || displayValue === placeholder }">
+          {{ displayValue || placeholder }}
+        </span>
+      </slot>
       <NButton text size="tiny" @click="handleStartEdit">
         <icon-mdi-pencil />
       </NButton>

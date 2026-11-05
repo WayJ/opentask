@@ -9,9 +9,17 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from opentask.models.initiative.model import INITIATIVE_STATUSES, Initiative, InitiativeProject
+from opentask.models.initiative.model import (
+    INITIATIVE_RELATION_TYPES,
+    INITIATIVE_STATUSES,
+    Initiative,
+    InitiativeProject,
+    InitiativeRelation,
+)
 from opentask.models.requirement.model import Project
 from opentask.models.workspace.model import WorkspaceMember
+
+_BLOCKS_CYCLE_DEPTH_CAP = 32
 
 
 def require_writer(member: WorkspaceMember) -> None:
@@ -67,6 +75,7 @@ def serialize_initiative(
     *,
     health_summary: dict | None = None,
     projects: list[dict] | None = None,
+    relation_counts: dict | None = None,
 ) -> dict:
     data = {
         "id": row.id,
@@ -85,6 +94,10 @@ def serialize_initiative(
     }
     if projects is not None:
         data["projects"] = projects
+    if relation_counts is not None:
+        data["blocksCount"] = int(relation_counts.get("blocksCount", 0))
+        data["blockedByCount"] = int(relation_counts.get("blockedByCount", 0))
+        data["relatesToCount"] = int(relation_counts.get("relatesToCount", 0))
     return data
 
 
@@ -350,12 +363,240 @@ class InitiativeService:
         project_ids: list[str] | None = None,
         *,
         include_projects: bool = False,
+        include_relation_counts: bool = False,
     ) -> dict:
         pids = list(project_ids if project_ids is not None else await self._project_ids_for(row.id))
         summary, projects = await self._projects_health(pids)
+        counts = None
+        if include_relation_counts:
+            cmap = await self.relation_counts(workspace_id=row.workspace_id, initiative_ids=[row.id])
+            counts = cmap.get(row.id) or {
+                "blocksCount": 0,
+                "blockedByCount": 0,
+                "relatesToCount": 0,
+            }
         return serialize_initiative(
             row,
             pids,
             health_summary=summary,
             projects=projects if include_projects else None,
+            relation_counts=counts,
         )
+
+    def _empty_counts(self) -> dict:
+        return {"blocksCount": 0, "blockedByCount": 0, "relatesToCount": 0}
+
+    async def relation_counts(
+        self, *, workspace_id: str, initiative_ids: list[str]
+    ) -> dict[str, dict]:
+        out = {iid: self._empty_counts() for iid in initiative_ids}
+        if not initiative_ids:
+            return out
+        result = await self.db.execute(
+            select(InitiativeRelation).where(
+                InitiativeRelation.workspace_id == workspace_id,
+                (
+                    InitiativeRelation.source_initiative_id.in_(initiative_ids)
+                    | InitiativeRelation.target_initiative_id.in_(initiative_ids)
+                ),
+            )
+        )
+        for rel in result.scalars().all():
+            rtype = rel.relation_type
+            src, tgt = rel.source_initiative_id, rel.target_initiative_id
+            if rtype == "blocks":
+                if src in out:
+                    out[src]["blocksCount"] += 1
+                if tgt in out:
+                    out[tgt]["blockedByCount"] += 1
+            elif rtype == "is_blocked_by":
+                if src in out:
+                    out[src]["blockedByCount"] += 1
+                if tgt in out:
+                    out[tgt]["blocksCount"] += 1
+            elif rtype == "relates_to":
+                if src in out:
+                    out[src]["relatesToCount"] += 1
+                if tgt in out:
+                    out[tgt]["relatesToCount"] += 1
+        return out
+
+    async def _blocks_adjacency(self, *, workspace_id: str) -> dict[str, set[str]]:
+        """Directed blocks graph: A→B means A blocks B."""
+        result = await self.db.execute(
+            select(InitiativeRelation).where(
+                InitiativeRelation.workspace_id == workspace_id,
+                InitiativeRelation.relation_type.in_(("blocks", "is_blocked_by")),
+            )
+        )
+        adj: dict[str, set[str]] = {}
+        for rel in result.scalars().all():
+            if rel.relation_type == "blocks":
+                src, dst = rel.source_initiative_id, rel.target_initiative_id
+            else:
+                # is_blocked_by: source is blocked by target ⇒ target blocks source
+                src, dst = rel.target_initiative_id, rel.source_initiative_id
+            adj.setdefault(src, set()).add(dst)
+        return adj
+
+    def _would_create_blocks_cycle(
+        self,
+        adj: dict[str, set[str]],
+        *,
+        edge_from: str,
+        edge_to: str,
+    ) -> bool:
+        """True if adding edge_from→edge_to creates a directed cycle (depth cap)."""
+        if edge_from == edge_to:
+            return True
+        # DFS from edge_to looking for edge_from
+        stack = [(edge_to, 0)]
+        seen: set[str] = set()
+        while stack:
+            node, depth = stack.pop()
+            if node == edge_from:
+                return True
+            if depth >= _BLOCKS_CYCLE_DEPTH_CAP or node in seen:
+                continue
+            seen.add(node)
+            for nxt in adj.get(node, ()):
+                stack.append((nxt, depth + 1))
+        # also account for the new edge in walk: start neighbors include edge_to via new edge
+        return False
+
+    def _serialize_relation_item(
+        self,
+        rel: InitiativeRelation,
+        *,
+        viewed_id: str,
+        other: Initiative,
+    ) -> dict:
+        direction = "outgoing" if rel.source_initiative_id == viewed_id else "incoming"
+        return {
+            "id": rel.id,
+            "type": rel.relation_type,
+            "direction": direction,
+            "initiative": {
+                "id": other.id,
+                "name": other.name,
+                "status": other.status,
+            },
+        }
+
+    async def list_relations(self, *, workspace_id: str, initiative_id: str) -> list[dict]:
+        await self.get(workspace_id=workspace_id, initiative_id=initiative_id)
+        result = await self.db.execute(
+            select(InitiativeRelation).where(
+                InitiativeRelation.workspace_id == workspace_id,
+                (
+                    (InitiativeRelation.source_initiative_id == initiative_id)
+                    | (InitiativeRelation.target_initiative_id == initiative_id)
+                ),
+            )
+        )
+        rows = list(result.scalars().all())
+        other_ids = set()
+        for rel in rows:
+            other_ids.add(
+                rel.target_initiative_id
+                if rel.source_initiative_id == initiative_id
+                else rel.source_initiative_id
+            )
+        others: dict[str, Initiative] = {}
+        if other_ids:
+            ores = await self.db.execute(
+                select(Initiative).where(
+                    Initiative.workspace_id == workspace_id,
+                    Initiative.id.in_(list(other_ids)),
+                )
+            )
+            others = {r.id: r for r in ores.scalars().all()}
+        items: list[dict] = []
+        for rel in rows:
+            oid = (
+                rel.target_initiative_id
+                if rel.source_initiative_id == initiative_id
+                else rel.source_initiative_id
+            )
+            other = others.get(oid)
+            if not other:
+                continue
+            items.append(self._serialize_relation_item(rel, viewed_id=initiative_id, other=other))
+        return items
+
+    async def add_relation(
+        self,
+        *,
+        workspace_id: str,
+        initiative_id: str,
+        target_initiative_id: str,
+        relation_type: str,
+        user_id: str,
+    ) -> dict:
+        if relation_type not in INITIATIVE_RELATION_TYPES:
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail=f"非法 type，允许: {', '.join(INITIATIVE_RELATION_TYPES)}",
+            )
+        if initiative_id == target_initiative_id:
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail="不能与自身建立关系",
+            )
+        source = await self.get(workspace_id=workspace_id, initiative_id=initiative_id)
+        target = await self.get(workspace_id=workspace_id, initiative_id=target_initiative_id)
+
+        if relation_type in ("blocks", "is_blocked_by"):
+            if relation_type == "blocks":
+                edge_from, edge_to = initiative_id, target_initiative_id
+            else:
+                edge_from, edge_to = target_initiative_id, initiative_id
+            adj = await self._blocks_adjacency(workspace_id=workspace_id)
+            adj.setdefault(edge_from, set()).add(edge_to)
+            if self._would_create_blocks_cycle(adj, edge_from=edge_from, edge_to=edge_to):
+                raise HTTPException(
+                    status_code=http_status.HTTP_400_BAD_REQUEST,
+                    detail="blocks 关系将形成环",
+                )
+
+        rel = InitiativeRelation(
+            workspace_id=workspace_id,
+            source_initiative_id=initiative_id,
+            target_initiative_id=target_initiative_id,
+            relation_type=relation_type,
+            created_by=user_id,
+        )
+        self.db.add(rel)
+        try:
+            await self.db.commit()
+        except IntegrityError:
+            await self.db.rollback()
+            raise HTTPException(
+                status_code=http_status.HTTP_409_CONFLICT,
+                detail="关系已存在",
+            )
+        await self.db.refresh(rel)
+        return self._serialize_relation_item(rel, viewed_id=initiative_id, other=target)
+
+    async def remove_relation(
+        self, *, workspace_id: str, initiative_id: str, relation_id: str
+    ) -> None:
+        await self.get(workspace_id=workspace_id, initiative_id=initiative_id)
+        result = await self.db.execute(
+            select(InitiativeRelation).where(
+                InitiativeRelation.id == relation_id,
+                InitiativeRelation.workspace_id == workspace_id,
+                (
+                    (InitiativeRelation.source_initiative_id == initiative_id)
+                    | (InitiativeRelation.target_initiative_id == initiative_id)
+                ),
+            )
+        )
+        rel = result.scalar_one_or_none()
+        if not rel:
+            raise HTTPException(
+                status_code=http_status.HTTP_404_NOT_FOUND,
+                detail="关系不存在",
+            )
+        await self.db.delete(rel)
+        await self.db.commit()

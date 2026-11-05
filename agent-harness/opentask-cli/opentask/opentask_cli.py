@@ -26,15 +26,40 @@ from .utils.api_client import OpenTaskClient, APIError
 from .utils.config import Config
 from .utils.repl_skin import ReplSkin
 from .core.project import project_cli
+from .core.project_template import project_template_cli
+from .core.issue_template import issue_template_cli
 from .core.issue import issue_cli
 from .core.requirement import requirement_cli
 from .core.collection import collection_cli
 from .core.update import update_cli
 from .core.task import task_cli
+from .core.workspace import workspace_cli
+from .core.cycle import cycle_cli
+from .core.label import label_cli
+from .core.triage import triage_cli
+from .core.inbox import inbox_cli
+from .core.favorite import favorite_cli
+from .core.view import view_cli
+from .core.member import member_cli, invite_cli
+from .core.initiative import initiative_cli
+from .core.customer import customer_cli
+from .core.insights import insights_cli
+from .core.activity import activity_cli
+from .core.custom_field import custom_field_cli
+from .core.automation import automation_cli
+from .core.webhook import webhook_cli
+from .core.form import form_cli
+from .core.recurrence import recurrence_cli
+from .core.notif import notif_cli
+from .core.sla import sla_cli
+from .core.request import request_cli
+from .core.doc import doc_cli
+from .core.search import search_cli
+from .core.display_prefs import display_prefs_cli
 
 
 # Global version
-VERSION = "1.0.6"
+VERSION = "1.77.0"
 
 # Context object passed to commands
 class Context:
@@ -57,24 +82,22 @@ class Context:
 @click.option("--version", is_flag=True, help="Show version and exit")
 @click.pass_context
 def cli(ctx, api_url: Optional[str], token: Optional[str], as_json: bool, version: bool):
-    """OpenTask CLI - AI Agent interface for OpenTask platform.
+    """OpenTask CLI — Workspace + Issue 主轴（AI Agent / 人类）。
 
     \b
     Examples:
-        # Interactive mode
-        opentask
-
-        # One-shot commands
+        opentask login
+        opentask workspace list
+        opentask workspace use <workspace-id>
         opentask project list
-        opentask issue list --status open
+        opentask issue create -t "Fix bug"
+        opentask issue show KEY-1
+        opentask cycle list
+        opentask label list
+        opentask triage list
 
-        # JSON output for agents
-        opentask --json project list
-        opentask --json issue create -t "Fix bug"
-
-        # With active project context
-        opentask project use <project-id>
-        opentask issue list
+        # JSON for agents
+        opentask --json issue list --status open
     """
     if version:
         click.echo(f"opentask v{VERSION}")
@@ -122,7 +145,11 @@ def config_show(obj: Context):
         "API URL": config.api_url,
         "Token": f"{config.token[:20]}..." if config.token else "Not set",
         "Access Token": f"{config.access_token[:10]}..." if config.access_token else "Not set",
-        "Active Project": config.active_project_name or "None"
+        "Active Workspace": (
+            f"{config.active_workspace_name} ({config.active_workspace_id})"
+            if config.active_workspace_id else "None"
+        ),
+        "Active Project": config.active_project_name or "None",
     })
 
 
@@ -311,6 +338,8 @@ def repl(ctx):
         "project use <id>": "Set active project",
         "project current": "Show active project",
         "issue list": "List issues",
+        "issue export [--out FILE]": "E28 export CSV",
+        "issue import FILE": "E28 import CSV",
         "issue show <id>": "Show issue details",
         "issue create -t TITLE": "Create new issue",
         "config show": "Show configuration",
@@ -367,8 +396,34 @@ def repl(ctx):
 # Register Command Groups
 # ============================================================================
 
+cli.add_command(workspace_cli)
 cli.add_command(project_cli)
+cli.add_command(project_template_cli)
+cli.add_command(issue_template_cli)
 cli.add_command(issue_cli)
+cli.add_command(cycle_cli)
+cli.add_command(label_cli)
+cli.add_command(triage_cli)
+cli.add_command(inbox_cli)
+cli.add_command(favorite_cli)
+cli.add_command(view_cli)
+cli.add_command(member_cli)
+cli.add_command(invite_cli)
+cli.add_command(initiative_cli)
+cli.add_command(customer_cli)
+cli.add_command(insights_cli)
+cli.add_command(activity_cli)
+cli.add_command(custom_field_cli)
+cli.add_command(automation_cli)
+cli.add_command(webhook_cli)
+cli.add_command(form_cli)
+cli.add_command(recurrence_cli)
+cli.add_command(notif_cli)
+cli.add_command(sla_cli)
+cli.add_command(request_cli)
+cli.add_command(doc_cli)
+cli.add_command(search_cli)
+cli.add_command(display_prefs_cli)
 cli.add_command(requirement_cli)
 cli.add_command(task_cli)
 cli.add_command(collection_cli)

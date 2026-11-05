@@ -1,6 +1,6 @@
 const local: App.I18n.Schema = {
   system: {
-    title: 'AI研发管理平台',
+    title: 'OpenTask',
     updateTitle: '系统版本更新通知',
     updateContent: '检测到系统有新版本发布，是否立即刷新页面？',
     updateConfirm: '立即刷新',
@@ -68,6 +68,7 @@ const local: App.I18n.Schema = {
       navCycles: 'Cycles 设置',
       navInitiatives: 'Initiatives',
       navTriage: '分诊',
+      navSearch: '搜索…',
       navInbox: '收件箱'
     }
   },
@@ -256,16 +257,28 @@ const local: App.I18n.Schema = {
     workspace_members: '成员 Members',
     invite: '邀请',
     workspace_labels: '标签 Labels',
+    'settings': '设置',
+    'settings_webhooks': '出站 Webhooks',
+    'settings_recurrences': '周期建单',
+    'settings_forms': '公开表单',
+    'public-form': '公开表单',
+    'settings_notifications': '通知偏好',
+    'workspace_automations': '自动化',
+    'workspace_custom-fields': '自定义字段',
     'workspace_issue-templates': 'Issue 模板',
+    'workspace_project-templates': 'Project 模板',
     workspace_cycles: '冲刺 Cycles',
     inbox: '收件箱',
+    activity: '活动',
+    insights: 'Insights',
+    search: '搜索',
     initiatives: 'Initiatives',
     initiatives_detail: 'Initiative 详情',
     triage: '分诊',
     dashboard: '研发效能看板',
-    workflow: '研发流水线',
+    workflow: '项目',
     projects: '项目管理',
-    workflow_projects: '项目管理',
+    workflow_projects: '项目',
     'workflow_project-detail': '项目详情',
     workflow_requirements: '需求（遗留）',
     'workflow_requirement-detail': '需求详情',
@@ -278,11 +291,12 @@ const local: App.I18n.Schema = {
     knowledge_detail: '知识文档详情',
     knowledge_edit: '编辑知识文档',
     knowledge_edit_git: 'Git 编辑器',
-    issue: '问题管理',
+    issue: '问题',
     issue_create: '问题登记',
     issue_detail: '问题详情',
     'issue_detail-new': '问题详情（新设计）',
-    issue_list: '问题列表',
+    issue_list: '我的问题',
+    issue_trash: '回收站',
     issue_collection: '问题集',
     'issue_collection-list': '问题集列表',
     'issue_collection-create': '创建问题集',
@@ -320,6 +334,16 @@ const local: App.I18n.Schema = {
     'work-management_my-work_feedback': '工作反馈'
   },
   page: {
+    search: {
+      placeholder: '搜索 Issue、项目、文档、成员、评论…',
+      hint: '输入关键词开始搜索。也可用 ⌘K 打开命令面板。',
+      empty: '没有匹配结果',
+      groupIssues: 'Issues',
+      groupProjects: '项目',
+      groupDocs: '文档',
+      groupMembers: '成员',
+      groupComments: '评论'
+    },
     profile: {
       pwd: {
         title: '修改密码',
@@ -379,6 +403,7 @@ const local: App.I18n.Schema = {
       },
       register: {
         title: '注册账号',
+        passwordPlaceholder: '请输入密码（至少 8 位，含字母和数字）',
         agreement: '我已经仔细阅读并接受',
         protocol: '《用户协议》',
         policy: '《隐私权政策》'
@@ -509,7 +534,7 @@ const local: App.I18n.Schema = {
     },
     pwd: {
       required: '请输入密码',
-      invalid: '密码格式不正确，6-18位字符，包含字母、数字、下划线'
+      invalid: '密码至少 8 位，且需同时包含字母和数字'
     },
     confirmPwd: {
       required: '请输入确认密码',

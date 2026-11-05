@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -25,6 +25,8 @@ class WorkspaceUpdate(BaseModel):
     gitStatusHooksEnabled: Optional[bool] = None
     gitHookOnPrOpen: Optional[str] = Field(None, max_length=32)
     gitHookOnPrMerged: Optional[str] = Field(None, max_length=32)
+    timezone: Optional[str] = Field(None, max_length=64)
+    businessHours: Optional[dict[str, Any]] = None
 
 
 class WorkspaceMemberAdd(BaseModel):
@@ -53,6 +55,8 @@ class WorkspaceOut(BaseModel):
     gitStatusHooksEnabled: bool = False
     gitHookOnPrOpen: str = "in_progress"
     gitHookOnPrMerged: str = "resolved"
+    timezone: Optional[str] = None
+    businessHours: Optional[dict[str, Any]] = None
     createdAt: datetime
     updatedAt: datetime
 

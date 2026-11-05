@@ -1,4 +1,4 @@
-"""Project watcher service (E8-S2)"""
+"""Project watcher service (E8-S2 + E83 enrich)"""
 from __future__ import annotations
 
 from fastapi import HTTPException, status
@@ -18,14 +18,40 @@ def require_writer(member: WorkspaceMember) -> None:
         )
 
 
-def serialize_watcher(w: ProjectWatcher) -> dict:
+def serialize_watcher(
+    w: ProjectWatcher, *, username: str | None = None, name: str | None = None
+) -> dict:
     return {
         "id": w.id,
         "workspace_id": w.workspace_id,
         "project_id": w.project_id,
         "user_id": w.user_id,
+        "username": username,
+        "name": name,
         "created_at": w.created_at,
     }
+
+
+async def enrich_watchers(db: AsyncSession, rows: list[ProjectWatcher]) -> list[dict]:
+    """Attach username/name for CLI/UI display (E83; mirrors issue_watcher)."""
+    from opentask.models.user.model import UserModel
+
+    ids = [str(r.user_id) for r in rows if r.user_id]
+    users: dict[str, UserModel] = {}
+    if ids:
+        q = await db.execute(select(UserModel).where(UserModel.id.in_(ids)))
+        users = {str(u.id): u for u in q.scalars().all()}
+    out = []
+    for r in rows:
+        u = users.get(str(r.user_id))
+        out.append(
+            serialize_watcher(
+                r,
+                username=getattr(u, "username", None) if u else None,
+                name=(getattr(u, "name", None) or getattr(u, "sso_name", None)) if u else None,
+            )
+        )
+    return out
 
 
 class ProjectWatcherService:

@@ -45,3 +45,18 @@ async def require_workspace_context(
     member = await svc.require_member(x_workspace_id, str(current_user.id))
     ws = await svc.get_or_404(x_workspace_id)
     return ws, member, current_user
+
+
+async def ensure_entity_workspace_access(
+    session: AsyncSession,
+    user_id: str,
+    workspace_id: str | None,
+) -> None:
+    """E15：按实体自身 workspace_id 校验成员资格。
+
+    - workspace_id 非空：非成员 → 403「无权访问该工作区」
+    - workspace_id 为空（遗留孤儿行）：仅依赖路由层 authenticate，与列表「成员 ∪ NULL」一致
+    """
+    if not workspace_id:
+        return
+    await WorkspaceService(session).require_member(workspace_id, user_id)

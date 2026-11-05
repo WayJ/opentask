@@ -20,6 +20,11 @@ downloads/
 eggs/
 .eggs/
 data/
+# E58: keep static holiday packs under package
+!opentask/data/
+!opentask/data/**
+opentask/data/**/__pycache__/
+opentask/data/**/*.pyc
 lib/
 lib64/
 parts/

@@ -102,6 +102,11 @@ class TestRequirementUpdateDeleteCommand:
 
         with mock.patch('opentask.core.requirement.OpenTaskClient') as mock_client_class:
             mock_client = mock.Mock()
+            mock_client.get_requirement = async_mock({
+                "id": "1",
+                "title": "Old Title",
+                "description": "Original Description",
+            })
             mock_client.update_requirement = async_mock({
                 "id": "1",
                 "title": "Updated Title",

@@ -24,7 +24,7 @@ from opentask.repositories.base import get_session
 from opentask.auth import authenticate
 from opentask.models.user.model import UserModel
 from opentask.utils.response import success_response, error_response, StatusCode
-from opentask.api.workspace.deps import get_optional_workspace_context, require_workspace_context
+from opentask.api.workspace.deps import get_optional_workspace_context, require_workspace_context, ensure_entity_workspace_access
 from opentask.services.workspace.service import WorkspaceService
 
 logger = logging.getLogger(__name__)
@@ -51,6 +51,17 @@ async def get_requirement_repo_service(db: AsyncSession = Depends(get_session)) 
     return RequirementRepoService(db)
 
 
+async def _project_show_payload(service: ProjectService, project) -> dict:
+    """E79 Q4a: show = base + lead + members."""
+    from opentask.services.project_member.service import ProjectMemberService
+
+    base = service.to_response(project)
+    data = base.model_dump() if hasattr(base, "model_dump") else dict(base)
+    extras = await ProjectMemberService(service.db).enrich_show(project)
+    data.update(extras)
+    return data
+
+
 # ============================================================================
 # 项目路由
 # ============================================================================
@@ -62,15 +73,33 @@ async def create_project(
     current_user: UserModel = Depends(authenticate),
     ws_ctx=Depends(get_optional_workspace_context),
 ):
-    """创建项目（可选 X-Workspace-Id：写入 workspace_id）；有工作区时创建者自动 watch"""
+    """创建项目（可选 X-Workspace-Id：写入 workspace_id）；有工作区时创建者自动 watch。
+    E72: 可选 template_id → 种子里程碑（需工作区上下文）。
+    """
     workspace, _member, user = ws_ctx
     # 部门归属快照：取创建人主部门写入（无归属则保持 NULL）
     dept_id = await RbacService(service.db).get_primary_dept_id(user)
+    template_id = getattr(dto, "template_id", None)
+    if template_id and workspace is not None:
+        from opentask.services.project_template.service import ProjectTemplateService
+
+        data = await ProjectTemplateService(service.db).apply(
+            workspace_id=workspace.id,
+            template_id=template_id,
+            name=dto.name,
+            description=dto.description,
+            starts_at=getattr(dto, "starts_at", None),
+            user_id=str(user.id),
+            dept_id=dept_id,
+        )
+        return success_response(data=data["project"], message="项目创建成功")
     project = await service.create(
         dto,
         dept_id=dept_id,
         workspace_id=workspace.id if workspace else None,
     )
+    if getattr(dto, "starts_at", None) is not None:
+        project = await service.update(project.id, starts_at=dto.starts_at)
     if workspace is not None:
         from opentask.services.project_watcher.service import ProjectWatcherService
 
@@ -79,7 +108,7 @@ async def create_project(
             workspace_id=workspace.id,
             user_id=str(user.id),
         )
-    return success_response(data=service.to_response(project), message="项目创建成功")
+    return success_response(data=await _project_show_payload(service, project), message="项目创建成功")
 
 
 @router.get("")
@@ -106,34 +135,96 @@ async def list_projects(
         workspace_id=ws_id,
         allowed_workspace_ids=allowed,
     )
-    return success_response(data=[service.to_response(p) for p in projects])
+    from opentask.services.project_member.service import ProjectMemberService
+
+    pm = ProjectMemberService(service.db)
+    counts = await pm.member_counts_for_projects([p.id for p in projects])
+    rows = []
+    for p in projects:
+        base = service.to_response(p)
+        data = base.model_dump() if hasattr(base, "model_dump") else dict(base)
+        data.update(await pm.enrich_list_item(p, counts=counts))
+        data.pop("members", None)
+        data.pop("lead", None)
+        rows.append(data)
+    return success_response(data=rows)
 
 
 @router.get("/{project_id}")
 async def get_project(
     project_id: str,
     service: ProjectService = Depends(get_project_service),
+    current_user: UserModel = Depends(authenticate),
 ):
-    """获取单个项目"""
+    """获取单个项目（E15：校验实体 workspace 成员资格）"""
     project = await service.get_by_id(project_id)
-    return success_response(data=service.to_response(project))
+    await ensure_entity_workspace_access(service.db, str(current_user.id), project.workspace_id)
+    return success_response(data=await _project_show_payload(service, project))
 
 
 class ProjectUpdateBody(BaseModel):
-    """项目更新请求体（全部可选）"""
+    """项目更新请求体（全部可选；E79: lead_id）"""
     name: str | None = None
     description: str | None = None
     starts_at: datetime | None = None
     target_date: datetime | None = None
+    lead_id: str | None = None  # E79: null clears lead
 
 
 @router.put("/{project_id}")
+@router.patch("/{project_id}")
 async def update_project(
     project_id: str,
     body: ProjectUpdateBody = Body(...),
     service: ProjectService = Depends(get_project_service),
+    current_user: UserModel = Depends(authenticate),
+    ws_ctx=Depends(get_optional_workspace_context),
 ):
-    """更新项目（含 starts_at / target_date）"""
+    """更新项目（含 starts_at / target_date / E79 lead_id；E15：成员校验）"""
+    from opentask.services.project_member.service import ProjectMemberService, require_writer
+
+    existing = await service.get_by_id(project_id)
+    await ensure_entity_workspace_access(service.db, str(current_user.id), existing.workspace_id)
+
+    if "lead_id" in body.model_fields_set:
+        workspace, member, _user = ws_ctx
+        if workspace is None or existing.workspace_id is None or (
+            workspace.id != existing.workspace_id
+        ):
+            # Prefer explicit WS context matching the project for lead writes
+            from opentask.api.workspace.deps import require_workspace_context as _rwc
+            # Fall back: load membership in project's workspace
+            from sqlalchemy import select as _select
+            from opentask.models.workspace.model import WorkspaceMember as _WM
+
+            if existing.workspace_id is None:
+                raise HTTPException(status_code=400, detail="项目无工作区，无法设置 lead")
+            mem_q = await service.db.execute(
+                _select(_WM).where(
+                    _WM.workspace_id == existing.workspace_id,
+                    _WM.user_id == str(current_user.id),
+                )
+            )
+            member = mem_q.scalar_one_or_none()
+            if member is None:
+                raise HTTPException(status_code=404, detail="项目不存在")
+            require_writer(member)
+            await ProjectMemberService(service.db).set_lead(
+                project_id=project_id,
+                workspace_id=existing.workspace_id,
+                user_id=body.lead_id,
+            )
+        else:
+            require_writer(member)
+            await ProjectMemberService(service.db).set_lead(
+                project_id=project_id,
+                workspace_id=workspace.id,
+                user_id=body.lead_id,
+            )
+        project = await service.get_by_id(project_id)
+    else:
+        project = existing
+
     kwargs = {}
     if "name" in body.model_fields_set:
         kwargs["name"] = body.name
@@ -143,16 +234,20 @@ async def update_project(
         kwargs["starts_at"] = body.starts_at
     if "target_date" in body.model_fields_set:
         kwargs["target_date"] = body.target_date
-    project = await service.update(project_id, **kwargs)
-    return success_response(data=service.to_response(project), message="项目更新成功")
+    if kwargs:
+        project = await service.update(project_id, **kwargs)
+    return success_response(data=await _project_show_payload(service, project), message="项目更新成功")
 
 
 @router.delete("/{project_id}")
 async def delete_project(
     project_id: str,
     service: ProjectService = Depends(get_project_service),
+    current_user: UserModel = Depends(authenticate),
 ):
-    """删除项目"""
+    """删除项目（E15：成员校验）"""
+    existing = await service.get_by_id(project_id)
+    await ensure_entity_workspace_access(service.db, str(current_user.id), existing.workspace_id)
     await service.delete(project_id)
     return success_response(message="项目删除成功")
 
@@ -320,12 +415,21 @@ class MilestoneUpdateBody(BaseModel):
 @milestones_router.get("")
 async def list_milestones(
     project_id: str,
+    status: str | None = Query(None, description="E81: planned|done；省略=全部"),
     ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
     db: AsyncSession = Depends(get_session),
 ):
     ws, _member, _user = ctx
-    rows = await MilestoneService(db).list(project_id=project_id, workspace_id=ws.id)
-    return success_response(data=[serialize_milestone(r) for r in rows])
+    svc = MilestoneService(db)
+    rows = await svc.list(project_id=project_id, workspace_id=ws.id, status=status)
+    counts = await svc.count_issues_by_milestone(
+        project_id=project_id,
+        workspace_id=ws.id,
+        milestone_ids=[r.id for r in rows],
+    )
+    return success_response(
+        data=[serialize_milestone(r, issue_count=counts.get(r.id, 0)) for r in rows]
+    )
 
 
 @milestones_router.post("")
@@ -337,7 +441,8 @@ async def create_milestone(
 ):
     ws, member, _user = ctx
     require_writer(member)
-    row = await MilestoneService(db).create(
+    svc = MilestoneService(db)
+    row = await svc.create(
         project_id=project_id,
         workspace_id=ws.id,
         name=body.name,
@@ -346,7 +451,13 @@ async def create_milestone(
         status=body.status,
         position=body.position,
     )
-    return success_response(data=serialize_milestone(row), message="里程碑已创建")
+    counts = await svc.count_issues_by_milestone(
+        project_id=project_id, workspace_id=ws.id, milestone_ids=[row.id]
+    )
+    return success_response(
+        data=serialize_milestone(row, issue_count=counts.get(row.id, 0)),
+        message="里程碑已创建",
+    )
 
 
 @milestones_router.get("/{milestone_id}")
@@ -357,12 +468,18 @@ async def get_milestone(
     db: AsyncSession = Depends(get_session),
 ):
     ws, _member, _user = ctx
-    row = await MilestoneService(db).get(
+    svc = MilestoneService(db)
+    row = await svc.get(
         milestone_id, project_id=project_id, workspace_id=ws.id
     )
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="里程碑不存在")
-    return success_response(data=serialize_milestone(row))
+    counts = await svc.count_issues_by_milestone(
+        project_id=project_id, workspace_id=ws.id, milestone_ids=[row.id]
+    )
+    return success_response(
+        data=serialize_milestone(row, issue_count=counts.get(row.id, 0))
+    )
 
 
 @milestones_router.patch("/{milestone_id}")
@@ -391,7 +508,13 @@ async def update_milestone(
     if "position" in body.model_fields_set:
         kwargs["position"] = body.position
     row = await svc.update(row, **kwargs)
-    return success_response(data=serialize_milestone(row), message="里程碑已更新")
+    counts = await svc.count_issues_by_milestone(
+        project_id=project_id, workspace_id=ws.id, milestone_ids=[row.id]
+    )
+    return success_response(
+        data=serialize_milestone(row, issue_count=counts.get(row.id, 0)),
+        message="里程碑已更新",
+    )
 
 
 @milestones_router.delete("/{milestone_id}")
@@ -476,14 +599,14 @@ async def list_project_watchers(
 ):
     from opentask.services.project_watcher.service import (
         ProjectWatcherService,
-        serialize_watcher,
+        enrich_watchers,
     )
 
     ws, _member, _user = ctx
     rows = await ProjectWatcherService(db).list(
         project_id=project_id, workspace_id=ws.id
     )
-    return success_response(data=[serialize_watcher(r) for r in rows])
+    return success_response(data=await enrich_watchers(db, rows))
 
 
 @watchers_router.post("")
@@ -494,14 +617,15 @@ async def watch_project(
 ):
     from opentask.services.project_watcher.service import (
         ProjectWatcherService,
-        serialize_watcher,
+        enrich_watchers,
     )
 
     ws, _member, user = ctx
     row = await ProjectWatcherService(db).watch(
         project_id=project_id, workspace_id=ws.id, user_id=str(user.id)
     )
-    return success_response(data=serialize_watcher(row), message="已订阅")
+    enriched = await enrich_watchers(db, [row])
+    return success_response(data=enriched[0] if enriched else None, message="已订阅")
 
 
 @watchers_router.delete("")
@@ -534,9 +658,80 @@ async def get_project_timeline(
     return success_response(data=data)
 
 
+
+# ============================================================================
+# Project members (E79 roster-only)
+# ============================================================================
+
+members_router = APIRouter(prefix="/{project_id}/members", tags=["Project Members"])
+
+
+class ProjectMemberBody(BaseModel):
+    user_id: str
+
+
+@members_router.get("")
+async def list_project_members(
+    project_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    from opentask.services.project_member.service import ProjectMemberService
+
+    ws, _member, _user = ctx
+    rows = await ProjectMemberService(db).list_member_summaries(
+        project_id=project_id, workspace_id=ws.id
+    )
+    return success_response(data=rows)
+
+
+@members_router.post("")
+async def add_project_member(
+    project_id: str,
+    body: ProjectMemberBody,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    from opentask.services.project_member.service import ProjectMemberService, require_writer, user_summary
+    from opentask.models.user.model import UserModel as _UM
+    from sqlalchemy import select as _select
+
+    ws, member, _user = ctx
+    require_writer(member)
+    row = await ProjectMemberService(db).add_member(
+        project_id=project_id, workspace_id=ws.id, user_id=body.user_id
+    )
+    uq = await db.execute(_select(_UM).where(_UM.id == str(row.user_id)))
+    summary = user_summary(uq.scalar_one_or_none(), str(row.user_id)) or {
+        "id": str(row.user_id),
+        "name": None,
+        "sso_name": None,
+        "sso_account": None,
+    }
+    return success_response(data=summary, message="已加入项目成员")
+
+
+@members_router.delete("/{user_id}")
+async def remove_project_member(
+    project_id: str,
+    user_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    from opentask.services.project_member.service import ProjectMemberService, require_writer
+
+    ws, member, _user = ctx
+    require_writer(member)
+    await ProjectMemberService(db).remove_member(
+        project_id=project_id, workspace_id=ws.id, user_id=user_id
+    )
+    return success_response(message="已移除项目成员")
+
+
 # 将子路由器添加到主路由器
 router.include_router(repo_router)
 router.include_router(milestones_router)
 router.include_router(health_router)
 router.include_router(watchers_router)
+router.include_router(members_router)
 router.include_router(requirement_repo_router)

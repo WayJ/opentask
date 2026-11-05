@@ -32,14 +32,18 @@ export interface CapacityHintSample {
   name: string;
   completedIssueCount: number;
   completedPoints?: number | null;
+  completedHours?: number | null;
 }
 
 export interface CapacityHint {
   basis: 'history' | 'members';
+  /** E16: points preferred; issues/members are fallbacks */
+  unit?: 'points' | 'issues' | 'members';
   suggestedCapacity: number;
   lookbackN: number;
   samples: CapacityHintSample[];
   cycleId?: string | null;
+  currentLoad?: { issueCount: number; points: number; hours: number } | null;
 }
 
 export function fetchCycles(params?: { status?: CycleStatus }) {

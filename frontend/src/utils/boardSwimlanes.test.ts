@@ -58,3 +58,43 @@ describe('buildBoardSwimlanes', () => {
     expect(lanes.some(l => l.key === 'medium')).toBe(true);
   });
 });
+
+describe('buildBoardSwimlanes cf:<key> (E37)', () => {
+  it('builds lanes from single_select custom field', () => {
+    const issues = [
+      issue({
+        id: '1',
+        title: 'A',
+        status: 'open',
+        customFields: [
+          {
+            key: 'severity',
+            type: 'single_select',
+            value: 's1',
+            options: [{ value: 's1', label: 'S1' }]
+          }
+        ]
+      } as any),
+      issue({
+        id: '2',
+        title: 'B',
+        status: 'in_progress',
+        customFields: [
+          {
+            key: 'severity',
+            type: 'single_select',
+            value: 's1',
+            options: [{ value: 's1', label: 'S1' }]
+          }
+        ]
+      } as any),
+      issue({ id: '3', title: 'C', status: 'open', customFields: [] } as any)
+    ];
+    const lanes = buildBoardSwimlanes(issues, 'cf:severity' as any, false);
+    expect(lanes.map(l => l.key).sort()).toEqual(['__empty__', 's1']);
+    const s1 = lanes.find(l => l.key === 's1')!;
+    expect(s1.label).toBe('S1');
+    expect(s1.columns.open.map(i => i.id)).toEqual(['1']);
+    expect(s1.columns.in_progress.map(i => i.id)).toEqual(['2']);
+  });
+});

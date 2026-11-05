@@ -23,6 +23,7 @@ export interface DerivedListStateFromSavedView {
   swimlaneBy: SwimlaneBy;
   hideEmptyLanes: boolean;
   fields: IssueDisplayFields;
+  customFieldKeys: string[];
   activeSavedViewId: string;
 }
 
@@ -94,6 +95,7 @@ export function deriveListStateFromSavedView(view: SavedView): DerivedListStateF
     swimlaneBy: pickSwimlane(view.display, normalized.swimlaneBy),
     hideEmptyLanes: pickHideEmpty(view.display, normalized.hideEmptyLanes),
     fields: pickFields(view.display, normalized.fields),
+    customFieldKeys: [...(normalized.customFieldKeys || [])],
     activeSavedViewId: view.id
   };
 }

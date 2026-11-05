@@ -33,6 +33,8 @@ const title = computed(() => {
       return '更改优先级';
     case 'labels':
       return '设置标签';
+    case 'estimate':
+      return '设置估点';
     default:
       return '';
   }
@@ -89,6 +91,25 @@ async function applyStatus(status: Api.Issue.IssueStatus) {
       return;
     }
     window.$message?.success?.('状态已更新');
+    closePicker();
+  } finally {
+    submitting.value = false;
+  }
+}
+
+const estimateOptions = [1, 2, 3, 5, 8, 13, 21];
+
+async function applyEstimate(points: number | null) {
+  const id = focus.focusedIssueId.value;
+  if (!id) return;
+  submitting.value = true;
+  try {
+    const { error } = await issueApi.updateIssue(id, { estimate_points: points });
+    if (error) {
+      window.$message?.error?.(error.message || '更新估点失败');
+      return;
+    }
+    window.$message?.success?.('估点已更新');
     closePicker();
   } finally {
     submitting.value = false;
@@ -204,6 +225,14 @@ async function applyLabels() {
             </NCheckbox>
           </div>
           <NButton type="primary" block :loading="submitting" @click="applyLabels">确认</NButton>
+        </NSpace>
+      </template>
+      <template v-else-if="activePicker === 'estimate'">
+        <NSpace vertical>
+          <NButton v-for="pts in estimateOptions" :key="pts" block secondary @click="applyEstimate(pts)">
+            {{ pts }} 点
+          </NButton>
+          <NButton block quaternary @click="applyEstimate(null)">清除估点</NButton>
         </NSpace>
       </template>
     </NSpin>

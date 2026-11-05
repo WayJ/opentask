@@ -94,3 +94,12 @@ contract:
     rejected: cancelled
   # 契约层无 type 概念：POST /tasks 落库时的默认 issue 类型（IssueType 词表内取值）
   default_issue_type: feature
+
+# E30 出站邮件（默认未配置 = email_configured false）
+smtp:
+  host: ""
+  port: 587
+  user: ""
+  password: ""
+  from: ""
+  tls: true

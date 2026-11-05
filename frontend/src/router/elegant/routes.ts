@@ -40,6 +40,18 @@ export const generatedRoutes: GeneratedRoute[] = [
     }
   },
   {
+    name: 'activity',
+    path: '/activity',
+    component: 'layout.base$view.activity',
+    meta: {
+      title: 'activity',
+      i18nKey: 'route.activity',
+      icon: 'mdi:timeline-text-outline',
+      order: 2.55,
+      hideInMenu: true
+    }
+  },
+  {
     name: 'agents',
     path: '/agents',
     component: 'layout.base$view.agents',
@@ -50,6 +62,29 @@ export const generatedRoutes: GeneratedRoute[] = [
     }
   },
   {
+    name: 'customers',
+    path: '/customers',
+    component: 'layout.base',
+    meta: {
+      title: 'customers',
+      i18nKey: 'route.customers',
+      icon: 'mdi:account-group-outline',
+      order: 3.5,
+      hideInMenu: true
+    },
+    children: [
+      {
+        name: 'customers_detail',
+        path: '/customers/detail',
+        component: 'view.customers_detail',
+        meta: {
+          title: 'customers_detail',
+          i18nKey: 'route.customers_detail'
+        }
+      }
+    ]
+  },
+  {
     name: 'dashboard',
     path: '/dashboard',
     component: 'layout.base$view.dashboard',
@@ -57,7 +92,8 @@ export const generatedRoutes: GeneratedRoute[] = [
       title: 'dashboard',
       i18nKey: 'route.dashboard',
       icon: 'mdi:chart-line',
-      order: 10
+      order: 10,
+      hideInMenu: true
     }
   },
   {
@@ -68,7 +104,8 @@ export const generatedRoutes: GeneratedRoute[] = [
       title: 'home',
       i18nKey: 'route.home',
       icon: 'mdi:view-dashboard-outline',
-      order: 0
+      order: 0,
+      hideInMenu: true
     }
   },
   {
@@ -92,7 +129,40 @@ export const generatedRoutes: GeneratedRoute[] = [
       title: 'inbox',
       i18nKey: 'route.inbox',
       icon: 'mdi:bell-outline',
-      order: 2.5,
+      order: 1
+    }
+  },
+  {
+    name: 'initiatives',
+    path: '/initiatives',
+    component: 'layout.base',
+    meta: {
+      title: 'initiatives',
+      i18nKey: 'route.initiatives',
+      icon: 'mdi:flag-variant',
+      order: 4
+    },
+    children: [
+      {
+        name: 'initiatives_detail',
+        path: '/initiatives/detail',
+        component: 'view.initiatives_detail',
+        meta: {
+          title: 'initiatives_detail',
+          i18nKey: 'route.initiatives_detail'
+        }
+      }
+    ]
+  },
+  {
+    name: 'insights',
+    path: '/insights',
+    component: 'layout.base$view.insights',
+    meta: {
+      title: 'insights',
+      i18nKey: 'route.insights',
+      icon: 'mdi:chart-box-outline',
+      order: 2.6,
       hideInMenu: true
     }
   },
@@ -115,8 +185,8 @@ export const generatedRoutes: GeneratedRoute[] = [
     meta: {
       title: 'issue',
       i18nKey: 'route.issue',
-      icon: 'mdi:clipboard-text-outline',
-      order: 4
+      icon: 'mdi:checkbox-marked-circle-outline',
+      order: 2
     },
     children: [
       {
@@ -188,6 +258,16 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'issue_list',
           i18nKey: 'route.issue_list',
           icon: 'mdi:format-list-bulleted'
+        }
+      },
+      {
+        name: 'issue_trash',
+        path: '/issue/trash',
+        component: 'view.issue_trash',
+        meta: {
+          title: 'issue_trash',
+          i18nKey: 'route.issue_trash',
+          icon: 'mdi:delete-restore'
         }
       }
     ]
@@ -319,7 +399,8 @@ export const generatedRoutes: GeneratedRoute[] = [
       title: 'manage',
       i18nKey: 'route.manage',
       icon: 'carbon:cloud-service-management',
-      order: 9
+      order: 9,
+      hideInMenu: true
     },
     children: [
       {
@@ -419,6 +500,97 @@ export const generatedRoutes: GeneratedRoute[] = [
     ]
   },
   {
+    name: 'requests',
+    path: '/requests',
+    component: 'layout.base',
+    meta: {
+      title: 'requests',
+      i18nKey: 'route.requests',
+      icon: 'mdi:message-text-outline',
+      order: 3.6,
+      hideInMenu: true
+    },
+    children: [
+      {
+        name: 'requests_detail',
+        path: '/requests/detail',
+        component: 'view.requests_detail',
+        meta: {
+          title: 'requests_detail',
+          i18nKey: 'route.requests_detail'
+        }
+      }
+    ]
+  },
+  {
+    name: 'search',
+    path: '/search',
+    component: 'layout.base$view.search',
+    meta: {
+      title: 'search',
+      i18nKey: 'route.search',
+      icon: 'mdi:magnify',
+      order: 0,
+      hideInMenu: true
+    }
+  },
+  {
+    name: 'settings',
+    path: '/settings',
+    component: 'layout.base',
+    meta: {
+      title: 'settings',
+      i18nKey: 'route.settings'
+    },
+    children: [
+      {
+        name: 'settings_forms',
+        path: '/settings/forms',
+        component: 'view.settings_forms',
+        meta: {
+          title: 'settings_forms',
+          i18nKey: 'route.settings_forms'
+        }
+      },
+      {
+        name: 'settings_notifications',
+        path: '/settings/notifications',
+        component: 'view.settings_notifications',
+        meta: {
+          title: 'settings_notifications',
+          i18nKey: 'route.settings_notifications'
+        }
+      },
+      {
+        name: 'settings_recurrences',
+        path: '/settings/recurrences',
+        component: 'view.settings_recurrences',
+        meta: {
+          title: 'settings_recurrences',
+          i18nKey: 'route.settings_recurrences'
+        }
+      },
+      {
+        name: 'settings_sla',
+        path: '/settings/sla',
+        component: 'view.settings_sla',
+        meta: {
+          title: 'settings_sla',
+          i18nKey: 'route.settings_sla'
+        }
+      },
+      {
+        name: 'settings_webhooks',
+        path: '/settings/webhooks',
+        component: 'view.settings_webhooks',
+        meta: {
+          title: 'settings_webhooks',
+          i18nKey: 'route.settings_webhooks'
+        }
+      }
+    ]
+  },
+  {
     name: 'triage',
     path: '/triage',
     component: 'layout.base$view.triage',
@@ -428,28 +600,6 @@ export const generatedRoutes: GeneratedRoute[] = [
       icon: 'mdi:inbox-arrow-down',
       order: 2.4,
       hideInMenu: true
-    }
-  },
-  {
-    name: 'initiatives',
-    path: '/initiatives',
-    component: 'layout.base$view.initiatives',
-    meta: {
-      title: 'initiatives',
-      i18nKey: 'route.initiatives',
-      icon: 'mdi:flag-variant',
-      order: 2.5
-    }
-  },
-  {
-    name: 'initiatives_detail',
-    path: '/initiatives/detail',
-    component: 'layout.base$view.initiatives_detail',
-    meta: {
-      title: 'initiatives_detail',
-      i18nKey: 'route.initiatives_detail',
-      hideInMenu: true,
-      activeMenu: 'initiatives'
     }
   },
   {
@@ -613,7 +763,7 @@ export const generatedRoutes: GeneratedRoute[] = [
       title: 'workflow',
       i18nKey: 'route.workflow',
       icon: 'mdi:folder-multiple-outline',
-      order: 1
+      order: 5
     },
     children: [
       {
@@ -665,9 +815,29 @@ export const generatedRoutes: GeneratedRoute[] = [
     component: 'layout.base',
     meta: {
       title: 'workspace',
-      i18nKey: 'route.workspace'
+      i18nKey: 'route.workspace',
+      icon: 'mdi:office-building-outline',
+      order: 3
     },
     children: [
+      {
+        name: 'workspace_automations',
+        path: '/workspace/automations',
+        component: 'view.workspace_automations',
+        meta: {
+          title: 'workspace_automations',
+          i18nKey: 'route.workspace_automations'
+        }
+      },
+      {
+        name: 'workspace_custom-fields',
+        path: '/workspace/custom-fields',
+        component: 'view.workspace_custom-fields',
+        meta: {
+          title: 'workspace_custom-fields',
+          i18nKey: 'route.workspace_custom-fields'
+        }
+      },
       {
         name: 'workspace_cycles',
         path: '/workspace/cycles',
@@ -702,6 +872,15 @@ export const generatedRoutes: GeneratedRoute[] = [
         meta: {
           title: 'workspace_members',
           i18nKey: 'route.workspace_members'
+        }
+      },
+      {
+        name: 'workspace_project-templates',
+        path: '/workspace/project-templates',
+        component: 'view.workspace_project-templates',
+        meta: {
+          title: 'workspace_project-templates',
+          i18nKey: 'route.workspace_project-templates'
         }
       }
     ]

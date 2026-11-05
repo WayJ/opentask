@@ -16,7 +16,10 @@ const customRoutes: CustomRoute[] = [
     meta: {
       title: 'workflow',
       i18nKey: 'route.workflow',
-      order: 1
+      icon: 'mdi:folder-multiple-outline',
+      order: 5,
+      // E13 follow-up: Projects 归入 Workspace；顶层 workflow 仅保留深链
+      hideInMenu: true
     },
     children: [
       {
@@ -27,15 +30,6 @@ const customRoutes: CustomRoute[] = [
           title: 'workflow_project-detail',
           i18nKey: 'route.workflow_project-detail',
           hideInMenu: true
-        }
-      },
-      {
-        name: 'workflow_projects',
-        path: '/workflow/projects',
-        component: 'view.workflow_projects',
-        meta: {
-          title: 'workflow_projects',
-          i18nKey: 'route.workflow_projects'
         }
       },
       {
@@ -67,7 +61,8 @@ const customRoutes: CustomRoute[] = [
     meta: {
       title: 'work-management',
       i18nKey: 'route.work-management',
-      order: 2
+      order: 90,
+      hideInMenu: true
     },
     children: [
       {
@@ -189,7 +184,8 @@ const customRoutes: CustomRoute[] = [
     meta: {
       title: 'issue',
       i18nKey: 'route.issue',
-      order: 3
+      icon: 'mdi:checkbox-marked-circle-outline',
+      order: 2
     },
     children: [
       {
@@ -199,6 +195,15 @@ const customRoutes: CustomRoute[] = [
         meta: {
           title: 'issue_list',
           i18nKey: 'route.issue_list'
+        }
+      },
+      {
+        name: 'issue_trash',
+        path: '/issue/trash',
+        component: 'view.issue_trash',
+        meta: {
+          title: 'issue_trash',
+          i18nKey: 'route.issue_trash'
         }
       },
       {
@@ -261,6 +266,189 @@ const customRoutes: CustomRoute[] = [
         }
       }
     ]
+  },
+  {
+    name: 'workspace',
+    path: '/workspace',
+    component: 'layout.base',
+    meta: {
+      title: 'workspace',
+      i18nKey: 'route.workspace',
+      icon: 'mdi:office-building-outline',
+      order: 3
+    },
+    children: [
+      {
+        // Reuse view.workflow_projects; path kept for deep-link compatibility
+        name: 'workflow_projects',
+        path: '/workflow/projects',
+        component: 'view.workflow_projects',
+        meta: {
+          title: 'workflow_projects',
+          i18nKey: 'route.workflow_projects',
+          icon: 'mdi:clipboard-list-outline',
+          order: 1
+        }
+      },
+      {
+        name: 'workspace_cycles',
+        path: '/workspace/cycles',
+        component: 'view.workspace_cycles',
+        meta: {
+          title: 'workspace_cycles',
+          i18nKey: 'route.workspace_cycles',
+          order: 2
+        }
+      },
+      {
+        name: 'workspace_labels',
+        path: '/workspace/labels',
+        component: 'view.workspace_labels',
+        meta: {
+          title: 'workspace_labels',
+          i18nKey: 'route.workspace_labels',
+          order: 3
+        }
+      },
+      {
+        name: 'workspace_members',
+        path: '/workspace/members',
+        component: 'view.workspace_members',
+        meta: {
+          title: 'workspace_members',
+          i18nKey: 'route.workspace_members',
+          order: 4
+        }
+      },
+      {
+        name: 'workspace_issue-templates',
+        path: '/workspace/issue-templates',
+        component: 'view.workspace_issue-templates',
+        meta: {
+          title: 'workspace_issue-templates',
+          i18nKey: 'route.workspace_issue-templates',
+          order: 5
+        }
+      },
+      {
+        name: 'workspace_project-templates',
+        path: '/workspace/project-templates',
+        component: 'view.workspace_project-templates',
+        meta: {
+          title: 'workspace_project-templates',
+          i18nKey: 'route.workspace_project-templates',
+          order: 5.5
+        }
+      },
+      {
+        name: 'workspace_custom-fields',
+        path: '/workspace/custom-fields',
+        component: 'view.workspace_custom-fields',
+        meta: {
+          title: 'workspace_custom-fields',
+          i18nKey: 'route.workspace_custom-fields',
+          order: 6
+        }
+      },
+      {
+        name: 'workspace_automations',
+        path: '/workspace/automations',
+        component: 'view.workspace_automations',
+        meta: {
+          title: 'workspace_automations',
+          i18nKey: 'route.workspace_automations',
+          order: 7
+        }
+      }
+    ]
+  },
+  {
+    name: 'settings',
+    path: '/settings',
+    component: 'layout.base',
+    meta: {
+      title: 'settings',
+      i18nKey: 'route.settings',
+      icon: 'mdi:bell-cog-outline',
+      order: 9
+    },
+    children: [
+      {
+        name: 'settings_notifications',
+        path: '/settings/notifications',
+        component: 'view.settings_notifications',
+        meta: {
+          title: 'settings_notifications',
+          i18nKey: 'route.settings_notifications',
+          order: 1
+        }
+      },
+      {
+        name: 'settings_webhooks',
+        path: '/settings/webhooks',
+        component: 'view.settings_webhooks',
+        meta: {
+          title: 'settings_webhooks',
+          i18nKey: 'route.settings_webhooks',
+          order: 2
+        }
+      },
+      {
+        name: 'settings_forms',
+        path: '/settings/forms',
+        component: 'view.settings_forms',
+        meta: {
+          title: 'settings_forms',
+          i18nKey: 'route.settings_forms',
+          order: 3
+        }
+      },
+      {
+        name: 'settings_recurrences',
+        path: '/settings/recurrences',
+        component: 'view.settings_recurrences',
+        meta: {
+          title: 'settings_recurrences',
+          i18nKey: 'route.settings_recurrences',
+          order: 4
+        }
+      },
+      {
+        name: 'settings_sla',
+        path: '/settings/sla',
+        component: 'view.settings_sla',
+        meta: {
+          title: 'settings_sla',
+          i18nKey: 'route.settings_sla',
+          keepAlive: true
+        }
+      },
+
+    ]
+  },
+  {
+    name: 'public-form',
+    path: '/f/:token',
+    component: 'layout.blank$view.f',
+    meta: {
+      title: 'public-form',
+      i18nKey: 'route.public-form',
+      constant: true,
+      hideInMenu: true
+    },
+    props: true
+  },
+  {
+    name: 'public-request-status',
+    path: '/r/:token',
+    component: 'layout.blank$view.r',
+    meta: {
+      title: 'public-request-status',
+      i18nKey: 'route.public-request-status',
+      constant: true,
+      hideInMenu: true
+    },
+    props: true
   }
 ];
 
@@ -270,7 +458,12 @@ export function createStaticRoutes() {
 
   const authRoutes: ElegantRoute[] = [];
 
+  // customRoutes 优先：同名时跳过 generated，避免侧栏出现重复「工作管理/流水线」
+  const seen = new Set<string>();
   [...customRoutes, ...generatedRoutes].forEach(item => {
+    const key = String(item.name);
+    if (seen.has(key)) return;
+    seen.add(key);
     if (item.meta?.constant) {
       constantRoutes.push(item);
     } else {

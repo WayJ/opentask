@@ -1,15 +1,6 @@
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref } from 'vue';
-import {
-  type DataTableColumns,
-  NButton,
-  NCard,
-  NDataTable,
-  NInput,
-  NSelect,
-  NSpace,
-  NTag
-} from 'naive-ui';
+import { type DataTableColumns, NButton, NCard, NDataTable, NInput, NSelect, NSpace, NTag } from 'naive-ui';
 import {
   type WorkspaceInviteItem,
   type WorkspaceMemberItem,
@@ -71,10 +62,7 @@ async function load() {
   try {
     const wsId = await resolveWorkspaceId();
     workspaceId.value = wsId;
-    const [wsRes, memRes] = await Promise.all([
-      fetchWorkspace(wsId),
-      fetchWorkspaceMembers(wsId)
-    ]);
+    const [wsRes, memRes] = await Promise.all([fetchWorkspace(wsId), fetchWorkspaceMembers(wsId)]);
     if (wsRes.error) {
       window.$message?.error?.(wsRes.error.message || '加载工作区失败');
       return;
@@ -166,9 +154,7 @@ async function revokeInvite(row: WorkspaceInviteItem) {
 }
 
 function copyLink(tokenOrLink: string) {
-  const link = tokenOrLink.startsWith('http')
-    ? tokenOrLink
-    : `${window.location.origin}/invite/${tokenOrLink}`;
+  const link = tokenOrLink.startsWith('http') ? tokenOrLink : `${window.location.origin}/invite/${tokenOrLink}`;
   navigator.clipboard
     ?.writeText(link)
     .then(() => window.$message?.success?.('已复制链接'))
@@ -216,13 +202,7 @@ const memberColumns: DataTableColumns<WorkspaceMemberItem> = [
         );
       }
       if (row.userId === myUserId.value && row.role !== 'owner') {
-        nodes.push(
-          h(
-            NButton,
-            { size: 'tiny', tertiary: true, onClick: () => leave() },
-            { default: () => '离开' }
-          )
-        );
+        nodes.push(h(NButton, { size: 'tiny', tertiary: true, onClick: () => leave() }, { default: () => '离开' }));
       }
       return h(NSpace, null, { default: () => nodes });
     }
@@ -267,19 +247,13 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="h-full flex-col-stretch gap-16px overflow-hidden lt-sm:overflow-auto">
+  <div class="h-full flex-col-stretch gap-12px overflow-hidden lt-sm:overflow-auto">
     <NCard title="成员 Members" :bordered="false" class="card-wrapper">
       <NSpace vertical :size="12">
         <NSpace v-if="myRole && myRole !== 'owner'">
           <NButton @click="leave">离开工作区</NButton>
         </NSpace>
-        <NDataTable
-          :columns="memberColumns"
-          :data="members"
-          :loading="loading"
-          :bordered="false"
-          size="small"
-        />
+        <NDataTable :columns="memberColumns" :data="members" :loading="loading" :bordered="false" size="small" />
       </NSpace>
     </NCard>
 
@@ -287,24 +261,14 @@ onMounted(load);
       <NSpace vertical :size="16">
         <NSpace>
           <NInput v-model:value="inviteForm.email" placeholder="可选邮箱备注" style="width: 200px" />
-          <NSelect
-            v-model:value="inviteForm.role"
-            :options="inviteRoleOptions"
-            style="width: 120px"
-          />
+          <NSelect v-model:value="inviteForm.role" :options="inviteRoleOptions" style="width: 120px" />
           <NButton type="primary" :loading="inviting" @click="createInvite">创建邀请链接</NButton>
         </NSpace>
-        <div v-if="lastCreatedLink" class="text-13px text-gray-500 break-all">
+        <div v-if="lastCreatedLink" class="break-all text-13px text-gray-500">
           最近链接：
-          <a class="text-primary cursor-pointer" @click="copyLink(lastCreatedLink)">{{ lastCreatedLink }}</a>
+          <a class="cursor-pointer text-primary" @click="copyLink(lastCreatedLink)">{{ lastCreatedLink }}</a>
         </div>
-        <NDataTable
-          :columns="inviteColumns"
-          :data="invites"
-          :loading="loading"
-          :bordered="false"
-          size="small"
-        />
+        <NDataTable :columns="inviteColumns" :data="invites" :loading="loading" :bordered="false" size="small" />
       </NSpace>
     </NCard>
   </div>

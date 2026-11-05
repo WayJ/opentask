@@ -18,12 +18,26 @@ from opentask.api.inbox import router as inbox_router
 from opentask.api.saved_views import router as saved_views_router
 from opentask.api.display_prefs import router as display_prefs_router
 from opentask.api.cycles import router as cycles_router
+from opentask.api.search import router as search_router
 from opentask.api.favorites import router as favorites_router
 from opentask.api.triage import router as triage_router
 from opentask.api.issue_templates import router as issue_templates_router
+from opentask.api.project_templates import router as project_templates_router
 from opentask.api.initiatives import router as initiatives_router
+from opentask.api.customers import router as customers_router
+from opentask.api.customer_requests import router as customer_requests_router
+from opentask.api.insights import router as insights_router
+from opentask.api.custom_fields import router as custom_fields_router
+from opentask.api.automations import router as automations_router
+from opentask.api.webhooks import router as webhooks_router
+from opentask.api.forms import router as forms_router
+from opentask.api.recurrences import router as recurrences_router
+from opentask.api.sla import router as sla_router
+from opentask.api.public_forms import router as public_forms_router
+from opentask.api.public_customer_requests import router as public_customer_requests_router
 from opentask.api.entity_documents import router as entity_documents_router
 from opentask.api.issue_vcs import router as issue_vcs_router
+from opentask.api.issue_links import router as issue_links_router
 from opentask.api.webhooks_github import router as webhooks_github_router
 from opentask.api.invites import router as invites_router
 from opentask.api.tags.router import tags_router, groups_router as tag_groups_router
@@ -110,12 +124,26 @@ class App(fastapi.FastAPI):
         self.include_router(saved_views_router)
         self.include_router(display_prefs_router)
         self.include_router(cycles_router)
+        self.include_router(search_router)
         self.include_router(favorites_router)
         self.include_router(triage_router)
         self.include_router(issue_templates_router)
+        self.include_router(project_templates_router)
         self.include_router(initiatives_router)
+        self.include_router(customers_router)
+        self.include_router(customer_requests_router)
+        self.include_router(insights_router)
+        self.include_router(custom_fields_router)
+        self.include_router(automations_router)
+        self.include_router(webhooks_router)
+        self.include_router(forms_router)
+        self.include_router(recurrences_router)
+        self.include_router(sla_router)
+        self.include_router(public_forms_router)
+        self.include_router(public_customer_requests_router)
         self.include_router(entity_documents_router)
         self.include_router(issue_vcs_router)
+        self.include_router(issue_links_router)
         self.include_router(webhooks_github_router)
         self.include_router(invites_router)
         self.include_router(tags_router)

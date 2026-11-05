@@ -8,6 +8,7 @@ import { useCommandPalette } from './use-command-palette';
 import { useIssueFocus } from './use-issue-focus';
 import { useIssueFieldPickers } from './use-issue-field-pickers';
 import { useIssueListViewMode } from './use-issue-list-view-mode';
+import { useIssueSelection } from './use-issue-selection';
 
 /**
  * Global app hotkeys:
@@ -21,6 +22,7 @@ export function useAppHotkeys() {
   const focus = useIssueFocus();
   const pickers = useIssueFieldPickers();
   const listView = useIssueListViewMode();
+  const selection = useIssueSelection();
   const router = useRouter();
   const authStore = useAuthStore();
 
@@ -43,15 +45,25 @@ export function useAppHotkeys() {
       return;
     }
 
+    if (event.key === 'Escape' && selection.hasSelection.value && !ignoreWhenEditable(event.target)) {
+      event.preventDefault();
+      selection.clear();
+      return;
+    }
+
+    const orderedIds = selection.getIssueOrder();
+
     const action = resolveIssueHotkeyAction({
       key: event.key,
       metaKey: event.metaKey,
       ctrlKey: event.ctrlKey,
       altKey: event.altKey,
+      shiftKey: event.shiftKey,
       paletteOpen: palette.isOpen.value,
       editable: ignoreWhenEditable(event.target),
       hasFocusedIssue: Boolean(focus.focusedIssueId.value),
-      onIssueListRoute: router.currentRoute.value.path === '/issue/list'
+      onIssueListRoute: router.currentRoute.value.path === '/issue/list',
+      hasSelection: selection.hasSelection.value
     });
 
     if (!action) return;
@@ -61,6 +73,9 @@ export function useAppHotkeys() {
     switch (action.type) {
       case 'create':
         router.push('/issue/create');
+        break;
+      case 'create_from_template':
+        router.push({ path: '/issue/create', query: { pickTemplate: '1' } });
         break;
       case 'status':
         pickers.openStatus();
@@ -97,6 +112,19 @@ export function useAppHotkeys() {
       }
       case 'toggle_view':
         listView.toggle();
+        break;
+      case 'toggle_select': {
+        const id = focus.focusedIssueId.value;
+        if (id) selection.toggle(id);
+        break;
+      }
+      case 'range_select': {
+        const id = focus.focusedIssueId.value;
+        if (id) selection.selectRange(id, orderedIds);
+        break;
+      }
+      case 'clear_selection':
+        selection.clear();
         break;
       default:
         break;

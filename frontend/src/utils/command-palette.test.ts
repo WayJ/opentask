@@ -45,7 +45,13 @@ describe('buildNavActions + groups', () => {
       inbox: 'Inbox',
       triage: 'Triage'
     });
-    expect(actions.map(a => a.id)).toEqual(['nav.issues', 'nav.create_issue', 'nav.projects', 'nav.inbox', 'nav.triage']);
+    expect(actions.map(a => a.id)).toEqual([
+      'nav.issues',
+      'nav.create_issue',
+      'nav.projects',
+      'nav.inbox',
+      'nav.triage'
+    ]);
     actions[0].run();
     expect(nav).toHaveBeenCalledWith('/issue/list');
 

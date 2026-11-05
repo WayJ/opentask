@@ -62,7 +62,7 @@ def test_websocket_router():
             route_paths.append(route.path)
             print(f"  - {route.path}")
 
-    expected_routes = ["/ws/hub", "/ws/hub/backend", "/ws/hub/agent"]
+    expected_routes = ["/ws/hub", "/ws/hub/backend", "/ws/hub/agent", "/ws/workspace"]
     for expected in expected_routes:
         assert expected in route_paths, f"Expected route '{expected}' not found"
 

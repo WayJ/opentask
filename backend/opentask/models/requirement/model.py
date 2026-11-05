@@ -132,6 +132,14 @@ class Project(Base):
     health_updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     health_updated_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
+    # E79: project lead (roster-only; does not change ACL)
+    lead_id: Mapped[str | None] = mapped_column(
+        String(36),
+        nullable=True,
+        index=True,
+        comment="E79 project lead (roster-only)",
+    )
+
     # 关联
     requirements = relationship("Requirement", back_populates="project", cascade="all, delete-orphan")
     repos = relationship("RepoConfig", back_populates="project", cascade="all, delete-orphan")

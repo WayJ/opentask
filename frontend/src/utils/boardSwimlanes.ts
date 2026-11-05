@@ -1,9 +1,10 @@
 /**
  * E7-S3：看板行维泳道 × 列维 status（客户端矩阵；展示-only）。
+ * E37：行维支持 cf:<field_key>。
  */
 import { issueStatusOptions } from '@/constants/issue';
 import type { Api } from '@/typings/api';
-import { type GroupByKey, groupIssuesBy } from './groupIssuesBy';
+import { type GroupByKey, groupIssuesBy, isCfDim } from './groupIssuesBy';
 import type { SwimlaneBy } from './display-prefs';
 
 export type BoardStatus = Api.Issue.IssueStatus;
@@ -46,6 +47,7 @@ function laneIsEmpty(columns: Record<string, Api.Issue.Issue[]>): boolean {
 }
 
 function swimlaneToGroupBy(swimlaneBy: Exclude<SwimlaneBy, 'none'>): Exclude<GroupByKey, 'none'> {
+  if (isCfDim(swimlaneBy)) return swimlaneBy;
   return swimlaneBy;
 }
 

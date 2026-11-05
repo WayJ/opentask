@@ -34,11 +34,7 @@ describe('groupFavoritesByType', () => {
 
 describe('findFavoriteId', () => {
   it('returns id when pinned', () => {
-    const id = findFavoriteId(
-      [{ id: 'f1', targetType: 'project', targetId: 'p1', position: 0 }],
-      'project',
-      'p1'
-    );
+    const id = findFavoriteId([{ id: 'f1', targetType: 'project', targetId: 'p1', position: 0 }], 'project', 'p1');
     expect(id).toBe('f1');
   });
 

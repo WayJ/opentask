@@ -2,11 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { NButton, NCard, NSpace, NSpin, NTag } from 'naive-ui';
-import {
-  type WorkspaceInviteItem,
-  fetchAcceptInvite,
-  fetchPreviewInvite
-} from '@/service/api/workspace';
+import { type WorkspaceInviteItem, fetchAcceptInvite, fetchPreviewInvite } from '@/service/api/workspace';
 import { localStg } from '@/utils/storage';
 
 defineOptions({ name: 'InviteLandingPage' });
@@ -88,7 +84,8 @@ onMounted(loadPreview);
         </NSpace>
         <NSpace v-else-if="preview" vertical :size="16">
           <div>
-            工作区：<strong>{{ preview.workspaceName || preview.workspaceId }}</strong>
+            工作区：
+            <strong>{{ preview.workspaceName || preview.workspaceId }}</strong>
           </div>
           <div>
             角色：
@@ -98,9 +95,7 @@ onMounted(loadPreview);
           <div class="text-13px text-gray-500">过期：{{ preview.expiresAt }}</div>
 
           <template v-if="preview.status === 'pending'">
-            <NButton v-if="isLogin" type="primary" block :loading="accepting" @click="accept">
-              接受邀请
-            </NButton>
+            <NButton v-if="isLogin" type="primary" block :loading="accepting" @click="accept">接受邀请</NButton>
             <NSpace v-else vertical>
               <NButton type="primary" block @click="goRegister">注册并加入</NButton>
               <NButton block @click="goLogin">已有账号？登录后接受</NButton>

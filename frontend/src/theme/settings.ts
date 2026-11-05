@@ -4,11 +4,11 @@ export const themeSettings: App.Theme.ThemeSetting = {
   grayscale: false,
   colourWeakness: false,
   recommendColor: false,
-  themeColor: '#646cff',
+  themeColor: '#5e6ad2',
   themeRadius: 6,
   otherColor: {
     info: '#2080f0',
-    success: '#52c41a',
+    success: '#27a644',
     warning: '#faad14',
     error: '#f5222d'
   },
@@ -37,7 +37,7 @@ export const themeSettings: App.Theme.ThemeSetting = {
   tab: {
     visible: true,
     cache: true,
-    height: 44,
+    height: 40,
     mode: 'chrome',
     closeTabByMiddleClick: false
   },
@@ -59,7 +59,7 @@ export const themeSettings: App.Theme.ThemeSetting = {
   },
   watermark: {
     visible: false,
-    text: 'SoybeanAdmin',
+    text: 'OpenTask',
     enableUserName: false,
     enableTime: false,
     timeFormat: 'YYYY-MM-DD HH:mm'
@@ -68,21 +68,26 @@ export const themeSettings: App.Theme.ThemeSetting = {
     light: {
       colors: {
         container: 'rgb(255, 255, 255)',
-        layout: 'rgb(247, 250, 252)',
-        inverted: 'rgb(0, 20, 40)',
-        'base-text': 'rgb(31, 31, 31)'
+        layout: 'rgb(245, 246, 246)',
+        inverted: 'rgb(1, 1, 2)',
+        'base-text': 'rgb(0, 0, 0)'
       },
       boxShadow: {
-        header: '0 1px 2px rgb(0, 21, 41, 0.08)',
-        sider: '2px 0 8px 0 rgb(29, 35, 41, 0.05)',
-        tab: '0 1px 2px rgb(0, 21, 41, 0.08)'
+        header: '0 1px 0 rgb(230, 231, 232)',
+        sider: '1px 0 0 rgb(230, 231, 232)',
+        tab: '0 1px 0 rgb(230, 231, 232)'
       }
     },
     dark: {
       colors: {
-        container: 'rgb(28, 28, 28)',
-        layout: 'rgb(18, 18, 18)',
-        'base-text': 'rgb(224, 224, 224)'
+        container: 'rgb(15, 16, 17)',
+        layout: 'rgb(1, 1, 2)',
+        'base-text': 'rgb(247, 248, 248)'
+      },
+      boxShadow: {
+        header: '0 1px 0 rgb(35, 37, 42)',
+        sider: '1px 0 0 rgb(35, 37, 42)',
+        tab: '0 1px 0 rgb(35, 37, 42)'
       }
     }
   }

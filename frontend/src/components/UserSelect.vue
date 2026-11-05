@@ -4,27 +4,30 @@ import { NAvatar, NSelect, NSpace, NText } from 'naive-ui';
 import { request } from '@/service/request';
 
 interface Props {
-  modelValue?: string | null;
+  modelValue?: string | string[] | null;
   placeholder?: string;
   clearable?: boolean;
   disabled?: boolean;
   size?: 'small' | 'medium' | 'large';
+  multiple?: boolean;
+  max?: number;
 }
 
 interface PropsEmits {
-  (e: 'update:modelValue', value: string | null): void;
+  (e: 'update:modelValue', value: string | string[] | null): void;
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   placeholder: '选择用户',
   clearable: true,
   disabled: false,
-  size: 'medium'
+  size: 'medium',
+  multiple: false,
+  max: 10
 });
 
-defineEmits<PropsEmits>();
+const emit = defineEmits<PropsEmits>();
 
-// 用户列表（使用简化的类型）
 interface SimpleUser {
   id: string;
   sso_account: string;
@@ -34,7 +37,6 @@ interface SimpleUser {
 const users = ref<SimpleUser[]>([]);
 const loading = ref(false);
 
-// 加载用户列表（使用不需要权限的端点）
 async function loadUsers() {
   loading.value = true;
   try {
@@ -43,14 +45,11 @@ async function loadUsers() {
       method: 'get'
     });
 
-    // 处理不同的响应格式
     let userList: SimpleUser[] = [];
 
     if (Array.isArray(response)) {
-      // 直接是数组
       userList = response;
     } else if (response && response.data && Array.isArray(response.data)) {
-      // 响应格式：{data: [...], error: null}
       userList = response.data;
     }
 
@@ -65,12 +64,10 @@ async function loadUsers() {
   }
 }
 
-// 初始化时加载用户
 onMounted(() => {
   loadUsers();
 });
 
-// 选项列表
 const options = computed(() => {
   if (!users.value || users.value.length === 0) {
     return [];
@@ -82,22 +79,23 @@ const options = computed(() => {
   }));
 });
 
-// 处理选择
-function handleSelect(value: string | null) {
-  emit('update:modelValue', value);
+function handleSelect(value: string | string[] | null) {
+  if (props.multiple) {
+    const arr = Array.isArray(value) ? value : value ? [value] : [];
+    emit('update:modelValue', arr.slice(0, props.max));
+  } else {
+    emit('update:modelValue', (value as string | null) ?? null);
+  }
 }
 
-// 获取用户头像文字
 function getUserAvatar(user: SimpleUser): string {
   return (user.sso_name || user.sso_account || '?').charAt(0).toUpperCase();
 }
 
-// 获取用户显示名称
 function getUserLabel(user: SimpleUser): string {
   return user.sso_name || user.sso_account || '';
 }
 
-// 获取用户账号
 function getUserAccount(user: SimpleUser): string {
   return user.sso_account || '';
 }
@@ -114,6 +112,8 @@ function getUserAccount(user: SimpleUser): string {
       :size="size"
       :disabled="disabled"
       :filterable="true"
+      :multiple="multiple"
+      :max-tag-count="multiple ? 3 : undefined"
       :clear-filter-after-select="true"
       @update:value="handleSelect"
     >

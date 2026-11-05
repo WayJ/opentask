@@ -128,7 +128,7 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="h-full flex-col-stretch gap-16px overflow-hidden lt-sm:overflow-auto">
+  <div class="h-full flex-col-stretch gap-12px overflow-hidden lt-sm:overflow-auto">
     <NCard title="标签 Labels" :bordered="false" class="card-wrapper sm:flex-1-hidden">
       <NSpace vertical :size="16">
         <NSpace>

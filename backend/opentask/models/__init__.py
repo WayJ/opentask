@@ -41,21 +41,41 @@ from opentask.models.issue import (
     IssueTimeline,
     IssueTag,
     IssueReaction,
+    CommentReaction,
 )
+from opentask.models.notification_preference import NotificationPreference
 from opentask.models.issue_collection import IssueCollection
 from opentask.models.workspace import Workspace, WorkspaceMember, WorkspaceInvite
 from opentask.models.notification import Notification
 from opentask.models.issue_template import IssueTemplate
-from opentask.models.initiative import Initiative, InitiativeProject
+from opentask.models.project_template import ProjectTemplate
+from opentask.models.initiative import Initiative, InitiativeProject, InitiativeRelation
 from opentask.models.entity_document import EntityDocument
 from opentask.models.issue_vcs_link import IssueVcsLink
+from opentask.models.issue_link import IssueLink
 from opentask.models.issue_saved_view import IssueSavedView
 from opentask.models.issue_display_prefs import IssueDisplayPrefs
 from opentask.models.cycle import Cycle
 from opentask.models.milestone import Milestone
 from opentask.models.project_health import ProjectHealthUpdate
 from opentask.models.project_watcher import ProjectWatcher
+from opentask.models.project_member import ProjectMember
+from opentask.models.issue_watcher import IssueWatcher
+from opentask.models.issue_assignee import IssueAssignee
+from opentask.models.activity_read_cursor import ActivityReadCursor
 from opentask.models.favorite import Favorite
+from opentask.models.customer import Customer, CustomerRequest, CustomerRequestIssue, CustomerRequestPublicReply
+from opentask.models.custom_field import CustomField, IssueCustomFieldValue, IssueFormulaCache
+from opentask.models.automation import AutomationRule, AutomationPendingAction
+from opentask.models.workspace_webhook import WorkspaceWebhook, WebhookDeliveryLog
+from opentask.models.issue_form import IssueForm
+from opentask.models.issue_recurrence import IssueRecurrence
+from opentask.models.due_reminder_delivery import DueReminderDelivery
+from opentask.models.webhook_alert_delivery import WebhookAlertDelivery
+from opentask.models.insights_saved_report import InsightsSavedReport
+from opentask.models.insights_digest_delivery import InsightsDigestDelivery
+from opentask.models.sla import SlaPolicy, IssueSlaClock
+from opentask.models.access_token import AccessToken
 from opentask.models.oauth2 import (
     OAuthAccessToken,
     OAuthAuthorizationCode,
@@ -119,9 +139,37 @@ __all__ = [
     "IssueDisplayPrefs",
     "Cycle",
     "Milestone",
+    "ProjectTemplate",
     "ProjectHealthUpdate",
     "ProjectWatcher",
+    "ProjectMember",
+    "IssueWatcher",
+    "IssueAssignee",
+    "IssueLink",
+    "ActivityReadCursor",
     "Favorite",
+    "Customer",
+    "CustomerRequest",
+    "CustomerRequestIssue",
+    "CustomerRequestPublicReply",
+    "CustomField",
+    "IssueCustomFieldValue",
+    "IssueFormulaCache",
+    "AutomationRule",
+    "AutomationPendingAction",
+    "WorkspaceWebhook",
+    "WebhookDeliveryLog",
+    "IssueForm",
+    "IssueRecurrence",
+    "DueReminderDelivery",
+    "WebhookAlertDelivery",
+    "InsightsSavedReport",
+    "InsightsDigestDelivery",
+    "SlaPolicy",
+    "IssueSlaClock",
+    "CommentReaction",
+    "NotificationPreference",
+    "AccessToken",
     "OAuthClient",
     "OAuthAuthorizationCode",
     "OAuthAccessToken",

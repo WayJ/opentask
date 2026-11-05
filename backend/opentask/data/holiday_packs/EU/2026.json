@@ -1,0 +1,18 @@
+{
+  "region": "EU",
+  "year": 2026,
+  "name": "EU common public holidays 2026",
+  "sourceNote": "Curated EU-institution common days from Commission Decision C(2025) 4899 (Brussels/Luxembourg shared days) plus Labour Day; not a full per-member-state labour calendar; static snapshot, no live API",
+  "holidays": [
+    {"date": "2026-01-01", "kind": "closed", "label": "New Year's Day"},
+    {"date": "2026-01-02", "kind": "closed", "label": "Day after New Year's Day"},
+    {"date": "2026-04-03", "kind": "closed", "label": "Good Friday"},
+    {"date": "2026-04-06", "kind": "closed", "label": "Easter Monday"},
+    {"date": "2026-05-01", "kind": "closed", "label": "Labour Day"},
+    {"date": "2026-05-14", "kind": "closed", "label": "Ascension Day"},
+    {"date": "2026-05-25", "kind": "closed", "label": "Whit Monday"},
+    {"date": "2026-11-02", "kind": "closed", "label": "All Souls' Day"},
+    {"date": "2026-12-25", "kind": "closed", "label": "Christmas Day"},
+    {"date": "2026-12-26", "kind": "closed", "label": "St Stephen's Day"}
+  ]
+}

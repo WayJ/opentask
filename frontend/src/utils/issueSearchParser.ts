@@ -1,14 +1,19 @@
 /**
- * Issue 搜索语法解析器
- * 支持 GitHub 风格的搜索语法：
- * - is:open, is:closed - 状态过滤
- * - label:bug, label:feature - 标签过滤
- * - type:bug, type:feature - 类型过滤
- * - priority:high, priority:low - 优先级过滤
- * - assignee:username - 负责人过滤
- * - project:projectName - 项目过滤
- * - 普通文本 - 标题或描述搜索
+ * Issue 搜索语法解析器（E21：真正驱动 list API）
+ * - is:open / is:closed / is:in_progress …
+ * - label:bug（客户端按 tags 名过滤）
+ * - type: / priority: / assignee:@me|me|uuid / author: / creator: / project: / cycle:
+ * - KEY-N → search
+ * - field:key:value / cf:key:value（E32 自定义字段）
+ * - 普通文本 → search
  */
+
+export interface CustomFieldFilter {
+  key: string;
+  value: string;
+  /** E46：缺省 eq；range 仅 number/date */
+  op?: 'eq' | 'gt' | 'gte' | 'lt' | 'lte';
+}
 
 export interface ParsedQuery {
   search?: string;
@@ -16,9 +21,27 @@ export interface ParsedQuery {
   labels?: string[];
   type?: string;
   priority?: string;
-  assignee?: string;
+  assignee_id?: string;
+  reporter_id?: string;
   project_id?: string;
-  [key: string]: any;
+  cycle_id?: string;
+  /** E32：field:key:value */
+  custom_fields?: CustomFieldFilter[];
+  [key: string]: unknown;
+}
+
+/** List 页 filters 形状（与 views/issue/list 对齐） */
+export interface SmartSearchListFilters {
+  search?: string;
+  status?: string;
+  type?: string;
+  priority?: string;
+  assignee_id?: string;
+  reporter_id?: string;
+  project_id?: string;
+  cycle_id?: string;
+  labels?: string[];
+  custom_fields?: CustomFieldFilter[];
 }
 
 export interface SearchToken {
@@ -27,6 +50,8 @@ export interface SearchToken {
   value: string;
   original: string;
 }
+
+const ISSUE_CODE_RE = /^[A-Za-z][A-Za-z0-9]*-\d+$/;
 
 /**
  * 解析搜索字符串为 tokens
@@ -42,7 +67,6 @@ export function parseSearchQuery(query: string): SearchToken[] {
   let lastIndex = 0;
 
   while ((match = regex.exec(query)) !== null) {
-    // 添加匹配前的文本作为普通搜索
     if (match.index > lastIndex) {
       const text = query.substring(lastIndex, match.index).trim();
       if (text) {
@@ -55,13 +79,12 @@ export function parseSearchQuery(query: string): SearchToken[] {
     }
 
     const matched = match[0];
-    const field = match[1]; // 过滤器字段
-    const value1 = match[2]; // 带冒号的值
-    const value2 = match[3]; // 引号中的值
-    const value3 = match[4]; // 普通单词
+    const field = match[1];
+    const value1 = match[2];
+    const value2 = match[3];
+    const value3 = match[4];
 
     if (field && value1) {
-      // 过滤器语法 field:value
       tokens.push({
         type: 'filter',
         field: field.toLowerCase(),
@@ -69,14 +92,12 @@ export function parseSearchQuery(query: string): SearchToken[] {
         original: matched
       });
     } else if (value2) {
-      // 引号包裹的文本
       tokens.push({
         type: 'text',
         value: value2,
         original: matched
       });
     } else if (value3) {
-      // 普通单词
       tokens.push({
         type: 'text',
         value: value3,
@@ -87,7 +108,6 @@ export function parseSearchQuery(query: string): SearchToken[] {
     lastIndex = regex.lastIndex;
   }
 
-  // 添加剩余的文本
   if (lastIndex < query.length) {
     const text = query.substring(lastIndex).trim();
     if (text) {
@@ -102,6 +122,15 @@ export function parseSearchQuery(query: string): SearchToken[] {
   return tokens;
 }
 
+function normalizeAssignee(raw: string): string {
+  const v = raw.trim();
+  if (!v) return v;
+  if (v === '@me' || v === 'me' || v.toLowerCase() === '@me') return 'me';
+  if (v.startsWith('@') && v.slice(1).toLowerCase() === 'me') return 'me';
+  if (v.startsWith('@')) return v.slice(1);
+  return v;
+}
+
 /**
  * 将 tokens 转换为 API 查询参数
  */
@@ -113,12 +142,11 @@ export function buildQueryFromTokens(tokens: SearchToken[]): ParsedQuery {
     if (token.type === 'filter') {
       switch (token.field) {
         case 'is': {
-          // 状态过滤
           const statusMap: Record<string, string> = {
             open: 'open',
             closed: 'closed',
-            todo: 'open', // 向后兼容
-            done: 'closed', // 向后兼容
+            todo: 'open',
+            done: 'closed',
             in_progress: 'in_progress',
             feedback: 'feedback',
             resolved: 'resolved',
@@ -131,16 +159,12 @@ export function buildQueryFromTokens(tokens: SearchToken[]): ParsedQuery {
         }
 
         case 'label': {
-          // 标签过滤（暂时用 search 字段，因为 API 可能不支持）
-          if (!query.labels) {
-            query.labels = [];
-          }
+          if (!query.labels) query.labels = [];
           query.labels.push(token.value);
           break;
         }
 
         case 'type': {
-          // 类型过滤
           const typeMap: Record<string, string> = {
             bug: 'bug',
             feature: 'feature',
@@ -154,12 +178,12 @@ export function buildQueryFromTokens(tokens: SearchToken[]): ParsedQuery {
         }
 
         case 'priority': {
-          // 优先级过滤
           const priorityMap: Record<string, string> = {
             urgent: 'urgent',
             high: 'high',
             medium: 'medium',
-            low: 'low'
+            low: 'low',
+            critical: 'urgent'
           };
           if (priorityMap[token.value]) {
             query.priority = priorityMap[token.value];
@@ -167,22 +191,48 @@ export function buildQueryFromTokens(tokens: SearchToken[]): ParsedQuery {
           break;
         }
 
-        case 'assignee':
-        case 'author': {
-          // 负责人或作者过滤
-          query.assignee_id = token.value;
+        case 'assignee': {
+          query.assignee_id = normalizeAssignee(token.value);
+          break;
+        }
+
+        case 'author':
+        case 'creator': {
+          query.reporter_id = normalizeAssignee(token.value);
           break;
         }
 
         case 'project': {
-          // 项目过滤（暂时用 project_id，后续可以支持名称搜索）
           query.project_id = token.value;
           break;
         }
 
-        case 'creator': {
-          // 创建者过滤
-          query.reporter_id = token.value;
+        case 'cycle': {
+          query.cycle_id = token.value;
+          break;
+        }
+
+        case 'field':
+        case 'cf': {
+          // E32: cf:key:value · E46: cf:key>=8 / cf:key>5 / cf:key<=1 / cf:key<9
+          const raw = token.value;
+          const opMatch = raw.match(/^([a-z][a-z0-9_-]{0,63})(>=|<=|>|<|=|:)(.*)$/i);
+          if (!opMatch) break;
+          const key = opMatch[1].trim().toLowerCase();
+          const sym = opMatch[2];
+          const value = opMatch[3];
+          if (!key) break;
+          const opMap: Record<string, 'eq' | 'gt' | 'gte' | 'lt' | 'lte'> = {
+            ':': 'eq',
+            '=': 'eq',
+            '>': 'gt',
+            '>=': 'gte',
+            '<': 'lt',
+            '<=': 'lte'
+          };
+          const op = opMap[sym] || 'eq';
+          if (!query.custom_fields) query.custom_fields = [];
+          query.custom_fields.push(op === 'eq' ? { key, value } : { key, value, op });
           break;
         }
 
@@ -195,7 +245,6 @@ export function buildQueryFromTokens(tokens: SearchToken[]): ParsedQuery {
     }
   }
 
-  // 将所有搜索词合并为 search 参数
   if (searchTerms.length > 0) {
     query.search = searchTerms.join(' ');
   }
@@ -211,6 +260,47 @@ export function parseSearchString(searchString: string): ParsedQuery {
   return buildQueryFromTokens(tokens);
 }
 
+/** ParsedQuery → list filters（清空未出现的字段为 undefined） */
+export function parsedQueryToFilters(query: ParsedQuery): SmartSearchListFilters {
+  return {
+    search: query.search,
+    status: query.status,
+    type: query.type,
+    priority: query.priority,
+    assignee_id: query.assignee_id,
+    reporter_id: query.reporter_id,
+    project_id: query.project_id,
+    cycle_id: query.cycle_id,
+    labels: query.labels?.length ? [...query.labels] : undefined,
+    custom_fields: query.custom_fields?.length
+      ? query.custom_fields.map(f =>
+          f.op && f.op !== 'eq'
+            ? { key: f.key, value: f.value, op: f.op }
+            : { key: f.key, value: f.value }
+        )
+      : undefined
+  };
+}
+
+/** E32：custom_fields → axios params cf.<key>=value */
+export function customFieldsToCfParams(
+  filters?: CustomFieldFilter[] | null
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!filters?.length) return out;
+  for (const f of filters) {
+    if (!f?.key) continue;
+    const op = f.op && f.op !== 'eq' ? f.op : null;
+    const name = op ? `cf.${f.key}[${op}]` : `cf.${f.key}`;
+    out[name] = f.value ?? '';
+  }
+  return out;
+}
+
+export function isIssueCodeToken(value: string): boolean {
+  return ISSUE_CODE_RE.test(value.trim());
+}
+
 /**
  * 生成搜索建议文本
  */
@@ -219,11 +309,15 @@ export function generateSearchSuggestions(): string[] {
     'is:open - 只显示待办中的 Issue',
     'is:closed - 只显示已完成的 Issue',
     'is:in_progress - 只显示进行中的 Issue',
+    'assignee:@me - 指派给我',
     'label:bug - 只显示标签为 bug 的 Issue',
     'type:feature - 只显示类型为功能的 Issue',
     'priority:urgent - 只显示紧急优先级的 Issue',
-    'assignee:admin - 只显示负责人为 admin 的 Issue',
-    'project:1 - 只显示项目 ID 为 1 的 Issue'
+    'cycle:__none__ - 无 Cycle',
+    'project:<id> - 按项目过滤',
+    'field:severity:s1 - 自定义字段过滤（cf:key:value 亦可）',
+    'field:score:10 - 公式字段按计算值等值过滤（只读）',
+    'cf:score>=8 - 公式/数字字段 range 过滤（E46）'
   ];
 }
 

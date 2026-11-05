@@ -256,7 +256,8 @@ async def test_complete_rejects_non_active(test_client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_capacity_hint_from_history(test_client: AsyncClient):
+async def test_capacity_hint_from_history_falls_back_to_issues(test_client: AsyncClient):
+    """No estimate_points set → unit=issues, mean of completed counts."""
     user = await _register(test_client, "cc_ch")
     await _patch_ws(
         test_client,
@@ -294,11 +295,61 @@ async def test_capacity_hint_from_history(test_client: AsyncClient):
     assert hint.status_code == 200, hint.text
     payload = hint.json()["data"]
     assert payload["basis"] == "history"
+    assert payload["unit"] == "issues"
     assert payload["lookbackN"] == 3
     assert payload["suggestedCapacity"] == 3
     assert len(payload["samples"]) == 2
     counts = sorted(s["completedIssueCount"] for s in payload["samples"])
     assert counts == [2, 4]
+    assert all(float(s.get("completedPoints") or 0) == 0 for s in payload["samples"])
+
+
+@pytest.mark.asyncio
+async def test_capacity_hint_from_history_points(test_client: AsyncClient):
+    """E16: with estimate_points, suggestedCapacity is mean of completed points."""
+    user = await _register(test_client, "cc_pts")
+    await _patch_ws(
+        test_client,
+        user,
+        cyclesEnabled=True,
+        cycleCapacityLookback=3,
+        cycleRolloverPolicy="leave_unassigned",
+    )
+
+    # Cycle A: done points 3+5=8; Cycle B: done points 2+2+2=6 → mean 7
+    for idx, points_list in enumerate(([3, 5], [2, 2, 2]), start=1):
+        starts = datetime(2026, 9, 1) + timedelta(days=14 * (idx - 1))
+        ends = starts + timedelta(days=14)
+        cyc = await _create_cycle(
+            test_client, user, name=f"Pts{idx}", starts=starts, ends=ends
+        )
+        await _activate(test_client, user, cyc["id"])
+        for j, pts in enumerate(points_list):
+            issue = await _create_issue(
+                test_client,
+                user,
+                f"p{idx}-d{j}",
+                cycle_id=cyc["id"],
+                estimate_points=pts,
+            )
+            await _set_status(test_client, user, issue["id"], "resolved")
+        done = await test_client.post(
+            f"/api/cycles/{cyc['id']}/complete",
+            headers=_auth(user["token"], user["workspaceId"]),
+        )
+        assert done.status_code == 200, done.text
+
+    hint = await test_client.get(
+        "/api/cycles/capacity-hint",
+        headers=_auth(user["token"], user["workspaceId"]),
+    )
+    assert hint.status_code == 200, hint.text
+    payload = hint.json()["data"]
+    assert payload["basis"] == "history"
+    assert payload["unit"] == "points"
+    assert payload["suggestedCapacity"] == 7
+    pts = sorted(float(s["completedPoints"]) for s in payload["samples"])
+    assert pts == [6.0, 8.0]
 
 
 @pytest.mark.asyncio
@@ -315,6 +366,7 @@ async def test_capacity_hint_members_fallback(test_client: AsyncClient):
     assert hint.status_code == 200, hint.text
     payload = hint.json()["data"]
     assert payload["basis"] == "members"
+    assert payload["unit"] == "members"
     assert payload["suggestedCapacity"] == 2  # owner + member
     assert payload["samples"] == []
 

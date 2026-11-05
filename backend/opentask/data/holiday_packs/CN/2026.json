@@ -1,0 +1,203 @@
+{
+  "region": "CN",
+  "year": 2026,
+  "name": "中国法定节假日 2026",
+  "sourceNote": "国务院办公厅关于2026年部分节假日安排的通知（国办发明电〔2025〕7号）",
+  "holidays": [
+    {
+      "date": "2026-01-01",
+      "kind": "closed",
+      "label": "元旦"
+    },
+    {
+      "date": "2026-01-02",
+      "kind": "closed",
+      "label": "元旦"
+    },
+    {
+      "date": "2026-01-03",
+      "kind": "closed",
+      "label": "元旦"
+    },
+    {
+      "date": "2026-02-15",
+      "kind": "closed",
+      "label": "春节"
+    },
+    {
+      "date": "2026-02-16",
+      "kind": "closed",
+      "label": "春节"
+    },
+    {
+      "date": "2026-02-17",
+      "kind": "closed",
+      "label": "春节"
+    },
+    {
+      "date": "2026-02-18",
+      "kind": "closed",
+      "label": "春节"
+    },
+    {
+      "date": "2026-02-19",
+      "kind": "closed",
+      "label": "春节"
+    },
+    {
+      "date": "2026-02-20",
+      "kind": "closed",
+      "label": "春节"
+    },
+    {
+      "date": "2026-02-21",
+      "kind": "closed",
+      "label": "春节"
+    },
+    {
+      "date": "2026-02-22",
+      "kind": "closed",
+      "label": "春节"
+    },
+    {
+      "date": "2026-02-23",
+      "kind": "closed",
+      "label": "春节"
+    },
+    {
+      "date": "2026-04-04",
+      "kind": "closed",
+      "label": "清明节"
+    },
+    {
+      "date": "2026-04-05",
+      "kind": "closed",
+      "label": "清明节"
+    },
+    {
+      "date": "2026-04-06",
+      "kind": "closed",
+      "label": "清明节"
+    },
+    {
+      "date": "2026-05-01",
+      "kind": "closed",
+      "label": "劳动节"
+    },
+    {
+      "date": "2026-05-02",
+      "kind": "closed",
+      "label": "劳动节"
+    },
+    {
+      "date": "2026-05-03",
+      "kind": "closed",
+      "label": "劳动节"
+    },
+    {
+      "date": "2026-05-04",
+      "kind": "closed",
+      "label": "劳动节"
+    },
+    {
+      "date": "2026-05-05",
+      "kind": "closed",
+      "label": "劳动节"
+    },
+    {
+      "date": "2026-06-19",
+      "kind": "closed",
+      "label": "端午节"
+    },
+    {
+      "date": "2026-06-20",
+      "kind": "closed",
+      "label": "端午节"
+    },
+    {
+      "date": "2026-06-21",
+      "kind": "closed",
+      "label": "端午节"
+    },
+    {
+      "date": "2026-09-25",
+      "kind": "closed",
+      "label": "中秋节"
+    },
+    {
+      "date": "2026-09-26",
+      "kind": "closed",
+      "label": "中秋节"
+    },
+    {
+      "date": "2026-09-27",
+      "kind": "closed",
+      "label": "中秋节"
+    },
+    {
+      "date": "2026-10-01",
+      "kind": "closed",
+      "label": "国庆节"
+    },
+    {
+      "date": "2026-10-02",
+      "kind": "closed",
+      "label": "国庆节"
+    },
+    {
+      "date": "2026-10-03",
+      "kind": "closed",
+      "label": "国庆节"
+    },
+    {
+      "date": "2026-10-04",
+      "kind": "closed",
+      "label": "国庆节"
+    },
+    {
+      "date": "2026-10-05",
+      "kind": "closed",
+      "label": "国庆节"
+    },
+    {
+      "date": "2026-10-06",
+      "kind": "closed",
+      "label": "国庆节"
+    },
+    {
+      "date": "2026-10-07",
+      "kind": "closed",
+      "label": "国庆节"
+    },
+    {
+      "date": "2026-01-04",
+      "kind": "forced_open",
+      "label": "元旦调休上班"
+    },
+    {
+      "date": "2026-02-14",
+      "kind": "forced_open",
+      "label": "春节调休上班"
+    },
+    {
+      "date": "2026-02-28",
+      "kind": "forced_open",
+      "label": "春节调休上班"
+    },
+    {
+      "date": "2026-05-09",
+      "kind": "forced_open",
+      "label": "劳动节调休上班"
+    },
+    {
+      "date": "2026-09-20",
+      "kind": "forced_open",
+      "label": "国庆调休上班"
+    },
+    {
+      "date": "2026-10-10",
+      "kind": "forced_open",
+      "label": "国庆调休上班"
+    }
+  ]
+}

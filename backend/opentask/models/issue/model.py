@@ -156,6 +156,12 @@ class Issue(DBModel):
         index=True,
         comment="截止日期"
     )
+    start_date: Mapped[Optional[datetime]] = mapped_column(
+        DateTime,
+        nullable=True,
+        index=True,
+        comment="E73: 计划开始日（独立于 started_at）"
+    )
     started_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime,
         nullable=True,
@@ -320,6 +326,7 @@ class Issue(DBModel):
         Index("idx_issues_created_at", "created_at"),
         Index("idx_issues_updated_at", "updated_at"),
         Index("idx_issues_due_date", "due_date"),
+        Index("idx_issues_start_date", "start_date"),
         Index("idx_issues_project_status", "project_id", "status"),
         Index("idx_issues_assignee_status", "assignee_id", "status"),
         Index("idx_issues_parent", "parent_issue_id"),
@@ -411,6 +418,12 @@ class IssueComment(DBModel):
         "IssueComment",
         back_populates="parent",
         cascade="all, delete-orphan"
+    )
+    reactions: Mapped[List["CommentReaction"]] = relationship(
+        "CommentReaction",
+        back_populates="comment",
+        cascade="all, delete-orphan",
+        order_by="CommentReaction.created_at.desc()",
     )
 
     # 索引
@@ -515,6 +528,13 @@ class IssueTimeline(DBModel):
              "relation_removed", "attachment_added", "attachment_removed",
              "label_added", "label_removed", "reaction_added", "reaction_removed",
              "resolved", "closed", "reopened",
+             "custom_field_changed", "cycle_changed", "estimate_changed",
+             "project_changed",
+             "sla_paused", "sla_resumed",
+             "start_date_changed",
+             "link_added", "link_removed",
+             "restored",
+             "parent_changed",
              name="timeline_action"),
         nullable=False,
         index=True,
@@ -638,4 +658,56 @@ class IssueReaction(DBModel):
         Index("idx_issue_reactions_user", "user_id"),
         Index("idx_issue_reactions_issue_emoji", "issue_id", "emoji"),
         Index("uq_issue_reaction", "issue_id", "emoji", "user_id", unique=True),
+    )
+
+
+class CommentReaction(DBModel):
+    """Issue 评论反应表（E27）"""
+    __tablename__ = "comment_reactions"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True
+    )
+
+    comment_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("issue_comments.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="评论 ID"
+    )
+
+    emoji: Mapped[str] = mapped_column(
+        String(10),
+        nullable=False,
+        index=True,
+        comment="表情符号"
+    )
+
+    user_id: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+        index=True,
+        comment="用户 ID"
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        insert_default=datetime.utcnow,
+        comment="创建时间"
+    )
+
+    comment: Mapped["IssueComment"] = relationship(
+        "IssueComment", back_populates="reactions"
+    )
+
+    __table_args__ = (
+        Index("idx_comment_reactions_comment", "comment_id"),
+        Index("idx_comment_reactions_emoji", "emoji"),
+        Index("idx_comment_reactions_user", "user_id"),
+        Index("idx_comment_reactions_comment_emoji", "comment_id", "emoji"),
+        Index("uq_comment_reaction", "comment_id", "emoji", "user_id", unique=True),
     )

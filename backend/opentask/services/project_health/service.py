@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opentask.models.issue.model import Issue
@@ -166,9 +166,9 @@ class ProjectHealthService:
             .where(
                 Issue.project_id == project_id,
                 Issue.workspace_id == workspace_id,
-                Issue.due_date.is_not(None),
+                or_(Issue.due_date.is_not(None), Issue.start_date.is_not(None)),
             )
-            .order_by(Issue.due_date.asc())
+            .order_by(Issue.due_date.asc().nulls_last(), Issue.start_date.asc().nulls_last())
         )
         issues = list((await self.db.execute(issue_q)).scalars().all())
 
@@ -188,6 +188,7 @@ class ProjectHealthService:
                     "title": i.title,
                     "issue_code": getattr(i, "issue_code", None),
                     "due_date": i.due_date,
+                    "start_date": getattr(i, "start_date", None),
                     "status": i.status,
                     "milestone_id": getattr(i, "milestone_id", None),
                 }

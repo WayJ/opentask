@@ -125,8 +125,9 @@ class ProjectBase(BaseModel):
 
 
 class ProjectCreate(ProjectBase):
-    """创建项目 Schema"""
-    pass
+    """创建项目 Schema（E72: 可选 template_id 种子里程碑）"""
+    template_id: str | None = Field(None, description="Project template id (E72)")
+    starts_at: datetime | None = Field(None, description="Project start; base for template offsets (E72)")
 
 
 class ProjectResponse(ProjectBase):

@@ -28,12 +28,30 @@ declare namespace Api {
       health_note?: string | null;
       health_updated_at?: string | null;
       health_updated_by?: string | null;
+      /** E79 roster-only */
+      lead_id?: string | null;
+      lead?: {
+        id: string;
+        name?: string | null;
+        sso_name?: string | null;
+        sso_account?: string | null;
+      } | null;
+      members?: Array<{
+        id: string;
+        name?: string | null;
+        sso_name?: string | null;
+        sso_account?: string | null;
+      }>;
+      member_count?: number;
     }
 
     /** Create project params */
     interface CreateProject {
       name: string;
       description?: string;
+      /** E72 project template id */
+      template_id?: string;
+      starts_at?: string | null;
     }
 
     /** Update project params */
@@ -42,6 +60,15 @@ declare namespace Api {
       description?: string;
       starts_at?: string | null;
       target_date?: string | null;
+      /** E79: null clears lead */
+      lead_id?: string | null;
+    }
+
+    interface ProjectMemberUser {
+      id: string;
+      name?: string | null;
+      sso_name?: string | null;
+      sso_account?: string | null;
     }
 
     /** Milestone (E8-S1) */
@@ -54,6 +81,8 @@ declare namespace Api {
       target_date?: string | null;
       status: 'planned' | 'done' | string;
       position: number;
+      /** E81: non-deleted issues on this milestone */
+      issue_count?: number;
       created_at: string;
       updated_at: string;
     }
@@ -119,12 +148,12 @@ declare namespace Api {
         id: string;
         title: string;
         issue_code?: string | null;
-        due_date: string;
+        due_date?: string | null;
+        start_date?: string | null;
         status?: string;
         milestone_id?: string | null;
       }>;
     }
-
 
     /** Repo config model */
     interface RepoConfig {

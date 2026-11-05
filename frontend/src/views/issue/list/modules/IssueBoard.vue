@@ -1,15 +1,29 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { NCard, NEmpty, NTag, NText, useMessage } from 'naive-ui';
+import { NCard, NEmpty, NTag, NAvatar, NText, useMessage } from 'naive-ui';
 import { VueDraggable } from 'vue-draggable-plus';
-import { getIssuePriorityLabel, getIssuePriorityTagType, getIssueStatusTagType, getIssueTypeTagType } from '@/constants/issue';
+import {
+  getIssuePriorityLabel,
+  getIssuePriorityTagType,
+  getIssueStatusTagType,
+  getIssueTypeTagType
+} from '@/constants/issue';
 import { issueApi } from '@/service/api/issue';
 import { useIssueFocus } from '@/composables/use-issue-focus';
+import { useIssueSelection } from '@/composables/use-issue-selection';
 import { buildIssueDetailLocation } from '@/utils/issue-board-nav';
 import { BOARD_STATUS_COLUMNS, type BoardSwimlane, buildBoardSwimlanes } from '@/utils/boardSwimlanes';
-import type { IssueDisplayFields, SwimlaneBy } from '@/utils/display-prefs';
+import type {
+  ColorScaleRule,
+  ConditionalFormatRule,
+  IconSetRule,
+  IssueDisplayFields,
+  SwimlaneBy
+} from '@/utils/display-prefs';
+import { resolveCellIcon, resolveRowBackground } from '@/utils/display-prefs';
 import type { Api } from '@/typings/api';
+import { formatChildProgress } from '@/utils/childProgress';
 
 defineOptions({ name: 'IssueBoard' });
 
@@ -19,15 +33,21 @@ const props = withDefaults(
     swimlaneBy?: SwimlaneBy;
     hideEmptyLanes?: boolean;
     fields?: IssueDisplayFields;
+    conditionalFormats?: ConditionalFormatRule[];
+    colorScales?: ColorScaleRule[];
+    iconSets?: IconSetRule[];
   }>(),
   {
     swimlaneBy: 'none',
     hideEmptyLanes: false,
+    conditionalFormats: () => [],
+    colorScales: () => [],
+    iconSets: () => [],
     fields: () => ({
       assignee: true,
       priority: true,
       labels: true,
-      estimate_points: false,
+      estimate_points: true,
       due_date: false,
       project: false,
       cycle: false,
@@ -37,7 +57,46 @@ const props = withDefaults(
   }
 );
 
+const TINT_BG: Record<string, string> = {
+  danger: 'color-mix(in srgb, #d03050 14%, transparent)',
+  warning: 'color-mix(in srgb, #f0a020 16%, transparent)',
+  success: 'color-mix(in srgb, #18a058 14%, transparent)',
+  info: 'color-mix(in srgb, #2080f0 14%, transparent)',
+  neutral: 'color-mix(in srgb, #888 12%, transparent)'
+};
+
+function cardTintStyle(issue: Api.Issue.Issue): Record<string, string> | undefined {
+  const appearance = resolveRowBackground(issue as unknown as Record<string, unknown>, {
+    conditionalFormats: props.conditionalFormats,
+    colorScales: props.colorScales
+  });
+  if (!appearance) return undefined;
+  if (appearance.kind === 'tint') return { background: TINT_BG[appearance.value] };
+  return { background: `color-mix(in srgb, ${appearance.value} 24%, transparent)` };
+}
+
+const ICON_GLYPH: Record<string, string> = {
+  arrow_up: '↑',
+  arrow_down: '↓',
+  arrow_flat: '→',
+  flag: '⚑',
+  dot_red: '●',
+  dot_yellow: '●',
+  dot_green: '●',
+  check: '✓',
+  warn: '!'
+};
+
+function cardIconPrefix(issue: Api.Issue.Issue): string {
+  const icon = resolveCellIcon(
+    issue as unknown as Record<string, unknown>,
+    props.iconSets
+  );
+  return icon ? ICON_GLYPH[icon] || '' : '';
+}
+
 const issueFocus = useIssueFocus();
+const issueSelection = useIssueSelection();
 
 const emit = defineEmits<{
   changed: [];
@@ -68,6 +127,14 @@ watch(
   () => [props.issues, props.swimlaneBy, props.hideEmptyLanes] as const,
   () => rebuild(props.issues),
   { immediate: true, deep: true }
+);
+
+watch(
+  () => props.issues,
+  rows => {
+    issueSelection.setIssueOrder((rows || []).map(r => r.id));
+  },
+  { immediate: true }
 );
 
 const lanes = computed<BoardSwimlane[]>(() => {
@@ -197,7 +264,11 @@ function showField(key: keyof IssueDisplayFields): boolean {
                 size="small"
                 hoverable
                 class="board-card"
-                :class="{ 'is-focused': issueFocus.focusedIssueId === issue.id }"
+                :style="cardTintStyle(issue)"
+                :class="{
+                  'is-focused': issueFocus.focusedIssueId === issue.id,
+                  'is-selected': issueSelection.isSelected(issue.id)
+                }"
                 @click="focusIssue(issue)"
                 @dblclick="openDetail(issue)"
               >
@@ -212,7 +283,34 @@ function showField(key: keyof IssueDisplayFields): boolean {
                     {{ getIssuePriorityLabel(issue.priority) }}
                   </NTag>
                 </div>
-                <div class="board-card-title">{{ issue.title }}</div>
+                <div class="board-card-title">{{ cardIconPrefix(issue) }}{{ issue.title }}</div>
+                <div v-if="(issue.blocked_by_count || 0) > 0 || (issue.blocks_count || 0) > 0" class="board-card-meta">
+                  <NTag
+                    v-if="(issue.blocked_by_count || 0) > 0"
+                    size="tiny"
+                    type="error"
+                    :bordered="false"
+                    style="cursor: pointer"
+                    @click.stop="openDetail(issue)"
+                  >
+                    被阻塞 {{ issue.blocked_by_count }}
+                  </NTag>
+                  <NTag
+                    v-if="(issue.blocks_count || 0) > 0"
+                    size="tiny"
+                    type="warning"
+                    :bordered="false"
+                    style="cursor: pointer; margin-left: 4px"
+                    @click.stop="openDetail(issue)"
+                  >
+                    阻塞 {{ issue.blocks_count }}
+                  </NTag>
+                </div>
+                <div v-if="formatChildProgress(issue.childProgress)" class="board-card-meta">
+                  <NTag size="tiny" type="info" :bordered="false">
+                    {{ formatChildProgress(issue.childProgress) }}
+                  </NTag>
+                </div>
                 <div v-if="showField('type')" class="board-card-meta">
                   <NTag size="small" :type="getIssueTypeTagType(issue.type)" :bordered="false">
                     {{ issue.type }}
@@ -291,7 +389,7 @@ function showField(key: keyof IssueDisplayFields): boolean {
   width: 260px;
   background: var(--color-bg-secondary, #f7f8fa);
   border: 1px solid var(--color-border-subtle, #e5e7eb);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 280px);
@@ -321,11 +419,17 @@ function showField(key: keyof IssueDisplayFields): boolean {
 
 .board-card {
   cursor: grab;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
+}
+
+.board-card.is-selected {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 55%, transparent);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--color-primary) 6%, transparent);
 }
 
 .board-card.is-focused {
-  outline: 2px solid var(--primary-color, #18a058);
+  outline: 2px solid var(--color-primary);
   outline-offset: 1px;
 }
 

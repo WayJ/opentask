@@ -2,6 +2,9 @@ import { request } from '../request';
 
 export type InitiativeStatus = 'planned' | 'active' | 'completed' | 'canceled';
 
+export type InitiativeRelationType = 'blocks' | 'is_blocked_by' | 'relates_to';
+export type InitiativeRelationDirection = 'outgoing' | 'incoming';
+
 export interface InitiativeHealthSummary {
   overall: 'on_track' | 'at_risk' | 'off_track' | null;
   counts: { onTrack: number; atRisk: number; offTrack: number; unknown: number };
@@ -26,6 +29,9 @@ export interface InitiativeRow {
   projectIds: string[];
   healthSummary?: InitiativeHealthSummary;
   projects?: InitiativeProjectRef[];
+  blocksCount?: number;
+  blockedByCount?: number;
+  relatesToCount?: number;
   createdBy?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
@@ -36,10 +42,22 @@ export interface InitiativeListResult {
   total: number;
 }
 
-export function fetchInitiatives() {
+export interface InitiativeRelationItem {
+  id: string;
+  type: InitiativeRelationType;
+  direction: InitiativeRelationDirection;
+  initiative: { id: string; name: string; status: string };
+}
+
+export interface InitiativeRelationsResult {
+  items: InitiativeRelationItem[];
+}
+
+export function fetchInitiatives(params?: { include?: string }) {
   return request<InitiativeListResult>({
     url: '/api/initiatives',
-    method: 'get'
+    method: 'get',
+    params
   });
 }
 
@@ -99,5 +117,30 @@ export function fetchSetInitiativeProjects(id: string, projectIds: string[]) {
     url: `/api/initiatives/${id}/projects`,
     method: 'put',
     data: { projectIds }
+  });
+}
+
+export function fetchInitiativeRelations(id: string) {
+  return request<InitiativeRelationsResult>({
+    url: `/api/initiatives/${id}/relations`,
+    method: 'get'
+  });
+}
+
+export function fetchAddInitiativeRelation(
+  id: string,
+  body: { targetInitiativeId: string; type: InitiativeRelationType }
+) {
+  return request<InitiativeRelationItem>({
+    url: `/api/initiatives/${id}/relations`,
+    method: 'post',
+    data: body
+  });
+}
+
+export function fetchRemoveInitiativeRelation(id: string, relationId: string) {
+  return request<{ id: string }>({
+    url: `/api/initiatives/${id}/relations/${relationId}`,
+    method: 'delete'
   });
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import {
   NButton,
   NEmpty,
@@ -15,10 +15,16 @@ import {
 import { Icon as Iconify } from '@iconify/vue';
 import { issueApi } from '@/service/api/issue';
 import type { Api } from '@/typings/api';
+import {
+  attachmentAccessDeniedMessage,
+  toBrowserAttachmentUrl
+} from '@/utils/attachmentUrls';
 import ConversationViewer from './ConversationViewer.vue';
 
 interface Props {
   issueId: string;
+  /** E69: when set, upload/delete target comment attachments */
+  commentId?: string;
   attachments?: Api.Document.Response[];
   readonly?: boolean;
 }
@@ -28,6 +34,7 @@ interface Emits {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  commentId: undefined,
   attachments: () => [],
   readonly: false
 });
@@ -43,6 +50,10 @@ const isImage = (fileType: string, fileName: string) => {
   const imageTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/svg+xml'];
   const imageExts = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp'];
   return imageTypes.includes(fileType) || imageExts.some(ext => fileName.toLowerCase().endsWith(ext));
+};
+
+const isJsonlFile = (fileName: string) => {
+  return fileName.toLowerCase().endsWith('.jsonl');
 };
 
 // 格式化文件大小
@@ -76,7 +87,11 @@ const handleUpload = async ({ file }: { file: { file?: File } }) => {
 
   uploading.value = true;
   try {
-    await issueApi.uploadAttachment(props.issueId, { file: uploadFile });
+    if (props.commentId) {
+      await issueApi.uploadCommentAttachment(props.issueId, props.commentId, { file: uploadFile });
+    } else {
+      await issueApi.uploadAttachment(props.issueId, { file: uploadFile });
+    }
     message.success('附件上传成功');
     emit('refresh');
     // 清空上传列表
@@ -94,7 +109,11 @@ const handleUpload = async ({ file }: { file: { file?: File } }) => {
 // 处理删除附件
 const handleDelete = async (attachmentId: string) => {
   try {
-    await issueApi.deleteAttachment(props.issueId, attachmentId);
+    if (props.commentId) {
+      await issueApi.deleteCommentAttachment(props.issueId, props.commentId, attachmentId);
+    } else {
+      await issueApi.deleteAttachment(props.issueId, attachmentId);
+    }
     message.success('附件删除成功');
     emit('refresh');
   } catch (error) {
@@ -103,23 +122,71 @@ const handleDelete = async (attachmentId: string) => {
   }
 };
 
-// 获取附件预览 URL（内联显示，适合图片）
+// E66: signed preview URLs for <img> / ConversationViewer (no naked public URLs)
+const previewUrlMap = ref<Record<string, string>>({});
+const previewError = ref<string | null>(null);
+
+async function refreshSignedPreviewUrls() {
+  previewError.value = null;
+  const next: Record<string, string> = {};
+  const list = props.attachments || [];
+  for (const att of list) {
+    if (!isImage(att.file_type, att.file_name) && !isJsonlFile(att.file_name)) {
+      continue;
+    }
+    try {
+      const purpose = isImage(att.file_type, att.file_name) ? 'preview' : 'download';
+      const { data, error } = await issueApi.createAttachmentSignedUrl(att.id, purpose);
+      if (error) {
+        const status = (error as any)?.response?.status ?? (error as any)?.status ?? 0;
+        previewError.value = attachmentAccessDeniedMessage(status || 404);
+        console.error('签发附件签名 URL 失败:', error);
+        continue;
+      }
+      if (data?.url) {
+        next[att.id] = toBrowserAttachmentUrl(data.url);
+      }
+    } catch (error: any) {
+      const status = error?.response?.status ?? error?.status ?? 0;
+      previewError.value = attachmentAccessDeniedMessage(status || 404);
+      console.error('签发附件签名 URL 失败:', error);
+    }
+  }
+  previewUrlMap.value = next;
+}
+
+watch(
+  () => props.attachments,
+  () => {
+    void refreshSignedPreviewUrls();
+  },
+  { deep: true }
+);
+
+onMounted(() => {
+  void refreshSignedPreviewUrls();
+});
+
 const getAttachmentPreviewUrl = (attachmentId: string) => {
-  return `/opentask/api/attachments/${attachmentId}/preview`;
+  return previewUrlMap.value[attachmentId] || '';
 };
 
-// 获取附件下载 URL
-const getAttachmentDownloadUrl = (attachmentId: string) => {
-  return `/opentask/api/attachments/${attachmentId}/download`;
-};
-
-// 下载附件
-const handleDownload = (attachment: Api.Document.Response) => {
-  const url = getAttachmentDownloadUrl(attachment.id);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = attachment.file_name;
-  link.click();
+// E66: explicit download via authenticated blob fetch
+const handleDownload = async (attachment: Api.Document.Response) => {
+  try {
+    const blob = await issueApi.downloadAttachmentBlob(attachment.id);
+    // downloadRequest (createRequest) returns Blob directly on success
+    const objectUrl = URL.createObjectURL(blob as Blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = attachment.file_name;
+    link.click();
+    URL.revokeObjectURL(objectUrl);
+  } catch (error: any) {
+    const status = error?.response?.status ?? error?.status ?? 0;
+    message.error(attachmentAccessDeniedMessage(status || 404));
+    console.error('下载附件失败:', error);
+  }
 };
 
 // 分离图片和文件附件
@@ -133,11 +200,6 @@ const fileAttachments = computed(() => {
   return Array.isArray(list) ? list.filter(att => !isImage(att.file_type, att.file_name)) : [];
 });
 
-// 判断是否为 JSONL 文件
-const isJsonlFile = (fileName: string) => {
-  return fileName.toLowerCase().endsWith('.jsonl');
-};
-
 // 对话查看器状态
 const conversationViewer = ref({
   show: false,
@@ -146,10 +208,26 @@ const conversationViewer = ref({
 });
 
 // 查看对话
-const handleViewConversation = (attachment: Api.Document.Response) => {
+const handleViewConversation = async (attachment: Api.Document.Response) => {
+  let fileUrl = previewUrlMap.value[attachment.id];
+  if (!fileUrl) {
+    try {
+      const { data, error } = await issueApi.createAttachmentSignedUrl(attachment.id, 'download');
+      if (error || !data?.url) {
+        const status = (error as any)?.response?.status ?? (error as any)?.status ?? 0;
+        message.error(attachmentAccessDeniedMessage(status || 404));
+        return;
+      }
+      fileUrl = toBrowserAttachmentUrl(data.url);
+    } catch (error: any) {
+      const status = error?.response?.status ?? error?.status ?? 0;
+      message.error(attachmentAccessDeniedMessage(status || 404));
+      return;
+    }
+  }
   conversationViewer.value = {
     show: true,
-    fileUrl: getAttachmentDownloadUrl(attachment.id),
+    fileUrl,
     fileName: attachment.file_name
   };
 };
@@ -183,6 +261,10 @@ const handleViewConversation = (attachment: Api.Document.Response) => {
 
     <!-- 空状态 -->
     <NEmpty v-if="attachments.length === 0" description="暂无附件" class="py-8" />
+
+    <NText v-if="previewError" type="error" class="mb-2" style="display: block; font-size: 12px">
+      {{ previewError }}
+    </NText>
 
     <!-- 图片附件 -->
     <div v-if="imageAttachments.length > 0" class="mb-4">

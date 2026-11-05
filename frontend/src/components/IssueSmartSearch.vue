@@ -9,12 +9,12 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  placeholder: '搜索 Issue... (支持 is:open, label:bug 等语法)'
+  placeholder: '搜索 Issue... (支持 is:open, field:key:value 等)'
 });
 
 const emit = defineEmits<{
   'update:modelValue': [value: string];
-  search: [query: ParsedQuery];
+  search: [query: ParsedQuery, raw: string];
 }>();
 
 const searchValue = computed({
@@ -51,13 +51,22 @@ const activeFilters = computed(() => {
   if (parsedQuery.value.type) filters.push(`类型: ${parsedQuery.value.type}`);
   if (parsedQuery.value.priority) filters.push(`优先级: ${parsedQuery.value.priority}`);
   if (parsedQuery.value.assignee_id) filters.push(`负责人: ${parsedQuery.value.assignee_id}`);
+  if (parsedQuery.value.reporter_id) filters.push(`报告人: ${parsedQuery.value.reporter_id}`);
+  if (parsedQuery.value.cycle_id) filters.push(`Cycle: ${parsedQuery.value.cycle_id}`);
+  if (parsedQuery.value.project_id) filters.push(`项目: ${parsedQuery.value.project_id}`);
+  if (parsedQuery.value.labels?.length) filters.push(`标签: ${parsedQuery.value.labels.join(',')}`);
+  if (parsedQuery.value.custom_fields?.length) {
+    for (const cf of parsedQuery.value.custom_fields) {
+      filters.push(`字段 ${cf.key}: ${cf.value}`);
+    }
+  }
   if (parsedQuery.value.search) filters.push(`搜索: ${parsedQuery.value.search}`);
   return filters;
 });
 
 // 执行搜索
 function handleSearch() {
-  emit('search', parsedQuery.value);
+  emit('search', parsedQuery.value, searchValue.value || '');
 }
 
 // 回车搜索
@@ -75,7 +84,7 @@ function handleSelect(value: string) {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function handleClear() {
   searchValue.value = '';
-  emit('search', {});
+  emit('search', {}, '');
 }
 </script>
 

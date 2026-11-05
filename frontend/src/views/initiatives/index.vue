@@ -9,6 +9,7 @@ import {
   fetchDeleteInitiative,
   fetchInitiatives
 } from '@/service/api';
+import { formatRelationBadge } from '@/utils/initiativeRelations';
 
 defineOptions({ name: 'InitiativesPage' });
 
@@ -83,6 +84,16 @@ const columns: DataTableColumns<InitiativeRow> = [
     render: row => renderHealth(row)
   },
   {
+    title: '依赖',
+    key: 'relations',
+    width: 140,
+    render: row => {
+      const label = formatRelationBadge(row);
+      if (!label) return h('span', { class: 'text-gray-400' }, '—');
+      return h(NTag, { size: 'small', bordered: false }, { default: () => label });
+    }
+  },
+  {
     title: '关联项目',
     key: 'projectIds',
     width: 100,
@@ -111,7 +122,7 @@ function goDetail(id: string) {
 async function load() {
   loading.value = true;
   try {
-    const { data, error } = await fetchInitiatives();
+    const { data, error } = await fetchInitiatives({ include: 'relationCounts' });
     if (error || !data) {
       window.$message?.error(error?.message || '加载 Initiatives 失败');
       return;

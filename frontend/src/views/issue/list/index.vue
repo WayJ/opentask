@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, h, onMounted, reactive, ref, watch } from 'vue';
+import { computed, h, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   NButton,
@@ -32,7 +32,7 @@ import {
 } from '@/constants/issue';
 import { fetchProjectList } from '@/service/api';
 import { type CycleItem, fetchCycles } from '@/service/api/cycles';
-import { issueApi } from '@/service/api/issue';
+import { formatIssueImportSummary, issueApi } from '@/service/api/issue';
 import {
   type SavedView,
   fetchCreateSavedView,
@@ -48,21 +48,43 @@ import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
 import { useIssueFocus } from '@/composables/use-issue-focus';
 import { useIssueListViewMode } from '@/composables/use-issue-list-view-mode';
+import { useIssueSelection } from '@/composables/use-issue-selection';
+import { debounceFn, subscribeWorkspaceRealtime } from '@/composables/use-workspace-realtime';
 import { localStg } from '@/utils/storage';
 import { buildSavedViewDropdownOptions, canWriteSavedView } from '@/utils/saved-view-sections';
 import { deriveListStateFromSavedView } from '@/utils/apply-saved-view';
-import { GROUP_BY_OPTIONS, type GroupByKey } from '@/utils/groupIssuesBy';
 import {
+  GROUP_BY_OPTIONS,
+  buildGroupByOptions,
+  parseCfDim,
+  type GroupByKey
+} from '@/utils/groupIssuesBy';
+import {
+  type ColorScaleRule,
+  type ConditionalFormatRule,
+  type IconSetRule,
   type IssueDisplayFields,
   type SwimlaneBy,
   defaultIssueDisplay,
   displayStateToJson,
-  normalizeIssueDisplay
+  formatCustomFieldCellValue,
+  isGroupingCfType,
+  normalizeIssueDisplay,
+  resolveCellIcon,
+  resolveRowBackground
 } from '@/utils/display-prefs';
 import { nestIssuesDepth1 } from '@/utils/nestIssuesDepth1';
-import type { ParsedQuery } from '@/utils/issueSearchParser';
+import { formatChildProgress } from '@/utils/childProgress';
+import {
+  type ParsedQuery,
+  customFieldsToCfParams,
+  parseSearchString,
+  parsedQueryToFilters
+} from '@/utils/issueSearchParser';
+import { fetchCustomFields, type CustomFieldRow } from '@/service/api/custom-fields';
 import IssueSmartSearch from '@/components/IssueSmartSearch.vue';
 import type { Api } from '@/typings/api';
+import IssueBulkBar from '@/components/IssueBulkBar.vue';
 import IssueBoard from './modules/IssueBoard.vue';
 import IssueListGrouped from './modules/IssueListGrouped.vue';
 import DisplayOptionsPanel from './modules/DisplayOptionsPanel.vue';
@@ -102,22 +124,81 @@ const activeTab = ref<'my_issues' | 'open' | 'closed' | 'all'>('open');
 // 双视图：list | board（同数据源；与 ⌘B 共享单例）
 const { viewMode, setMode: setViewMode } = useIssueListViewMode();
 const issueFocus = useIssueFocus();
+const issueSelection = useIssueSelection();
 const focusedIssueId = issueFocus.focusedIssueId;
 const filteredIssues = ref<Api.Issue.Issue[]>([]);
 
 /** E4-S2：列表分组依据（本地状态；可写入 Saved View display.group_by） */
 const groupBy = ref<GroupByKey>('none');
-const groupByOptions = GROUP_BY_OPTIONS;
+const groupByOptions = computed(() =>
+  buildGroupByOptions(
+    customFieldDefs.value.map(f => ({
+      key: f.key,
+      name: f.name,
+      type: f.type,
+      formulaResultType: f.formulaResultType
+    }))
+  )
+);
 
 const isGroupedList = computed(() => groupBy.value !== 'none');
 const activeGroupBy = computed(() => groupBy.value as Exclude<GroupByKey, 'none'>);
 
 /** E7-S3：会话 Display（View 覆盖会话；prefs 为个人默认） */
 const displayFields = ref<IssueDisplayFields>(defaultIssueDisplay().fields);
+const customFieldKeys = ref<string[]>([]);
+const customFieldDefs = ref<CustomFieldRow[]>([]);
+const conditionalFormats = ref<ConditionalFormatRule[]>([]);
+const colorScales = ref<ColorScaleRule[]>([]);
+const iconSets = ref<IconSetRule[]>([]);
 const swimlaneBy = ref<SwimlaneBy>('none');
 const hideEmptyLanes = ref(false);
 const displayPrefsSaving = ref(false);
 const displayPopoverShow = ref(false);
+/** E46：列表 API 排序（含 cf:<key>） */
+const listSortBy = ref<string>('created_at');
+const listSortOrder = ref<'asc' | 'desc'>('desc');
+const sortByOptions = computed(() => {
+  const base = [
+    { label: '创建时间', value: 'created_at' },
+    { label: '更新时间', value: 'updated_at' },
+    { label: '优先级', value: 'priority' },
+    { label: '状态', value: 'status' },
+    { label: '标题', value: 'title' },
+    { label: '截止日期', value: 'due_date' }
+  ];
+  const extras = customFieldDefs.value
+    .filter(f => {
+      const t = f.type;
+      if (t === 'multi_select') return false;
+      if (t === 'formula') {
+        const rt = (f as any).formulaResultType || 'number';
+        return ['number', 'text', 'date', 'boolean'].includes(rt);
+      }
+      return ['number', 'text', 'date', 'boolean'].includes(t);
+    })
+    .map(f => ({
+      label: f.type === 'formula' ? `${f.name}（计算值）` : f.name,
+      value: `cf:${f.key}`
+    }));
+  return [...base, ...extras];
+});
+
+function sanitizeCfDim<T extends string>(dim: T, kind: 'group' | 'swimlane'): T | 'none' {
+  const key = parseCfDim(dim);
+  if (!key) return dim;
+  const def = customFieldDefs.value.find(f => f.key === key);
+  if (!def) return dim; // BE already validated on write; missing local def → keep, empty buckets
+  if (!isGroupingCfType(def.type, (def as any).formulaResultType)) {
+    window.$message?.warning(
+      kind === 'group'
+        ? '已保存的分组自定义字段类型不受支持，已回退为不分组'
+        : '已保存的泳道自定义字段类型不受支持，已回退为无泳道'
+    );
+    return 'none' as T | 'none';
+  }
+  return dim;
+}
 
 function currentDisplayJson() {
   return displayStateToJson({
@@ -125,7 +206,11 @@ function currentDisplayJson() {
     groupBy: groupBy.value,
     swimlaneBy: swimlaneBy.value,
     hideEmptyLanes: hideEmptyLanes.value,
-    fields: displayFields.value
+    fields: displayFields.value,
+    customFieldKeys: customFieldKeys.value,
+    conditionalFormats: conditionalFormats.value,
+    colorScales: colorScales.value,
+    iconSets: iconSets.value
   });
 }
 
@@ -135,12 +220,33 @@ function applyDisplayState(partial: {
   swimlaneBy?: SwimlaneBy;
   hideEmptyLanes?: boolean;
   fields?: IssueDisplayFields;
+  customFieldKeys?: string[];
+  conditionalFormats?: ConditionalFormatRule[];
+  colorScales?: ColorScaleRule[];
+  iconSets?: IconSetRule[];
 }) {
   if (partial.viewMode) viewMode.value = partial.viewMode;
-  if (partial.groupBy) groupBy.value = partial.groupBy;
-  if (partial.swimlaneBy) swimlaneBy.value = partial.swimlaneBy;
+  if (partial.groupBy) groupBy.value = sanitizeCfDim(partial.groupBy, 'group');
+  if (partial.swimlaneBy) swimlaneBy.value = sanitizeCfDim(partial.swimlaneBy, 'swimlane');
   if (typeof partial.hideEmptyLanes === 'boolean') hideEmptyLanes.value = partial.hideEmptyLanes;
   if (partial.fields) displayFields.value = { ...partial.fields };
+  if (partial.customFieldKeys) customFieldKeys.value = [...partial.customFieldKeys];
+  if (partial.conditionalFormats) conditionalFormats.value = [...partial.conditionalFormats];
+  if (partial.colorScales) colorScales.value = [...partial.colorScales];
+  if (partial.iconSets) iconSets.value = [...partial.iconSets];
+}
+
+async function loadCustomFieldDefs() {
+  try {
+    const { data, error } = await fetchCustomFields();
+    if (error || !data?.rows) {
+      customFieldDefs.value = [];
+      return;
+    }
+    customFieldDefs.value = data.rows;
+  } catch {
+    customFieldDefs.value = [];
+  }
 }
 
 async function loadPersonalDisplayPrefs() {
@@ -153,7 +259,11 @@ async function loadPersonalDisplayPrefs() {
       groupBy: normalized.groupBy,
       swimlaneBy: normalized.swimlaneBy,
       hideEmptyLanes: normalized.hideEmptyLanes,
-      fields: normalized.fields
+      fields: normalized.fields,
+      customFieldKeys: normalized.customFieldKeys,
+      conditionalFormats: normalized.conditionalFormats,
+      colorScales: normalized.colorScales,
+      iconSets: normalized.iconSets
     });
   } catch {
     /* ignore prefs load */
@@ -181,6 +291,10 @@ function resetDisplayOptions() {
   swimlaneBy.value = d.swimlaneBy;
   hideEmptyLanes.value = d.hideEmptyLanes;
   displayFields.value = { ...d.fields };
+  customFieldKeys.value = [];
+  conditionalFormats.value = [];
+  colorScales.value = [];
+  iconSets.value = [];
 }
 
 /** E4-S3：当前页 depth-1 嵌套（父不在本页则子作顶层） */
@@ -199,8 +313,51 @@ const filters = reactive({
   type: undefined as Api.Issue.IssueType | undefined,
   project_id: undefined as string | undefined,
   cycle_id: undefined as string | undefined,
-  search: ''
+  search: '',
+  assignee_id: undefined as string | undefined,
+  reporter_id: undefined as string | undefined,
+  watching: undefined as boolean | undefined,
+  due_soon: undefined as boolean | undefined,
+  labels: undefined as string[] | undefined,
+  custom_fields: undefined as { key: string; value: string }[] | undefined
 });
+
+const scopeTitle = computed(() => {
+  if (filters.watching) return '我关注的';
+  if (filters.due_soon) return '即将到期';
+  if (filters.assignee_id === 'me') return '指派给我';
+  if (filters.reporter_id === 'me') return '我创建的';
+  return null;
+});
+
+function clearScope() {
+  applyScopeFromQuery(undefined);
+  const nextQuery = { ...route.query };
+  delete nextQuery.scope;
+  router.replace({ query: nextQuery });
+  pagination.page = 1;
+  loadIssues();
+}
+
+function applyScopeFromQuery(scope: unknown) {
+  filters.assignee_id = undefined;
+  filters.reporter_id = undefined;
+  filters.watching = undefined;
+  filters.due_soon = undefined;
+  if (scope === 'assigned') {
+    filters.assignee_id = 'me';
+    activeTab.value = 'my_issues';
+  } else if (scope === 'created') {
+    filters.reporter_id = 'me';
+    activeTab.value = 'all';
+  } else if (scope === 'watching') {
+    filters.watching = true;
+    activeTab.value = 'all';
+  } else if (scope === 'due_soon') {
+    filters.due_soon = true;
+    activeTab.value = 'all';
+  }
+}
 
 // 智能搜索
 const smartSearchValue = ref('');
@@ -316,10 +473,11 @@ async function applySavedView(view: SavedView) {
   if (state.viewMode) {
     viewMode.value = state.viewMode;
   }
-  groupBy.value = state.groupBy;
-  swimlaneBy.value = state.swimlaneBy;
+  groupBy.value = sanitizeCfDim(state.groupBy, 'group');
+  swimlaneBy.value = sanitizeCfDim(state.swimlaneBy, 'swimlane');
   hideEmptyLanes.value = state.hideEmptyLanes;
   displayFields.value = { ...state.fields };
+  customFieldKeys.value = [...(state.customFieldKeys || [])];
 
   activeSavedViewId.value = state.activeSavedViewId;
   pagination.page = 1;
@@ -461,10 +619,16 @@ const syntaxExamples = [
   { text: 'type:feature', desc: '只显示功能类型的 Issue' },
   { text: 'type:bug', desc: '只显示缺陷类型的 Issue' },
   { text: 'priority:urgent', desc: '只显示紧急优先级的 Issue' },
-  { text: 'priority:high', desc: '只显示高优先级的 Issue' }
+  { text: 'priority:high', desc: '只显示高优先级的 Issue' },
+  { text: 'field:severity:s1', desc: '按自定义字段过滤（亦可用 cf:key:value）' }
 ];
 
 // Load issues
+let unsubRealtime: (() => void) | null = null;
+const debouncedRealtimeReload = debounceFn(() => {
+  loadIssues();
+}, 400);
+
 async function loadIssues() {
   loading.value = true;
   try {
@@ -476,15 +640,31 @@ async function loadIssues() {
 
     /* eslint-disable no-await-in-loop */
     while (hasMore) {
+      const cfParams = customFieldsToCfParams(filters.custom_fields);
+      const needCf =
+        Boolean(customFieldKeys.value.length) ||
+        Boolean(filters.custom_fields?.length) ||
+        Boolean(parseCfDim(groupBy.value)) ||
+        Boolean(parseCfDim(swimlaneBy.value));
+      const needCfSort = String(listSortBy.value || '').startsWith('cf:');
       const response = await issueApi.getIssues({
         page,
         page_size: 100,
+        status: filters.status,
         priority: filters.priority,
         type: filters.type,
         project_id: filters.project_id,
         cycle_id: filters.cycle_id,
-        search: filters.search || undefined
-      });
+        search: filters.search || undefined,
+        assignee_id: filters.assignee_id,
+        reporter_id: filters.reporter_id,
+        watching: filters.watching,
+        due_soon: filters.due_soon,
+        sort_by: listSortBy.value || 'created_at',
+        sort_order: listSortOrder.value || 'desc',
+        include: needCf || needCfSort || conditionalFormats.value.length || colorScales.value.length || iconSets.value.length ? 'custom_fields' : undefined,
+        ...cfParams
+      } as any);
 
       if (response.data?.rows) {
         fetchedIssues.push(...response.data.rows);
@@ -550,6 +730,14 @@ function applyTabAndFilters() {
       issue => issue.title.toLowerCase().includes(searchLower) || issue.issue_code.toLowerCase().includes(searchLower)
     );
   }
+  if (filters.labels?.length) {
+    const want = filters.labels.map(l => l.toLowerCase());
+    filtered = filtered.filter(issue => {
+      const tags = (issue as Api.Issue.Issue & { tags?: Array<{ name?: string }> }).tags || [];
+      const names = tags.map(t => (t.name || '').toLowerCase());
+      return want.every(w => names.some(n => n === w || n.includes(w)));
+    });
+  }
 
   // 更新分页总数与看板全量（未分页）
   filteredIssues.value = filtered;
@@ -561,14 +749,15 @@ function applyTabAndFilters() {
   issues.value = filtered.slice(start, end);
 }
 
-// 处理智能搜索
-async function handleSmartSearch(query: ParsedQuery) {
-  // 根据 status 切换 tab
-  if (query.status) {
-    const status = query.status as Api.Issue.IssueStatus;
+// 处理智能搜索（E21：落到 API filters，不再把 assignee 塞进 search）
+async function handleSmartSearch(query: ParsedQuery, raw?: string) {
+  const mapped = parsedQueryToFilters(query);
+
+  if (mapped.status) {
+    const status = mapped.status as Api.Issue.IssueStatus;
+    filters.status = status;
     const openStatuses: Api.Issue.IssueStatus[] = ['open', 'in_progress', 'feedback'];
     const closedStatuses: Api.Issue.IssueStatus[] = ['closed', 'rejected', 'resolved'];
-
     if (openStatuses.includes(status)) {
       activeTab.value = 'open';
     } else if (closedStatuses.includes(status)) {
@@ -576,50 +765,42 @@ async function handleSmartSearch(query: ParsedQuery) {
     } else {
       activeTab.value = 'all';
     }
-  }
-
-  // 更新其他 filters
-  if (query.type) {
-    filters.type = query.type as Api.Issue.IssueType;
   } else {
-    filters.type = undefined;
+    filters.status = undefined;
   }
 
-  if (query.priority) {
-    filters.priority = query.priority as Api.Issue.IssuePriority;
+  filters.type = (mapped.type as Api.Issue.IssueType) || undefined;
+  filters.priority = (mapped.priority as Api.Issue.IssuePriority) || undefined;
+  filters.project_id = mapped.project_id || undefined;
+  filters.cycle_id = mapped.cycle_id || undefined;
+  filters.assignee_id = mapped.assignee_id || undefined;
+  filters.reporter_id = mapped.reporter_id || undefined;
+  filters.labels = mapped.labels;
+  filters.custom_fields = mapped.custom_fields;
+  filters.search = mapped.search || '';
+
+  if (mapped.assignee_id === 'me') {
+    activeTab.value = 'my_issues';
+  }
+
+  const qRaw = raw !== undefined ? raw : smartSearchValue.value;
+  const nextQuery: Record<string, string | string[] | undefined | null> = { ...route.query };
+  if (qRaw && qRaw.trim()) {
+    nextQuery.q = qRaw.trim();
   } else {
-    filters.priority = undefined;
+    delete nextQuery.q;
   }
+  // Keep cycle_id query in sync when set via smart search
+  if (filters.cycle_id) nextQuery.cycle_id = filters.cycle_id;
+  router.replace({ query: nextQuery as typeof route.query });
 
-  if (query.project_id) {
-    filters.project_id = query.project_id;
-  } else {
-    filters.project_id = undefined;
-  }
-
-  // 处理搜索词（包括普通搜索和特殊过滤器）
-  const searchParts: string[] = [];
-  if (query.search) {
-    searchParts.push(query.search);
-  }
-
-  // 将 assignee 和 creator 添加到搜索中（因为 API 可能不支持这些字段）
-  if (query.assignee_id) {
-    searchParts.push(`assignee:${query.assignee_id}`);
-    // 如果搜索的是分配给当前用户的问题，切换到"我的待办"tab
-    if (query.assignee_id === currentUserId.value) {
-      activeTab.value = 'my_issues';
-    }
-  }
-  if (query.reporter_id) {
-    searchParts.push(`author:${query.reporter_id}`);
-  }
-
-  filters.search = searchParts.join(' ') || '';
-
-  // 搜索条件改变后，重新获取所有数据
-  pagination.page = 1; // 重置到第一页
+  pagination.page = 1;
   await loadIssues();
+}
+
+function applySmartSearchFromString(raw: string) {
+  smartSearchValue.value = raw;
+  return handleSmartSearch(parseSearchString(raw), raw);
 }
 
 // Use imported constants and utility functions
@@ -731,15 +912,137 @@ function focusIssueRow(issue: Api.Issue.Issue) {
   });
 }
 
+function publishIssueOrder(rows: Api.Issue.Issue[]) {
+  issueSelection.setIssueOrder((rows || []).map(r => r.id));
+}
+
+watch(
+  () => filteredIssues.value,
+  rows => {
+    publishIssueOrder(rows || []);
+  },
+  { immediate: true }
+);
+
+const TINT_BG: Record<string, string> = {
+  danger: 'color-mix(in srgb, #d03050 12%, transparent)',
+  warning: 'color-mix(in srgb, #f0a020 14%, transparent)',
+  success: 'color-mix(in srgb, #18a058 12%, transparent)',
+  info: 'color-mix(in srgb, #2080f0 12%, transparent)',
+  neutral: 'color-mix(in srgb, #888 10%, transparent)'
+};
+
+const ICON_GLYPH: Record<string, string> = {
+  arrow_up: '↑',
+  arrow_down: '↓',
+  arrow_flat: '→',
+  flag: '⚑',
+  dot_red: '●',
+  dot_yellow: '●',
+  dot_green: '●',
+  check: '✓',
+  warn: '!'
+};
+
+function iconPrefixFor(issue: Api.Issue.Issue, field?: string): string {
+  const icon = resolveCellIcon(
+    issue as unknown as Record<string, unknown>,
+    iconSets.value,
+    field
+  );
+  return icon ? `${ICON_GLYPH[icon] || ''} ` : '';
+}
+
 function issueRowProps(row: Api.Issue.Issue) {
+  const focused = issueFocus.focusedIssueId.value === row.id;
+  const selected = issueSelection.isSelected(row.id);
+  const appearance = resolveRowBackground(row as unknown as Record<string, unknown>, {
+    conditionalFormats: conditionalFormats.value,
+    colorScales: colorScales.value
+  });
+  const tint = appearance?.kind === 'tint' ? appearance.value : null;
+  const classes = [
+    focused ? 'issue-row-focused' : '',
+    selected ? 'issue-row-selected' : '',
+    tint ? `issue-row-tint-${tint}` : ''
+  ]
+    .filter(Boolean)
+    .join(' ');
+  let style: string | undefined;
+  if (focused) style = 'outline: 2px solid var(--color-primary); outline-offset: -2px;';
+  else if (selected) style = 'background: color-mix(in srgb, var(--color-primary) 8%, transparent);';
+  else if (appearance?.kind === 'tint') style = `background: ${TINT_BG[appearance.value]};`;
+  else if (appearance?.kind === 'scale') style = `background: color-mix(in srgb, ${appearance.value} 22%, transparent);`;
   return {
-    class: issueFocus.focusedIssueId.value === row.id ? 'issue-row-focused' : undefined,
-    style:
-      issueFocus.focusedIssueId.value === row.id
-        ? 'outline: 2px solid var(--primary-color, #18a058); outline-offset: -2px;'
-        : undefined,
+    class: classes || undefined,
+    style,
     onClick: () => focusIssueRow(row)
   };
+}
+
+function onConditionalFormatsUpdate(next: ConditionalFormatRule[]) {
+  conditionalFormats.value = [...(next || [])];
+}
+
+function onColorScalesUpdate(next: ColorScaleRule[]) {
+  colorScales.value = [...(next || [])];
+}
+
+function onIconSetsUpdate(next: IconSetRule[]) {
+  iconSets.value = [...(next || [])];
+}
+
+function onListSortByUpdate(v: string) {
+  listSortBy.value = v || 'created_at';
+  loadIssues();
+}
+
+function onListSortOrderUpdate(v: 'asc' | 'desc') {
+  listSortOrder.value = v || 'desc';
+  loadIssues();
+}
+
+function relationBadgeNodes(row: Api.Issue.Issue) {
+  const nodes = [];
+  const blocked = row.blocked_by_count || 0;
+  const blocks = row.blocks_count || 0;
+  if (blocked > 0) {
+    nodes.push(
+      h(
+        NTag,
+        {
+          size: 'tiny',
+          type: 'error',
+          bordered: false,
+          style: 'margin-right: 4px; cursor: pointer',
+          onClick: (e: Event) => {
+            e.stopPropagation();
+            viewIssue(row);
+          }
+        },
+        { default: () => `被阻塞 ${blocked}` }
+      )
+    );
+  }
+  if (blocks > 0) {
+    nodes.push(
+      h(
+        NTag,
+        {
+          size: 'tiny',
+          type: 'warning',
+          bordered: false,
+          style: 'cursor: pointer',
+          onClick: (e: Event) => {
+            e.stopPropagation();
+            viewIssue(row);
+          }
+        },
+        { default: () => `阻塞 ${blocks}` }
+      )
+    );
+  }
+  return nodes;
 }
 
 // View issue detail
@@ -756,6 +1059,76 @@ function createIssue() {
   router.push({
     path: '/issue/create'
   });
+}
+
+// E28 · CSV export / import
+const showImportModal = ref(false);
+const importLoading = ref(false);
+const importSummary = ref('');
+const importFileInput = ref<HTMLInputElement | null>(null);
+
+async function exportIssuesCsv() {
+  try {
+    const blob = await issueApi.exportIssuesCsv({
+      status: filters.status,
+      priority: filters.priority,
+      type: filters.type,
+      project_id: filters.project_id,
+      assignee_id: filters.assignee_id,
+      cycle_id: filters.cycle_id,
+      search: filters.search
+    });
+    const url = URL.createObjectURL(blob as Blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'issues-export.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    window.$message?.success('已导出 CSV');
+  } catch (e) {
+    console.error(e);
+    window.$message?.error('导出失败');
+  }
+}
+
+async function downloadImportTemplate() {
+  try {
+    const blob = await issueApi.downloadImportTemplateCsv();
+    const url = URL.createObjectURL(blob as Blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'issues-import-template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    console.error(e);
+    window.$message?.error('模板下载失败');
+  }
+}
+
+function openImportModal() {
+  importSummary.value = '';
+  showImportModal.value = true;
+}
+
+async function onImportFileChange(ev: Event) {
+  const input = ev.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  importLoading.value = true;
+  importSummary.value = '';
+  try {
+    const data = await issueApi.importIssuesCsv(file);
+    importSummary.value = formatIssueImportSummary(data || {});
+    window.$message?.success(importSummary.value);
+    await loadIssues();
+  } catch (e) {
+    console.error(e);
+    window.$message?.error('导入失败');
+  } finally {
+    importLoading.value = false;
+    input.value = '';
+  }
 }
 
 // Handle filter change
@@ -785,7 +1158,23 @@ function handlePageSizeChange(pageSize: number) {
 }
 
 async function handleGroupByChange(value: GroupByKey | null) {
-  groupBy.value = value || 'none';
+  const next = value || 'none';
+  const cfKey = parseCfDim(next);
+  if (cfKey) {
+    const def = customFieldDefs.value.find(f => f.key === cfKey);
+    if (def && !isGroupingCfType(def.type)) {
+      window.$message?.warning('该自定义字段类型不支持分组，已回退为不分组');
+      groupBy.value = 'none';
+    } else {
+      groupBy.value = next;
+      if (cfKey && !customFieldKeys.value.includes(cfKey)) {
+        customFieldKeys.value = [...customFieldKeys.value, cfKey];
+      }
+    }
+  } else {
+    groupBy.value = next;
+  }
+  loadIssues();
   const id = activeSavedViewId.value;
   if (!id || !canWriteActiveSavedView.value) return;
   try {
@@ -814,8 +1203,28 @@ function onDisplayFieldsUpdate(next: IssueDisplayFields) {
   syncActiveViewDisplay();
 }
 
+function onCustomFieldKeysUpdate(next: string[]) {
+  customFieldKeys.value = next;
+  syncActiveViewDisplay();
+  loadIssues();
+}
+
 function onSwimlaneByUpdate(next: SwimlaneBy) {
+  const cfKey = parseCfDim(next);
+  if (cfKey) {
+    const def = customFieldDefs.value.find(f => f.key === cfKey);
+    if (def && !isGroupingCfType(def.type)) {
+      window.$message?.warning('该自定义字段类型不支持泳道，已回退为无泳道');
+      swimlaneBy.value = 'none';
+      syncActiveViewDisplay();
+      return;
+    }
+    if (!customFieldKeys.value.includes(cfKey)) {
+      customFieldKeys.value = [...customFieldKeys.value, cfKey];
+    }
+  }
   swimlaneBy.value = next;
+  loadIssues();
   syncActiveViewDisplay();
 }
 
@@ -831,9 +1240,18 @@ function clearFilters() {
   filters.type = undefined;
   filters.status = undefined;
   filters.priority = undefined;
+  filters.custom_fields = undefined;
   filters.search = '';
+  filters.assignee_id = undefined;
+  filters.reporter_id = undefined;
+  filters.labels = undefined;
+  // keep watching/due_soon/scope-driven unless user clears scope separately
   smartSearchValue.value = '';
-  applyTabAndFilters();
+  const nextQuery = { ...route.query };
+  delete nextQuery.q;
+  router.replace({ query: nextQuery });
+  pagination.page = 1;
+  loadIssues();
 }
 
 // Computed: Check if any filters are active
@@ -868,7 +1286,7 @@ function getPriorityLabel(priority: Api.Issue.IssuePriority): string {
 }
 
 // Table columns
-const columns: DataTableColumns<Api.Issue.Issue> = [
+const baseColumns: DataTableColumns<Api.Issue.Issue> = [
   {
     title: '编号',
     key: 'issue_code',
@@ -905,7 +1323,26 @@ const columns: DataTableColumns<Api.Issue.Issue> = [
                 '↳'
               )
             : null,
-          row.title
+          iconPrefixFor(row) || null,
+          row.title,
+          ...relationBadgeNodes(row).map(n =>
+            h('span', { style: 'margin-left: 6px; display: inline-flex; vertical-align: middle;' }, [n])
+          ),
+          ...(formatChildProgress(row.childProgress)
+            ? [
+                h(
+                  'span',
+                  { style: 'margin-left: 6px; display: inline-flex; vertical-align: middle;' },
+                  [
+                    h(
+                      NTag,
+                      { size: 'tiny', type: 'info', bordered: false },
+                      { default: () => formatChildProgress(row.childProgress) }
+                    )
+                  ]
+                )
+              ]
+            : [])
         ]
       );
     }
@@ -935,6 +1372,16 @@ const columns: DataTableColumns<Api.Issue.Issue> = [
     render: row => {
       const label = priorityOptions.find(p => p.value === row.priority)?.label;
       return h(NTag, { type: getPriorityType(row.priority), size: 'small' }, { default: () => label || '-' });
+    }
+  },
+  {
+    title: '估点',
+    key: 'estimate_points',
+    width: 72,
+    render: row => {
+      const prefix = iconPrefixFor(row, 'estimate_points');
+      const body = row.estimate_points != null ? String(row.estimate_points) : '—';
+      return prefix ? `${prefix}${body}` : body;
     }
   },
   {
@@ -988,6 +1435,29 @@ const columns: DataTableColumns<Api.Issue.Issue> = [
   }
 ];
 
+const columns = computed<DataTableColumns<Api.Issue.Issue>>(() => {
+  const cols = [...baseColumns];
+  const defsByKey = Object.fromEntries(customFieldDefs.value.map(d => [d.key, d]));
+  for (const key of customFieldKeys.value) {
+    const def = defsByKey[key];
+    cols.splice(cols.length - 1, 0, {
+      title: def?.name || key,
+      key: `cf_${key}`,
+      width: 120,
+      ellipsis: { tooltip: true },
+      render: (row: Api.Issue.Issue) => {
+        const list = (row as any).customFields || (row as any).custom_fields || [];
+        const hit = list.find((x: any) => x.key === key);
+        const prefix = iconPrefixFor(row, `cf:${key}`);
+        const body = formatCustomFieldCellValue(hit?.value);
+        return prefix ? `${prefix}${body}` : body;
+      }
+    });
+  }
+  return cols;
+});
+
+
 // Project options
 const projectOptions = computed(() => {
   return projects.value.map(p => ({
@@ -1017,7 +1487,22 @@ watch(
   }
 );
 
+watch(
+  () => route.query.scope,
+  scope => {
+    applyScopeFromQuery(scope);
+    pagination.page = 1;
+    loadIssues();
+  }
+);
+
 onMounted(async () => {
+  unsubRealtime = subscribeWorkspaceRealtime(ev => {
+    if (typeof ev.type === 'string' && ev.type.startsWith('issue.')) {
+      debouncedRealtimeReload();
+    }
+  });
+
   loadProjects();
   loadCycles();
   await loadWorkspaceRole();
@@ -1027,6 +1512,24 @@ onMounted(async () => {
   if (typeof cycleQ === 'string' && cycleQ) {
     filters.cycle_id = cycleQ;
   }
+  applyScopeFromQuery(route.query.scope);
+  const qInit = typeof route.query.q === 'string' ? route.query.q : '';
+  if (qInit.trim()) {
+    smartSearchValue.value = qInit;
+    const parsed = parseSearchString(qInit);
+    // apply without router thrash: set filters inline then loadIssues later
+    const mapped = parsedQueryToFilters(parsed);
+    if (mapped.status) filters.status = mapped.status as Api.Issue.IssueStatus;
+    if (mapped.type) filters.type = mapped.type as Api.Issue.IssueType;
+    if (mapped.priority) filters.priority = mapped.priority as Api.Issue.IssuePriority;
+    if (mapped.project_id) filters.project_id = mapped.project_id;
+    if (mapped.cycle_id) filters.cycle_id = mapped.cycle_id;
+    if (mapped.assignee_id) filters.assignee_id = mapped.assignee_id;
+    if (mapped.reporter_id) filters.reporter_id = mapped.reporter_id;
+    if (mapped.labels) filters.labels = mapped.labels;
+    if (mapped.search) filters.search = mapped.search;
+    if (mapped.assignee_id === 'me') activeTab.value = 'my_issues';
+  }
   if (typeof viewId === 'string' && viewId) {
     await applySavedViewById(viewId);
   } else {
@@ -1034,11 +1537,19 @@ onMounted(async () => {
     await loadIssues();
   }
 });
+
+onUnmounted(() => {
+  unsubRealtime?.();
+  unsubRealtime = null;
+});
 </script>
 
 <template>
   <div class="issue-list-container">
     <NCard :bordered="false">
+      <NAlert v-if="scopeTitle" type="info" :bordered="false" class="mb-12px" closable @close="clearScope">
+        当前视图：{{ scopeTitle }}
+      </NAlert>
       <template #header>
         <NSpace align="center" justify="space-between" style="width: 100%">
           <NText strong style="font-size: 16px">Issue 管理</NText>
@@ -1064,6 +1575,24 @@ onMounted(async () => {
                 <icon-mdi-view-column />
               </template>
               看板
+            </NButton>
+            <NButton size="small" secondary :loading="importLoading" @click="exportIssuesCsv">
+              <template #icon>
+                <icon-mdi-download />
+              </template>
+              Export
+            </NButton>
+            <NButton size="small" secondary @click="openImportModal">
+              <template #icon>
+                <icon-mdi-upload />
+              </template>
+              Import
+            </NButton>
+            <NButton size="small" secondary @click="router.push('/issue/trash')">
+              <template #icon>
+                <icon-mdi-delete-restore />
+              </template>
+              回收站
             </NButton>
             <NButton type="primary" @click="createIssue">
               <template #icon>
@@ -1225,21 +1754,47 @@ onMounted(async () => {
                 :swimlane-by="swimlaneBy"
                 :hide-empty-lanes="hideEmptyLanes"
                 :saving="displayPrefsSaving"
+                :custom-field-options="customFieldDefs.map(f => ({ key: f.key, name: f.name, type: f.type, formulaResultType: f.formulaResultType }))"
+                :custom-field-keys="customFieldKeys"
+                :conditional-formats="conditionalFormats"
+                :color-scales="colorScales"
+                :icon-sets="iconSets"
                 @update:fields="onDisplayFieldsUpdate"
                 @update:swimlane-by="onSwimlaneByUpdate"
                 @update:hide-empty-lanes="onHideEmptyLanesUpdate"
+                @update:custom-field-keys="onCustomFieldKeysUpdate"
+                @update:conditional-formats="onConditionalFormatsUpdate"
+                @update:color-scales="onColorScalesUpdate"
+                @update:icon-sets="onIconSetsUpdate"
                 @set-personal-default="setPersonalDisplayDefault"
                 @reset="resetDisplayOptions"
               />
             </NPopover>
 
             <div class="group-by-select">
+              <NText depth="3" class="group-by-label">排序</NText>
+              <NSelect
+                :value="listSortBy"
+                :options="sortByOptions"
+                size="small"
+                style="width: 150px"
+                @update:value="onListSortByUpdate"
+              />
+              <NSelect
+                :value="listSortOrder"
+                :options="[{ label: '降序', value: 'desc' }, { label: '升序', value: 'asc' }]"
+                size="small"
+                style="width: 90px"
+                @update:value="onListSortOrderUpdate"
+              />
+            </div>
+            <div class="group-by-select">
               <NText depth="3" class="group-by-label">分组</NText>
               <NSelect
                 :value="groupBy"
                 :options="groupByOptions"
                 size="small"
-                style="width: 120px"
+                style="width: 160px"
                 @update:value="handleGroupByChange"
               />
             </div>
@@ -1384,6 +1939,9 @@ onMounted(async () => {
             :issues="filteredIssues"
             :swimlane-by="swimlaneBy"
             :hide-empty-lanes="hideEmptyLanes"
+            :conditional-formats="conditionalFormats"
+            :color-scales="colorScales"
+            :icon-sets="iconSets"
             :fields="displayFields"
             @changed="loadIssues"
           />
@@ -1423,7 +1981,17 @@ onMounted(async () => {
           </div>
         </template>
       </NSpin>
+      <IssueBulkBar @done="loadIssues" />
     </NCard>
+
+    <NModal v-model:show="showImportModal" preset="card" title="导入 Issue CSV" style="width: 480px">
+      <NSpace vertical>
+        <NText depth="3">列需含 title；可选 issue_code（本工作区已存在则更新）。自定义字段用 <code>cf.&lt;key&gt;</code> 列（模板已含当前工作区字段；multi 逗号分隔，boolean 用 true/false）。未知 key 不阻断主字段写入。</NText>
+        <NButton size="small" secondary @click="downloadImportTemplate">下载模板 CSV</NButton>
+        <input ref="importFileInput" type="file" accept=".csv,text/csv" @change="onImportFileChange" />
+        <NText v-if="importSummary" type="success">{{ importSummary }}</NText>
+      </NSpace>
+    </NModal>
 
     <NModal
       v-model:show="saveViewModalVisible"
@@ -1444,16 +2012,16 @@ onMounted(async () => {
 
 <style scoped>
 .issue-list-container {
-  padding: 16px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+  padding: 12px;
+  background: var(--color-canvas);
   min-height: 100vh;
 }
 
 /* Tabs and Filters 容器 */
 .tabs-and-filters {
   /* border-radius: 12px; */
-  background: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  background: var(--color-bg-primary);
+  box-shadow: none;
   overflow: hidden;
   margin-bottom: 0px;
 }
@@ -1461,7 +2029,7 @@ onMounted(async () => {
 /* Tabs 区域 */
 .tabs-section {
   padding: 0 16px;
-  border-bottom: 1px solid #e8eaed;
+  border-bottom: 1px solid var(--color-hairline);
 }
 
 .tabs-section :deep(.n-tabs-nav) {
@@ -1506,7 +2074,7 @@ onMounted(async () => {
   padding: 0 6px;
   font-size: 11px;
   font-weight: 600;
-  color: #909399;
+  color: var(--color-text-tertiary);
   background: var(--color-bg-tertiary);
   border-radius: 9px;
   transition: all 0.2s;
@@ -1514,7 +2082,7 @@ onMounted(async () => {
 
 .tab-count-active {
   color: white;
-  background: #18a058;
+  background: var(--color-primary);
 }
 
 /* 搜索行 */
@@ -1539,7 +2107,7 @@ onMounted(async () => {
   align-items: center;
   gap: 4px;
   padding: 6px 12px;
-  color: #606266;
+  color: var(--color-text-secondary);
   font-size: 13px;
   border-radius: 4px;
   transition: all 0.2s;
@@ -1547,7 +2115,7 @@ onMounted(async () => {
 }
 
 .action-btn:hover {
-  color: #18a058;
+  color: var(--color-primary);
   background: rgba(24, 160, 88, 0.08);
 }
 
@@ -1568,12 +2136,12 @@ onMounted(async () => {
 .syntax-help-panel {
   padding: 0 16px 16px;
   border-top: 1px solid var(--color-bg-tertiary);
-  background: #fafbfc;
+  background: var(--color-bg-secondary);
 }
 
 .syntax-help-card {
   border-radius: 8px;
-  border-color: #e8eaed;
+  border-color: var(--color-hairline);
 }
 
 .syntax-help-header {
@@ -1584,7 +2152,7 @@ onMounted(async () => {
 
 .syntax-icon {
   font-size: 16px;
-  color: #18a058;
+  color: var(--color-primary);
 }
 
 .syntax-examples {
@@ -1602,12 +2170,12 @@ onMounted(async () => {
 }
 
 .syntax-code {
-  background: #f5f5f5;
+  background: var(--color-bg-tertiary);
   padding: 3px 8px;
   border-radius: 4px;
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 12px;
-  color: #18a058;
+  color: var(--color-primary);
   min-width: 120px;
 }
 
@@ -1622,12 +2190,12 @@ onMounted(async () => {
   gap: 8px;
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid #e8eaed;
+  border-top: 1px solid var(--color-hairline);
 }
 
 .tip-icon {
   font-size: 14px;
-  color: #e6a23c;
+  color: var(--color-warning);
   flex-shrink: 0;
   margin-top: 2px;
 }
@@ -1637,7 +2205,7 @@ onMounted(async () => {
   transition: all 0.3s ease;
   overflow: hidden;
   padding: 12px 16px;
-  background: #fafbfc;
+  background: var(--color-bg-secondary);
   border-radius: 0 0 8px 8px;
 }
 
@@ -1649,26 +2217,26 @@ onMounted(async () => {
   position: relative;
   display: flex;
   align-items: center;
-  background: white;
-  border: 1px solid #dcdfe6;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-default);
   border-radius: 6px;
   transition: all 0.2s;
 }
 
 .search-wrapper:hover {
-  border-color: #c0c4cc;
+  border-color: var(--color-border-strong);
 }
 
 .search-wrapper:focus-within {
-  border-color: #18a058;
-  box-shadow: 0 0 0 2px rgba(24, 160, 88, 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 18%, transparent);
 }
 
 .search-icon {
   position: absolute;
   left: 12px;
   font-size: 16px;
-  color: #c0c4cc;
+  color: var(--color-text-tertiary);
   pointer-events: none;
   z-index: 2;
 }
@@ -1716,8 +2284,8 @@ onMounted(async () => {
 
 .filter-selectors :deep(.n-base-selection) {
   border-radius: 4px;
-  border-color: #dcdfe6;
-  background: white;
+  border-color: var(--color-border-default);
+  background: var(--color-bg-primary);
   height: 28px;
 }
 
@@ -1736,17 +2304,17 @@ onMounted(async () => {
 }
 
 .filter-selectors :deep(.n-base-selection:hover) {
-  border-color: #c0c4cc;
+  border-color: var(--color-border-strong);
 }
 
 .filter-selectors :deep(.n-base-selection--focus) {
-  border-color: #18a058;
-  box-shadow: 0 0 0 2px rgba(24, 160, 88, 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 18%, transparent);
 }
 
 /* 清除按钮 */
 .clear-btn {
-  color: #909399;
+  color: var(--color-text-tertiary);
   font-size: 12px;
   border-radius: 4px;
   padding: 4px 8px;
@@ -1755,7 +2323,7 @@ onMounted(async () => {
 }
 
 .clear-btn:hover {
-  color: #f56c6c;
+  color: var(--color-danger);
   background: rgba(245, 108, 108, 0.1);
 }
 
@@ -1766,22 +2334,22 @@ onMounted(async () => {
 
 .active-filters {
   padding: 8px 16px 12px;
-  background: #fafbfc;
+  background: var(--color-bg-secondary);
   border-top: 1px solid var(--color-bg-tertiary);
 }
 
 /* Card 样式优化 */
 .issue-list-container :deep(.n-card) {
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: none;
   border: none;
   overflow: hidden;
 }
 
 .issue-list-container :deep(.n-card__header) {
   padding: 16px 20px;
-  background: white;
-  border-bottom: 1px solid #e8eaed;
+  background: var(--color-bg-primary);
+  border-bottom: 1px solid var(--color-hairline);
 }
 
 .issue-list-container :deep(.n-card__content) {
@@ -1801,10 +2369,10 @@ onMounted(async () => {
 }
 
 .issue-list-container :deep(.n-data-table-th) {
-  background: #f8f9fa;
+  background: var(--color-bg-secondary);
   font-weight: 600;
-  color: #606266;
-  border-bottom: 1px solid #e8eaed;
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-hairline);
   padding: 12px 16px;
   font-size: 13px;
 }
@@ -1816,7 +2384,7 @@ onMounted(async () => {
 }
 
 .issue-list-container :deep(.n-data-table-tr:hover) {
-  background: #f8f9fa;
+  background: var(--color-bg-secondary);
 }
 
 /* 标签样式优化 */
@@ -1835,8 +2403,8 @@ onMounted(async () => {
   display: flex;
   justify-content: flex-end;
   padding: 16px 20px;
-  background: white;
-  border-top: 1px solid #e8eaed;
+  background: var(--color-bg-primary);
+  border-top: 1px solid var(--color-hairline);
 }
 
 .pagination-wrapper :deep(.n-pagination) {
@@ -1851,14 +2419,14 @@ onMounted(async () => {
 }
 
 .pagination-wrapper :deep(.n-pagination-item--active) {
-  background: #18a058;
-  border-color: #18a058;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
   color: white;
 }
 
 .pagination-wrapper :deep(.n-pagination-item:hover:not(.n-pagination-item--disabled)) {
-  border-color: #18a058;
-  color: #18a058;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 /* 标题样式优化 */
@@ -1880,6 +2448,6 @@ onMounted(async () => {
 }
 
 :deep(.issue-row-focused td) {
-  background: color-mix(in srgb, var(--primary-color, #18a058) 8%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
 }
 </style>

@@ -177,6 +177,29 @@ export function fetchProjectTimeline(projectId: string) {
   });
 }
 
+/** E79: project members roster */
+export function fetchProjectMembers(projectId: string) {
+  return request<Api.Project.ProjectMemberUser[]>({
+    url: `/api/projects/${projectId}/members`,
+    method: 'get'
+  });
+}
+
+export function addProjectMember(projectId: string, userId: string) {
+  return request<Api.Project.ProjectMemberUser>({
+    url: `/api/projects/${projectId}/members`,
+    method: 'post',
+    data: { user_id: userId }
+  });
+}
+
+export function removeProjectMember(projectId: string, userId: string) {
+  return request<void>({
+    url: `/api/projects/${projectId}/members/${userId}`,
+    method: 'delete'
+  });
+}
+
 export const projectApi = {
   getList: fetchProjectList,
   getDetail: fetchProjectDetail,
@@ -194,6 +217,9 @@ export const projectApi = {
   getHealth: fetchProjectHealth,
   postHealth: postProjectHealth,
   getWatchers: fetchProjectWatchers,
+  getMembers: fetchProjectMembers,
+  addMember: addProjectMember,
+  removeMember: removeProjectMember,
   watch: watchProject,
   unwatch: unwatchProject,
   getTimeline: fetchProjectTimeline

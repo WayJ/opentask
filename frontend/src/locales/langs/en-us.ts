@@ -1,6 +1,6 @@
 const local: App.I18n.Schema = {
   system: {
-    title: 'SoybeanAdmin',
+    title: 'OpenTask',
     updateTitle: 'System Version Update Notification',
     updateContent: 'A new version of the system has been detected. Do you want to refresh the page immediately?',
     updateConfirm: 'Refresh immediately',
@@ -68,6 +68,7 @@ const local: App.I18n.Schema = {
       navCycles: 'Cycles settings',
       navInitiatives: 'Initiatives',
       navTriage: 'Triage',
+      navSearch: 'Search…',
       navInbox: 'Inbox'
     }
   },
@@ -258,9 +259,21 @@ const local: App.I18n.Schema = {
     workspace_members: 'Members',
     invite: 'Invite',
     workspace_labels: 'Labels',
+    'settings': 'Settings',
+    'settings_webhooks': 'Webhooks',
+    'settings_recurrences': 'Recurrences',
+    'settings_forms': 'Public Forms',
+    'public-form': 'Public Form',
+    'settings_notifications': 'Notifications',
+    'workspace_automations': 'Automations',
+    'workspace_custom-fields': 'Custom Fields',
     'workspace_issue-templates': 'Issue Templates',
+    'workspace_project-templates': 'Project Templates',
     workspace_cycles: 'Cycles',
     inbox: 'Inbox',
+    activity: 'Activity',
+    insights: 'Insights',
+    search: 'Search',
     initiatives: 'Initiatives',
     initiatives_detail: 'Initiative Detail',
     triage: 'Triage',
@@ -294,7 +307,7 @@ const local: App.I18n.Schema = {
     'manage_user-detail': 'User Detail',
     manage_role: 'Role Manage',
     manage_perm: 'Permission Manage',
-    workflow: 'Workflow',
+    workflow: 'Projects',
     workflow_projects: 'Projects',
     'workflow_project-detail': 'Project Detail',
     workflow_requirements: 'Requirements (Legacy)',
@@ -314,17 +327,28 @@ const local: App.I18n.Schema = {
     'work-management_my-work': 'My Work',
     'work-management_my-work_weekly': 'Weekly View',
     'work-management_my-work_feedback': 'Work Feedback',
-    issue: 'Issue Management',
+    issue: 'Issues',
     issue_create: 'Create Issue',
     issue_detail: 'Issue Detail',
     'issue_detail-new': 'Issue Detail (New Design)',
-    issue_list: 'Issue List',
+    issue_list: 'My issues',
+    issue_trash: 'Trash',
     issue_collection: 'Issue Collection',
     'issue_collection-list': 'Collection List',
     'issue_collection-detail': 'Collection Detail',
     'issue_collection-create': 'Create Collection'
   },
   page: {
+    search: {
+      placeholder: 'Search issues, projects, docs, members, comments…',
+      hint: 'Type to search. Or open the command palette with ⌘K.',
+      empty: 'No matches',
+      groupIssues: 'Issues',
+      groupProjects: 'Projects',
+      groupDocs: 'Docs',
+      groupMembers: 'Members',
+      groupComments: 'Comments'
+    },
     profile: {
       pwd: {
         title: 'Change password',
@@ -385,6 +409,7 @@ const local: App.I18n.Schema = {
       },
       register: {
         title: 'Register',
+        passwordPlaceholder: 'Please enter password (min 8 chars, letters and numbers)',
         agreement: 'I have read and agree to',
         protocol: '《User Agreement》',
         policy: '《Privacy Policy》'
@@ -455,7 +480,7 @@ const local: App.I18n.Schema = {
     },
     pwd: {
       required: 'Please enter password',
-      invalid: '6-18 characters, including letters, numbers, and underscores'
+      invalid: 'Password must be at least 8 characters and include both letters and numbers'
     },
     confirmPwd: {
       required: 'Please enter password again',
