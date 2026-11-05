@@ -1,0 +1,5 @@
+2026-11-05：OpenTask MCP 只读接口接入小蓝成员 OAuth 授权码流；list_issues 复用成员范围查询并返回结构化 JSON。隔离 PostgreSQL 测试覆盖协议握手、scope、分页参数与返回格式。
+2026-11-05 E94：新增 Issue/Project/Member 的 Ontology MCP，支持本体发现、类型定义、原生状态对象查询及双端授权的关系遍历；保留 list_issues。OAuth 专项已通过并经真实 harness SDK 验证项目、负责人、阻塞和反向关系；全量门禁结果见对应验收记录。
+
+2026-11-05 E95: 新增 query_object_set / describe_action，MCP 网关测试通过；后端全量 1457 passed / 24 skipped，前端构建通过，只读 lint 存量 213 errors。工作台页面导航超时，隔离 headless 无企业模型适配器；待恢复工作台后完成模型实际调用验收。详情见 docs/superpowers/acceptances/2026-11-05-E95-acceptance.md。
+2026-11-05 E95 复验：工作台已恢复；模型实际查询对象集、分组并发现类型化 Action。专用测试 Issue ISSUE2026-8917718 由模型执行 open→resolved，changed=true；独立数据库核实状态及唯一状态变更时间线。详见 E95 验收记录。

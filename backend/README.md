@@ -47,6 +47,31 @@ alembic upgrade head
 uv run alembic upgrade head
 ```
 
+## 小蓝工作台 Ontology MCP
+
+`POST /mcp` 提供无会话、只读的 MCP 工具。业务本体版本为 `1.0.0`，数据沿用 PostgreSQL 与 OpenTask 的工作区、部门数据范围。每次对象读取和关系遍历都检查当前 OAuth 成员权限；不可见与不存在对象均返回 `OBJECT_NOT_FOUND`（业务状态 404），关系总数不包含不可见目标。
+
+| 工具 | 用途 |
+|---|---|
+| `discover_ontology` | 获取本体版本、类型目录、scope 与分页约定 |
+| `describe_object_type` | 按类型读取字段、原生枚举、可筛选属性、关系方向与基数 |
+| `search_objects` | 搜索 Issue / Project / Member，支持类型适用的筛选和分页 |
+| `get_object` | 用类型和对象 id 读取详情 |
+| `get_related_objects` | 沿指定关系遍历一跳，起点和目标均须可见 |
+| `list_issues` | 兼容旧任务表示，保留原输出结构及状态映射 |
+
+本体对象使用 OpenTask 原生 issue 状态，如 `open`、`in_progress`、`resolved`。`list_issues` 的契约状态（如 `todo`）不用于本体筛选。对象主键为返回结果的 `id`，业务单号在 Issue 的 `properties.issue_code`。
+
+Issue 支持项目、主负责人、报告人、父子问题与阻塞/依赖/重复/关联关系；Project 支持问题集合；Member 支持主负责和报告的问题。`assignee` / `assigned_issues` 表示主负责人，不含额外协作者。完整关系目录通过 `describe_object_type` 获取。关系目标为不可见对象时返回空集合，不透露其标识。查询和关系结果每页默认 20、最多 50 个对象，`offset` 范围为 0–100000，返回 `total`、`has_more`、`next_offset`。列表描述最多 1000 字符，详情描述最多 8000 字符，截断字段记录在 `truncated_properties`。
+
+使用成员 OAuth 授权码令牌：Issue 需要 `read:tasks`，Project 需要 `read:projects`；`profile` 只能读取本人的 Member，`read:members` 可以读取共享工作区且符合部门范围的启用成员。类型发现只需有效 OAuth 身份。新增 scope 后必须重新取得成员同意；旧令牌不会自动扩权。所有工具都为只读，本期不提供业务写入动作。
+
+小蓝应用使用 `OAUTH_AUTHORIZATION_CODE`，MCP 路径 `/mcp`，令牌端点 `/oauth2/token`，用户信息端点 `/oauth2/userinfo`，授权地址指向前端 `/oauth2/authorize`。申请所需 scopes 后，成员在工作台连接 OpenTask。`/tasks/token` 产生的客户端凭据令牌不适用于此接口。
+
+工作台验证示例：先询问“OpenTask 有哪些对象类型和问题关系？”，再询问“查询测试问题，并说明它所属项目、主负责人和阻塞的问题”。程序调用可先 `search_objects({"object_type":"Issue","query":"测试"})`，再将返回 id 用于 `get_related_objects({"object_type":"Issue","object_id":"<id>","relation":"blocks"})`。
+
+响应同时提供 JSON 文本与 `structuredContent`。本体工具的查询和权限失败使用 HTTP 200 + `isError=true`，并在 `error` 中提供 `code`、业务 `status`（400/403/404）和 `detail`，以免平台代理把对象不存在误判为会话过期。无效或缺失 OAuth 令牌仍返回 HTTP 401；旧 `list_issues` 保持原 HTTP 参数/scope 错误语义。JSON-RPC 解析、请求形态和未知工具错误使用对应 error code。
+
 ## 数据库（PostgreSQL）
 
 OpenTask 统一使用 PostgreSQL 16（ADR D11：dev/test/prod 统一 PG）。
@@ -461,3 +486,27 @@ pip install -e .
 ## 许可证
 
 MIT License
+
+### 本地 Ontology 联调环境
+
+若已有隔离联调配置，可在 backend 目录加载后启动（端口保持 7377）：
+
+```sh
+set -a
+. ./.env.ontology.local
+set +a
+uv run uvicorn opentask.main:app --host 0.0.0.0 --port 7377
+```
+
+`.env.ontology.local` 与 `.smoke/ontology/` 为 git 忽略的本机配置和验收数据，复用已保存密钥与独立数据库；不要覆盖已有数据环境的签名密钥。
+
+
+### Ontology Issue 状态动作
+
+`update_issue_status` 使用 `object_id` 和 OpenTask 原生 `status` 修改可见 Issue。调用者需同时获得 `read:tasks`、`write:tasks`、`issue:update` 权限以及目标工作区 member/owner 身份；现有令牌不会自动取得新增 scope，须重新授权。动作复用 Issue 更新服务，记录时间线并执行既有业务逻辑。`resolved` 是通用状态 `done` 的默认原生映射；`closed` 同样属于完成状态。
+
+### Ontology 对象集
+
+`query_object_set` 对可见的 Issue、Project、Member 按白名单字段进行 `eq` / `in` 条件组合，支持选择属性、排序、分页和分组计数；每次最多 50 条或 50 组，分组超限返回 `truncated`。Issue 可沿一条关系按可见目标筛选；关系两端分别校验 scope 和可见范围。`describe_object_type` 返回可筛选、排序和分组的字段。`describe_action` 返回状态动作的参数 schema、所需 scope、成员权限和副作用；实际写入仍由 `update_issue_status` 执行。
+
+对象集操作使用现有 PostgreSQL 数据与业务权限，并非 Palantir OSDK 协议兼容实现。分页为 offset，数据变化时跨页不保证快照一致性。

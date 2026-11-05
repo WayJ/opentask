@@ -53,6 +53,7 @@ from opentask.api.issue.router import router as issue_router
 from opentask.api.tasks import router as tasks_contract_router
 from opentask.api.oauth2 import router as oauth2_router
 from opentask.api.oauth2 import read_router as oauth2_read_router
+from opentask.api.oauth2.mcp import router as oauth2_mcp_router
 from opentask.api.attachment.router import router as attachment_router
 from opentask.api.knowledge.webhooks import router as webhook_router
 from opentask.api.user.router import router as user_router
@@ -194,6 +195,7 @@ class App(fastapi.FastAPI):
         # OAuth2 只读数据面（scope 守卫：read:tasks / read:projects /
         # read:requirements / profile）
         self.include_router(oauth2_read_router)
+        self.include_router(oauth2_mcp_router)
         # Attachment routes (公共访问，无需认证)
         self.include_router(attachment_router, dependencies=[])
         # Git routes (需要认证) - TODO: 依赖已删除的 file_storage 等模块，暂时注释
