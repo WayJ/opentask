@@ -110,6 +110,15 @@ class IssueChildSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ChildProgress(BaseModel):
+    """E70: direct-child progress rollup"""
+    total: int
+    done: int
+    open: int
+    percent: Optional[int] = None
+    byStatus: Optional[dict] = None
+
+
 class IssueResponse(IssueBase):
     """Issue 响应 Schema"""
     id: str
@@ -130,6 +139,9 @@ class IssueResponse(IssueBase):
     reporter: Optional[UserInfo] = Field(None, description="报告人信息")
     children: Optional[List[IssueChildSummary]] = Field(
         None, description="子 Issue 摘要（详情接口填充）"
+    )
+    childProgress: Optional[ChildProgress] = Field(
+        None, description="E70: 直接子问题进度汇总（详情默认；列表 ?include=childProgress）"
     )
     triage_status: Optional[str] = Field(None, description="pending|null triage 队列状态")
 

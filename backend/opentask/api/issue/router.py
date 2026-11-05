@@ -158,7 +158,7 @@ async def get_issues(
     watching: Optional[bool] = Query(None, description="E19：仅我关注的"),
     due_before: Optional[str] = Query(None, description="E19：due_date ≤ YYYY-MM-DD"),
     due_soon: Optional[bool] = Query(None, description="E19：3 日内到期且未关闭"),
-    include: Optional[str] = Query(None, description="E25：逗号分隔附加；custom_fields"),
+    include: Optional[str] = Query(None, description="E25/E70：逗号分隔附加；custom_fields,childProgress"),
     sort_by: str = Query("created_at", description="排序字段"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$", description="排序方向"),
     service: IssueService = Depends(get_issue_service),
@@ -217,15 +217,24 @@ async def get_issues(
         cf_map = await CustomFieldService(service.db).values_for_issues(
             workspace_id=ws_id, issue_ids=[i.id for i in issues]
         )
+    progress_map = {}
+    if "childProgress" in include_set:
+        progress_map = await service.child_progress_for_parents([i.id for i in issues])
     rows = []
     for issue in issues:
         payload = IssueResponse.model_validate(issue).model_dump(mode="json", exclude_none=False)
+        payload.pop("childProgress", None)  # list default: omit unless include
         payload["tags"] = [serialize_tag_brief(t) for t in tag_map.get(issue.id, [])]
         counts = block_map.get(issue.id, {"blocks_count": 0, "blocked_by_count": 0})
         payload["blocks_count"] = counts["blocks_count"]
         payload["blocked_by_count"] = counts["blocked_by_count"]
         if "custom_fields" in include_set:
             payload["customFields"] = cf_map.get(issue.id, [])
+        if "childProgress" in include_set:
+            payload["childProgress"] = progress_map.get(
+                issue.id,
+                {"total": 0, "done": 0, "open": 0, "percent": None, "byStatus": {}},
+            )
         rows.append(payload)
 
     return {
@@ -1066,6 +1075,9 @@ async def get_issue(
         ).model_dump(mode="json")
         for c in children
     ]
+    # E70: childProgress always on detail
+    from opentask.services.child_progress import compute_child_progress
+    issue_dict["childProgress"] = compute_child_progress([c.status for c in children])
 
     # 如果有关联项目，查询项目信息
     if issue.project_id:
@@ -1396,7 +1408,7 @@ async def get_issue_children(
     service: IssueService = Depends(get_issue_service),
     current_user: UserModel = Depends(authenticate),
 ):
-    """列出 Issue 的直接子项（depth-1 摘要；E15：成员校验）"""
+    """列出 Issue 的直接子项（depth-1 摘要；E15：成员校验；E70: childProgress）"""
     issue = await _require_issue_access(issue_id, service=service, user=current_user)
     children = await service.list_child_issues(issue_id)
     rows = [
@@ -1408,10 +1420,12 @@ async def get_issue_children(
         )
         for c in children
     ]
+    from opentask.services.child_progress import compute_child_progress
+    cp = compute_child_progress([c.status for c in children])
     return {
         "code": 200,
         "message": "success",
-        "data": {"rows": rows, "total": len(rows)},
+        "data": {"rows": rows, "total": len(rows), "childProgress": cp},
         "timestamp": 0,
     }
 

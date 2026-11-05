@@ -2216,3 +2216,28 @@ class IssueService:
         await self.db.commit()
         return True
 
+
+    async def child_progress_for_parent(self, parent_id: str) -> dict:
+        """E70: aggregate direct non-deleted children into childProgress."""
+        from opentask.services.child_progress import compute_child_progress
+
+        children = await self.list_child_issues(parent_id)
+        return compute_child_progress([c.status for c in children])
+
+    async def child_progress_for_parents(self, parent_ids: list[str]) -> dict[str, dict]:
+        """E70: batch childProgress for many parents (one query)."""
+        from opentask.services.child_progress import compute_child_progress
+
+        if not parent_ids:
+            return {}
+        q = await self.db.execute(
+            select(Issue.parent_issue_id, Issue.status).where(
+                Issue.parent_issue_id.in_(parent_ids),
+                Issue.is_deleted == False,  # noqa: E712
+            )
+        )
+        buckets: dict[str, list] = {pid: [] for pid in parent_ids}
+        for pid, status in q.all():
+            if pid in buckets:
+                buckets[pid].append(status)
+        return {pid: compute_child_progress(sts) for pid, sts in buckets.items()}
