@@ -94,6 +94,8 @@ export namespace Api.Issue {
     task_id?: string;
     requirement_id?: string;
     assignee_id?: string;
+      /** E71 */
+      assignee_ids?: string[];
     reporter_id: string;
     position?: number;
     due_date?: string;
@@ -122,6 +124,8 @@ export namespace Api.Issue {
     task_id?: string;
     requirement_id?: string;
     assignee_id?: string;
+      /** E71 */
+      assignee_ids?: string[];
     position?: number;
     due_date?: string;
     estimated_hours?: number;
@@ -169,6 +173,8 @@ export namespace Api.Issue {
     updated_by?: string;
     project?: Api.Project.Project;
     assignee?: UserInfo;
+      /** E71 ordered assignees; first = primary */
+      assignees?: UserInfo[];
     reporter?: UserInfo;
     children?: IssueChildSummary[];
     /** E70: present on detail by default; list when ?include=childProgress */
@@ -185,6 +191,8 @@ export namespace Api.Issue {
     priority?: IssuePriority;
     project_id?: string;
     assignee_id?: string;
+      /** E71 */
+      assignee_ids?: string[];
     reporter_id?: string;
     search?: string;
     cycle_id?: string;
@@ -305,6 +313,8 @@ export namespace Api.Issue {
     status?: IssueStatus;
     priority?: IssuePriority;
     assignee_id?: string;
+      /** E71 */
+      assignee_ids?: string[];
     cycle_id?: string | null;
     tag_ids?: number[];
   }

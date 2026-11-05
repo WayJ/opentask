@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import {
+import { NAvatar,
   NAlert,
   NButton,
   NCard,
@@ -203,7 +203,7 @@ const editingEstimate = ref(false);
 const tempStatus = ref<string | null>(null);
 const tempPriority = ref<string | null>(null);
 const tempType = ref<string | null>(null);
-const tempAssignee = ref<string | null>(null);
+const tempAssignee = ref<string[]>([]);
 const tempReporter = ref<string | null>(null);
 const tempDueDate = ref<number | null>(null);
 const tempProject = ref<string | null>(null);
@@ -876,17 +876,28 @@ function cancelType() {
 async function saveAssignee() {
   if (!issueId.value) return;
   try {
-    await issueStore.updateAssignee(issueId.value, tempAssignee.value || undefined);
+    const ids = Array.isArray(tempAssignee.value) ? tempAssignee.value.filter(Boolean) : [];
+    await issueStore.updateIssue(issueId.value, { assignee_ids: ids });
     await loadIssue();
-    window.$message?.success('负责人更新成功');
+    window.$message?.success('指派人更新成功');
   } catch {
-    window.$message?.error('负责人更新失败');
+    window.$message?.error('指派人更新失败');
   }
 }
 
 function cancelAssignee() {
-  tempAssignee.value = null;
+  tempAssignee.value = [];
   editingAssignee.value = false;
+}
+
+function assigneesDisplayValue(): string {
+  const list = issue.value?.assignees;
+  if (Array.isArray(list) && list.length) {
+    return list
+      .map(a => a.sso_name || a.name || a.id.slice(0, 8))
+      .join(', ');
+  }
+  return issue.value?.assignee?.sso_name || issue.value?.assignee?.name || issue.value?.assignee_id || '未分配';
 }
 
 async function saveReporter() {
@@ -1505,28 +1516,50 @@ onUnmounted(() => {
               </template>
             </EditableField>
 
-            <!-- Assignee -->
+            <!-- Assignees (E71 multi) -->
             <EditableField
               v-model="tempAssignee"
               v-model:editing="editingAssignee"
-              label="负责人"
-              :display-value="issue.assignee?.sso_name || issue.assignee?.name || issue.assignee_id || '未分配'"
+              label="指派人"
+              :display-value="assigneesDisplayValue()"
               placeholder="未分配"
               @save="saveAssignee"
               @cancel="cancelAssignee"
-              @start-edit="tempAssignee = issue.assignee_id || ''"
+              @start-edit="
+                tempAssignee = (issue.assignees?.map(a => a.id) || (issue.assignee_id ? [issue.assignee_id] : [])).slice()
+              "
             >
               <template #label-icon>
-                <icon-mdi-account />
+                <icon-mdi-account-multiple />
+              </template>
+              <template #display>
+                <div class="flex items-center gap-4px flex-wrap">
+                  <template v-if="issue.assignees?.length">
+                    <NAvatar
+                      v-for="(a, idx) in issue.assignees.slice(0, 3)"
+                      :key="a.id"
+                      :size="22"
+                      round
+                      :style="{ backgroundColor: idx === 0 ? '#18a058' : '#2080f0', color: 'white', fontSize: '11px' }"
+                      :title="(a.sso_name || a.name || a.id) + (idx === 0 ? ' (primary)' : '')"
+                    >
+                      {{ (a.sso_name || a.name || a.id || '?').charAt(0).toUpperCase() }}
+                    </NAvatar>
+                    <NText v-if="issue.assignees.length > 3" depth="3" class="text-12px">+{{ issue.assignees.length - 3 }}</NText>
+                  </template>
+                  <NText v-else depth="3">{{ assigneesDisplayValue() }}</NText>
+                </div>
               </template>
               <template #editor>
                 <UserSelect
                   :model-value="tempAssignee"
-                  placeholder="选择负责人"
+                  multiple
+                  :max="10"
+                  placeholder="选择指派人（首位=负责人）"
                   size="small"
                   @update:model-value="
                     value => {
-                      tempAssignee = value;
+                      tempAssignee = Array.isArray(value) ? value : value ? [value] : [];
                     }
                   "
                 />

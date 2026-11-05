@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { NCard, NEmpty, NTag, NText, useMessage } from 'naive-ui';
+import { NCard, NEmpty, NTag, NAvatar, NText, useMessage } from 'naive-ui';
 import { VueDraggable } from 'vue-draggable-plus';
 import {
   getIssuePriorityLabel,
