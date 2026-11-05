@@ -59,7 +59,7 @@ from .core.display_prefs import display_prefs_cli
 
 
 # Global version
-VERSION = "1.77.0"
+VERSION = "1.78.0"
 
 # Context object passed to commands
 class Context:

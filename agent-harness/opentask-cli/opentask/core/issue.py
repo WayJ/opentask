@@ -52,6 +52,18 @@ def parent_cli():
     pass
 
 
+@issue_cli.group(name="reaction")
+def reaction_cli():
+    """E94: Issue emoji reactions (list/add/remove)."""
+    pass
+
+
+@issue_cli.group(name="comment-reaction")
+def comment_reaction_cli():
+    """E94: Comment emoji reactions (list/add/remove)."""
+    pass
+
+
 # ============================================================================
 # Helper Functions
 # ============================================================================
@@ -2253,6 +2265,205 @@ def delete_comment(obj: "Context", comment_id: str, as_json: bool):
     except APIError as e:
         skin.error(f"Failed to delete comment: {e.message}")
 
+
+# ============================================================================
+# E94: issue reaction + comment-reaction
+# ============================================================================
+
+
+def _resolve_issue_arg(client: OpenTaskClient, issue_id: str) -> str:
+    """Resolve KEY-N / UUID issue id for reaction commands."""
+    if _looks_like_issue_code(issue_id):
+        real_id, _info = asyncio.run(_resolve_issue_id(client, issue_id))
+        return real_id
+    return issue_id
+
+
+@reaction_cli.command(name="list")
+@click.argument("issue_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def reaction_list(obj: "Context", issue_id: str, as_json: bool):
+    """List emoji reactions on an Issue."""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    try:
+        real_id = _resolve_issue_arg(client, issue_id)
+        data = asyncio.run(client.list_issue_reactions(real_id))
+        body = data if isinstance(data, dict) else {"rows": data or [], "total": 0}
+        rows = body.get("rows") or []
+        if not isinstance(rows, list):
+            rows = []
+        if json_mode:
+            echo_json(True, data=body, message=f"Found {body.get('total', len(rows))} reaction(s)")
+            return
+        if not rows:
+            skin.info("无反应")
+            return
+        skin.table(
+            ["Emoji", "Count"],
+            [[str(r.get("emoji", "")), str(r.get("count", ""))] for r in rows],
+        )
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@reaction_cli.command(name="add")
+@click.argument("issue_id")
+@click.option("--emoji", required=True, help="Emoji to add")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def reaction_add(obj: "Context", issue_id: str, emoji: str, as_json: bool):
+    """Add an emoji reaction to an Issue."""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    try:
+        real_id = _resolve_issue_arg(client, issue_id)
+        data = asyncio.run(client.add_issue_reaction(real_id, emoji))
+        body = data if isinstance(data, dict) else {"reaction_id": data}
+        if json_mode:
+            echo_json(True, data=body, message=f"Added reaction {emoji}")
+            return
+        rid = (body or {}).get("reaction_id", "")
+        skin.success(f"已添加反应 {emoji}" + (f" ({str(rid)[:8]})" if rid else ""))
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@reaction_cli.command(name="remove")
+@click.argument("issue_id")
+@click.option("--emoji", required=True, help="Emoji to remove")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def reaction_remove(obj: "Context", issue_id: str, emoji: str, as_json: bool):
+    """Remove an emoji reaction from an Issue."""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    try:
+        real_id = _resolve_issue_arg(client, issue_id)
+        data = asyncio.run(client.remove_issue_reaction(real_id, emoji))
+        if json_mode:
+            echo_json(True, data=data or {"emoji": emoji, "issue_id": real_id}, message=f"Removed reaction {emoji}")
+            return
+        skin.success(f"已移除反应 {emoji}")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+# optional alias: reaction rm
+reaction_cli.add_command(reaction_remove, name="rm")
+
+
+@comment_reaction_cli.command(name="list")
+@click.argument("issue_id")
+@click.argument("comment_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def comment_reaction_list(obj: "Context", issue_id: str, comment_id: str, as_json: bool):
+    """List emoji reactions on an Issue comment."""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    try:
+        real_id = _resolve_issue_arg(client, issue_id)
+        data = asyncio.run(client.list_comment_reactions(real_id, comment_id))
+        body = data if isinstance(data, dict) else {"reactions": data or {}}
+        reactions = body.get("reactions") or {}
+        if not isinstance(reactions, dict):
+            reactions = {}
+        if json_mode:
+            echo_json(True, data=body, message=f"Found {len(reactions)} emoji(s)")
+            return
+        if not reactions:
+            skin.info("无反应")
+            return
+        skin.table(
+            ["Emoji", "UserIds"],
+            [
+                [str(emoji), ",".join(str(u)[:8] for u in (uids or []))]
+                for emoji, uids in reactions.items()
+            ],
+        )
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@comment_reaction_cli.command(name="add")
+@click.argument("issue_id")
+@click.argument("comment_id")
+@click.option("--emoji", required=True, help="Emoji to add")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def comment_reaction_add(
+    obj: "Context", issue_id: str, comment_id: str, emoji: str, as_json: bool
+):
+    """Add an emoji reaction to an Issue comment."""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    try:
+        real_id = _resolve_issue_arg(client, issue_id)
+        data = asyncio.run(client.add_comment_reaction(real_id, comment_id, emoji))
+        body = data if isinstance(data, dict) else {"reaction_id": data}
+        if json_mode:
+            echo_json(True, data=body, message=f"Added comment reaction {emoji}")
+            return
+        rid = (body or {}).get("reaction_id", "")
+        skin.success(f"已添加评论反应 {emoji}" + (f" ({str(rid)[:8]})" if rid else ""))
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@comment_reaction_cli.command(name="remove")
+@click.argument("issue_id")
+@click.argument("comment_id")
+@click.option("--emoji", required=True, help="Emoji to remove")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def comment_reaction_remove(
+    obj: "Context", issue_id: str, comment_id: str, emoji: str, as_json: bool
+):
+    """Remove an emoji reaction from an Issue comment."""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    try:
+        real_id = _resolve_issue_arg(client, issue_id)
+        data = asyncio.run(client.remove_comment_reaction(real_id, comment_id, emoji))
+        if json_mode:
+            echo_json(
+                True,
+                data=data or {"emoji": emoji, "issue_id": real_id, "comment_id": comment_id},
+                message=f"Removed comment reaction {emoji}",
+            )
+            return
+        skin.success(f"已移除评论反应 {emoji}")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+comment_reaction_cli.add_command(comment_reaction_remove, name="rm")
 
 
 # ============================================================================

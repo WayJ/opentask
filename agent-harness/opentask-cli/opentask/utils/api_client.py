@@ -2214,6 +2214,52 @@ class OpenTaskClient:
         return True
 
     # ============================================================================
+    # Issue / Comment Reactions API (E94)
+    # ============================================================================
+
+    async def list_issue_reactions(self, issue_id: str) -> dict:
+        """E94: GET /api/issues/{id}/reactions → {rows,total}."""
+        return await self.get(f"/api/issues/{issue_id}/reactions")
+
+    async def add_issue_reaction(self, issue_id: str, emoji: str) -> dict:
+        """E94: POST /api/issues/{id}/reactions body {emoji}."""
+        return await self.post(
+            f"/api/issues/{issue_id}/reactions",
+            data={"emoji": emoji},
+        )
+
+    async def remove_issue_reaction(self, issue_id: str, emoji: str) -> dict:
+        """E94: DELETE /api/issues/{id}/reactions?emoji=."""
+        return await self.delete(
+            f"/api/issues/{issue_id}/reactions",
+            params={"emoji": emoji},
+        )
+
+    async def list_comment_reactions(self, issue_id: str, comment_id: str) -> dict:
+        """E94: GET /api/issues/{id}/comments/{cid}/reactions → {reactions}."""
+        return await self.get(
+            f"/api/issues/{issue_id}/comments/{comment_id}/reactions"
+        )
+
+    async def add_comment_reaction(
+        self, issue_id: str, comment_id: str, emoji: str
+    ) -> dict:
+        """E94: POST …/comments/{cid}/reactions body {emoji}."""
+        return await self.post(
+            f"/api/issues/{issue_id}/comments/{comment_id}/reactions",
+            data={"emoji": emoji},
+        )
+
+    async def remove_comment_reaction(
+        self, issue_id: str, comment_id: str, emoji: str
+    ) -> dict:
+        """E94: DELETE …/comments/{cid}/reactions?emoji=."""
+        return await self.delete(
+            f"/api/issues/{issue_id}/comments/{comment_id}/reactions",
+            params={"emoji": emoji},
+        )
+
+    # ============================================================================
     # Issue Document API
     # ============================================================================
 
