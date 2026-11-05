@@ -25,6 +25,7 @@ from opentask.models.document.model import Document
 from opentask.services.storage.service import get_storage_service
 from opentask.models.issue.schema import (
     IssueCreate,
+    IssueDuplicateRequest,
     IssueUpdate,
     IssueBulkUpdate,
     IssueBoardMove,
@@ -58,6 +59,8 @@ from opentask.services.workspace_realtime import (
 )
 
 from opentask.models.workspace.model import Workspace
+
+from opentask.services.issue_duplicate import build_duplicate_title
 
 
 class IssueService:
@@ -625,6 +628,7 @@ class IssueService:
         user_id: str,
         dept_id: str | None = None,
         workspace_id: str | None = None,
+        created_action_extra: dict | None = None,
     ) -> Issue:
         """创建 Issue
 
@@ -678,11 +682,18 @@ class IssueService:
         await self.db.flush()
 
         # 创建时间线记录
+        created_action = {
+            "title": issue.title,
+            "type": (issue.type.value if hasattr(issue.type, "value") else issue.type),
+            "issue_code": issue_code,
+        }
+        if created_action_extra:
+            created_action.update(created_action_extra)
         await self._add_timeline(
             issue_id=issue.id,
             action_type=TimelineAction.CREATED,
             user_id=user_id,
-            action_data={"title": issue.title, "type": (issue.type.value if hasattr(issue.type, "value") else issue.type), "issue_code": issue_code},
+            action_data=created_action,
         )
 
         # E42：create 时若 status∈start 也启钟（同事务）
@@ -734,6 +745,136 @@ class IssueService:
             },
         )
         return issue
+
+    async def duplicate_issue(
+        self,
+        source_issue_id: str,
+        *,
+        user_id: str,
+        workspace_id: str,
+        dept_id: str | None = None,
+        overrides: IssueDuplicateRequest | None = None,
+    ) -> Issue:
+        """E75: Linear-style duplicate — whitelist copy + relates_to → source.
+
+        Q1a: duplicated_from only in CREATED timeline meta (no column).
+        Q2a: keep parent_issue_id unless overridden.
+        Q3a: title suffix " (copy)" unless title override.
+        Q4a: add relates_to from new → source.
+        Q5a: reuse issue.created webhook via create_issue.
+        """
+        source = await self.get_issue(source_issue_id, workspace_id=workspace_id)
+        if source is None:
+            raise LookupError("Issue 不存在")
+
+        ov = (overrides or IssueDuplicateRequest()).model_dump(exclude_unset=True)
+
+        def _enum(v):
+            return v.value if hasattr(v, "value") else v
+
+        title = build_duplicate_title(
+            source.title,
+            override=ov["title"] if "title" in ov else None,
+        )
+
+        if "parent_issue_id" in ov:
+            parent_issue_id = ov.get("parent_issue_id")
+        else:
+            parent_issue_id = source.parent_issue_id
+
+        if "project_id" in ov:
+            project_id = ov.get("project_id")
+        else:
+            project_id = source.project_id
+
+        if "cycle_id" in ov:
+            cycle_id = ov.get("cycle_id")
+        else:
+            cycle_id = source.cycle_id
+
+        if "assignee_ids" in ov:
+            assignee_ids = normalize_assignee_ids(ov.get("assignee_ids"))
+        else:
+            assignee_ids = await list_assignee_ids(self.db, source.id)
+            if not assignee_ids and source.assignee_id:
+                assignee_ids = [source.assignee_id]
+
+        create_payload: dict[str, Any] = {
+            "title": title,
+            "description": source.description,
+            "type": _enum(source.type),
+            "status": IssueStatus.OPEN,
+            "priority": _enum(source.priority),
+            "project_id": project_id,
+            "cycle_id": cycle_id,
+            "milestone_id": source.milestone_id,
+            "estimate_points": source.estimate_points,
+            "estimated_hours": source.estimated_hours,
+            "start_date": source.start_date,
+            "due_date": source.due_date,
+            "parent_issue_id": parent_issue_id,
+            "reporter_id": user_id,
+            "assignee_ids": assignee_ids,
+        }
+        # Drop Nones that would fight defaults except explicit null parent/project/cycle
+        data = IssueCreate(**create_payload)
+
+        new_issue = await self.create_issue(
+            data,
+            user_id,
+            dept_id=dept_id,
+            workspace_id=workspace_id,
+            created_action_extra={"duplicated_from": source.id},
+        )
+
+        # tags
+        from opentask.services.tag.service import TagService
+
+        tag_svc = TagService(self.db)
+        src_tags = await tag_svc.list_issue_tags(source.id, workspace_id=workspace_id)
+        if src_tags:
+            await tag_svc.replace_issue_tags(
+                issue_id=new_issue.id,
+                tag_ids=[t.id for t in src_tags],
+                workspace_id=workspace_id,
+                user_id=user_id,
+            )
+
+        # custom fields (skip formula)
+        from opentask.services.custom_field.service import CustomFieldService
+
+        cf_svc = CustomFieldService(self.db)
+        cf_map = await cf_svc.values_for_issues(
+            workspace_id=workspace_id, issue_ids=[source.id]
+        )
+        entries = []
+        for item in cf_map.get(source.id, []):
+            if item.get("type") == "formula":
+                continue
+            if item.get("archived"):
+                continue
+            val = item.get("value")
+            if val is None:
+                continue
+            entries.append({"fieldId": item["fieldId"], "value": val})
+        if entries:
+            await cf_svc.upsert_issue_values(
+                workspace_id=workspace_id,
+                issue_id=new_issue.id,
+                entries=entries,
+                actor_user_id=user_id,
+            )
+
+        # Q4a: relates_to → source
+        await self.add_relation(
+            source_id=new_issue.id,
+            target_id=source.id,
+            relation_type=RelationType.RELATES_TO,
+            user_id=user_id,
+        )
+
+        refreshed = await self.get_issue(new_issue.id, workspace_id=workspace_id)
+        return refreshed or new_issue
 
     async def update_issue(
         self,

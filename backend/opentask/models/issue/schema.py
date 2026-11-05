@@ -62,6 +62,17 @@ class IssueCreate(IssueBase):
     )
 
 
+class IssueDuplicateRequest(BaseModel):
+    """E75: optional overrides for POST /api/issues/{id}/duplicate"""
+    title: Optional[str] = Field(None, min_length=1, max_length=255)
+    project_id: Optional[str] = None
+    cycle_id: Optional[str] = None
+    parent_issue_id: Optional[str] = None
+    assignee_ids: Optional[List[str]] = Field(
+        None, description="Replace assignees on the copy; omit to copy source"
+    )
+
+
 class IssueUpdate(BaseModel):
     """更新 Issue Schema"""
     title: Optional[str] = Field(None, min_length=1, max_length=255)

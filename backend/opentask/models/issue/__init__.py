@@ -21,6 +21,7 @@ from .model import (
 from .schema import (
     IssueBase,
     IssueCreate,
+    IssueDuplicateRequest,
     IssueUpdate,
     IssueResponse,
     IssueListResponse,
@@ -60,6 +61,7 @@ __all__ = [
     # Schemas
     "IssueBase",
     "IssueCreate",
+    "IssueDuplicateRequest",
     "IssueUpdate",
     "IssueResponse",
     "IssueListResponse",

@@ -15,6 +15,7 @@ from opentask.models.user.model import UserModel
 from opentask.auth import authenticate
 from opentask.models.issue.schema import (
     IssueCreate,
+    IssueDuplicateRequest,
     IssueUpdate,
     IssueResponse,
     IssueChildSummary,
@@ -756,6 +757,50 @@ async def create_issue(
         logger.error(f"创建 Issue 失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+
+@router.post("/{issue_id}/duplicate")
+async def duplicate_issue(
+    issue_id: str,
+    body: IssueDuplicateRequest = Body(default_factory=IssueDuplicateRequest),
+    service: IssueService = Depends(get_issue_service),
+    ws_ctx=Depends(require_workspace_context),
+):
+    """E75: Linear-style Issue duplicate (member+; cross-WS 404).
+
+    Distinct from triage POST /triage/{id}/duplicate (mark-as-duplicate).
+    """
+    workspace, member, user = ws_ctx
+    if member.role not in ("owner", "member"):
+        raise HTTPException(status_code=403, detail="仅 member/owner 可复制 Issue")
+    try:
+        dept_id = await RbacService(service.db).get_primary_dept_id(user)
+        issue = await service.duplicate_issue(
+            issue_id,
+            user_id=str(user.id),
+            workspace_id=workspace.id,
+            dept_id=dept_id,
+            overrides=body,
+        )
+        payload = IssueResponse.model_validate(issue).model_dump(
+            mode="json", exclude_none=False
+        )
+        await _embed_assignees(service.db, payload, issue.id)
+        return {
+            "code": 200,
+            "message": "Issue 复制成功",
+            "data": payload,
+            "timestamp": 0,
+        }
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Issue 不存在")
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"复制 Issue 失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/board/move")
