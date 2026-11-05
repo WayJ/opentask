@@ -2,7 +2,7 @@ import type { SavedView } from '@/service/api/saved-views';
 import type { CycleItem } from '@/service/api/cycles';
 import type { PaletteItem } from './command-palette';
 
-const ISSUE_CODE_RE = /^[A-Za-z][A-Za-z0-9]*-\d+$/;
+const ISSUE_CODE_RE = /^[A-Za-z][A-Za-z0-9]{1,5}-\d+$/;
 
 export function looksLikeIssueCode(query: string): boolean {
   return ISSUE_CODE_RE.test(query.trim());

@@ -160,12 +160,12 @@ class TestIssueAPI:
         client = OpenTaskClient()
 
         with mock.patch.object(client, 'get') as mock_get:
-            mock_get.return_value = {"id": "1", "issue_code": "ISSUE2026-1"}
+            mock_get.return_value = {"id": "1", "issue_code": "OT-1"}
 
-            issue = await client.get_issue("ISSUE2026-1", by_code=True)
+            issue = await client.get_issue("OT-1", by_code=True)
 
-            assert issue["issue_code"] == "ISSUE2026-1"
-            mock_get.assert_called_once_with("/api/issues/ISSUE2026-1", params={"by_code": "true"})
+            assert issue["issue_code"] == "OT-1"
+            mock_get.assert_called_once_with("/api/issues/OT-1", params={"by_code": "true"})
 
     @pytest.mark.asyncio
     async def test_create_issue(self):

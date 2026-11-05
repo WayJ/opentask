@@ -210,7 +210,7 @@ def validate_uuid(uuid_str: str) -> bool:
 
 
 def validate_issue_code(code: str) -> bool:
-    """Validate if string is a valid issue code.
+    """Validate if string is a valid KEY-N issue code (prefix 2–6).
 
     Args:
         code: String to validate
@@ -219,17 +219,19 @@ def validate_issue_code(code: str) -> bool:
         True if valid issue code format, False otherwise
 
     Examples:
-        >>> validate_issue_code("ISSUE2026-123")
-        True
         >>> validate_issue_code("OT-1")
         True
+        >>> validate_issue_code("WAY-42")
+        True
+        >>> validate_issue_code("ISSUE2026-123")
+        False
         >>> validate_issue_code("NOT-A-CODE")
         False
     """
     import re
-    # KEY-N (2–6 alnum prefix) or legacy ISSUE{year}-N
+    # KEY-N only (E99): 2–6 alphanumeric prefix
     pattern = re.compile(
-        r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$',
+        r'^[A-Za-z][A-Za-z0-9]{1,5}-\d+$',
         re.IGNORECASE,
     )
     return pattern.match(code) is not None

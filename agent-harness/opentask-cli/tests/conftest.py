@@ -98,7 +98,7 @@ def sample_issue_data():
     """示例 Issue 数据"""
     return {
         "id": "issue-456",
-        "issue_code": "ISSUE2026-32",
+        "issue_code": "OT-32",
         "title": "Test Issue",
         "type": "bug",
         "status": "open",

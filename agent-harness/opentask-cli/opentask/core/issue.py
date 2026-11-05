@@ -972,7 +972,7 @@ def update_issue(obj: "Context", issue_id: str, title, description, issue_type, 
     """Update an issue.
 
     Issue identifier format is auto-detected:
-    - If KEY-N or legacy ISSUE{year}-N: treated as issue code (e.g., OT-1, ISSUE2026-32)
+    - If KEY-N: treated as issue code (e.g., OT-1, WAY-42)
     - Otherwise: treated as UUID ID (e.g., 5ee3420e-2d69-4509-9ae7-524e8c40d6d1)
 
     Examples:
@@ -994,7 +994,7 @@ def update_issue(obj: "Context", issue_id: str, title, description, issue_type, 
 
     # Auto-detect: check if it's an issue code (ISSUE + digits + hyphen + digits)
     import re
-    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^[A-Za-z][A-Za-z0-9]{1,5}-\d+$', re.IGNORECASE)
     if issue_code_pattern.match(issue_id):
         # It's a code, need to get the real ID first
         try:
@@ -1109,7 +1109,7 @@ def start_issue(obj: "Context", issue_ids: tuple, as_json: bool):
     json_mode = as_json or obj.json_mode
 
     import re
-    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^[A-Za-z][A-Za-z0-9]{1,5}-\d+$', re.IGNORECASE)
 
     # Start all issues
     results = []
@@ -1191,7 +1191,7 @@ def reopen_issue(obj: "Context", issue_ids: tuple, reason: str, as_json: bool):
     json_mode = as_json or obj.json_mode
 
     import re
-    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^[A-Za-z][A-Za-z0-9]{1,5}-\d+$', re.IGNORECASE)
 
     # Prepare comment if reason provided
     comment_text = None
@@ -1515,7 +1515,7 @@ def resolve_issue(obj: "Context", issue_ids: tuple, reason: str, commit_id: str,
     json_mode = as_json or obj.json_mode
 
     import re
-    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^[A-Za-z][A-Za-z0-9]{1,5}-\d+$', re.IGNORECASE)
 
     # Prepare comment if reason or commit-id provided
     comment_text = None
@@ -1620,7 +1620,7 @@ def close_issue(obj: "Context", issue_ids: tuple, reason: str, commit_id: str, a
     json_mode = as_json or obj.json_mode
 
     import re
-    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^[A-Za-z][A-Za-z0-9]{1,5}-\d+$', re.IGNORECASE)
 
     # Prepare comment if reason or commit-id provided
     comment_text = None
@@ -1709,12 +1709,12 @@ def show_issue(obj: "Context", issue_id: str, as_json: bool, show_comments: bool
     """Show issue details by ID or code (auto-detected).
 
     Issue identifier format is auto-detected:
-    - If KEY-N or legacy ISSUE{year}-N: treated as issue code (e.g., OT-1, ISSUE2026-32)
+    - If KEY-N: treated as issue code (e.g., OT-1, WAY-42)
     - Otherwise: treated as UUID ID (e.g., 5ee3420e-2d69-4509-9ae7-524e8c40d6d1)
 
     Examples:
         issue show OT-32                                # KEY-N (auto-detected)
-        issue show ISSUE2026-32                         # legacy still resolves
+        issue show OT-32                                # KEY-N
         issue show 5ee3420e-2d69-4509-9ae7-524e8c40d6d1 # Auto-detected as ID
         issue show OT-32 --json                         # JSON output
         issue show OT-32 --comments                      # Show full comments
@@ -1727,7 +1727,7 @@ def show_issue(obj: "Context", issue_id: str, as_json: bool, show_comments: bool
     json_mode = as_json or obj.json_mode
 
     import re
-    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^[A-Za-z][A-Za-z0-9]{1,5}-\d+$', re.IGNORECASE)
     by_code = issue_code_pattern.match(issue_id) is not None
 
     try:
@@ -1774,7 +1774,7 @@ def show_issue(obj: "Context", issue_id: str, as_json: bool, show_comments: bool
         elif e.status_code == 404:
             skin.error(f"Issue not found: {issue_id}")
             if by_code:
-                skin.hint("Make sure the issue code is correct (e.g., OT-32 or legacy ISSUE2026-32)")
+                skin.hint("Make sure the issue code is correct (e.g., OT-32 or WAY-42)")
             else:
                 skin.hint("Use 'issue list' to browse issues")
         else:
@@ -1871,7 +1871,7 @@ def assign_issue(obj: "Context", issue_id: str, assignee_input: str, as_json: bo
     """Assign an issue to a user.
 
     Issue identifier format is auto-detected:
-    - If KEY-N or legacy ISSUE{year}-N: treated as issue code (e.g., OT-1, ISSUE2026-32)
+    - If KEY-N: treated as issue code (e.g., OT-1, WAY-42)
     - Otherwise: treated as UUID ID (e.g., 5ee3420e-2d69-4509-9ae7-524e8c40d6d1)
 
     Assignee formats:
@@ -1894,7 +1894,7 @@ def assign_issue(obj: "Context", issue_id: str, assignee_input: str, as_json: bo
 
     # Auto-detect: check if it's an issue code (ISSUE + digits + hyphen + digits)
     import re
-    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^[A-Za-z][A-Za-z0-9]{1,5}-\d+$', re.IGNORECASE)
     if issue_code_pattern.match(issue_id):
         # It's a code, need to get the real ID first
         try:
@@ -1979,7 +1979,7 @@ def batch_assign_issues(obj: "Context", issue_ids: tuple, assignee_input: str, a
     """Batch assign multiple issues to a user.
 
     Issue identifier format is auto-detected:
-    - If KEY-N or legacy ISSUE{year}-N: treated as issue code (e.g., OT-1, ISSUE2026-32)
+    - If KEY-N: treated as issue code (e.g., OT-1, WAY-42)
     - Otherwise: treated as UUID ID (e.g., 5ee3420e-2d69-4509-9ae7-524e8c40d6d1)
 
     Assignee formats:
@@ -2005,7 +2005,7 @@ def batch_assign_issues(obj: "Context", issue_ids: tuple, assignee_input: str, a
         return
 
     import re
-    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^[A-Za-z][A-Za-z0-9]{1,5}-\d+$', re.IGNORECASE)
 
     # Assign all issues
     results = []
@@ -2096,7 +2096,7 @@ def add_comment(obj: "Context", issue_id: str, content: str, message_content: st
     """Add a comment to an issue.
 
     Issue identifier format is auto-detected:
-    - If KEY-N or legacy ISSUE{year}-N: treated as issue code (e.g., OT-1, ISSUE2026-32)
+    - If KEY-N: treated as issue code (e.g., OT-1, WAY-42)
     - Otherwise: treated as UUID ID (e.g., 5ee3420e-2d69-4509-9ae7-524e8c40d6d1)
 
     Examples:
@@ -2120,7 +2120,7 @@ def add_comment(obj: "Context", issue_id: str, content: str, message_content: st
 
     # Auto-detect: check if it's an issue code (ISSUE + digits + hyphen + digits)
     import re
-    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^[A-Za-z][A-Za-z0-9]{1,5}-\d+$', re.IGNORECASE)
     if issue_code_pattern.match(issue_id):
         # It's a code, need to get the real ID first
         try:
@@ -2166,7 +2166,7 @@ def list_comments(obj: "Context", issue_id: str, as_json: bool):
     """List all comments for an issue.
 
     Issue identifier format is auto-detected:
-    - If KEY-N or legacy ISSUE{year}-N: treated as issue code (e.g., OT-1, ISSUE2026-32)
+    - If KEY-N: treated as issue code (e.g., OT-1, WAY-42)
     - Otherwise: treated as UUID ID (e.g., 5ee3420e-2d69-4509-9ae7-524e8c40d6d1)
 
     Examples:
@@ -2182,7 +2182,7 @@ def list_comments(obj: "Context", issue_id: str, as_json: bool):
 
     # Auto-detect: check if it's an issue code
     import re
-    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^[A-Za-z][A-Za-z0-9]{1,5}-\d+$', re.IGNORECASE)
     by_code = issue_code_pattern.match(issue_id) is not None
 
     try:
@@ -2486,7 +2486,7 @@ def list_comment_attachments(obj: "Context", issue_id: str, comment_id: str, as_
         real_issue_id = issue_id
         import re
         issue_code_pattern = re.compile(
-            r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE
+            r'^[A-Za-z][A-Za-z0-9]{1,5}-\d+$', re.IGNORECASE
         )
         if issue_code_pattern.match(issue_id):
             info = asyncio.run(client.get_issue(issue_id, by_code=True))
@@ -2523,7 +2523,7 @@ def upload_comment_attachment_cmd(obj: "Context", issue_id: str, comment_id: str
         real_issue_id = issue_id
         import re
         issue_code_pattern = re.compile(
-            r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE
+            r'^[A-Za-z][A-Za-z0-9]{1,5}-\d+$', re.IGNORECASE
         )
         if issue_code_pattern.match(issue_id):
             info = asyncio.run(client.get_issue(issue_id, by_code=True))
@@ -2562,7 +2562,7 @@ def download_comment_attachment_cmd(
         real_issue_id = issue_id
         import re
         issue_code_pattern = re.compile(
-            r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE
+            r'^[A-Za-z][A-Za-z0-9]{1,5}-\d+$', re.IGNORECASE
         )
         if issue_code_pattern.match(issue_id):
             info = asyncio.run(client.get_issue(issue_id, by_code=True))
@@ -2596,7 +2596,7 @@ def download_comment_attachment_cmd(
 def list_documents(obj: "Context", issue_id: str, as_json: bool):
     """List issue documents (attachments).
 
-    Supports both issue codes (ISSUE2026-32) and UUIDs.
+    Supports both KEY-N issue codes (OT-32) and UUIDs.
 
     Examples:
         issue document list ISSUE-ID
@@ -2610,7 +2610,7 @@ def list_documents(obj: "Context", issue_id: str, as_json: bool):
 
     # Auto-detect: check if it's an issue code
     import re
-    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^[A-Za-z][A-Za-z0-9]{1,5}-\d+$', re.IGNORECASE)
     by_code = issue_code_pattern.match(issue_id) is not None
 
     try:
@@ -2662,12 +2662,12 @@ def list_documents(obj: "Context", issue_id: str, as_json: bool):
 def upload_document(obj: "Context", issue_id: str, file_path: str, description: str, as_json: bool):
     """Upload a document to an issue.
 
-    Supports both issue codes (ISSUE2026-32) and UUIDs.
+    Supports both KEY-N issue codes (OT-32) and UUIDs.
 
     Examples:
         issue document upload ISSUE-ID /path/to/file.pdf
         issue document upload ISSUE-ID report.pdf --description "Weekly report"
-        issue document upload ISSUE2026-32 design.png --json
+        issue document upload OT-32 design.png --json
     """
     config: Config = obj.config
     client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
@@ -2678,7 +2678,7 @@ def upload_document(obj: "Context", issue_id: str, file_path: str, description: 
     # Auto-detect: check if it's an issue code
     import re
     import os
-    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^[A-Za-z][A-Za-z0-9]{1,5}-\d+$', re.IGNORECASE)
     by_code = issue_code_pattern.match(issue_id) is not None
 
     try:
@@ -2728,11 +2728,11 @@ def upload_document(obj: "Context", issue_id: str, file_path: str, description: 
 def delete_document(obj: "Context", issue_id: str, document_id: str, as_json: bool):
     """Delete a document from an issue.
 
-    Supports both issue codes (ISSUE2026-32) and UUIDs for issue_id.
+    Supports both KEY-N issue codes (OT-32) and UUIDs for issue_id.
 
     Examples:
         issue document delete ISSUE-ID DOCUMENT-ID
-        issue document delete ISSUE2026-32 abc123 --json
+        issue document delete OT-32 abc123 --json
     """
     config: Config = obj.config
     client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
@@ -2742,7 +2742,7 @@ def delete_document(obj: "Context", issue_id: str, document_id: str, as_json: bo
 
     # Auto-detect: check if it's an issue code
     import re
-    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^[A-Za-z][A-Za-z0-9]{1,5}-\d+$', re.IGNORECASE)
     by_code = issue_code_pattern.match(issue_id) is not None
 
     try:
@@ -2777,7 +2777,7 @@ def delete_document(obj: "Context", issue_id: str, document_id: str, as_json: bo
 def download_document(obj: "Context", issue_id: str, document_id: str, save_path: str, as_json: bool):
     """Download a document from an issue.
 
-    Supports both issue codes (ISSUE2026-32) and UUIDs for issue_id.
+    Supports both KEY-N issue codes (OT-32) and UUIDs for issue_id.
 
     If save_path is a directory, the original filename will be used.
     If save_path is a file path, the file will be saved to that path.
@@ -2785,7 +2785,7 @@ def download_document(obj: "Context", issue_id: str, document_id: str, save_path
     Examples:
         issue document download ISSUE-ID DOCUMENT-ID ./downloads/
         issue document download ISSUE-ID abc123 /path/to/save.pdf
-        issue document download ISSUE2026-32 abc123 . --json
+        issue document download OT-32 abc123 . --json
     """
     config: Config = obj.config
     client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
@@ -2796,7 +2796,7 @@ def download_document(obj: "Context", issue_id: str, document_id: str, save_path
     # Auto-detect: check if it's an issue code
     import re
     import os
-    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^[A-Za-z][A-Za-z0-9]{1,5}-\d+$', re.IGNORECASE)
     by_code = issue_code_pattern.match(issue_id) is not None
 
     try:
@@ -2847,13 +2847,13 @@ def download_document(obj: "Context", issue_id: str, document_id: str, save_path
 def download_all_documents(obj: "Context", issue_id: str, save_dir: str, as_json: bool):
     """Download all documents from an issue to a directory.
 
-    Supports both issue codes (ISSUE2026-32) and UUIDs for issue_id.
+    Supports both KEY-N issue codes (OT-32) and UUIDs for issue_id.
 
     All documents will be saved to the specified directory with their original filenames.
 
     Examples:
         issue document download-all ISSUE-ID ./downloads/
-        issue document download-all ISSUE2026-32 /path/to/downloads
+        issue document download-all OT-32 /path/to/downloads
         issue document download-all ISSUE-ID . --json
     """
     config: Config = obj.config
@@ -2865,7 +2865,7 @@ def download_all_documents(obj: "Context", issue_id: str, save_dir: str, as_json
     # Auto-detect: check if it's an issue code
     import re
     import os
-    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^[A-Za-z][A-Za-z0-9]{1,5}-\d+$', re.IGNORECASE)
     by_code = issue_code_pattern.match(issue_id) is not None
 
     try:
@@ -2967,7 +2967,7 @@ def download_attachment(obj: "Context", issue_id: str, attachment_id: str, out_p
         real_issue_id = issue_id
         import re
         issue_code_pattern = re.compile(
-            r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE
+            r'^[A-Za-z][A-Za-z0-9]{1,5}-\d+$', re.IGNORECASE
         )
         if issue_code_pattern.match(issue_id):
             info = asyncio.run(client.get_issue(issue_id, by_code=True))
@@ -3138,7 +3138,7 @@ def bulk_update_issues(obj: "Context", ids: str, status, priority, assignee, cyc
         sys.exit(1)
 
     import re
-    issue_code_pattern = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE)
+    issue_code_pattern = re.compile(r'^[A-Za-z][A-Za-z0-9]{1,5}-\d+$', re.IGNORECASE)
     raw_ids = [x.strip() for x in ids.split(',') if x.strip()]
     resolved = []
     for iid in raw_ids:
@@ -3293,7 +3293,7 @@ def delete_issue(obj: "Context", issue_id: str, force: bool, as_json: bool):
 
     Examples:
         issue delete ISSUE-ID
-        issue delete ISSUE2026-1
+        issue delete OT-1
         issue delete ISSUE-ID --force
         issue delete ISSUE-ID --json
     """
@@ -3337,13 +3337,13 @@ def delete_issue(obj: "Context", issue_id: str, force: bool, as_json: bool):
 def _looks_like_issue_code(issue_id: str) -> bool:
     import re
     return (
-        re.compile(r"^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$", re.IGNORECASE).match(issue_id)
+        re.compile(r"^[A-Za-z][A-Za-z0-9]{1,5}-\d+$", re.IGNORECASE).match(issue_id)
         is not None
     )
 
 
 async def _resolve_issue_id(client: OpenTaskClient, issue_id: str) -> tuple[str, dict]:
-    """Return (uuid, issue_dict) resolving KEY-N / legacy codes."""
+    """Return (uuid, issue_dict) resolving KEY-N codes."""
     by_code = _looks_like_issue_code(issue_id)
     issue = await client.get_issue(issue_id, by_code=by_code)
     return issue.get("id", issue_id), issue
@@ -4000,7 +4000,7 @@ def import_issues(obj, file_path, as_json):
 def _issue_id_by_code_flag(issue_id: str) -> tuple[str, bool]:
     import re
     issue_code_pattern = re.compile(
-        r"^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$", re.IGNORECASE
+        r"^[A-Za-z][A-Za-z0-9]{1,5}-\d+$", re.IGNORECASE
     )
     return issue_id, issue_code_pattern.match(issue_id) is not None
 

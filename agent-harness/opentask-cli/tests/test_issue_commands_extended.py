@@ -232,7 +232,7 @@ class TestIssueShowEdgeCases:
             mock_client = mock.Mock()
             mock_client.get_issue = async_mock({
                 "id": "uuid-1",
-                "issue_code": "ISSUE2026-32",
+                "issue_code": "OT-32",
                 "title": "Test Issue"
             })
             mock_client.get_comments = async_mock([])
@@ -240,7 +240,7 @@ class TestIssueShowEdgeCases:
 
             result = runner.invoke(cli, [
                 'issue', 'show',
-                'ISSUE2026-32'
+                'OT-32'
             ])
 
             assert result.exit_code == 0

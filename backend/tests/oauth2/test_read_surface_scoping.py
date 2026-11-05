@@ -70,7 +70,7 @@ _SEQ = [900_000]
 
 def _next_issue_code() -> str:
     _SEQ[0] += 1
-    return f"ISSUE2026-{_SEQ[0]}"
+    return f"OT-{_SEQ[0]}"
 
 
 async def _seed_issue(
