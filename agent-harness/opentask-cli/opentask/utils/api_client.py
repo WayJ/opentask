@@ -640,6 +640,18 @@ class OpenTaskClient:
     async def complete_cycle(self, cycle_id: str) -> dict:
         return await self.post(f"/api/cycles/{cycle_id}/complete")
 
+    async def generate_upcoming_cycle(self) -> dict:
+        """E84: POST /api/cycles/generate-upcoming."""
+        return await self.post("/api/cycles/generate-upcoming")
+
+    async def update_cycle(self, cycle_id: str, **kwargs) -> dict:
+        """E84: PATCH /api/cycles/{id} — only send explicit fields."""
+        return await self.patch(f"/api/cycles/{cycle_id}", data=kwargs)
+
+    async def delete_cycle(self, cycle_id: str) -> dict:
+        """E84: DELETE /api/cycles/{id}."""
+        return await self.delete(f"/api/cycles/{cycle_id}")
+
     # ============================================================================
     # Tags / Labels API
     # ============================================================================

@@ -1,4 +1,4 @@
-"""E26 CLI: automation list|create|enable|disable + version 1.67.0."""
+"""E26 CLI: automation list|create|enable|disable + version 1.68.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli
@@ -8,7 +8,7 @@ def test_version_1_10_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.67.0" in result.output
+    assert "1.68.0" in result.output
 
 
 def test_automation_help():

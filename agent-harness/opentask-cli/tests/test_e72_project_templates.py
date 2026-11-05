@@ -1,4 +1,4 @@
-"""E72 CLI: project-template + project create --template-id + version 1.67.0."""
+"""E72 CLI: project-template + project create --template-id + version 1.68.0."""
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -11,11 +11,11 @@ def test_version_pins_1_56_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.67.0" in result.output
-    assert VERSION == "1.67.0"
-    assert __version__ == "1.67.0"
+    assert "1.68.0" in result.output
+    assert VERSION == "1.68.0"
+    assert __version__ == "1.68.0"
     version_file = Path(__file__).resolve().parents[1] / "VERSION"
-    assert version_file.read_text().strip() == "1.67.0"
+    assert version_file.read_text().strip() == "1.68.0"
 
 
 def test_project_template_help():

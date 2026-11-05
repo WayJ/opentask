@@ -205,3 +205,78 @@ def cycle_capacity(obj, cycle_id, as_json):
     except APIError as e:
         handle_api_error(e, json_mode)
 
+
+
+@cycle_cli.command(name="generate-upcoming")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def cycle_generate_upcoming(obj, as_json):
+    """Generate the next upcoming Cycle for the workspace."""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.generate_upcoming_cycle())
+        if json_mode:
+            echo_json(True, data=data, message="generated upcoming")
+            return
+        d = data or {}
+        obj.skin.success(f"已生成下一 Cycle: {d.get('id', '')}")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@cycle_cli.command(name="update")
+@click.argument("cycle_id")
+@click.option("--name", "-n", default=None)
+@click.option("--starts-at", default=None, help="ISO datetime")
+@click.option("--ends-at", default=None, help="ISO datetime")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def cycle_update(obj, cycle_id, name, starts_at, ends_at, as_json):
+    """Partial-update a Cycle (only send fields you pass)."""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    body = {}
+    if name is not None:
+        body["name"] = name
+    if starts_at is not None:
+        body["starts_at"] = starts_at
+    if ends_at is not None:
+        body["ends_at"] = ends_at
+    if not body:
+        raise click.UsageError("至少提供一个更新字段")
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.update_cycle(cycle_id, **body))
+        if json_mode:
+            echo_json(True, data=data, message="updated")
+            return
+        obj.skin.success("Cycle 已更新")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@cycle_cli.command(name="delete")
+@click.argument("cycle_id")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def cycle_delete(obj, cycle_id, as_json):
+    """Delete a Cycle without interactive confirmation (script-friendly)."""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.delete_cycle(cycle_id))
+        if json_mode:
+            echo_json(True, data=data or {"id": cycle_id}, message="deleted")
+            return
+        obj.skin.success("Cycle 已删除")
+    except APIError as e:
+        handle_api_error(e, json_mode)
