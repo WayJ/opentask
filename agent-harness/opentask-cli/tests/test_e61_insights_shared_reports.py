@@ -1,4 +1,4 @@
-"""E61 CLI: insights shared reports + version 1.69.0."""
+"""E61 CLI: insights shared reports + version 1.70.0."""
 from click.testing import CliRunner
 
 from opentask import __version__
@@ -9,9 +9,9 @@ def test_version_is_1_45_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.69.0" in result.output
-    assert VERSION == "1.69.0"
-    assert __version__ == "1.69.0"
+    assert "1.70.0" in result.output
+    assert VERSION == "1.70.0"
+    assert __version__ == "1.70.0"
 
 
 def test_insights_reports_shared_help():

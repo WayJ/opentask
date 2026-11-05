@@ -684,6 +684,31 @@ class OpenTaskClient:
     async def list_issue_tags(self, issue_id: str) -> dict:
         return await self.get(f"/api/issues/{issue_id}/tags")
 
+    async def replace_issue_tags(self, issue_id: str, tag_ids: list[int]) -> dict:
+        """E86: PUT /api/issues/{id}/tags — whole-set replace."""
+        return await self.put(f"/api/issues/{issue_id}/tags", data={"tag_ids": tag_ids})
+
+    async def update_tag(
+        self,
+        tag_id: str | int,
+        *,
+        name: str | None = None,
+        color: str | None = None,
+        group_id: int | None = None,
+        clear_group: bool = False,
+    ) -> dict:
+        """E86: PATCH /api/tags/{id}."""
+        body: dict = {}
+        if name is not None:
+            body["name"] = name
+        if color is not None:
+            body["color"] = color
+        if group_id is not None:
+            body["group_id"] = group_id
+        if clear_group:
+            body["clear_group"] = True
+        return await self.patch(f"/api/tags/{tag_id}", data=body)
+
     # ============================================================================
     # Triage API
     # ============================================================================
