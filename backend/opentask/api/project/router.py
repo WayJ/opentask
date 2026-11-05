@@ -415,12 +415,21 @@ class MilestoneUpdateBody(BaseModel):
 @milestones_router.get("")
 async def list_milestones(
     project_id: str,
+    status: str | None = Query(None, description="E81: planned|done；省略=全部"),
     ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
     db: AsyncSession = Depends(get_session),
 ):
     ws, _member, _user = ctx
-    rows = await MilestoneService(db).list(project_id=project_id, workspace_id=ws.id)
-    return success_response(data=[serialize_milestone(r) for r in rows])
+    svc = MilestoneService(db)
+    rows = await svc.list(project_id=project_id, workspace_id=ws.id, status=status)
+    counts = await svc.count_issues_by_milestone(
+        project_id=project_id,
+        workspace_id=ws.id,
+        milestone_ids=[r.id for r in rows],
+    )
+    return success_response(
+        data=[serialize_milestone(r, issue_count=counts.get(r.id, 0)) for r in rows]
+    )
 
 
 @milestones_router.post("")
@@ -432,7 +441,8 @@ async def create_milestone(
 ):
     ws, member, _user = ctx
     require_writer(member)
-    row = await MilestoneService(db).create(
+    svc = MilestoneService(db)
+    row = await svc.create(
         project_id=project_id,
         workspace_id=ws.id,
         name=body.name,
@@ -441,7 +451,13 @@ async def create_milestone(
         status=body.status,
         position=body.position,
     )
-    return success_response(data=serialize_milestone(row), message="里程碑已创建")
+    counts = await svc.count_issues_by_milestone(
+        project_id=project_id, workspace_id=ws.id, milestone_ids=[row.id]
+    )
+    return success_response(
+        data=serialize_milestone(row, issue_count=counts.get(row.id, 0)),
+        message="里程碑已创建",
+    )
 
 
 @milestones_router.get("/{milestone_id}")
@@ -452,12 +468,18 @@ async def get_milestone(
     db: AsyncSession = Depends(get_session),
 ):
     ws, _member, _user = ctx
-    row = await MilestoneService(db).get(
+    svc = MilestoneService(db)
+    row = await svc.get(
         milestone_id, project_id=project_id, workspace_id=ws.id
     )
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="里程碑不存在")
-    return success_response(data=serialize_milestone(row))
+    counts = await svc.count_issues_by_milestone(
+        project_id=project_id, workspace_id=ws.id, milestone_ids=[row.id]
+    )
+    return success_response(
+        data=serialize_milestone(row, issue_count=counts.get(row.id, 0))
+    )
 
 
 @milestones_router.patch("/{milestone_id}")
@@ -486,7 +508,13 @@ async def update_milestone(
     if "position" in body.model_fields_set:
         kwargs["position"] = body.position
     row = await svc.update(row, **kwargs)
-    return success_response(data=serialize_milestone(row), message="里程碑已更新")
+    counts = await svc.count_issues_by_milestone(
+        project_id=project_id, workspace_id=ws.id, milestone_ids=[row.id]
+    )
+    return success_response(
+        data=serialize_milestone(row, issue_count=counts.get(row.id, 0)),
+        message="里程碑已更新",
+    )
 
 
 @milestones_router.delete("/{milestone_id}")
