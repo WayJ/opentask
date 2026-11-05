@@ -22,8 +22,8 @@ Migrations：
 ## Tip
 
 - 分支：`sprint/E99-S1`
-- tip short：d96a917
-- tip full：d96a91715121a85b9d3e3b9cf7fd140421c69cdb
+- tip short：3ddc3b8
+- tip full：3ddc3b84bab99caf5a9cfd870c9f31b09639d4c5
 - **未 push / 未开 PR / 未开下一 Epic**
 
 ## Gates（verification-before-completion）
@@ -69,3 +69,12 @@ Migrations：
 - stamp：`f9a0` 保留 id 作 no-op，避免已 stamp 环境断链
 - 无历史年号外键兼容（Way：无历史）；旧 `OPENTASK-2026…` → ValueError
 - flake：`test_user_search`（已知，不阻塞）
+
+## Yuri 独立核验（2026-11-05，Asia/Shanghai）
+
+- 实测 HEAD：`3ddc3b8`；定向 **71 passed**；Full BE **1481 passed / 24 skipped / 1 known flake**，`test_user_search` 单跑通过。
+- CLI **852 passed / 89 skipped**；FE **427 passed**；production build ok，生成路由 `f`+`r` 已恢复，WT 干净。
+- E98 no-op、E99 drop、FTS 无 legacy、Jira 年号拒绝与 E98 WS 绑定均核验通过。
+- 本地 PostgreSQL `opentask` 已 upgrade 至 `g0a1b2c3d4e5`；`legacy_issue_code` 列数为 0；7377 `/healthcheck` 与 openapi 实测正常，9527 保持监听。
+
+**结论：E99 独立核验 PASS；local-complete，未 push / 未开 PR。**
