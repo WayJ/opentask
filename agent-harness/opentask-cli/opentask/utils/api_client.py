@@ -821,6 +821,13 @@ class OpenTaskClient:
     async def remove_favorite(self, favorite_id: str) -> dict:
         return await self.delete(f"/api/favorites/{favorite_id}")
 
+    async def reorder_favorites(self, ordered_ids: list[str]) -> dict:
+        """E88: PUT /api/favorites/reorder — ordered_ids must cover all current favorites."""
+        return await self.put(
+            "/api/favorites/reorder",
+            data={"ordered_ids": list(ordered_ids)},
+        )
+
     # ============================================================================
     # Issue Watchers API (E18)
     # ============================================================================
