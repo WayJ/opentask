@@ -1,4 +1,4 @@
-"""Label (= Tag) commands (E14 / E86 set·update·multi)."""
+"""Label (= Tag) commands (E14 / E86 set·update·multi / E87 tag-group)."""
 from __future__ import annotations
 
 import asyncio
@@ -56,10 +56,11 @@ def label_cli():
 
 
 @label_cli.command(name="list")
+@click.option("--group-id", default=None, help="Filter by tag group UUID")
 @click.option("--q", help="Search")
 @click.option("--json", "as_json", is_flag=True)
 @click.pass_obj
-def label_list(obj, q, as_json):
+def label_list(obj, group_id, q, as_json):
     config: Config = obj.config
     skin: ReplSkin = obj.skin
     json_mode = as_json or obj.json_mode
@@ -67,7 +68,7 @@ def label_list(obj, q, as_json):
         raise SystemExit(1)
     client = make_client(config)
     try:
-        data = asyncio.run(client.list_tags(q=q))
+        data = asyncio.run(client.list_tags(group_id=group_id, q=q))
         rows = data.get("rows", []) if isinstance(data, dict) else data
         if json_mode:
             echo_json(True, data={"rows": rows, "total": len(rows) if isinstance(rows, list) else 0})
@@ -86,16 +87,17 @@ def label_list(obj, q, as_json):
 @label_cli.command(name="create")
 @click.option("--name", "-n", required=True)
 @click.option("--color", "-c", default=None)
+@click.option("--group-id", default=None, help="Tag group UUID")
 @click.option("--json", "as_json", is_flag=True)
 @click.pass_obj
-def label_create(obj, name, color, as_json):
+def label_create(obj, name, color, group_id, as_json):
     config: Config = obj.config
     json_mode = as_json or obj.json_mode
     if not require_workspace_id(config, json_mode):
         raise SystemExit(1)
     client = make_client(config)
     try:
-        data = asyncio.run(client.create_tag(name=name, color=color))
+        data = asyncio.run(client.create_tag(name=name, color=color, group_id=group_id))
         if json_mode:
             echo_json(True, data=data, message="created")
             return
@@ -171,7 +173,7 @@ def label_set(obj, issue_ref, ids, clear, as_json):
 @click.argument("tag_id")
 @click.option("--name", default=None, help="New tag name")
 @click.option("--color", default=None, help="New tag color")
-@click.option("--group-id", "group_id", type=int, default=None, help="Move to group")
+@click.option("--group-id", "group_id", type=str, default=None, help="Move to group (UUID)")
 @click.option("--clear-group", is_flag=True, default=False, help="Clear group_id")
 @click.option("--json", "as_json", is_flag=True)
 @click.pass_obj
@@ -318,5 +320,129 @@ def label_issue(obj, issue_ref, as_json):
             ["ID", "Name", "Color"],
             [[str(r.get("id", "")), r.get("name", ""), r.get("color") or ""] for r in rows],
         )
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@label_cli.group(name="group")
+def label_group_cli():
+    """E87: label group list|create|update|delete."""
+    pass
+
+
+@label_group_cli.command(name="list")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def label_group_list(obj, as_json):
+    """E87: GET /api/tag-groups."""
+    config: Config = obj.config
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.list_tag_groups())
+        rows = data.get("rows", []) if isinstance(data, dict) else data
+        if json_mode:
+            echo_json(True, data={"rows": rows, "total": len(rows) if isinstance(rows, list) else 0})
+            return
+        if not rows:
+            skin.info("暂无标签组")
+            return
+        skin.table(
+            ["ID", "Name", "Color", "Position"],
+            [
+                [
+                    str(r.get("id", "")),
+                    r.get("name", ""),
+                    r.get("color") or "",
+                    str(r.get("position", "")),
+                ]
+                for r in rows
+            ],
+        )
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@label_group_cli.command(name="create")
+@click.option("--name", "-n", required=True)
+@click.option("--color", "-c", default=None)
+@click.option("--position", type=int, default=0)
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def label_group_create(obj, name, color, position, as_json):
+    """E87: POST /api/tag-groups."""
+    config: Config = obj.config
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.create_tag_group(name=name, color=color, position=position))
+        if json_mode:
+            echo_json(True, data=data, message="created")
+            return
+        skin.success(f"标签组已创建: {data.get('name', name) if isinstance(data, dict) else name}")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@label_group_cli.command(name="update")
+@click.argument("group_id")
+@click.option("--name", default=None)
+@click.option("--color", default=None)
+@click.option("--position", type=int, default=None)
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def label_group_update(obj, group_id, name, color, position, as_json):
+    """E87: PATCH /api/tag-groups/{id}."""
+    config: Config = obj.config
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    if name is None and color is None and position is None:
+        msg = "Specify at least one of --name/--color/--position"
+        if json_mode:
+            echo_json(False, message=msg)
+        else:
+            skin.error(msg)
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(
+            client.update_tag_group(group_id, name=name, color=color, position=position)
+        )
+        if json_mode:
+            echo_json(True, data=data, message="updated")
+            return
+        skin.success(
+            f"标签组已更新: {data.get('name', group_id) if isinstance(data, dict) else group_id}"
+        )
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@label_group_cli.command(name="delete")
+@click.argument("group_id")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def label_group_delete(obj, group_id, as_json):
+    """E87: DELETE /api/tag-groups/{id}."""
+    config: Config = obj.config
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.delete_tag_group(group_id))
+        if json_mode:
+            echo_json(True, data=data or {"id": group_id}, message="deleted")
+            return
+        skin.success("标签组已删除")
     except APIError as e:
         handle_api_error(e, json_mode)

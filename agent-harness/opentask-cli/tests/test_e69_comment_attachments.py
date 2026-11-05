@@ -1,4 +1,4 @@
-"""E69 CLI: issue comment attachment + version 1.70.0."""
+"""E69 CLI: issue comment attachment + version 1.71.0."""
 from click.testing import CliRunner
 
 from opentask import __version__
@@ -9,9 +9,9 @@ def test_version_1530():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.70.0" in result.output
-    assert VERSION == "1.70.0"
-    assert __version__ == "1.70.0"
+    assert "1.71.0" in result.output
+    assert VERSION == "1.71.0"
+    assert __version__ == "1.71.0"
 
 
 def test_comment_attachment_help():

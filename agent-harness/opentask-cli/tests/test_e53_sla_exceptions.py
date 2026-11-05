@@ -1,4 +1,4 @@
-"""E53 CLI: sla business-hours exceptions + version 1.70.0."""
+"""E53 CLI: sla business-hours exceptions + version 1.71.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli
@@ -8,7 +8,7 @@ def test_version_1_39_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.70.0" in result.output
+    assert "1.71.0" in result.output
 
 
 def test_exceptions_group_help():

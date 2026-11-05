@@ -10,7 +10,7 @@ def read_file(filename):
 
 setup(
     name='opentask',
-    version='1.70.0',
+    version='1.71.0',
     author='OpenTask Team',
     author_email='support@opentask.com',
     description='OpenTask CLI - AI Agent interface for OpenTask platform',

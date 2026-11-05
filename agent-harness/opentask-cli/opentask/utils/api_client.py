@@ -694,10 +694,10 @@ class OpenTaskClient:
         *,
         name: str | None = None,
         color: str | None = None,
-        group_id: int | None = None,
+        group_id: str | None = None,
         clear_group: bool = False,
     ) -> dict:
-        """E86: PATCH /api/tags/{id}."""
+        """E86/E87: PATCH /api/tags/{id}; group_id is UUID str."""
         body: dict = {}
         if name is not None:
             body["name"] = name
@@ -708,6 +708,42 @@ class OpenTaskClient:
         if clear_group:
             body["clear_group"] = True
         return await self.patch(f"/api/tags/{tag_id}", data=body)
+
+
+    async def list_tag_groups(self) -> dict:
+        """E87: GET /api/tag-groups."""
+        return await self.get("/api/tag-groups")
+
+    async def create_tag_group(
+        self, name: str, color: str | None = None, position: int = 0
+    ) -> dict:
+        """E87: POST /api/tag-groups."""
+        data: dict = {"name": name, "position": position}
+        if color is not None:
+            data["color"] = color
+        return await self.post("/api/tag-groups", data=data)
+
+    async def update_tag_group(
+        self,
+        group_id: str,
+        *,
+        name: str | None = None,
+        color: str | None = None,
+        position: int | None = None,
+    ) -> dict:
+        """E87: PATCH /api/tag-groups/{id}."""
+        body: dict = {}
+        if name is not None:
+            body["name"] = name
+        if color is not None:
+            body["color"] = color
+        if position is not None:
+            body["position"] = position
+        return await self.patch(f"/api/tag-groups/{group_id}", data=body)
+
+    async def delete_tag_group(self, group_id: str) -> dict:
+        """E87: DELETE /api/tag-groups/{id}."""
+        return await self.delete(f"/api/tag-groups/{group_id}")
 
     # ============================================================================
     # Triage API
