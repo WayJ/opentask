@@ -19,8 +19,8 @@ Plan：`docs/superpowers/plans/2026-11-05-e94-issue-reactions-cli-mid-plan.md`
 ## Tip
 
 - 分支：`sprint/E94-S1`
-- tip short：683def3
-- tip full：683def392b5f851d0d0d3d2de7e21fb6427c314e
+- tip short：774b117
+- tip full：774b11774fb9c5122bf83057d823c774a6e5d9fc
 - **未 push / 未开 PR / 未开 E95**
 
 ## Gates（verification-before-completion）
