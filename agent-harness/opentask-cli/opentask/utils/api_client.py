@@ -1723,6 +1723,47 @@ class OpenTaskClient:
         await self.delete(f"/api/projects/{project_id}/milestones/{milestone_id}")
         return True
 
+    async def list_project_repos(self, project_id: str) -> list | dict:
+        """E95: GET /api/projects/{id}/repos"""
+        return await self.get(f"/api/projects/{project_id}/repos")
+
+    async def get_project_repo(self, project_id: str, repo_id: str | int) -> dict:
+        """E95: GET /api/projects/{id}/repos/{repo_id}"""
+        return await self.get(f"/api/projects/{project_id}/repos/{repo_id}")
+
+    async def create_project_repo(
+        self,
+        project_id: str,
+        *,
+        name: str,
+        url: str,
+        main_branch: str = "main",
+    ) -> dict:
+        """E95: POST /api/projects/{id}/repos body {name,url,main_branch,project_id}"""
+        return await self.post(
+            f"/api/projects/{project_id}/repos",
+            data={
+                "name": name,
+                "url": url,
+                "main_branch": main_branch,
+                "project_id": project_id,
+            },
+        )
+
+    async def update_project_repo(
+        self, project_id: str, repo_id: str | int, **fields
+    ) -> dict:
+        """E95: PUT /api/projects/{id}/repos/{repo_id} body 仅提供字段"""
+        return await self.put(
+            f"/api/projects/{project_id}/repos/{repo_id}",
+            data=fields,
+        )
+
+    async def delete_project_repo(self, project_id: str, repo_id: str | int) -> bool:
+        """E95: DELETE /api/projects/{id}/repos/{repo_id}"""
+        await self.delete(f"/api/projects/{project_id}/repos/{repo_id}")
+        return True
+
 
     async def add_project_member(self, project_id: str, user_id: str) -> dict:
         """E79: add project roster member."""
