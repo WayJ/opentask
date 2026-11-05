@@ -19,8 +19,8 @@ Plan：`docs/superpowers/plans/2026-11-05-e83-project-watchers-cli-mid-plan.md`
 ## Tip
 
 - 分支：`sprint/E83-S1`
-- tip short：`a7aefb9`
-- tip full：`a7aefb991207f14822ff761a82730b357c16ecc7`
+- tip short：`b4ffe1b`
+- tip full：`b4ffe1be25fa0047de0c1efd4ae1cc1e430e332d`
 - **未 push / 未开 PR / 未开 E84**
 
 ## Gates（verification-before-completion）
