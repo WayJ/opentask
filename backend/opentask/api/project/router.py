@@ -599,14 +599,14 @@ async def list_project_watchers(
 ):
     from opentask.services.project_watcher.service import (
         ProjectWatcherService,
-        serialize_watcher,
+        enrich_watchers,
     )
 
     ws, _member, _user = ctx
     rows = await ProjectWatcherService(db).list(
         project_id=project_id, workspace_id=ws.id
     )
-    return success_response(data=[serialize_watcher(r) for r in rows])
+    return success_response(data=await enrich_watchers(db, rows))
 
 
 @watchers_router.post("")
@@ -617,14 +617,15 @@ async def watch_project(
 ):
     from opentask.services.project_watcher.service import (
         ProjectWatcherService,
-        serialize_watcher,
+        enrich_watchers,
     )
 
     ws, _member, user = ctx
     row = await ProjectWatcherService(db).watch(
         project_id=project_id, workspace_id=ws.id, user_id=str(user.id)
     )
-    return success_response(data=serialize_watcher(row), message="已订阅")
+    enriched = await enrich_watchers(db, [row])
+    return success_response(data=enriched[0] if enriched else None, message="已订阅")
 
 
 @watchers_router.delete("")
