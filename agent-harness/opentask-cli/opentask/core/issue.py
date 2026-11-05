@@ -40,6 +40,12 @@ def attachment_cli():
     pass
 
 
+@issue_cli.group(name="link")
+def link_cli():
+    """E76: Issue external links (list/add/rm)."""
+    pass
+
+
 # ============================================================================
 # Helper Functions
 # ============================================================================
@@ -3079,6 +3085,142 @@ def issue_children(obj: "Context", issue_id: str, as_json: bool):
         )
     except APIError as e:
         _handle_error(skin, e, "Failed to list children", json_mode)
+        sys.exit(1)
+
+
+
+
+@link_cli.command(name="list")
+@click.argument("issue_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def issue_link_list(obj: "Context", issue_id: str, as_json: bool):
+    """List external links on an Issue (E76)."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    try:
+        real_id, _ = asyncio.run(_resolve_issue_id(client, issue_id))
+        data = asyncio.run(client.list_issue_links(real_id))
+        if json_mode:
+            click.echo(_format_json_response(success=True, data=data, message="links"))
+            return
+        rows = (data or {}).get("rows") or []
+        if not rows:
+            skin.info("No links")
+            return
+        skin.table(
+            ["Id", "Title", "URL", "Pos"],
+            [
+                [
+                    r.get("id") or "",
+                    (r.get("title") or "")[:30],
+                    (r.get("url") or "")[:50],
+                    str(r.get("position", "")),
+                ]
+                for r in rows
+            ],
+        )
+    except APIError as e:
+        _handle_error(skin, e, "Failed to list links", json_mode)
+        sys.exit(1)
+
+
+@link_cli.command(name="add")
+@click.argument("issue_id")
+@click.argument("url")
+@click.option("--title", default=None, help="Optional display title")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def issue_link_add(obj: "Context", issue_id: str, url: str, title: str | None, as_json: bool):
+    """Add an http(s) external link to an Issue (E76)."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    try:
+        real_id, _ = asyncio.run(_resolve_issue_id(client, issue_id))
+        row = asyncio.run(client.create_issue_link(real_id, url, title=title))
+        if isinstance(row, dict) and "data" in row and isinstance(row["data"], dict):
+            if "id" not in row:
+                row = row["data"]
+        if json_mode:
+            click.echo(_format_json_response(success=True, data=row, message="link added"))
+            return
+        skin.success(f"Added link {row.get('id', '')}")
+        skin.info(f"  url: {row.get('url')}")
+        if row.get("title"):
+            skin.info(f"  title: {row.get('title')}")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to add link", json_mode)
+        sys.exit(1)
+
+
+@link_cli.command(name="rm")
+@click.argument("issue_id")
+@click.argument("link_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def issue_link_rm(obj: "Context", issue_id: str, link_id: str, as_json: bool):
+    """Remove an external link from an Issue (E76)."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    try:
+        real_id, _ = asyncio.run(_resolve_issue_id(client, issue_id))
+        data = asyncio.run(client.delete_issue_link(real_id, link_id))
+        if json_mode:
+            click.echo(_format_json_response(success=True, data=data or {"id": link_id}, message="link removed"))
+            return
+        skin.success(f"Removed link {link_id}")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to remove link", json_mode)
+        sys.exit(1)
+
+
+@link_cli.command(name="update")
+@click.argument("issue_id")
+@click.argument("link_id")
+@click.option("--url", default=None, help="New URL")
+@click.option("--title", default=None, help="New title")
+@click.option("--position", type=int, default=None, help="New position")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def issue_link_update(
+    obj: "Context",
+    issue_id: str,
+    link_id: str,
+    url: str | None,
+    title: str | None,
+    position: int | None,
+    as_json: bool,
+):
+    """Update an Issue external link (E76 optional)."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    if url is None and title is None and position is None:
+        skin.error("Provide at least one of --url / --title / --position")
+        sys.exit(1)
+    try:
+        real_id, _ = asyncio.run(_resolve_issue_id(client, issue_id))
+        row = asyncio.run(
+            client.update_issue_link(
+                real_id, link_id, url=url, title=title, position=position
+            )
+        )
+        if isinstance(row, dict) and "data" in row and isinstance(row["data"], dict):
+            if "id" not in row:
+                row = row["data"]
+        if json_mode:
+            click.echo(_format_json_response(success=True, data=row, message="link updated"))
+            return
+        skin.success(f"Updated link {row.get('id', link_id)}")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to update link", json_mode)
         sys.exit(1)
 
 

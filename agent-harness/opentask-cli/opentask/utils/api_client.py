@@ -1741,6 +1741,45 @@ class OpenTaskClient:
             data["assignee_ids"] = assignee_ids
         return await self.post(f"/api/issues/{issue_id}/duplicate", data=data)
 
+
+    async def list_issue_links(self, issue_id: str) -> dict:
+        """E76: GET /api/issues/{id}/links"""
+        data = await self.get(f"/api/issues/{issue_id}/links")
+        return data if isinstance(data, dict) else {"rows": data or [], "total": 0}
+
+    async def create_issue_link(
+        self, issue_id: str, url: str, *, title: str | None = None
+    ) -> dict:
+        """E76: POST /api/issues/{id}/links"""
+        body: dict = {"url": url}
+        if title is not None:
+            body["title"] = title
+        return await self.post(f"/api/issues/{issue_id}/links", data=body)
+
+    async def update_issue_link(
+        self,
+        issue_id: str,
+        link_id: str,
+        *,
+        url: str | None = None,
+        title: str | None = None,
+        position: int | None = None,
+    ) -> dict:
+        """E76: PATCH /api/issues/{id}/links/{link_id}"""
+        body: dict = {}
+        if url is not None:
+            body["url"] = url
+        if title is not None:
+            body["title"] = title
+        if position is not None:
+            body["position"] = position
+        return await self.patch(f"/api/issues/{issue_id}/links/{link_id}", data=body)
+
+    async def delete_issue_link(self, issue_id: str, link_id: str) -> dict:
+        """E76: DELETE /api/issues/{id}/links/{link_id}"""
+        return await self.delete(f"/api/issues/{issue_id}/links/{link_id}")
+
+
     async def update_issue(self, issue_id: str, **kwargs) -> dict:
         """Update issue.
 
