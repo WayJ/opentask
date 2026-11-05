@@ -64,6 +64,10 @@ import {
   excludeSelfFromPicker,
   setParentSuccessMessage
 } from '@/utils/issueParentMeta';
+import {
+  nextMilestoneAfterProjectMove,
+  projectMoveClearedMessage
+} from '@/utils/nextMilestoneAfterProjectMove';
 import type { Api } from '@/typings/api';
 
 defineOptions({
@@ -987,10 +991,20 @@ function cancelDueDate() {
 
 async function saveProject() {
   if (!issueId.value) return;
+  const oldProjectId = issue.value?.project_id ?? null;
+  const hadMilestone = Boolean(issue.value?.milestone_id);
   try {
-    await issueStore.updateIssue(issueId.value, { project_id: tempProject.value || undefined });
+    await issueStore.updateIssue(issueId.value, { project_id: tempProject.value || null });
     await loadIssue();
-    window.$message?.success('项目更新成功');
+    const newProjectId = issue.value?.project_id ?? null;
+    tempMilestone.value = nextMilestoneAfterProjectMove(
+      oldProjectId,
+      newProjectId,
+      issue.value?.milestone_id
+    );
+    await loadMilestones(newProjectId);
+    const tip = projectMoveClearedMessage(oldProjectId, newProjectId, hadMilestone);
+    window.$message?.success(tip ? `项目更新成功；${tip}` : '项目更新成功');
   } catch {
     window.$message?.error('项目更新失败');
   }
