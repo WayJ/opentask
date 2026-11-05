@@ -30,7 +30,7 @@ D1–D7 / Q1a–Q6a 按 design 落地。
 ## Tip
 
 - 分支：`sprint/E68-S1`
-- tip：_填充于 tip commit_
+- tip：`cff130f`（全文 `cff130f8da227dbaa756116b62c10cd629d50d2b`）
 - **未 push / 未开 PR / 未开 E69**
 
 ## Receipt
