@@ -1,4 +1,4 @@
-"""E66 CLI: issue attachment download|signed-url + version 1.55.0."""
+"""E66 CLI: issue attachment download|signed-url + version 1.56.0."""
 from click.testing import CliRunner
 
 from opentask import __version__
@@ -9,9 +9,9 @@ def test_version_1_50_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.55.0" in result.output
-    assert VERSION == "1.55.0"
-    assert __version__ == "1.55.0"
+    assert "1.56.0" in result.output
+    assert VERSION == "1.56.0"
+    assert __version__ == "1.56.0"
 
 
 def test_issue_attachment_help():
