@@ -19,8 +19,8 @@ Plan：`docs/superpowers/plans/2026-11-05-e86-label-set-multi-cli-mid-plan.md`
 ## Tip
 
 - 分支：`sprint/E86-S1`
-- tip short：bebd1ba
-- tip full：bebd1ba242db3934d64ac6dce4c06f58836ed1d2
+- tip short：PENDING
+- tip full：PENDING
 - **未 push / 未开 PR / 未开 E87**
 
 ## Gates（verification-before-completion）
