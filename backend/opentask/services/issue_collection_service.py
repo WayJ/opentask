@@ -16,6 +16,10 @@ from opentask.models.issue_collection.schema import (
 from opentask.models.issue_collection.enums import CollectionStatus
 from opentask.models.issue.model import Issue
 from opentask.models.issue.enums import IssueStatus, IssueType, IssuePriority
+from opentask.services.workspace.issue_create_ws import (
+    WorkspaceRequiredError,
+    resolve_workspace_for_issue_create,
+)
 
 
 class IssueCollectionService:
@@ -278,8 +282,19 @@ class IssueCollectionService:
                     logger.warning(f"Invalid issue priority '{priority_str}', defaulting to 'medium'")
                     issue_priority = IssuePriority.MEDIUM
 
-                # 生成 issue_code
+                # E98: 每条必须落到可靠 Workspace → KEY-N；禁止年号回退
                 ws_id = issue_data.get("workspace_id")
+                try:
+                    ws_id = await resolve_workspace_for_issue_create(
+                        self.db,
+                        creator_id,
+                        explicit_workspace_id=ws_id,
+                    )
+                except WorkspaceRequiredError as e:
+                    logger.warning(
+                        "collection item skipped (no reliable workspace): %s", e.detail
+                    )
+                    continue
                 issue_code = await issue_service._generate_issue_code(ws_id)
 
                 # 准备描述
@@ -288,17 +303,17 @@ class IssueCollectionService:
                     mention = f"\n\n---\n\n> 来源问题集：@{collection_title}"
                     description += mention
 
-                # 使用原始 SQL 插入 Issue
-                # status/is_deleted/created_at/updated_at 均 NOT NULL 且仅有 Python 端默认，
-                # 原始 SQL 绕过 ORM，必须显式给值（与模型 insert_default 一致）
+                # 使用原始 SQL 插入 Issue（含 workspace_id）
                 insert_query = text("""
                     INSERT INTO issues (
                         id, title, description, type, priority, status, reporter_id,
-                        issue_code, created_by, updated_by, comment_count, attachment_count, view_count,
+                        issue_code, workspace_id, created_by, updated_by,
+                        comment_count, attachment_count, view_count,
                         is_deleted, created_at, updated_at
                     ) VALUES (
                         :id, :title, :description, :type, :priority, 'open', :reporter_id,
-                        :issue_code, :created_by, :updated_by, 0, 0, 0,
+                        :issue_code, :workspace_id, :created_by, :updated_by,
+                        0, 0, 0,
                         FALSE, NOW(), NOW()
                     )
                 """)
@@ -311,6 +326,7 @@ class IssueCollectionService:
                     "priority": issue_priority.value,
                     "reporter_id": creator_id,
                     "issue_code": issue_code,
+                    "workspace_id": ws_id,
                     "created_by": creator_id,
                     "updated_by": creator_id,
                 })

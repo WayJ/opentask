@@ -84,43 +84,27 @@ class IssueService:
         self.db = db
 
     async def _generate_issue_code(self, workspace_id: str | None = None) -> str:
-        """生成问题编号。
+        """生成问题编号：必须有 workspace_id → KEY-N（issue_key + 行级 counter）。
 
-        有 workspace_id：KEY-N（工作区 issue_key + 行级 counter 递增）。
-        无 workspace_id：保留历史 ISSUE{year}-N（孤儿/无头路径）。
+        E98：删除 ISSUE{year}-N 回退。workspace_id 为 None 时 raise ValueError。
         """
-        from datetime import datetime
-        from sqlalchemy import text
-
-        if workspace_id:
-            result = await self.db.execute(
-                select(Workspace)
-                .where(Workspace.id == workspace_id)
-                .with_for_update()
+        if not workspace_id:
+            raise ValueError(
+                "workspace_id is required for issue code allocation; "
+                "year-prefixed ISSUE{year}-N allocation is removed"
             )
-            ws = result.scalar_one_or_none()
-            if ws is None:
-                raise ValueError(f"工作区不存在: {workspace_id}")
-            ws.issue_counter = int(ws.issue_counter or 0) + 1
-            await self.db.flush()
-            return f"{ws.issue_key}-{ws.issue_counter}"
 
-        current_year = datetime.now().year
-        prefix = f"ISSUE{current_year}-"
-        query = text(
-            "SELECT issue_code FROM issues "
-            "WHERE issue_code LIKE :prefix_pattern"
+        result = await self.db.execute(
+            select(Workspace)
+            .where(Workspace.id == workspace_id)
+            .with_for_update()
         )
-        result = await self.db.execute(query, {"prefix_pattern": f"{prefix}%"})
-        max_num = 0
-        for (code,) in result:
-            suffix = code[len(prefix):]
-            try:
-                num = int(suffix)
-            except (TypeError, ValueError):
-                continue
-            max_num = max(max_num, num)
-        return f"{prefix}{max_num + 1}"
+        ws = result.scalar_one_or_none()
+        if ws is None:
+            raise ValueError(f"工作区不存在: {workspace_id}")
+        ws.issue_counter = int(ws.issue_counter or 0) + 1
+        await self.db.flush()
+        return f"{ws.issue_key}-{ws.issue_counter}"
 
     # ========================================================================
     # CRUD 操作

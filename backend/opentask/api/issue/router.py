@@ -86,6 +86,10 @@ from opentask.models.workspace.model import Workspace, WorkspaceMember
 from pydantic import BaseModel, Field
 from opentask.services.user_center.rbac_service import RbacService
 from opentask.services.workspace.service import WorkspaceService
+from opentask.services.workspace.issue_create_ws import (
+    WorkspaceRequiredError,
+    resolve_workspace_for_issue_create,
+)
 from opentask.services.storage.service import get_storage_service
 from opentask.services.issue_collection_service import IssueCollectionService
 from opentask.auth import authenticate
@@ -800,7 +804,10 @@ async def create_issue(
     current_user: UserModel = Depends(authenticate),
     ws_ctx=Depends(get_optional_workspace_context),
 ):
-    """创建 Issue（可选 X-Workspace-Id；可选 template_id 合并模板 payload）"""
+    """创建 Issue（可选 X-Workspace-Id；无头时可靠唯一可写 WS 自动绑定，否则 400）
+
+    E98：新建仅 KEY-N；不再分配 ISSUE{year}-N。
+    """
 
     try:
         workspace, _member, user = ws_ctx
@@ -817,13 +824,21 @@ async def create_issue(
             # drop template_id before Issue(**)
             merged.pop("template_id", None)
             data = IssueCreate(**merged)
+        try:
+            workspace_id = await resolve_workspace_for_issue_create(
+                service.db,
+                str(user.id),
+                explicit_workspace_id=workspace.id if workspace else None,
+            )
+        except WorkspaceRequiredError as e:
+            raise HTTPException(status_code=400, detail=e.detail) from e
         # 部门归属快照：取创建人主部门
         dept_id = await RbacService(service.db).get_primary_dept_id(user)
         issue = await service.create_issue(
             data,
             str(user.id),
             dept_id=dept_id,
-            workspace_id=workspace.id if workspace else None,
+            workspace_id=workspace_id,
         )
         payload = IssueResponse.model_validate(issue).model_dump(mode="json", exclude_none=False)
         await _embed_assignees(service.db, payload, issue.id)
@@ -1201,7 +1216,8 @@ async def get_issue(
     Examples:
         GET /api/issues/5ee3420e-2d69-4509-9ae7-524e8c40d6d1  # 通过 ID 查询
         GET /api/issues/OT-1?by_code=true                  # 通过 KEY-N 查询
-        GET /api/issues/ISSUE2026-32?by_code=true          # 通过 legacy code 查询
+        GET /api/issues/OT-32?by_code=true                 # KEY-N
+        GET /api/issues/ISSUE2026-32?by_code=true          # legacy 仍可解析
     """
     workspace, _member, user = ws_ctx
     # by_code 仍用 header WS 精确过滤（不回退）；按 UUID 不靠 header，靠实体 membership

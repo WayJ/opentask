@@ -25,7 +25,7 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Form, Query, Response
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -56,6 +56,10 @@ from .mapping import (
     get_default_issue_type,
     get_forbidden_operations,
     get_generic_statuses,
+)
+from opentask.services.workspace.issue_create_ws import (
+    WorkspaceRequiredError,
+    resolve_workspace_for_issue_create,
 )
 from .schemas import (
     CONTRACT_VERSION,
@@ -221,8 +225,14 @@ async def create_task(
         status=generic_status_to_issue(status),  # type: ignore[arg-type]
         assignee_id=data.assignee,
     )
+    try:
+        workspace_id = await resolve_workspace_for_issue_create(
+            service.db, str(current_user.id)
+        )
+    except WorkspaceRequiredError as e:
+        raise HTTPException(status_code=400, detail=e.detail) from e
     issue = await service.create_issue(
-        issue_create, str(current_user.id), dept_id=None
+        issue_create, str(current_user.id), dept_id=None, workspace_id=workspace_id
     )
 
     if data.labels:
