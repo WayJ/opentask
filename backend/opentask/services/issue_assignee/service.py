@@ -70,8 +70,17 @@ async def replace_issue_assignees(
     user_ids: list[str],
     validate: bool = True,
 ) -> list[str]:
-    """Replace junction rows; mirror issue.assignee_id = first or None. Caller commits."""
+    """Replace junction rows; mirror issue.assignee_id = first or None. Caller commits.
+
+    Issues without workspace_id (legacy task path) only mirror assignee_id —
+    junction requires a workspace FK (E71 migration).
+    """
     ids = normalize_assignee_ids(user_ids)
+
+    if not issue.workspace_id:
+        issue.assignee_id = ids[0] if ids else None
+        await db.flush()
+        return ids
 
     if validate:
         await validate_assignee_members(db, issue.workspace_id, ids)
