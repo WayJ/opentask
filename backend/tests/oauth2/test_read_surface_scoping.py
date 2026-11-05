@@ -63,9 +63,8 @@ async def _seed_member(
     return user
 
 
-# issue_code 序号（同会话内唯一）：Jira 线格式的 key 投影只认 ISSUE{年}-{序号}
-# 形态，非该形态的码会让 /rest/api/2/search 直接抛 ValueError。
-_SEQ = [900_000]
+# issue_code 序号（同会话内唯一）：E99 Jira 投影只认 KEY-N（序号 < 1e6）。
+_SEQ = [800_000]
 
 
 def _next_issue_code() -> str:

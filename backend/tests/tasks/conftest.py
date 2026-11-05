@@ -274,15 +274,16 @@ def mapping_config(monkeypatch: pytest.MonkeyPatch) -> Callable[[Optional[dict]]
 # Seeding 辅助：直接落 Issue 行，精确控制 updated_at（游标边界测试需要）
 # ============================================================================
 
-_CT_SEED_SEQ = 900_000_000  # 远离业务序号段，避免与 _generate_issue_code 冲突
+_CT_SEED_SEQ = 800_000  # 高段但 < KEY_N_SEQ_CAP(1e6)，避免与业务 counter 撞
 
 
 def next_seed_issue_code() -> str:
-    """种子行的 issue_code：保留 legacy ISSUE{year}-N 形态（读路径兼容测）。
-    E98 新建不再走年号分配；序号远离业务 KEY-N counter。"""
+    """种子行的 issue_code：E99 仅 KEY-N（前缀 CT，序号远离业务 counter）。"""
     global _CT_SEED_SEQ
     _CT_SEED_SEQ += 1
-    return f"ISSUE{datetime.now().year}-{_CT_SEED_SEQ}"
+    if _CT_SEED_SEQ >= 1_000_000:
+        raise RuntimeError("contract seed issue_code sequence overflow")
+    return f"CT-{_CT_SEED_SEQ}"
 
 
 async def seed_issue(
