@@ -1,4 +1,4 @@
-"""E67 CLI: version 1.56.0 + due/recurrence TZ help."""
+"""E67 CLI: version 1.57.0 + due/recurrence TZ help."""
 from click.testing import CliRunner
 
 from opentask import __version__
@@ -9,9 +9,9 @@ def test_version_1510():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.56.0" in result.output
-    assert VERSION == "1.56.0"
-    assert __version__ == "1.56.0"
+    assert "1.57.0" in result.output
+    assert VERSION == "1.57.0"
+    assert __version__ == "1.57.0"
 
 
 def test_run_due_reminders_help_mentions_workspace_tz():
