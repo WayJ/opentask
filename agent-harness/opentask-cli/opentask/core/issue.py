@@ -22,6 +22,12 @@ def comment_cli():
     pass
 
 
+@comment_cli.group(name="attachment")
+def comment_attachment_cli():
+    """E69: comment attachment commands (list/upload/download)."""
+    pass
+
+
 @issue_cli.group(name="document")
 def document_cli():
     """Document management commands."""
@@ -2097,6 +2103,129 @@ def delete_comment(obj: "Context", comment_id: str, as_json: bool):
 
     except APIError as e:
         skin.error(f"Failed to delete comment: {e.message}")
+
+
+
+# ============================================================================
+# E69: issue comment attachment
+# ============================================================================
+
+@comment_attachment_cli.command(name="list")
+@click.argument("issue_id")
+@click.argument("comment_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def list_comment_attachments(obj: "Context", issue_id: str, comment_id: str, as_json: bool):
+    """List attachments on an issue comment."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    try:
+        real_issue_id = issue_id
+        import re
+        issue_code_pattern = re.compile(
+            r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE
+        )
+        if issue_code_pattern.match(issue_id):
+            info = asyncio.run(client.get_issue(issue_id, by_code=True))
+            real_issue_id = info.get("id", issue_id)
+        rows = asyncio.run(client.list_comment_attachments(real_issue_id, comment_id))
+        if not isinstance(rows, list):
+            rows = rows or []
+        if json_mode:
+            echo_json(data={"attachments": rows, "total": len(rows)}, message=f"Found {len(rows)} attachment(s)")
+            return
+        if not rows:
+            skin.info("No attachments")
+            return
+        for row in rows:
+            skin.info(f"{row.get('id')}  {row.get('file_name')}  ({row.get('file_size')} bytes)")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to list comment attachments", json_mode)
+        sys.exit(1)
+
+
+@comment_attachment_cli.command(name="upload")
+@click.argument("issue_id")
+@click.argument("comment_id")
+@click.option("--file", "file_path", required=True, type=click.Path(exists=True), help="Local file to upload")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def upload_comment_attachment_cmd(obj: "Context", issue_id: str, comment_id: str, file_path: str, as_json: bool):
+    """Upload a file onto an issue comment."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    try:
+        real_issue_id = issue_id
+        import re
+        issue_code_pattern = re.compile(
+            r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE
+        )
+        if issue_code_pattern.match(issue_id):
+            info = asyncio.run(client.get_issue(issue_id, by_code=True))
+            real_issue_id = info.get("id", issue_id)
+        result = asyncio.run(client.upload_comment_attachment(real_issue_id, comment_id, file_path))
+        if json_mode:
+            echo_json(data=result, message="Comment attachment uploaded")
+            return
+        skin.success(f"Uploaded: {result.get('file_name') or result.get('id')}")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to upload comment attachment", json_mode)
+        sys.exit(1)
+
+
+@comment_attachment_cli.command(name="download")
+@click.argument("issue_id")
+@click.argument("comment_id")
+@click.argument("attachment_id")
+@click.option("--out", "out_path", default=".", help="Output file or directory")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def download_comment_attachment_cmd(
+    obj: "Context",
+    issue_id: str,
+    comment_id: str,
+    attachment_id: str,
+    out_path: str,
+    as_json: bool,
+):
+    """Download a comment attachment (authenticated session; E66 ACL)."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    try:
+        real_issue_id = issue_id
+        import re
+        issue_code_pattern = re.compile(
+            r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.IGNORECASE
+        )
+        if issue_code_pattern.match(issue_id):
+            info = asyncio.run(client.get_issue(issue_id, by_code=True))
+            real_issue_id = info.get("id", issue_id)
+        saved = asyncio.run(
+            client.download_comment_attachment(real_issue_id, comment_id, attachment_id, out_path)
+        )
+        if json_mode:
+            echo_json(
+                data={
+                    "path": saved,
+                    "attachment_id": attachment_id,
+                    "issue_id": real_issue_id,
+                    "comment_id": comment_id,
+                },
+                message=f"Attachment downloaded to: {saved}",
+            )
+            return
+        import os
+        skin.success(f"Attachment downloaded: {os.path.basename(saved)}")
+        skin.hint(f"Saved to: {saved}")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to download comment attachment", json_mode)
+        sys.exit(1)
 
 
 @document_cli.command(name="list")

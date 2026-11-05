@@ -1791,6 +1791,61 @@ class OpenTaskClient:
     # Auth API
     # ============================================================================
 
+    
+    async def list_comment_attachments(self, issue_id: str, comment_id: str):
+        """E69: list attachments on an issue comment."""
+        data = await self.get(f"/api/issues/{issue_id}/comments/{comment_id}/attachments")
+        return data
+
+    async def upload_comment_attachment(self, issue_id: str, comment_id: str, file_path: str):
+        """E69: upload a local file onto an issue comment."""
+        import httpx
+        import os
+
+        url = f"{self.base_url}/api/issues/{issue_id}/comments/{comment_id}/attachments"
+        headers = self._get_headers()
+        headers.pop("Content-Type", None)
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File not found: {file_path}")
+        filename = os.path.basename(file_path)
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            with open(file_path, "rb") as f:
+                files = {"file": (filename, f, "application/octet-stream")}
+                response = await client.post(url, files=files, headers=headers)
+                return self._handle_response(response)
+
+    async def download_comment_attachment(
+        self, issue_id: str, comment_id: str, attachment_id: str, out_path: str
+    ) -> str:
+        """E69: download comment attachment via authenticated /api/attachments/{id}/download."""
+        import httpx
+        import os
+        import urllib.parse
+
+        _ = (issue_id, comment_id)
+        url = f"{self.base_url}/api/attachments/{attachment_id}/download"
+        headers = self._get_headers()
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(url, headers=headers, follow_redirects=True)
+            if response.status_code >= 400:
+                raise APIError(f"Download failed: HTTP {response.status_code}", response.status_code)
+            content_disposition = response.headers.get("content-disposition", "")
+            filename = None
+            if content_disposition and "filename=" in content_disposition:
+                for part in content_disposition.split(";"):
+                    if "filename=" in part:
+                        filename = part.split("=", 1)[1].strip('" ')
+                        if filename.startswith("UTF-8''"):
+                            filename = urllib.parse.unquote(filename[7:])
+                        break
+            if os.path.isdir(out_path):
+                save_full_path = os.path.join(out_path, filename or f"attachment_{attachment_id}")
+            else:
+                save_full_path = out_path
+            with open(save_full_path, "wb") as f:
+                f.write(response.content)
+            return save_full_path
+
     async def create_attachment_signed_url(
         self,
         attachment_id: str,
