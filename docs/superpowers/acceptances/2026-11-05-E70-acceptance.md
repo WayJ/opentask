@@ -30,7 +30,7 @@ D1–D7 / Q1a–Q6a 按 design 落地。
 ## Tip
 
 - 分支：`sprint/E70-S1`
-- tip：`TIP_SHORT`（全文 `TIP_FULL`）
+- tip：`dbff754`（全文 `dbff7545db249a90bc1d7ec770ee30615786d6df`）
 - **未 push / 未开 PR / 未开 E71**
 
 ## Receipt
