@@ -19,8 +19,8 @@ Plan：`docs/superpowers/plans/2026-11-05-e82-issue-templates-cli-mid-plan.md`
 ## Tip
 
 - 分支：`sprint/E82-S1`
-- tip short：`dea2234`
-- tip full：`dea223450b5e2c14763a31563fb8d10d9272826e`
+- tip short：`40475fc`
+- tip full：`40475fcee13cec82c00ed6af5554e172708246d3`
 - **未 push / 未开 PR / 未开 E83**
 
 ## Gates（verification-before-completion）
