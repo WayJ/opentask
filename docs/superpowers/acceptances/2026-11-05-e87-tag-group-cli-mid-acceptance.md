@@ -19,8 +19,8 @@ Plan：`docs/superpowers/plans/2026-11-05-e87-tag-group-cli-mid-plan.md`
 ## Tip
 
 - 分支：`sprint/E87-S1`
-- tip short：101a54f
-- tip full：101a54ff8de346b4a27f17375a0395fe7eebcf9d
+- tip short：150415f
+- tip full：150415f362d8dc4bd804966d54022a0fa5899214
 - **未 push / 未开 PR / 未开 E88**
 
 ## Gates（verification-before-completion）
