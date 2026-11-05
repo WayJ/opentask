@@ -31,7 +31,7 @@ D1–D6 / Q1a–Q6a 按 design 落地。无 max-depth（Q5a）。无独立 `/set
 ## Tip
 
 - 分支：`sprint/E78-S1`
-- tip：`616c1cc`（全文 `616c1ccf517bcb032cd218457d2c878ea8fbc11b`）
+- tip：`62f180e`（全文 `62f180e9c9770618d8fd330683b9b7842aabe1ae`）
 - **未 push / 未开 PR / 未开 E79**
 
 ## Receipt
