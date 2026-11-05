@@ -212,6 +212,27 @@ class IssueService:
                     Issue.due_date.is_not(None),
                     func.date(Issue.due_date) <= before,
                 )
+        # E73: start_before / start_after
+        if getattr(params, "start_before", None):
+            try:
+                s_before = date.fromisoformat(str(params.start_before)[:10])
+            except ValueError:
+                s_before = None
+            if s_before is not None:
+                query = query.where(
+                    Issue.start_date.is_not(None),
+                    func.date(Issue.start_date) <= s_before,
+                )
+        if getattr(params, "start_after", None):
+            try:
+                s_after = date.fromisoformat(str(params.start_after)[:10])
+            except ValueError:
+                s_after = None
+            if s_after is not None:
+                query = query.where(
+                    Issue.start_date.is_not(None),
+                    func.date(Issue.start_date) >= s_after,
+                )
         if getattr(params, "due_soon", None):
             today = date.today()
             until = today + timedelta(days=3)
@@ -285,6 +306,7 @@ class IssueService:
             "status",
             "title",
             "due_date",
+            "start_date",
         }
         sort_key = params.sort_by if params.sort_by in allowed_sort else "created_at"
         sort_column = getattr(Issue, sort_key)
@@ -617,6 +639,14 @@ class IssueService:
         raw_assignee_ids = issue_data.pop("assignee_ids", None)
         if "due_date" in issue_data:
             issue_data["due_date"] = self._naive_utc(issue_data.get("due_date"))
+        if "start_date" in issue_data:
+            issue_data["start_date"] = self._naive_utc(issue_data.get("start_date"))
+        from opentask.services.issue_dates import validate_start_due
+
+        validate_start_due(
+            start_date=issue_data.get("start_date"),
+            due_date=issue_data.get("due_date"),
+        )
         await self._validate_parent_issue_id(
             issue_id=None,
             parent_issue_id=issue_data.get("parent_issue_id"),
@@ -788,6 +818,22 @@ class IssueService:
                     },
                 )
 
+        # E73 Q1a: validate start vs due after merging with persisted other end
+        if "start_date" in update_data or "due_date" in update_data:
+            from opentask.services.issue_dates import validate_start_due
+
+            if "start_date" in update_data:
+                update_data["start_date"] = self._naive_utc(update_data.get("start_date"))
+            if "due_date" in update_data:
+                update_data["due_date"] = self._naive_utc(update_data.get("due_date"))
+            cur = await self.db.execute(
+                select(Issue.start_date, Issue.due_date).where(Issue.id == issue_id)
+            )
+            row = cur.one()
+            eff_start = update_data["start_date"] if "start_date" in update_data else row[0]
+            eff_due = update_data["due_date"] if "due_date" in update_data else row[1]
+            validate_start_due(start_date=eff_start, due_date=eff_due)
+
         # E19：截止日期变更
         due_date_changed = None  # (old, new)
         if "due_date" in update_data:
@@ -814,6 +860,35 @@ class IssueService:
                     action_data={
                         "from": old_due.isoformat() if isinstance(old_due, datetime) else old_due,
                         "to": new_due.isoformat() if isinstance(new_due, datetime) else new_due,
+                    },
+                )
+
+        # E73: planned start_date change (≠ started_at)
+        start_date_changed = None  # (old, new)
+        if "start_date" in update_data:
+            update_data["start_date"] = self._naive_utc(update_data.get("start_date"))
+            old_start_q = await self.db.execute(
+                select(Issue.start_date).where(Issue.id == issue_id)
+            )
+            old_start = old_start_q.scalar_one_or_none()
+            new_start = update_data.get("start_date")
+
+            def _start_key(v):
+                if v is None:
+                    return None
+                if isinstance(v, datetime):
+                    return v.replace(tzinfo=None).isoformat()
+                return str(v)
+
+            if _start_key(old_start) != _start_key(new_start):
+                start_date_changed = (old_start, new_start)
+                await self._add_timeline(
+                    issue_id=issue_id,
+                    action_type=TimelineAction.START_DATE_CHANGED,
+                    user_id=user_id,
+                    action_data={
+                        "from": old_start.isoformat() if isinstance(old_start, datetime) else old_start,
+                        "to": new_start.isoformat() if isinstance(new_start, datetime) else new_start,
                     },
                 )
 

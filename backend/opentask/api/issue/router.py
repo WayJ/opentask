@@ -169,6 +169,8 @@ async def get_issues(
     milestone_id: Optional[str] = Query(None, description="Milestone ID；__none__ 表示无里程碑"),
     watching: Optional[bool] = Query(None, description="E19：仅我关注的"),
     due_before: Optional[str] = Query(None, description="E19：due_date ≤ YYYY-MM-DD"),
+    start_before: Optional[str] = Query(None, description="E73：start_date ≤ YYYY-MM-DD"),
+    start_after: Optional[str] = Query(None, description="E73：start_date ≥ YYYY-MM-DD"),
     due_soon: Optional[bool] = Query(None, description="E19：3 日内到期且未关闭"),
     include: Optional[str] = Query(None, description="E25/E70：逗号分隔附加；custom_fields,childProgress"),
     sort_by: str = Query("created_at", description="排序字段"),
@@ -197,6 +199,8 @@ async def get_issues(
         milestone_id=milestone_id,
         watching=watching,
         due_before=due_before,
+        start_before=start_before,
+        start_after=start_after,
         due_soon=due_soon,
         sort_by=sort_by,
         sort_order=sort_order,
@@ -744,6 +748,8 @@ async def create_issue(
             "data": payload,
             "timestamp": 0,
         }
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
