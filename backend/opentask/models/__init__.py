@@ -58,6 +58,7 @@ from opentask.models.milestone import Milestone
 from opentask.models.project_health import ProjectHealthUpdate
 from opentask.models.project_watcher import ProjectWatcher
 from opentask.models.issue_watcher import IssueWatcher
+from opentask.models.issue_assignee import IssueAssignee
 from opentask.models.activity_read_cursor import ActivityReadCursor
 from opentask.models.favorite import Favorite
 from opentask.models.customer import Customer, CustomerRequest, CustomerRequestIssue, CustomerRequestPublicReply
@@ -138,6 +139,7 @@ __all__ = [
     "ProjectHealthUpdate",
     "ProjectWatcher",
     "IssueWatcher",
+    "IssueAssignee",
     "ActivityReadCursor",
     "Favorite",
     "Customer",
