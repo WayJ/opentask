@@ -19,8 +19,8 @@ Plan：`docs/superpowers/plans/2026-11-05-e88-favorite-reorder-cli-mid-plan.md`
 ## Tip
 
 - 分支：`sprint/E88-S1`
-- tip short：8852ba2
-- tip full：8852ba2088568704b24f20657731585f2837fe3b
+- tip short：955f213
+- tip full：955f213bf91615ae595a8649d337a658128cff20
 - **未 push / 未开 PR / 未开 E89**
 
 ## Gates（verification-before-completion）
