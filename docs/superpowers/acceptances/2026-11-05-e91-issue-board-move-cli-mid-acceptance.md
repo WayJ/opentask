@@ -19,8 +19,8 @@ Plan：`docs/superpowers/plans/2026-11-05-e91-issue-board-move-cli-mid-plan.md`
 ## Tip
 
 - 分支：`sprint/E91-S1`
-- tip short：db62532
-- tip full：db6253255b4c7c3d7106c73cec0149d61300e79d
+- tip short：c857581
+- tip full：c857581e803948428c1f4536db3b08f375360c77
 - **未 push / 未开 PR / 未开 E92**
 
 ## Gates（verification-before-completion）
