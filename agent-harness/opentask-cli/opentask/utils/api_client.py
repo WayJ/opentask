@@ -2101,6 +2101,26 @@ class OpenTaskClient:
         """E20: POST /api/issues/bulk/update (requires X-Workspace-Id)."""
         return await self.post("/api/issues/bulk/update", data=payload)
 
+    async def move_issue_on_board(
+        self,
+        issue_id: str,
+        status: str,
+        position: int,
+        ordered_ids: list[str] | None = None,
+    ) -> dict:
+        """E91: POST /api/issues/board/move — atomic status+position; optional ordered_ids.
+
+        Body uses snake_case keys (issue_id/status/position/ordered_ids) to match BE/FE.
+        """
+        body: dict = {
+            "issue_id": issue_id,
+            "status": status,
+            "position": int(position),
+        }
+        if ordered_ids is not None:
+            body["ordered_ids"] = list(ordered_ids)
+        return await self.post("/api/issues/board/move", data=body)
+
     async def update_issue_status(self, issue_id: str, status: str) -> dict:
         """Quick update issue status."""
         return await self.put(f"/api/issues/{issue_id}/status", params={"status": status})

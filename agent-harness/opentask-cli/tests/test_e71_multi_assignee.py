@@ -11,11 +11,11 @@ def test_version_pins_1_55_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.74.0" in result.output
-    assert VERSION == "1.74.0"
-    assert __version__ == "1.74.0"
+    assert "1.75.0" in result.output
+    assert VERSION == "1.75.0"
+    assert __version__ == "1.75.0"
     version_file = Path(__file__).resolve().parents[1] / "VERSION"
-    assert version_file.read_text().strip() == "1.74.0"
+    assert version_file.read_text().strip() == "1.75.0"
 
 
 def test_create_help_has_assignees():

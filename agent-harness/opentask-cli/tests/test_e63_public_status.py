@@ -9,9 +9,9 @@ def test_version_1_47_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.74.0" in result.output
-    assert VERSION == "1.74.0"
-    assert __version__ == "1.74.0"
+    assert "1.75.0" in result.output
+    assert VERSION == "1.75.0"
+    assert __version__ == "1.75.0"
 
 
 def test_request_status_link_help():

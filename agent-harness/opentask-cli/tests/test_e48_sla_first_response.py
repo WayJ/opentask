@@ -8,7 +8,7 @@ def test_version_1_32_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.74.0" in result.output
+    assert "1.75.0" in result.output
 
 
 def test_sla_policy_create_help_has_metric_first_response():

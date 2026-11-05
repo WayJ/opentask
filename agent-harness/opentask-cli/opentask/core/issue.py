@@ -146,6 +146,7 @@ def _display_issue_details(skin: ReplSkin, client: OpenTaskClient, issue: dict, 
     except (APIError, TypeError, ValueError):
         watching_label = "—"
 
+    pos = issue.get("position")
     skin.status_block({
         "ID": issue.get("id", ""),
         "Code": issue.get("issue_code", "N/A"),
@@ -153,6 +154,7 @@ def _display_issue_details(skin: ReplSkin, client: OpenTaskClient, issue: dict, 
         "Type": issue.get("type", "N/A"),
         "Status": issue.get("status", "N/A"),
         "Priority": issue.get("priority", "N/A"),
+        "Position": pos if pos is not None else "—",
         "EstimatePoints": issue.get("estimate_points", "—"),
         "Watching": watching_label,
     })
@@ -2814,6 +2816,95 @@ def attachment_signed_url(
     except APIError as e:
         _handle_error(skin, e, "Failed to create signed URL", json_mode)
         sys.exit(1)
+
+
+@issue_cli.command(name="board-move")
+@click.argument("issue_id")
+@click.option(
+    "--status",
+    required=True,
+    type=click.Choice(
+        ["open", "in_progress", "feedback", "resolved", "closed", "rejected"],
+        case_sensitive=False,
+    ),
+    help="Target board column / IssueStatus",
+)
+@click.option(
+    "--position",
+    required=True,
+    type=int,
+    help="0-based position in target column",
+)
+@click.option(
+    "--ordered-ids",
+    "ordered_ids_csv",
+    default=None,
+    help="Optional CSV of issue ids rewriting target column order",
+)
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def board_move_issue(
+    obj: "Context",
+    issue_id: str,
+    status: str,
+    position: int,
+    ordered_ids_csv: str | None,
+    as_json: bool,
+):
+    """E91: Atomically move an Issue on the board (status + position; optional ordered_ids).
+
+    Examples:
+        opentask issue board-move ISSUE-12 --status in_progress --position 3
+        opentask issue board-move <uuid> --status open --position 0 --ordered-ids a,b,c --json
+    """
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        sys.exit(1)
+
+    if position < 0:
+        msg = "--position must be >= 0"
+        if json_mode:
+            click.echo(_format_json_response(success=False, error=msg, message=msg))
+        else:
+            skin.error(msg)
+        sys.exit(1)
+
+    ordered: list[str] | None = None
+    if ordered_ids_csv is not None:
+        ordered = [p.strip() for p in str(ordered_ids_csv).split(",") if p.strip()]
+
+    try:
+        if _looks_like_issue_code(issue_id):
+            real_id, _info = asyncio.run(_resolve_issue_id(client, issue_id))
+        else:
+            real_id = issue_id
+        data = asyncio.run(
+            client.move_issue_on_board(
+                real_id,
+                status.lower(),
+                position,
+                ordered_ids=ordered,
+            )
+        )
+        body = data.get("data", data) if isinstance(data, dict) else data
+        if json_mode:
+            click.echo(
+                _format_json_response(
+                    success=True,
+                    data=body,
+                    message="Issue 看板位置已更新",
+                )
+            )
+            return
+        skin.success("Issue 看板位置已更新")
+        if isinstance(body, dict):
+            skin.hint(f"status: {body.get('status', status)}")
+            skin.hint(f"position: {body.get('position', position)}")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to board-move issue", json_mode)
 
 
 @issue_cli.command(name="bulk-update")

@@ -8,7 +8,7 @@ def test_version_is_1_33_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.74.0" in result.output
+    assert "1.75.0" in result.output
 
 
 def test_help_mentions_display_or_api():
@@ -22,4 +22,4 @@ def test_help_mentions_display_or_api():
 def test_init_version_pin():
     from opentask import __version__
 
-    assert __version__ == "1.74.0"
+    assert __version__ == "1.75.0"

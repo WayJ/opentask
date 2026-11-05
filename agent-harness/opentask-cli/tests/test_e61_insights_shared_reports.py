@@ -9,9 +9,9 @@ def test_version_is_1_45_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.74.0" in result.output
-    assert VERSION == "1.74.0"
-    assert __version__ == "1.74.0"
+    assert "1.75.0" in result.output
+    assert VERSION == "1.75.0"
+    assert __version__ == "1.75.0"
 
 
 def test_insights_reports_shared_help():

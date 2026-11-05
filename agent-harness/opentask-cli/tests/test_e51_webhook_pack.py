@@ -9,7 +9,7 @@ def test_version_1_35_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.74.0" in result.output
+    assert "1.75.0" in result.output
 
 
 def test_events_include_e51_pack():
