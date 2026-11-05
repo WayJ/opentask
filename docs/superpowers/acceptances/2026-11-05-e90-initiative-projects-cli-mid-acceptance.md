@@ -19,8 +19,8 @@ Plan：`docs/superpowers/plans/2026-11-05-e90-initiative-projects-cli-mid-plan.m
 ## Tip
 
 - 分支：`sprint/E90-S1`
-- tip short：90aa5a9
-- tip full：90aa5a962290080bdcc6ce0a4423a12c618b71b8
+- tip short：426138d
+- tip full：426138d49eccc7cf58d50a3124f7e1f79555b0ba
 - **未 push / 未开 PR / 未开 E91**
 
 ## Gates（verification-before-completion）
