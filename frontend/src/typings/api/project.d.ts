@@ -81,6 +81,8 @@ declare namespace Api {
       target_date?: string | null;
       status: 'planned' | 'done' | string;
       position: number;
+      /** E81: non-deleted issues on this milestone */
+      issue_count?: number;
       created_at: string;
       updated_at: string;
     }

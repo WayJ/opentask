@@ -27,6 +27,7 @@ import {
 } from '@/service/api';
 import { fetchWorkspaceMembers } from '@/service/api/workspace';
 import { localStg } from '@/utils/storage';
+import { formatMilestoneIssueCount, milestoneDeleteConfirmText } from '@/utils/formatMilestoneIssueCount';
 import { formatMemberCount, leadLabel } from '@/utils/projectLeadMembers';
 import { useAuthStore } from '@/store/modules/auth';
 import { useProjectStore } from '@/store/modules/project';
@@ -661,6 +662,12 @@ const milestoneColumns: DataTableColumns<Api.Project.Milestone> = [
       )
   },
   {
+    title: '占用',
+    key: 'issue_count',
+    width: 90,
+    render: row => formatMilestoneIssueCount(row.issue_count)
+  },
+  {
     title: '描述',
     key: 'description',
     ellipsis: { tooltip: true },
@@ -682,7 +689,7 @@ const milestoneColumns: DataTableColumns<Api.Project.Milestone> = [
             },
             {
               trigger: () => h(NButton, { size: 'small', type: 'error' }, { default: () => '删除' }),
-              default: () => '确定删除此里程碑吗?'
+              default: () => milestoneDeleteConfirmText(row.issue_count)
             }
           )
         ]
