@@ -1486,6 +1486,40 @@ class OpenTaskClient:
         """E79: list project roster members."""
         return await self.get(f"/api/projects/{project_id}/members")
 
+    async def list_project_milestones(
+        self, project_id: str, *, status: str | None = None
+    ) -> list | dict:
+        """E81: GET /api/projects/{id}/milestones"""
+        params = {}
+        if status:
+            params["status"] = status
+        return await self.get(
+            f"/api/projects/{project_id}/milestones",
+            params=params or None,
+        )
+
+    async def create_project_milestone(self, project_id: str, **kwargs) -> dict:
+        """E81: POST /api/projects/{id}/milestones"""
+        return await self.post(f"/api/projects/{project_id}/milestones", data=kwargs)
+
+    async def get_project_milestone(self, project_id: str, milestone_id: str) -> dict:
+        """E81: GET /api/projects/{id}/milestones/{milestone_id}"""
+        return await self.get(f"/api/projects/{project_id}/milestones/{milestone_id}")
+
+    async def update_project_milestone(
+        self, project_id: str, milestone_id: str, **kwargs
+    ) -> dict:
+        """E81: PATCH /api/projects/{id}/milestones/{milestone_id}"""
+        return await self.patch(
+            f"/api/projects/{project_id}/milestones/{milestone_id}", data=kwargs
+        )
+
+    async def delete_project_milestone(self, project_id: str, milestone_id: str) -> bool:
+        """E81: DELETE /api/projects/{id}/milestones/{milestone_id}"""
+        await self.delete(f"/api/projects/{project_id}/milestones/{milestone_id}")
+        return True
+
+
     async def add_project_member(self, project_id: str, user_id: str) -> dict:
         """E79: add project roster member."""
         return await self.post(
@@ -1593,6 +1627,7 @@ class OpenTaskClient:
         start_before: str | None = None,
         start_after: str | None = None,
         cycle_id: str | None = None,
+        milestone_id: str | None = None,
         cf: list[str] | None = None,
         include: str | None = None,
     ) -> dict:
@@ -1654,6 +1689,8 @@ class OpenTaskClient:
             params["start_after"] = start_after
         if cycle_id:
             params["cycle_id"] = cycle_id
+        if milestone_id:
+            params["milestone_id"] = milestone_id
         if include:
             params["include"] = include
         # E32: --cf key=value → cf.<key>=value (httpx MultiDict via list of tuples)
@@ -1714,6 +1751,7 @@ class OpenTaskClient:
         estimate_points: float | None = None,
         start_date: str | None = None,
         due_date: str | None = None,
+        milestone_id: str | None = None,
     ) -> dict:
         """Create a new issue.
 
@@ -1741,6 +1779,8 @@ class OpenTaskClient:
             data["start_date"] = start_date
         if due_date:
             data["due_date"] = due_date
+        if milestone_id:
+            data["milestone_id"] = milestone_id
 
         return await self.post("/api/issues", data=data)
 

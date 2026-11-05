@@ -48,6 +48,12 @@ def member_cli():
     pass
 
 
+@project_cli.group(name="milestone")
+def milestone_cli():
+    """E81: project milestone list|create|show|update|delete."""
+    pass
+
+
 @project_cli.command(name="list")
 @click.option("--active-only", is_flag=True, default=True, help="Show only active projects")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
@@ -466,3 +472,203 @@ def project_member_list(obj: "Context", project_id: str, as_json: bool):
         skin.table(headers, table_rows, max_col_width=40)
     except APIError as e:
         handle_api_error(e, json_mode, "Failed to list members")
+
+
+@milestone_cli.command(name="list")
+@click.argument("project_id")
+@click.option(
+    "--status",
+    type=click.Choice(["planned", "done"], case_sensitive=False),
+    default=None,
+    help="E81: filter planned|done",
+)
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def project_milestone_list(obj: "Context", project_id: str, status: str | None, as_json: bool):
+    """E81: List project milestones."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    try:
+        result = asyncio.run(client.list_project_milestones(project_id, status=status))
+        if isinstance(result, dict):
+            rows = result.get("rows") or result.get("data") or result.get("milestones") or []
+            if not isinstance(rows, list):
+                rows = []
+        elif isinstance(result, list):
+            rows = result
+        else:
+            rows = []
+        if json_mode:
+            echo_json(True, data={"rows": rows, "total": len(rows)})
+            return
+        if not rows:
+            skin.info("No milestones")
+            return
+        headers = ["ID", "Name", "Status", "Issues", "Target"]
+        table_rows = []
+        for m in rows:
+            table_rows.append([
+                str(m.get("id", ""))[:8],
+                m.get("name") or "",
+                m.get("status") or "",
+                str(m.get("issue_count", 0)),
+                str(m.get("target_date") or "")[:10],
+            ])
+        skin.table(headers, table_rows, max_col_width=40)
+    except APIError as e:
+        handle_api_error(e, json_mode, "Failed to list milestones")
+
+
+@milestone_cli.command(name="create")
+@click.argument("project_id")
+@click.option("--name", required=True, help="Milestone name")
+@click.option("--description", default=None, help="Description")
+@click.option("--target-date", default=None, help="Target date YYYY-MM-DD")
+@click.option(
+    "--status",
+    type=click.Choice(["planned", "done"], case_sensitive=False),
+    default="planned",
+    help="planned|done",
+)
+@click.option("--position", type=int, default=None, help="Sort position")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def project_milestone_create(
+    obj: "Context",
+    project_id: str,
+    name: str,
+    description: str | None,
+    target_date: str | None,
+    status: str,
+    position: int | None,
+    as_json: bool,
+):
+    """E81: Create a project milestone."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    kwargs = {"name": name, "status": status}
+    if description is not None:
+        kwargs["description"] = description
+    if target_date is not None:
+        kwargs["target_date"] = target_date
+    if position is not None:
+        kwargs["position"] = position
+    try:
+        result = asyncio.run(client.create_project_milestone(project_id, **kwargs))
+        if json_mode:
+            echo_json(True, data=result if isinstance(result, dict) else {"result": result})
+            return
+        skin.success(f"[OK] Milestone created: {(result or {}).get('name') or name}")
+    except APIError as e:
+        handle_api_error(e, json_mode, "Failed to create milestone")
+
+
+@milestone_cli.command(name="show")
+@click.argument("project_id")
+@click.argument("milestone_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def project_milestone_show(
+    obj: "Context", project_id: str, milestone_id: str, as_json: bool
+):
+    """E81: Show a project milestone."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    try:
+        result = asyncio.run(client.get_project_milestone(project_id, milestone_id))
+        if json_mode:
+            echo_json(True, data=result if isinstance(result, dict) else {"result": result})
+            return
+        skin.section("Milestone")
+        skin.status_block({
+            "ID": (result or {}).get("id", ""),
+            "Name": (result or {}).get("name", ""),
+            "Status": (result or {}).get("status", ""),
+            "Issues": (result or {}).get("issue_count", 0),
+            "Target": (result or {}).get("target_date") or "",
+        })
+    except APIError as e:
+        handle_api_error(e, json_mode, "Failed to show milestone")
+
+
+@milestone_cli.command(name="update")
+@click.argument("project_id")
+@click.argument("milestone_id")
+@click.option("--name", default=None, help="Milestone name")
+@click.option("--description", default=None, help="Description")
+@click.option("--target-date", default=None, help="Target date YYYY-MM-DD")
+@click.option(
+    "--status",
+    type=click.Choice(["planned", "done"], case_sensitive=False),
+    default=None,
+    help="planned|done",
+)
+@click.option("--position", type=int, default=None, help="Sort position")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def project_milestone_update(
+    obj: "Context",
+    project_id: str,
+    milestone_id: str,
+    name: str | None,
+    description: str | None,
+    target_date: str | None,
+    status: str | None,
+    position: int | None,
+    as_json: bool,
+):
+    """E81: Update a project milestone."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    kwargs = {}
+    if name is not None:
+        kwargs["name"] = name
+    if description is not None:
+        kwargs["description"] = description
+    if target_date is not None:
+        kwargs["target_date"] = target_date
+    if status is not None:
+        kwargs["status"] = status
+    if position is not None:
+        kwargs["position"] = position
+    try:
+        result = asyncio.run(
+            client.update_project_milestone(project_id, milestone_id, **kwargs)
+        )
+        if json_mode:
+            echo_json(True, data=result if isinstance(result, dict) else {"result": result})
+            return
+        skin.success(f"[OK] Milestone updated: {(result or {}).get('name') or milestone_id[:8]}")
+    except APIError as e:
+        handle_api_error(e, json_mode, "Failed to update milestone")
+
+
+@milestone_cli.command(name="delete")
+@click.argument("project_id")
+@click.argument("milestone_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def project_milestone_delete(
+    obj: "Context", project_id: str, milestone_id: str, as_json: bool
+):
+    """E81: Delete a project milestone (issues lose milestone via SET NULL)."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    try:
+        asyncio.run(client.delete_project_milestone(project_id, milestone_id))
+        if json_mode:
+            echo_json(True, data={"ok": True, "id": milestone_id})
+            return
+        skin.success(f"[OK] Milestone deleted: {milestone_id[:8]}")
+    except APIError as e:
+        handle_api_error(e, json_mode, "Failed to delete milestone")

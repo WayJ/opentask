@@ -339,6 +339,7 @@ def _resolve_user_id(skin: ReplSkin, client: OpenTaskClient, assignee_input: str
 @click.option("--start-before", default=None, help="E73: start_date <= YYYY-MM-DD")
 @click.option("--start-after", default=None, help="E73: start_date >= YYYY-MM-DD")
 @click.option("--cycle", "cycle_id", default=None, help="E21: filter by cycle ID (__none__ = no cycle)")
+@click.option("--milestone", "milestone_id", default=None, help="E81: filter by milestone ID (__none__ = no milestone)")
 @click.option("--search", help="Search keyword")
 @click.option("--open-only", is_flag=True, help="Show only open issues (shorthand for --status open)")
 @click.option("--recent", is_flag=True, help="Show issues created in last 7 days")
@@ -364,7 +365,7 @@ def _resolve_user_id(skin: ReplSkin, client: OpenTaskClient, assignee_input: str
 )
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.pass_obj
-def list_issues(obj: "Context", status, issue_type, priority, project_id, assignee_id, mine, watching, due_soon, start_before, start_after, cycle_id, search, open_only, recent, updated_today, overdue, unassigned, page, page_size, sort_by, sort_order, cf, group_by, include, as_json):
+def list_issues(obj: "Context", status, issue_type, priority, project_id, assignee_id, mine, watching, due_soon, start_before, start_after, cycle_id, milestone_id, search, open_only, recent, updated_today, overdue, unassigned, page, page_size, sort_by, sort_order, cf, group_by, include, as_json):
     """List issues with filtering and pagination.
 
     Advanced filters:
@@ -461,6 +462,7 @@ def list_issues(obj: "Context", status, issue_type, priority, project_id, assign
             start_before=start_before,
             start_after=start_after,
             cycle_id=cycle_id,
+            milestone_id=milestone_id,
             cf=list(cf) if cf else None,
             include=include_arg,
         ))
@@ -774,10 +776,11 @@ def list_my_issues(obj: "Context", status, issue_type, priority, project_id, ope
               help="Story points estimate (e.g. 1/2/3/5/8)")
 @click.option("--start-date", default=None, help="E73: planned start date YYYY-MM-DD")
 @click.option("--due-date", default=None, help="Due date YYYY-MM-DD")
+@click.option("--milestone", "milestone_id", default=None, help="E81: set milestone_id")
 @click.option("--verbose", "-v", is_flag=True, help="Show detailed information")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.pass_obj
-def create_issue(obj: "Context", title: str, description: str, issue_type: str, status: str, priority: str, project_id: str, assignee_id: str, assignees, estimate_points, start_date, due_date, verbose: bool, as_json: bool):
+def create_issue(obj: "Context", title: str, description: str, issue_type: str, status: str, priority: str, project_id: str, assignee_id: str, assignees, estimate_points, start_date, due_date, milestone_id, verbose: bool, as_json: bool):
     """Create a new issue.
 
     Required fields:
@@ -827,6 +830,7 @@ def create_issue(obj: "Context", title: str, description: str, issue_type: str, 
             estimate_points=estimate_points,
             start_date=start_date,
             due_date=due_date,
+            milestone_id=milestone_id,
         ))
 
         if json_mode:
