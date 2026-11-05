@@ -30,7 +30,7 @@ D1–D7 / Q1a–Q6a 按 design 落地。
 ## Tip
 
 - 分支：`sprint/E71-S1`
-- tip：（filled by tip commit）
+- tip：`PLACE`（全文 `PLACE`）
 - **未 push / 未开 PR / 未开 E72**
 
 ## Receipt
