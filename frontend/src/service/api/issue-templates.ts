@@ -81,3 +81,10 @@ export function fetchDeleteIssueTemplate(id: string) {
     method: 'delete'
   });
 }
+
+export function fetchSeedIssueTemplates() {
+  return request<IssueTemplateListResult>({
+    url: '/api/issue-templates/seed',
+    method: 'post'
+  });
+}
