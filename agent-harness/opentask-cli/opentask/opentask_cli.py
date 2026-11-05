@@ -27,6 +27,7 @@ from .utils.config import Config
 from .utils.repl_skin import ReplSkin
 from .core.project import project_cli
 from .core.project_template import project_template_cli
+from .core.issue_template import issue_template_cli
 from .core.issue import issue_cli
 from .core.requirement import requirement_cli
 from .core.collection import collection_cli
@@ -57,7 +58,7 @@ from .core.search import search_cli
 
 
 # Global version
-VERSION = "1.65.0"
+VERSION = "1.66.0"
 
 # Context object passed to commands
 class Context:
@@ -397,6 +398,7 @@ def repl(ctx):
 cli.add_command(workspace_cli)
 cli.add_command(project_cli)
 cli.add_command(project_template_cli)
+cli.add_command(issue_template_cli)
 cli.add_command(issue_cli)
 cli.add_command(cycle_cli)
 cli.add_command(label_cli)

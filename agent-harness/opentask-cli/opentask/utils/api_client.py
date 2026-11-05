@@ -1738,6 +1738,65 @@ class OpenTaskClient:
         return await self.delete(f"/api/issues/{issue_id}/vcs/links/{link_id}")
 
 
+    async def list_issue_templates(self) -> dict:
+        """E82: GET /api/issue-templates"""
+        return await self.get("/api/issue-templates")
+
+    async def get_issue_template(self, template_id: str) -> dict:
+        """E82: GET /api/issue-templates/{id}"""
+        return await self.get(f"/api/issue-templates/{template_id}")
+
+    async def create_issue_template(
+        self,
+        *,
+        name: str,
+        description: str | None = None,
+        icon: str | None = None,
+        payload: dict | None = None,
+        sort_order: int = 0,
+    ) -> dict:
+        """E82: POST /api/issue-templates"""
+        body: dict = {"name": name, "sortOrder": sort_order}
+        if description is not None:
+            body["description"] = description
+        if icon is not None:
+            body["icon"] = icon
+        if payload is not None:
+            body["payload"] = payload
+        return await self.post("/api/issue-templates", data=body)
+
+    async def update_issue_template(
+        self,
+        template_id: str,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        icon: str | None = None,
+        payload: dict | None = None,
+        sort_order: int | None = None,
+    ) -> dict:
+        """E82: PATCH /api/issue-templates/{id}"""
+        body: dict = {}
+        if name is not None:
+            body["name"] = name
+        if description is not None:
+            body["description"] = description
+        if icon is not None:
+            body["icon"] = icon
+        if payload is not None:
+            body["payload"] = payload
+        if sort_order is not None:
+            body["sortOrder"] = sort_order
+        return await self.patch(f"/api/issue-templates/{template_id}", data=body)
+
+    async def delete_issue_template(self, template_id: str) -> dict:
+        """E82: DELETE /api/issue-templates/{id}"""
+        return await self.delete(f"/api/issue-templates/{template_id}")
+
+    async def seed_issue_templates(self) -> dict:
+        """E82: POST /api/issue-templates/seed"""
+        return await self.post("/api/issue-templates/seed", data={})
+
     async def create_issue(
         self,
         title: str,
@@ -1752,10 +1811,12 @@ class OpenTaskClient:
         start_date: str | None = None,
         due_date: str | None = None,
         milestone_id: str | None = None,
+        template_id: str | None = None,
     ) -> dict:
         """Create a new issue.
 
         Reporter is automatically set by backend from JWT token.
+        E82: optional template_id merges template payload.
         """
         # Normalize priority to API format
         normalized_priority = _normalize_priority(priority)
@@ -1781,6 +1842,8 @@ class OpenTaskClient:
             data["due_date"] = due_date
         if milestone_id:
             data["milestone_id"] = milestone_id
+        if template_id:
+            data["template_id"] = template_id
 
         return await self.post("/api/issues", data=data)
 

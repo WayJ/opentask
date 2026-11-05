@@ -777,10 +777,11 @@ def list_my_issues(obj: "Context", status, issue_type, priority, project_id, ope
 @click.option("--start-date", default=None, help="E73: planned start date YYYY-MM-DD")
 @click.option("--due-date", default=None, help="Due date YYYY-MM-DD")
 @click.option("--milestone", "milestone_id", default=None, help="E81: set milestone_id")
+@click.option("--template-id", "template_id", default=None, help="E82: apply issue template by id")
 @click.option("--verbose", "-v", is_flag=True, help="Show detailed information")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.pass_obj
-def create_issue(obj: "Context", title: str, description: str, issue_type: str, status: str, priority: str, project_id: str, assignee_id: str, assignees, estimate_points, start_date, due_date, milestone_id, verbose: bool, as_json: bool):
+def create_issue(obj: "Context", title: str, description: str, issue_type: str, status: str, priority: str, project_id: str, assignee_id: str, assignees, estimate_points, start_date, due_date, milestone_id, template_id, verbose: bool, as_json: bool):
     """Create a new issue.
 
     Required fields:
@@ -831,6 +832,7 @@ def create_issue(obj: "Context", title: str, description: str, issue_type: str, 
             start_date=start_date,
             due_date=due_date,
             milestone_id=milestone_id,
+            template_id=template_id,
         ))
 
         if json_mode:

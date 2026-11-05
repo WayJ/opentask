@@ -1,4 +1,4 @@
-"""E47 CLI: activity list + version 1.65.0."""
+"""E47 CLI: activity list + version 1.66.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli
@@ -8,7 +8,7 @@ def test_version_1_31_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.65.0" in result.output
+    assert "1.66.0" in result.output
 
 
 def test_activity_list_help():
