@@ -206,6 +206,9 @@ class IssueCommentResponse(IssueCommentBase):
     reactions: Optional[dict] = Field(
         None, description="E27：emoji → userId[] 映射"
     )
+    attachments: Optional[List[dict]] = Field(
+        None, description="E69：评论附件薄摘要 [{id,file_name,file_size,file_type}]"
+    )
 
     model_config = ConfigDict(from_attributes=True)
 

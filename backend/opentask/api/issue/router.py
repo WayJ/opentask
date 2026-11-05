@@ -1233,8 +1233,10 @@ async def get_comments(
 
     # E27：批量加载评论反应
     reaction_maps = await service.get_comments_reaction_maps([c.id for c in comments])
+    # E69：批量加载评论附件薄摘要（cap 20）
+    attachment_maps = await service.get_comments_attachments_map([c.id for c in comments], cap_per=20)
 
-    # 构建响应，添加用户信息 + reactions
+    # 构建响应，添加用户信息 + reactions + attachments
     # 注意：ORM 上也有 reactions 关系，勿 model_validate(ORM) 以免懒加载
     rows = []
     for comment in comments:
@@ -1254,6 +1256,7 @@ async def get_comments(
         if comment.user_id and str(comment.user_id) in user_info_map:
             comment_dict["user_info"] = user_info_map[str(comment.user_id)]
         comment_dict["reactions"] = reaction_maps.get(comment.id, {})
+        comment_dict["attachments"] = attachment_maps.get(comment.id, [])
         rows.append(IssueCommentResponse(**comment_dict))
 
     return {
@@ -2007,6 +2010,128 @@ async def update_reporter(
 # ============================================================================
 # 附件操作
 # ============================================================================
+
+
+# ========================================================================
+# E69: Comment attachments (entity_type=issue_comment)
+# ========================================================================
+
+def _serialize_attachment_row(att) -> dict:
+    return {
+        "id": att.id,
+        "entity_type": att.entity_type,
+        "entity_id": att.entity_id,
+        "file_path": att.file_path,
+        "file_name": att.file_name,
+        "file_type": att.file_type,
+        "file_size": att.file_size,
+        "status": att.status.value if hasattr(att.status, "value") else str(att.status),
+        "created_at": att.created_at.isoformat() if att.created_at else None,
+        "updated_at": att.updated_at.isoformat() if att.updated_at else None,
+        "created_by": att.created_by,
+        "updated_by": att.updated_by,
+    }
+
+
+@router.get("/{issue_id}/comments/{comment_id}/attachments")
+async def get_comment_attachments(
+    issue_id: str,
+    comment_id: str,
+    service: IssueService = Depends(get_issue_service),
+    current_user: UserModel = Depends(authenticate),
+):
+    """List attachments on an issue comment (E69)."""
+    await _require_issue_access(issue_id, service=service, user=current_user)
+    comment = await service.get_comment_by_id(comment_id, include_deleted=True)
+    if comment is None or comment.issue_id != issue_id:
+        raise HTTPException(status_code=404, detail="评论不存在")
+    attachments = await service.get_comment_attachments(comment_id)
+    return {
+        "code": 200,
+        "message": "success",
+        "data": [_serialize_attachment_row(att) for att in attachments],
+        "timestamp": 0,
+    }
+
+
+@router.post("/{issue_id}/comments/{comment_id}/attachments")
+async def upload_comment_attachment(
+    issue_id: str,
+    comment_id: str,
+    file: UploadFile = File(...),
+    description: Optional[str] = Form(None),
+    current_user: UserModel = Depends(authenticate),
+    service: IssueService = Depends(get_issue_service),
+):
+    """Upload an attachment onto an issue comment (E69; writer+ via membership)."""
+    await _require_issue_access(issue_id, service=service, user=current_user)
+    user_id = str(current_user.id)
+    comment = await service.get_comment_by_id(comment_id)
+    if comment is None or comment.issue_id != issue_id:
+        raise HTTPException(status_code=404, detail="评论不存在")
+
+    try:
+        storage_service = get_storage_service()
+        file_path, original_filename, file_size = await storage_service.save_upload_file(
+            upload_file=file,
+            subdir=f"issues/{issue_id}/comments/{comment_id}",
+        )
+        file_type = file.content_type or "application/octet-stream"
+        dept_id = await RbacService(service.db).get_primary_dept_id(current_user)
+        attachment = await service.add_comment_attachment(
+            issue_id=issue_id,
+            comment_id=comment_id,
+            file_path=file_path,
+            file_name=original_filename,
+            file_type=file_type,
+            file_size=file_size,
+            user_id=user_id,
+            dept_id=dept_id,
+        )
+        return {
+            "code": 200,
+            "message": "附件上传成功",
+            "data": {
+                "id": attachment.id,
+                "file_name": attachment.file_name,
+                "file_type": attachment.file_type,
+                "file_size": attachment.file_size,
+                "entity_type": attachment.entity_type,
+                "entity_id": attachment.entity_id,
+                "created_at": attachment.created_at.isoformat() if attachment.created_at else None,
+            },
+            "timestamp": 0,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"上传评论附件失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/{issue_id}/comments/{comment_id}/attachments/{attachment_id}")
+async def delete_comment_attachment(
+    issue_id: str,
+    comment_id: str,
+    attachment_id: str,
+    current_user: UserModel = Depends(authenticate),
+    service: IssueService = Depends(get_issue_service),
+):
+    """Delete a comment attachment (E69)."""
+    await _require_issue_access(issue_id, service=service, user=current_user)
+    user_id = str(current_user.id)
+    success = await service.delete_comment_attachment(
+        issue_id, comment_id, attachment_id, user_id
+    )
+    if not success:
+        raise HTTPException(status_code=404, detail="附件不存在")
+    return {
+        "code": 200,
+        "message": "附件删除成功",
+        "data": None,
+        "timestamp": 0,
+    }
+
 
 @router.get("/{issue_id}/attachments")
 async def get_issue_attachments(

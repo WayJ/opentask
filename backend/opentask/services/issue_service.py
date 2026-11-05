@@ -1925,11 +1925,11 @@ class IssueService:
         return result.scalar_one_or_none()
 
     async def get_attachment_by_id(self, attachment_id: str) -> Optional[Document]:
-        """通过附件 ID 直接获取附件（E66：调用方须自行做 WS 成员鉴权）"""
+        """通过附件 ID 直接获取附件（E66/E69：issue 或 issue_comment；调用方须自行做 WS 成员鉴权）"""
         query = select(Document).where(
             and_(
                 Document.id == attachment_id,
-                Document.entity_type == "issue"
+                Document.entity_type.in_(("issue", "issue_comment")),
             )
         )
         result = await self.db.execute(query)
@@ -2038,3 +2038,181 @@ class IssueService:
             .values(attachment_count=Issue.attachment_count - 1)
         )
         await self.db.execute(query)
+
+
+    # ========================================================================
+    # E69: comment attachments (entity_type=issue_comment)
+    # ========================================================================
+
+    async def get_comment_by_id(
+        self,
+        comment_id: str,
+        *,
+        include_deleted: bool = False,
+    ) -> Optional[IssueComment]:
+        """Load a single IssueComment by id."""
+        query = select(IssueComment).where(IssueComment.id == comment_id)
+        if not include_deleted:
+            query = query.where(IssueComment.is_deleted == False)  # noqa: E712
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def get_comment_attachments(self, comment_id: str) -> List[Document]:
+        """List documents attached to an issue_comment."""
+        query = (
+            select(Document)
+            .where(
+                and_(
+                    Document.entity_type == "issue_comment",
+                    Document.entity_id == comment_id,
+                )
+            )
+            .order_by(Document.created_at.desc())
+        )
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def get_comments_attachments_map(
+        self,
+        comment_ids: List[str],
+        *,
+        cap_per: int = 20,
+    ) -> Dict[str, List[dict]]:
+        """Thin attachment summaries keyed by comment id (Q4a; cap per comment)."""
+        if not comment_ids:
+            return {}
+        query = (
+            select(Document)
+            .where(
+                and_(
+                    Document.entity_type == "issue_comment",
+                    Document.entity_id.in_(comment_ids),
+                )
+            )
+            .order_by(Document.created_at.desc())
+        )
+        result = await self.db.execute(query)
+        rows = list(result.scalars().all())
+        out: Dict[str, List[dict]] = {cid: [] for cid in comment_ids}
+        for doc in rows:
+            bucket = out.setdefault(doc.entity_id, [])
+            if len(bucket) >= cap_per:
+                continue
+            bucket.append(
+                {
+                    "id": doc.id,
+                    "file_name": doc.file_name,
+                    "file_size": doc.file_size,
+                    "file_type": doc.file_type,
+                }
+            )
+        return out
+
+    async def add_comment_attachment(
+        self,
+        issue_id: str,
+        comment_id: str,
+        file_path: str,
+        file_name: str,
+        file_type: str,
+        file_size: int,
+        user_id: str,
+        dept_id: str | None = None,
+    ) -> Document:
+        """Attach a file to an issue_comment (Q1a). Validates comment belongs to issue_id.
+
+        Q5a: does not fire new webhook event names.
+        """
+        comment = await self.get_comment_by_id(comment_id)
+        if comment is None or comment.issue_id != issue_id:
+            raise ValueError("评论不存在或不属于该 Issue")
+
+        attachment = Document(
+            entity_type="issue_comment",
+            entity_id=comment_id,
+            file_path=file_path,
+            file_name=file_name,
+            file_type=file_type,
+            file_size=file_size,
+            created_by=user_id,
+            updated_by=user_id,
+            dept_id=dept_id,
+        )
+        self.db.add(attachment)
+        # Optional timeline on parent issue with commentId metadata (not a new webhook name)
+        await self._add_timeline(
+            issue_id=issue_id,
+            action_type=TimelineAction.ATTACHMENT_ADDED,
+            user_id=user_id,
+            action_data={
+                "file_name": file_name,
+                "file_type": file_type,
+                "file_size": file_size,
+                "comment_id": comment_id,
+            },
+        )
+        await self.db.commit()
+        await self.db.refresh(attachment)
+        return attachment
+
+    async def delete_comment_attachment(
+        self,
+        issue_id: str,
+        comment_id: str,
+        attachment_id: str,
+        user_id: str,
+    ) -> bool:
+        """Delete a comment-scoped attachment (Document + object storage)."""
+        comment = await self.get_comment_by_id(comment_id, include_deleted=True)
+        if comment is None or comment.issue_id != issue_id:
+            return False
+        query = select(Document).where(
+            and_(
+                Document.id == attachment_id,
+                Document.entity_type == "issue_comment",
+                Document.entity_id == comment_id,
+            )
+        )
+        result = await self.db.execute(query)
+        attachment = result.scalar_one_or_none()
+        if attachment is None:
+            return False
+
+        storage_service = get_storage_service()
+        storage_service.delete_file(attachment.file_path)
+
+        del_q = delete(Document).where(Document.id == attachment_id)
+        result = await self.db.execute(del_q)
+        await self._add_timeline(
+            issue_id=issue_id,
+            action_type=TimelineAction.ATTACHMENT_REMOVED,
+            user_id=user_id,
+            action_data={"file_name": attachment.file_name, "comment_id": comment_id},
+        )
+        await self.db.commit()
+        return result.rowcount > 0
+
+    async def hard_delete_comment(self, comment_id: str, user_id: str) -> bool:
+        """Q3a: physically delete comment and cascade Document + object storage.
+
+        Soft-delete path remains separate and does not scan files.
+        """
+        comment = await self.get_comment_by_id(comment_id, include_deleted=True)
+        if comment is None:
+            return False
+        # Ownership: author or any caller with access (service-level; router gates membership)
+        _ = user_id
+
+        attachments = await self.get_comment_attachments(comment_id)
+        storage_service = get_storage_service()
+        for att in attachments:
+            try:
+                storage_service.delete_file(att.file_path)
+            except Exception:
+                pass
+            await self.db.execute(delete(Document).where(Document.id == att.id))
+
+        await self.db.execute(delete(IssueComment).where(IssueComment.id == comment_id))
+        await self.db.commit()
+        return True
+
