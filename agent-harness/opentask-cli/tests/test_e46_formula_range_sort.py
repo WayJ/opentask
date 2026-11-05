@@ -1,4 +1,4 @@
-"""E46 CLI: formula range/sort surfaces + version 1.57.0."""
+"""E46 CLI: formula range/sort surfaces + version 1.58.0."""
 from click.testing import CliRunner
 from opentask.opentask_cli import cli
 
@@ -7,7 +7,7 @@ def test_version_1_30_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.57.0" in result.output
+    assert "1.58.0" in result.output
 
 
 def test_issue_list_help_mentions_range_and_cf_sort():

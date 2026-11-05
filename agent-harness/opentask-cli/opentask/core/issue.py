@@ -1993,9 +1993,10 @@ def batch_assign_issues(obj: "Context", issue_ids: tuple, assignee_input: str, a
 @click.argument("issue_id")
 @click.argument("content", required=False)
 @click.option("--message", "-m", "message_content", help="Comment content (alternative to positional arg)")
+@click.option("--parent-id", "parent_id", default=None, help="Parent root comment ID (depth-1 reply)")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.pass_obj
-def add_comment(obj: "Context", issue_id: str, content: str, message_content: str, as_json: bool):
+def add_comment(obj: "Context", issue_id: str, content: str, message_content: str, parent_id: str | None, as_json: bool):
     """Add a comment to an issue.
 
     Issue identifier format is auto-detected:
@@ -2005,6 +2006,7 @@ def add_comment(obj: "Context", issue_id: str, content: str, message_content: st
     Examples:
         issue comment add ISSUE-ID "This is a comment"
         issue comment add ISSUE-ID -m "Another comment"
+        issue comment add ISSUE-ID "Reply text" --parent-id COMMENT-ID
         opentask issue comment add ISSUE-ID "Fixed the bug"
     """
     config: Config = obj.config
@@ -2033,7 +2035,7 @@ def add_comment(obj: "Context", issue_id: str, content: str, message_content: st
             return
 
     try:
-        comment = asyncio.run(client.add_comment(issue_id, comment_text))
+        comment = asyncio.run(client.add_comment(issue_id, comment_text, parent_id=parent_id))
 
         if json_mode:
             click.echo(_format_json_response(
@@ -2046,11 +2048,15 @@ def add_comment(obj: "Context", issue_id: str, content: str, message_content: st
         skin.success("Comment added successfully")
 
         skin.section("Comment Details")
-        skin.status_block({
+        details = {
             "ID": comment.get("id", "")[:8],
             "Issue ID": comment.get("issue_id", "")[:8],
             "Content": comment_text[:50] + "..." if len(comment_text) > 50 else comment_text,
-        })
+        }
+        pid = comment.get("parent_id") or parent_id
+        if pid:
+            details["Parent"] = str(pid)[:8]
+        skin.status_block(details)
 
     except APIError as e:
         skin.error(f"Failed to add comment: {e.message}")
@@ -2116,6 +2122,9 @@ def list_comments(obj: "Context", issue_id: str, as_json: bool):
             click.echo(f"Author: {author_name}")
             if created_at:
                 click.echo(f"Date: {created_at[:10]}")
+            parent = comment.get("parent_id")
+            if parent:
+                click.echo(f"Parent: {str(parent)[:8]}")
             click.echo(f"\n{content}\n")
 
     except APIError as e:

@@ -1763,9 +1763,12 @@ class OpenTaskClient:
         """Quick update issue priority."""
         return await self.put(f"/api/issues/{issue_id}/priority", params={"priority": priority})
 
-    async def add_comment(self, issue_id: str, content: str) -> dict:
-        """Add comment to issue."""
-        return await self.post(f"/api/issues/{issue_id}/comments", data={"content": content})
+    async def add_comment(self, issue_id: str, content: str, parent_id: str | None = None) -> dict:
+        """Add comment to issue (E74: optional parent_id for depth-1 reply)."""
+        payload: dict = {"content": content}
+        if parent_id:
+            payload["parent_id"] = parent_id
+        return await self.post(f"/api/issues/{issue_id}/comments", data=payload)
 
     async def get_comments(self, issue_id: str) -> list[dict]:
         """Get issue comments.
