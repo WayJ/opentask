@@ -468,11 +468,13 @@ class IssueService:
         issue_id: str,
         by_code: bool = False,
         workspace_id: str | None = None,
+        include_deleted: bool = False,
     ) -> Optional[Issue]:
         """获取单个 Issue。
 
         by_code: 按 issue_code 或 legacy_issue_code 查询。
         workspace_id: 若提供则限制租户（跨 WS by_code → 找不到）。
+        include_deleted: E77 — True 时不排除软删（回收站详情 / restore）。
         """
         query = (
             select(Issue)
@@ -485,8 +487,9 @@ class IssueService:
                 selectinload(Issue.timeline),
                 selectinload(Issue.tags),
             )
-            .where(Issue.is_deleted == False)
         )
+        if not include_deleted:
+            query = query.where(Issue.is_deleted == False)
 
         if by_code:
             query = query.where(
@@ -1429,6 +1432,72 @@ class IssueService:
         if ok and issue:
             await publish_issue_deleted(issue, actor_user_id=user_id)
         return ok
+
+    async def list_trashed(
+        self,
+        *,
+        workspace_id: str,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> Tuple[List[Issue], int]:
+        """E77: list soft-deleted Issues in workspace (updated_at desc)."""
+        page = max(1, int(page))
+        page_size = min(100, max(1, int(page_size)))
+        base = select(Issue).where(
+            Issue.workspace_id == workspace_id,
+            Issue.is_deleted == True,  # noqa: E712
+        )
+        total = (
+            await self.db.execute(select(func.count()).select_from(base.subquery()))
+        ).scalar_one()
+        result = await self.db.execute(
+            base.order_by(Issue.updated_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        return list(result.scalars().all()), int(total or 0)
+
+    async def restore_issue(
+        self,
+        issue_id: str,
+        user_id: str,
+        *,
+        workspace_id: str,
+    ) -> Issue:
+        """E77: restore soft-deleted Issue (idempotent if already live).
+
+        Q2a: does NOT cascade to deleted children.
+        Q3a: already-live → return as-is (no extra timeline).
+        Q5a: timeline RESTORED; no new webhook event name.
+        """
+        issue = await self.get_issue(
+            issue_id, workspace_id=None, include_deleted=True
+        )
+        if issue is None or issue.workspace_id != workspace_id:
+            raise LookupError("Issue 不存在")
+        if not issue.is_deleted:
+            return issue
+
+        await self.db.execute(
+            update(Issue)
+            .where(Issue.id == issue.id, Issue.workspace_id == workspace_id)
+            .values(
+                is_deleted=False,
+                updated_by=user_id,
+                updated_at=datetime.utcnow(),
+            )
+        )
+        await self._add_timeline(
+            issue.id,
+            TimelineAction.RESTORED,
+            user_id,
+            {"from": "trash"},
+        )
+        await self.db.commit()
+        restored = await self.get_issue(issue.id, include_deleted=False)
+        if restored is None:
+            raise LookupError("Issue 不存在")
+        return restored
 
     # ========================================================================
     # 批量操作

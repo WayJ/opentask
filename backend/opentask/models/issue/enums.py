@@ -79,3 +79,4 @@ class TimelineAction(str, Enum):
     PROJECT_CHANGED = "project_changed"          # E41：项目变更
     SLA_PAUSED = "sla_paused"                    # E48：SLA 暂停
     SLA_RESUMED = "sla_resumed"                  # E48：SLA 恢复
+    RESTORED = "restored"                          # E77：从回收站恢复

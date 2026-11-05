@@ -276,6 +276,90 @@ async def get_issues(
 
 
 # ============================================================================
+# E77 · Trash（静态路径，须在 /{issue_id} 之前）
+# ============================================================================
+
+
+@router.get("/trash")
+async def list_trashed_issues(
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    service: IssueService = Depends(get_issue_service),
+    ctx: tuple = Depends(require_workspace_context),
+):
+    """E77: list soft-deleted Issues in current workspace (viewer+)."""
+    workspace, _member, _user = ctx
+    issues, total = await service.list_trashed(
+        workspace_id=workspace.id, page=page, page_size=page_size
+    )
+    rows = []
+    for issue in issues:
+        payload = IssueResponse.model_validate(issue).model_dump(
+            mode="json", exclude_none=False
+        )
+        # slim: keep list-ish fields; drop heavy nests if any
+        slim = {
+            "id": payload.get("id"),
+            "issueCode": payload.get("issueCode") or payload.get("issue_code"),
+            "issue_code": payload.get("issue_code") or payload.get("issueCode"),
+            "title": payload.get("title"),
+            "status": payload.get("status"),
+            "priority": payload.get("priority"),
+            "type": payload.get("type"),
+            "projectId": payload.get("projectId") or payload.get("project_id"),
+            "project_id": payload.get("project_id") or payload.get("projectId"),
+            "project": payload.get("project"),
+            "updatedAt": payload.get("updatedAt") or payload.get("updated_at"),
+            "updated_at": payload.get("updated_at") or payload.get("updatedAt"),
+            "updatedBy": payload.get("updatedBy") or payload.get("updated_by"),
+            "updated_by": payload.get("updated_by") or payload.get("updatedBy"),
+            "isDeleted": True,
+            "is_deleted": True,
+        }
+        rows.append(slim)
+    return {
+        "code": 200,
+        "message": "success",
+        "data": {
+            "rows": rows,
+            "total": total,
+            "current": page,
+            "pageSize": page_size,
+            "totalPages": (total + page_size - 1) // page_size if page_size else 0,
+        },
+        "timestamp": 0,
+    }
+
+
+@router.post("/{issue_id}/restore")
+async def restore_issue(
+    issue_id: str,
+    service: IssueService = Depends(get_issue_service),
+    ctx: tuple = Depends(require_workspace_context),
+):
+    """E77: restore soft-deleted Issue (member+; Q3a idempotent; Q2a no cascade)."""
+    workspace, member, user = ctx
+    if member.role not in ("owner", "member"):
+        raise HTTPException(status_code=403, detail="仅 member/owner 可恢复 Issue")
+    try:
+        issue = await service.restore_issue(
+            issue_id, str(user.id), workspace_id=workspace.id
+        )
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Issue 不存在")
+    payload = IssueResponse.model_validate(issue).model_dump(
+        mode="json", exclude_none=False
+    )
+    await _embed_assignees(service.db, payload, issue.id)
+    return {
+        "code": 200,
+        "message": "Issue 已恢复",
+        "data": payload,
+        "timestamp": 0,
+    }
+
+
+# ============================================================================
 # E28 · CSV Import / Export（静态路径，须在 /{issue_id} 之前）
 # ============================================================================
 
@@ -1102,6 +1186,7 @@ async def get_statistics(
 async def get_issue(
     issue_id: str,
     by_code: bool = Query(False, description="是否通过 issue_code 查询（默认通过 ID 查询）"),
+    include_deleted: bool = Query(False, description="E77：是否包含软删 Issue（回收站详情）"),
     service: IssueService = Depends(get_issue_service),
     db: AsyncSession = Depends(get_session),
     ws_ctx=Depends(get_optional_workspace_context),
@@ -1111,6 +1196,7 @@ async def get_issue(
     Args:
         issue_id: Issue ID 或 Issue Code
         by_code: 设为 true 时，通过 issue_code / legacy_issue_code 查询；默认通过 ID 查询
+        include_deleted: E77 回收站深链；默认仍 404 软删
 
     Examples:
         GET /api/issues/5ee3420e-2d69-4509-9ae7-524e8c40d6d1  # 通过 ID 查询
@@ -1120,9 +1206,23 @@ async def get_issue(
     workspace, _member, user = ws_ctx
     # by_code 仍用 header WS 精确过滤（不回退）；按 UUID 不靠 header，靠实体 membership
     workspace_id = workspace.id if (workspace is not None and by_code) else None
-    issue = await _require_issue_access(
-        issue_id, service=service, user=user, by_code=by_code, workspace_id=workspace_id
-    )
+    if include_deleted:
+        issue = await service.get_issue(
+            issue_id,
+            by_code=by_code,
+            workspace_id=workspace_id,
+            include_deleted=True,
+        )
+        if not issue:
+            raise HTTPException(status_code=404, detail="Issue 不存在")
+        # when WS header present, enforce same-WS for deleted reads
+        if workspace is not None and issue.workspace_id != workspace.id:
+            raise HTTPException(status_code=404, detail="Issue 不存在")
+        await ensure_entity_workspace_access(service.db, str(user.id), issue.workspace_id)
+    else:
+        issue = await _require_issue_access(
+            issue_id, service=service, user=user, by_code=by_code, workspace_id=workspace_id
+        )
 
     # 转换为字典，使用 mode='json' 确保所有字段都被序列化
     issue_dict = IssueResponse.model_validate(issue).model_dump(mode='json', exclude_none=False)

@@ -324,7 +324,7 @@ async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
                     f"CREATE INDEX IF NOT EXISTS {_idx} ON {_tbl} USING GIN (search_tsv)"
                 ))
             # E48 timeline_action enum values (no alembic per Q6a)
-            for _val in ("sla_paused", "sla_resumed", "link_added", "link_removed"):
+            for _val in ("sla_paused", "sla_resumed", "link_added", "link_removed", "restored"):
                 await conn.execute(
                     _sql_text(f"ALTER TYPE timeline_action ADD VALUE IF NOT EXISTS '{_val}'")
                 )
