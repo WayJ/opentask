@@ -32,7 +32,8 @@ import {
   computeTimelineRange,
   isTimelineEmpty,
   offsetDays,
-  timelineDayWidth
+  timelineDayWidth,
+  issueTimelinePlacement
 } from '@/utils/project-timeline';
 import EntityDocsPanel from '@/components/entity-docs/EntityDocsPanel.vue';
 import { fetchProjectTemplateFromProject } from '@/service/api/project-templates';
@@ -795,7 +796,19 @@ onMounted(() => {
                 <div v-for="issue in timelineData?.issues || []" :key="issue.id" class="timeline-row">
                   <div class="timeline-label">{{ issue.issue_code || issue.title }}</div>
                   <div class="timeline-track">
-                    <div class="timeline-dot" :style="{ left: leftFor(issue.due_date) + 'px' }" :title="issue.title" />
+                    <template v-if="issueTimelinePlacement(issue)?.kind === 'bar'">
+                      <div
+                        class="timeline-bar issue-bar"
+                        :style="barStyle(issue.start_date, issue.due_date)"
+                        :title="issue.title"
+                      />
+                    </template>
+                    <div
+                      v-else-if="issue.due_date"
+                      class="timeline-dot"
+                      :style="{ left: leftFor(issue.due_date) + 'px' }"
+                      :title="issue.title"
+                    />
                   </div>
                 </div>
               </div>
@@ -1025,6 +1038,9 @@ onMounted(() => {
   white-space: nowrap;
 }
 
+.issue-bar {
+  background: rgba(59, 130, 246, 0.55);
+}
 .project-bar {
   background: #2080f0;
 }

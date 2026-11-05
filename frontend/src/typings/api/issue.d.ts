@@ -58,6 +58,7 @@ export namespace Api.Issue {
     ASSIGNED = 'assigned',
     PRIORITY_CHANGED = 'priority_changed',
     DUE_DATE_CHANGED = 'due_date_changed',
+    START_DATE_CHANGED = 'start_date_changed',
     RELATION_ADDED = 'relation_added',
     RELATION_REMOVED = 'relation_removed',
     ATTACHMENT_ADDED = 'attachment_added',
@@ -99,6 +100,7 @@ export namespace Api.Issue {
     reporter_id: string;
     position?: number;
     due_date?: string;
+    start_date?: string;
     estimated_hours?: number;
     actual_hours?: number;
     parent_issue_id?: string | null;
@@ -128,6 +130,7 @@ export namespace Api.Issue {
       assignee_ids?: string[];
     position?: number;
     due_date?: string;
+    start_date?: string;
     estimated_hours?: number;
     actual_hours?: number;
     parent_issue_id?: string | null;

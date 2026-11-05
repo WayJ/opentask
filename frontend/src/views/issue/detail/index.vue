@@ -193,6 +193,7 @@ const editingPriority = ref(false);
 const editingType = ref(false);
 const editingAssignee = ref(false);
 const editingReporter = ref(false);
+const editingStartDate = ref(false);
 const editingDueDate = ref(false);
 const editingProject = ref(false);
 const editingCycle = ref(false);
@@ -205,6 +206,7 @@ const tempPriority = ref<string | null>(null);
 const tempType = ref<string | null>(null);
 const tempAssignee = ref<string[]>([]);
 const tempReporter = ref<string | null>(null);
+const tempStartDate = ref<number | null>(null);
 const tempDueDate = ref<number | null>(null);
 const tempProject = ref<string | null>(null);
 const tempCycle = ref<string | null>(null);
@@ -914,6 +916,22 @@ async function saveReporter() {
 function cancelReporter() {
   tempReporter.value = null;
   editingReporter.value = false;
+}
+
+async function saveStartDate() {
+  if (!issueId.value) return;
+  try {
+    await issueStore.updateIssue(issueId.value, { start_date: tempStartDate.value });
+    await loadIssue();
+    window.$message?.success('计划开始日更新成功');
+  } catch {
+    window.$message?.error('计划开始日更新失败');
+  }
+}
+
+function cancelStartDate() {
+  tempStartDate.value = null;
+  editingStartDate.value = false;
 }
 
 async function saveDueDate() {
@@ -1647,6 +1665,25 @@ onUnmounted(() => {
             >
               <template #label-icon>
                 <icon-mdi-tag />
+              </template>
+            </EditableField>
+
+            <!-- Start Date (E73) -->
+            <EditableField
+              v-model="tempStartDate"
+              v-model:editing="editingStartDate"
+              label="开始"
+              :display-value="formatDate(issue.start_date)"
+              placeholder="-"
+              @save="saveStartDate"
+              @cancel="cancelStartDate"
+              @start-edit="tempStartDate = issue.start_date ? Number(new Date(issue.start_date).getTime() / 1000) : null"
+            >
+              <template #label-icon>
+                <icon-mdi-calendar-start />
+              </template>
+              <template #editor>
+                <NDatePicker v-model:value="tempStartDate" type="date" size="small" clearable />
               </template>
             </EditableField>
 

@@ -29,6 +29,21 @@ export interface TimelineMilestoneLike {
 export interface TimelineIssueLike {
   id: string;
   due_date?: string | null;
+  start_date?: string | null;
+}
+
+export type IssueTimelinePlacement =
+  | { kind: 'bar'; start: string; end: string }
+  | { kind: 'dot'; at: string }
+  | null;
+
+/** E73: bar when start+due; due-only stays a point; start-only omitted this round. */
+export function issueTimelinePlacement(issue: TimelineIssueLike): IssueTimelinePlacement {
+  const start = issue.start_date || null;
+  const due = issue.due_date || null;
+  if (start && due) return { kind: 'bar', start, end: due };
+  if (due) return { kind: 'dot', at: due };
+  return null;
 }
 
 /** Empty when no project dates and no milestones (and no due issues). */
@@ -39,8 +54,8 @@ export function isTimelineEmpty(
 ): boolean {
   const hasProjectDates = Boolean(project?.starts_at || project?.target_date);
   const hasMilestones = milestones.length > 0;
-  const hasDueIssues = issues.some(i => Boolean(i.due_date));
-  return !hasProjectDates && !hasMilestones && !hasDueIssues;
+  const hasDatedIssues = issues.some(i => Boolean(i.due_date || i.start_date));
+  return !hasProjectDates && !hasMilestones && !hasDatedIssues;
 }
 
 /** Day width in px for zoom level (MVP fixed). */
@@ -74,6 +89,8 @@ export function computeTimelineRange(
   for (const i of issues) {
     const d = parseDate(i.due_date);
     if (d) dates.push(d);
+    const s = parseDate(i.start_date);
+    if (s) dates.push(s);
   }
   if (dates.length === 0) return null;
   const min = new Date(Math.min(...dates.map(d => d.getTime())));

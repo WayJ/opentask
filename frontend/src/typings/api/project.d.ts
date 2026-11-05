@@ -122,7 +122,8 @@ declare namespace Api {
         id: string;
         title: string;
         issue_code?: string | null;
-        due_date: string;
+        due_date?: string | null;
+        start_date?: string | null;
         status?: string;
         milestone_id?: string | null;
       }>;

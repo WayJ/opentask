@@ -62,6 +62,8 @@ export function formatTimelineAction(item: TimelineActionItem): string {
       return `将优先级从 "${getPriorityLabel(ad?.from || '')}" 改为 "${getPriorityLabel(ad?.to || '')}"`;
     case 'due_date_changed':
       return '修改了截止日期';
+    case 'start_date_changed':
+      return '修改了计划开始日';
     case 'relation_added':
       return `添加了关联: ${ad?.relation_type}`;
     case 'relation_removed':
