@@ -59,6 +59,7 @@ class TimelineAction(str, Enum):
     ASSIGNED = "assigned"                    # 分配
     PRIORITY_CHANGED = "priority_changed"    # 优先级变更
     DUE_DATE_CHANGED = "due_date_changed"    # 截止日期变更
+    START_DATE_CHANGED = "start_date_changed"  # E73：计划开始日变更
     RELATION_ADDED = "relation_added"        # 添加关系
     RELATION_REMOVED = "relation_removed"    # 移除关系
     ATTACHMENT_ADDED = "attachment_added"    # 添加附件

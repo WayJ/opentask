@@ -156,6 +156,12 @@ class Issue(DBModel):
         index=True,
         comment="截止日期"
     )
+    start_date: Mapped[Optional[datetime]] = mapped_column(
+        DateTime,
+        nullable=True,
+        index=True,
+        comment="E73: 计划开始日（独立于 started_at）"
+    )
     started_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime,
         nullable=True,
@@ -320,6 +326,7 @@ class Issue(DBModel):
         Index("idx_issues_created_at", "created_at"),
         Index("idx_issues_updated_at", "updated_at"),
         Index("idx_issues_due_date", "due_date"),
+        Index("idx_issues_start_date", "start_date"),
         Index("idx_issues_project_status", "project_id", "status"),
         Index("idx_issues_assignee_status", "assignee_id", "status"),
         Index("idx_issues_parent", "parent_issue_id"),
@@ -524,6 +531,7 @@ class IssueTimeline(DBModel):
              "custom_field_changed", "cycle_changed", "estimate_changed",
              "project_changed",
              "sla_paused", "sla_resumed",
+             "start_date_changed",
              name="timeline_action"),
         nullable=False,
         index=True,

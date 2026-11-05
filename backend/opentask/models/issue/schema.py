@@ -45,6 +45,7 @@ class IssueBase(BaseModel):
     reporter_id: Optional[str] = Field(None, description="报告人 ID [可选：默认为当前用户]")
     position: Optional[int] = Field(None, description="排序位置")
     due_date: Optional[datetime] = Field(None, description="截止日期")
+    start_date: Optional[datetime] = Field(None, description="E73：计划开始日")
     estimated_hours: Optional[float] = Field(None, ge=0, description="预估工时")
     actual_hours: Optional[float] = Field(None, ge=0, description="实际工时")
     parent_issue_id: Optional[str] = Field(None, description="父 Issue ID（一等公民子 Issue）")
@@ -78,6 +79,7 @@ class IssueUpdate(BaseModel):
     reporter_id: Optional[str] = None
     position: Optional[int] = None
     due_date: Optional[datetime] = None
+    start_date: Optional[datetime] = None
     estimated_hours: Optional[float] = None
     actual_hours: Optional[float] = None
     parent_issue_id: Optional[str] = None
@@ -317,6 +319,14 @@ class IssueQueryParams(BaseModel):
     due_before: Optional[str] = Field(
         None,
         description="E19：due_date 日期 ≤ YYYY-MM-DD",
+    )
+    start_before: Optional[str] = Field(
+        None,
+        description="E73：start_date 日期 ≤ YYYY-MM-DD",
+    )
+    start_after: Optional[str] = Field(
+        None,
+        description="E73：start_date 日期 ≥ YYYY-MM-DD",
     )
     due_soon: Optional[bool] = Field(
         None,
