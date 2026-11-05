@@ -19,8 +19,8 @@ Plan：`docs/superpowers/plans/2026-11-05-e95-project-repos-cli-mid-plan.md`
 ## Tip
 
 - 分支：`sprint/E95-S1`
-- tip short：4c5c831
-- tip full：4c5c8317cb479004e87610e23b176899d93bf3b1
+- tip short：995cf22
+- tip full：995cf224dcf2d77dada1c29dcd6095feaa4e1329
 - **未 push / 未开 PR / 未开 E96**
 
 ## Gates（verification-before-completion）
