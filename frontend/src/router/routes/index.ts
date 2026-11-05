@@ -322,6 +322,16 @@ const customRoutes: CustomRoute[] = [
         }
       },
       {
+        name: 'workspace_project-templates',
+        path: '/workspace/project-templates',
+        component: 'view.workspace_project-templates',
+        meta: {
+          title: 'workspace_project-templates',
+          i18nKey: 'route.workspace_project-templates',
+          order: 5.5
+        }
+      },
+      {
         name: 'workspace_custom-fields',
         path: '/workspace/custom-fields',
         component: 'view.workspace_custom-fields',

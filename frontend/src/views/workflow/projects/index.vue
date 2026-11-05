@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { h, onMounted, reactive, ref } from 'vue';
+import { computed, h, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { NButton, NSpace, NTag, NText } from 'naive-ui';
+import { NButton, NSelect, NSpace, NTag, NText } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
 import { useProjectStore } from '@/store/modules/project';
+import { fetchProjectTemplates, type ProjectTemplateRow } from '@/service/api/project-templates';
+import { previewMilestones } from '@/utils/projectTemplate';
 
 defineOptions({
   name: 'Projects'
@@ -21,8 +23,34 @@ const currentProject = ref<Api.Project.Project | null>(null);
 // Form data
 const formData = reactive({
   name: '',
-  description: ''
+  description: '',
+  template_id: null as string | null
 });
+
+const templateRows = ref<ProjectTemplateRow[]>([]);
+const templateOptions = computed(() =>
+  templateRows.value.map(t => ({ label: t.name, value: t.id }))
+);
+const selectedTemplate = computed(() =>
+  templateRows.value.find(t => t.id === formData.template_id) || null
+);
+const milestonePreview = computed(() => {
+  const miles = selectedTemplate.value?.payload?.milestones || [];
+  const base = new Date().toISOString().slice(0, 10);
+  return previewMilestones(miles as any, base);
+});
+
+async function loadTemplates() {
+  const { data } = await fetchProjectTemplates();
+  templateRows.value = data?.rows || [];
+}
+
+function onTemplatePicked(id: string | null) {
+  const tpl = templateRows.value.find(t => t.id === id);
+  if (tpl?.payload?.description && !formData.description) {
+    formData.description = String(tpl.payload.description);
+  }
+}
 
 // Load projects
 async function loadProjects() {
@@ -40,7 +68,8 @@ async function handleCreate() {
   try {
     await projectStore.addProject({
       name: formData.name,
-      description: formData.description
+      description: formData.description,
+      template_id: formData.template_id || undefined
     });
     showCreateModal.value = false;
     resetForm();
@@ -105,6 +134,7 @@ function openEditModal(project: Api.Project.Project) {
 function resetForm() {
   formData.name = '';
   formData.description = '';
+  formData.template_id = null;
   currentProject.value = null;
 }
 
@@ -164,6 +194,7 @@ const columns: DataTableColumns<Api.Project.Project> = [
 
 onMounted(() => {
   loadProjects();
+  loadTemplates();
 });
 </script>
 
@@ -210,6 +241,23 @@ onMounted(() => {
             :autosize="{ minRows: 3, maxRows: 6 }"
           />
         </NFormItem>
+        <NFormItem label="模板" path="template_id">
+          <NSelect
+            v-model:value="formData.template_id"
+            :options="templateOptions"
+            clearable
+            placeholder="可选：从 Project 模板创建"
+            @update:value="onTemplatePicked"
+          />
+        </NFormItem>
+        <div v-if="milestonePreview.length" class="template-preview">
+          <NText depth="3">将种子的里程碑（相对今天）：</NText>
+          <ul>
+            <li v-for="(m, i) in milestonePreview" :key="i">
+              {{ m.name }} <span v-if="m.targetDate">— {{ m.targetDate }}</span>
+            </li>
+          </ul>
+        </div>
       </NForm>
       <template #footer>
         <NSpace justify="end">

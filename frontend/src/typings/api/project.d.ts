@@ -34,6 +34,9 @@ declare namespace Api {
     interface CreateProject {
       name: string;
       description?: string;
+      /** E72 project template id */
+      template_id?: string;
+      starts_at?: string | null;
     }
 
     /** Update project params */

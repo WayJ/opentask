@@ -16,6 +16,7 @@ export * from './workspace';
 export * from './inbox';
 export * from './triage';
 export * from './issue-templates';
+export * from './project-templates';
 export * from './initiatives';
 export * from './customers';
 export * from './insights';

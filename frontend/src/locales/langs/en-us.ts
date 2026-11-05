@@ -268,6 +268,7 @@ const local: App.I18n.Schema = {
     'workspace_automations': 'Automations',
     'workspace_custom-fields': 'Custom Fields',
     'workspace_issue-templates': 'Issue Templates',
+    'workspace_project-templates': 'Project Templates',
     workspace_cycles: 'Cycles',
     inbox: 'Inbox',
     activity: 'Activity',

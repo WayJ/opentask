@@ -266,6 +266,7 @@ const local: App.I18n.Schema = {
     'workspace_automations': '自动化',
     'workspace_custom-fields': '自定义字段',
     'workspace_issue-templates': 'Issue 模板',
+    'workspace_project-templates': 'Project 模板',
     workspace_cycles: '冲刺 Cycles',
     inbox: '收件箱',
     activity: '活动',

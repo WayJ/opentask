@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { NButton, NPopconfirm, NSpace, NTag, NText } from 'naive-ui';
+import { NButton, NInput, NModal, NPopconfirm, NSpace, NTag, NText } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
 import {
   createProjectMilestone,
@@ -35,6 +35,7 @@ import {
   timelineDayWidth
 } from '@/utils/project-timeline';
 import EntityDocsPanel from '@/components/entity-docs/EntityDocsPanel.vue';
+import { fetchProjectTemplateFromProject } from '@/service/api/project-templates';
 
 defineOptions({
   name: 'ProjectDetail'
@@ -47,6 +48,9 @@ const projectStore = useProjectStore();
 const project = ref<Api.Project.Project | null>(null);
 const repos = ref<Api.Project.RepoConfig[]>([]);
 const milestones = ref<Api.Project.Milestone[]>([]);
+const showSaveAsTemplate = ref(false);
+const saveAsName = ref('');
+const saveAsLoading = ref(false);
 const loading = ref(false);
 const repoLoading = ref(false);
 const milestoneLoading = ref(false);
@@ -580,6 +584,34 @@ const milestoneColumns: DataTableColumns<Api.Project.Milestone> = [
   }
 ];
 
+
+async function openSaveAsTemplate() {
+  saveAsName.value = project.value ? `${project.value.name} 模板` : 'Project 模板';
+  showSaveAsTemplate.value = true;
+}
+
+async function confirmSaveAsTemplate() {
+  if (!projectId.value || !saveAsName.value.trim()) {
+    window.$message?.warning?.('请输入模板名称');
+    return;
+  }
+  saveAsLoading.value = true;
+  try {
+    const { error } = await fetchProjectTemplateFromProject(projectId.value, {
+      name: saveAsName.value.trim(),
+      description: project.value?.description || undefined
+    });
+    if (error) {
+      window.$message?.error?.(error.message || '另存失败');
+      return;
+    }
+    window.$message?.success?.('已另存为 Project 模板');
+    showSaveAsTemplate.value = false;
+  } finally {
+    saveAsLoading.value = false;
+  }
+}
+
 onMounted(() => {
   loadProject();
   loadRepos();
@@ -621,6 +653,7 @@ onMounted(() => {
                 {{ pinnedFavoriteId ? '取消侧栏收藏' : '收藏到侧栏' }}
               </NButton>
               <NButton @click="openHealthModal">更新健康</NButton>
+              <NButton @click="openSaveAsTemplate">另存为模板</NButton>
               <NButton @click="openEditProjectModal">
                 <template #icon>
                   <icon-mdi-pencil />
