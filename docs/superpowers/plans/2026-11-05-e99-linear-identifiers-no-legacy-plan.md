@@ -1,6 +1,6 @@
 # E99 Plan：Linear Issue Identifiers — 无历史环境，删除 legacy
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans (本会话 inline) + test-driven-development + verification-before-completion。Steps use checkbox (`- [ ]`) syntax。禁止 push/PR；不自开 E100。
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans (本会话 inline) + test-driven-development + verification-before-completion。Steps use checkbox (`- [x]`) syntax。禁止 push/PR；不自开 E100。
 
 **Goal:** 全产品表面只认 `KEY-N`；删除年号 legacy 双解析、`legacy_issue_code` 列、E98 年号回填行为、Jira year codec；CLI/FE 校验收紧；FTS 重建去列。
 
@@ -57,8 +57,8 @@ r"^[A-Za-z][A-Za-z0-9]{1,5}-\d+$"  # prefix length 2–6
 
 ### Task 1 — Docs：plan + acceptance 骨架
 
-- [ ] **Step 1:** 入库本 plan；写 acceptance 骨架（后填满，禁止 `_pending_`）
-- [ ] **Step 2:** commit `docs(E99): plan + acceptance skeleton`
+- [x] **Step 1:** 入库本 plan；写 acceptance 骨架（后填满，禁止 `_pending_`）
+- [x] **Step 2:** commit `docs(E99): plan + acceptance skeleton`
 
 ---
 
@@ -69,10 +69,10 @@ r"^[A-Za-z][A-Za-z0-9]{1,5}-\d+$"  # prefix length 2–6
 - Modify: `backend/tests/tasks/test_tasks_jira_wire.py::TestKeyCodec`
 - Create directed asserts in `backend/tests/api/test_e99_no_legacy_identifiers.py`
 
-- [ ] **Step 1: RED** — 改 TestKeyCodec 期望 KEY-N 往返；`issue_code_to_key("ISSUE2026-3")` / `key_to_issue_code("OPENTASK-2026000000003")` → ValueError
-- [ ] **Step 2:** 跑测确认红
-- [ ] **Step 3: GREEN** — 删 `_ISSUE_CODE_RE` / year 分支；`< KEY_N_BASE` → ValueError；更新模块 docstring
-- [ ] **Step 4:** 绿；commit `feat(E99): jira keys KEY-N only`
+- [x] **Step 1: RED** — 改 TestKeyCodec 期望 KEY-N 往返；`issue_code_to_key("ISSUE2026-3")` / `key_to_issue_code("OPENTASK-2026000000003")` → ValueError
+- [x] **Step 2:** 跑测确认红
+- [x] **Step 3: GREEN** — 删 `_ISSUE_CODE_RE` / year 分支；`< KEY_N_BASE` → ValueError；更新模块 docstring
+- [x] **Step 4:** 绿；commit `feat(E99): jira keys KEY-N only`
 
 ---
 
@@ -80,10 +80,10 @@ r"^[A-Za-z][A-Za-z0-9]{1,5}-\d+$"  # prefix length 2–6
 
 **Files:** issue_service, vcs/service, vcs/branch_naming, search/*, issue_csv, router docstring, model
 
-- [ ] **Step 1: RED** — `test_e99_year_by_code_404`（不插年号行）；改写/删除 `test_by_code_matches_legacy_issue_code`、`test_legacy_by_code_still_works` 为 404 负例；branch_naming `test_parse_legacy` → None
-- [ ] **Step 2:** 红确认
-- [ ] **Step 3: GREEN** — ORM 删字段；所有 `or_(…legacy…)` / ILIKE legacy 删除；branch_naming 删 `_LEGACY_CODE`；search `ISSUE_CODE_RE` 收紧
-- [ ] **Step 4:** 绿；commit `feat(E99): drop legacy dual-read paths`
+- [x] **Step 1: RED** — `test_e99_year_by_code_404`（不插年号行）；改写/删除 `test_by_code_matches_legacy_issue_code`、`test_legacy_by_code_still_works` 为 404 负例；branch_naming `test_parse_legacy` → None
+- [x] **Step 2:** 红确认
+- [x] **Step 3: GREEN** — ORM 删字段；所有 `or_(…legacy…)` / ILIKE legacy 删除；branch_naming 删 `_LEGACY_CODE`；search `ISSUE_CODE_RE` 收紧
+- [x] **Step 4:** 绿；commit `feat(E99): drop legacy dual-read paths`
 
 ---
 
@@ -113,7 +113,7 @@ def upgrade():
         ...
 ```
 
-- [ ] RED directed drop/no-op tests → GREEN → commit `feat(E99): no-op E98 backfill + drop legacy_issue_code`
+- [x] RED directed drop/no-op tests → GREEN → commit `feat(E99): no-op E98 backfill + drop legacy_issue_code`
 
 ---
 
@@ -126,7 +126,7 @@ def upgrade():
 - 夹具：oauth2 `_next_issue_code`、tasks_contract、CLI mock → KEY-N
 - README 现行 Jira 说明 → KEY-N（不改历史 sprint md）
 
-- [ ] RED then GREEN；commit `feat(E99): CLI/FE KEY-N only validation`
+- [x] RED then GREEN；commit `feat(E99): CLI/FE KEY-N only validation`
 
 ---
 
