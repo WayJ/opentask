@@ -59,6 +59,11 @@ import IssueLinksPanel from '@/components/issue-links/IssueLinksPanel.vue';
 import EditableField from '@/components/EditableField.vue';
 import { formatTimelineAction } from '@/utils/formatTimelineAction';
 import { deletedReadonlyBanner, restoreSuccessMessage } from '@/utils/issueTrashMeta';
+import {
+  canPromoteToRoot,
+  excludeSelfFromPicker,
+  setParentSuccessMessage
+} from '@/utils/issueParentMeta';
 import type { Api } from '@/typings/api';
 
 defineOptions({
@@ -1116,6 +1121,93 @@ function handleDeleteIssue() {
 
 const duplicateLoading = ref(false);
 
+// E78: set-parent / promote-to-root
+const showSetParentModal = ref(false);
+const setParentMode = ref<'set' | 'change'>('set');
+const setParentLoading = ref(false);
+const promoteRootLoading = ref(false);
+const pendingParentId = ref<string | null>(null);
+const parentPickerOptions = ref<Array<{ label: string; value: string }>>([]);
+const parentPickerLoading = ref(false);
+
+async function loadParentPickerOptions(query: string = '') {
+  parentPickerLoading.value = true;
+  try {
+    const res = await issueApi.getIssues({
+      search: query || undefined,
+      page: 1,
+      page_size: 30
+    } as any);
+    const rows = (res as any)?.data?.rows || (res as any)?.rows || [];
+    const filtered = excludeSelfFromPicker(rows, issue.value?.id || '');
+    parentPickerOptions.value = filtered.map((r: any) => ({
+      label: `${r.issue_code || r.id} · ${r.title || ''}`.trim(),
+      value: r.id
+    }));
+  } catch {
+    parentPickerOptions.value = [];
+  } finally {
+    parentPickerLoading.value = false;
+  }
+}
+
+function openSetParentModal(mode: 'set' | 'change' = 'set') {
+  setParentMode.value = mode;
+  pendingParentId.value = null;
+  showSetParentModal.value = true;
+  void loadParentPickerOptions('');
+}
+
+async function confirmSetParent() {
+  if (!issue.value || !pendingParentId.value) {
+    window.$message?.warning('请选择父 Issue');
+    return;
+  }
+  setParentLoading.value = true;
+  try {
+    const { data, error } = await issueApi.updateIssue(issue.value.id, {
+      parent_issue_id: pendingParentId.value
+    } as any);
+    if (error || !data) {
+      window.$message?.error((error as any)?.message || '设置父 Issue 失败');
+      return;
+    }
+    const parentCode =
+      parentPickerOptions.value.find(o => o.value === pendingParentId.value)?.label?.split(' · ')[0] ||
+      (data as any).parent_issue_id ||
+      pendingParentId.value;
+    window.$message?.success(setParentSuccessMessage(String(parentCode)));
+    showSetParentModal.value = false;
+    await loadIssue();
+    await loadParentAndChildren();
+  } catch (e: any) {
+    window.$message?.error(e?.message || '设置父 Issue 失败');
+  } finally {
+    setParentLoading.value = false;
+  }
+}
+
+async function handlePromoteToRoot() {
+  if (!issue.value || !canPromoteToRoot(issue.value.parent_issue_id)) return;
+  promoteRootLoading.value = true;
+  try {
+    const { data, error } = await issueApi.updateIssue(issue.value.id, {
+      parent_issue_id: null
+    } as any);
+    if (error || !data) {
+      window.$message?.error((error as any)?.message || '提升为根失败');
+      return;
+    }
+    window.$message?.success(setParentSuccessMessage(null));
+    await loadIssue();
+    await loadParentAndChildren();
+  } catch (e: any) {
+    window.$message?.error(e?.message || '提升为根失败');
+  } finally {
+    promoteRootLoading.value = false;
+  }
+}
+
 /** E75: Linear-style duplicate → navigate to new issue */
 async function handleDuplicateIssue() {
   if (!issue.value) return;
@@ -1388,6 +1480,23 @@ onUnmounted(() => {
                     <icon-mdi-content-copy />
                   </template>
                   复制 Issue
+                </NButton>
+                <NButton size="small" @click="openSetParentModal(issue.parent_issue_id ? 'change' : 'set')">
+                  <template #icon>
+                    <icon-mdi-file-tree />
+                  </template>
+                  {{ issue.parent_issue_id ? '更换父' : '设为子项…' }}
+                </NButton>
+                <NButton
+                  v-if="canPromoteToRoot(issue.parent_issue_id)"
+                  size="small"
+                  :loading="promoteRootLoading"
+                  @click="handlePromoteToRoot"
+                >
+                  <template #icon>
+                    <icon-mdi-arrow-up-bold />
+                  </template>
+                  提升为根
                 </NButton>
                 <NButton size="small" @click="startEdit('status', issue.status)">
                   <template #icon>
@@ -2145,6 +2254,38 @@ onUnmounted(() => {
 
       <NEmpty v-else-if="!loading" description="Issue 不存在" size="large" />
     </NSpin>
+
+    <!-- E78: set / change parent -->
+    <NModal
+      v-model:show="showSetParentModal"
+      preset="card"
+      :title="setParentMode === 'change' ? '更换父 Issue' : '设为子项'"
+      style="width: 480px"
+    >
+      <NSpace vertical>
+        <NText depth="3">选择同工作区的父 Issue（排除自身；环由服务端校验）。</NText>
+        <NSelect
+          v-model:value="pendingParentId"
+          filterable
+          clearable
+          :loading="parentPickerLoading"
+          :options="parentPickerOptions"
+          placeholder="搜索 Issue…"
+          @search="loadParentPickerOptions"
+        />
+        <NSpace justify="end">
+          <NButton @click="showSetParentModal = false">取消</NButton>
+          <NButton
+            type="primary"
+            :loading="setParentLoading"
+            :disabled="!pendingParentId"
+            @click="confirmSetParent"
+          >
+            确认
+          </NButton>
+        </NSpace>
+      </NSpace>
+    </NModal>
 
     <!-- Agent Prompt Modal -->
     <NModal v-model:show="showAddSubIssue" preset="card" title="添加子 Issue" style="width: 480px">
