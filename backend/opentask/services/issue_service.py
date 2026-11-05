@@ -1446,7 +1446,35 @@ class IssueService:
         comment_type: str = "comment",  # 使用小写值，与 CommentType.COMMENT.value 一致
         meta_data: Optional[dict] = None,
     ) -> IssueComment:
-        """添加评论"""
+        """添加评论（E74：parent 同 Issue / 未软删 / 深度=1）"""
+        parent_author_user_id: Optional[str] = None
+        if parent_id:
+            from opentask.services.comment_threading import (
+                ParentCommentView,
+                validate_comment_parent,
+            )
+
+            parent_row = (
+                await self.db.execute(
+                    select(IssueComment).where(IssueComment.id == parent_id)
+                )
+            ).scalar_one_or_none()
+            view = (
+                ParentCommentView(
+                    id=parent_row.id,
+                    issue_id=parent_row.issue_id,
+                    parent_id=parent_row.parent_id,
+                    is_deleted=bool(parent_row.is_deleted),
+                    user_id=parent_row.user_id,
+                )
+                if parent_row is not None
+                else None
+            )
+            validate_comment_parent(
+                issue_id=issue_id, parent=view, parent_id=parent_id
+            )
+            parent_author_user_id = view.user_id if view else None
+
         comment = IssueComment(
             issue_id=issue_id,
             user_id=user_id,
@@ -1497,6 +1525,7 @@ class IssueService:
                 comment_content=content,
                 comment_id=comment.id,
                 base_type="automation_comment" if is_automation else "commented",
+                parent_author_user_id=parent_author_user_id,
             )
             await publish_comment_created(
                 workspace_id=issue.workspace_id,
@@ -1544,7 +1573,7 @@ class IssueService:
         return comment
 
     async def delete_comment(self, comment_id: str, user_id: str) -> bool:
-        """删除评论（软删除）"""
+        """删除评论（软删除；E74 Q3a：级联软删直接子评）"""
         query = (
             update(IssueComment)
             .where(
@@ -1554,6 +1583,12 @@ class IssueService:
             .values(is_deleted=True, updated_at=datetime.utcnow())
         )
         result = await self.db.execute(query)
+        if result.rowcount > 0:
+            await self.db.execute(
+                update(IssueComment)
+                .where(IssueComment.parent_id == comment_id)
+                .values(is_deleted=True, updated_at=datetime.utcnow())
+            )
         await self.db.commit()
 
         return result.rowcount > 0
@@ -1563,7 +1598,7 @@ class IssueService:
         issue_id: str,
         include_deleted: bool = False,
     ) -> List[IssueComment]:
-        """获取 Issue 的所有评论"""
+        """获取 Issue 的所有评论（E74：用户侧隐藏「父已软删」的子评）"""
         query = select(IssueComment).where(IssueComment.issue_id == issue_id)
 
         if not include_deleted:
@@ -1572,7 +1607,15 @@ class IssueService:
         query = query.order_by(IssueComment.created_at.asc())
 
         result = await self.db.execute(query)
-        return list(result.scalars().all())
+        comments = list(result.scalars().all())
+        if not include_deleted:
+            visible_ids = {c.id for c in comments}
+            comments = [
+                c
+                for c in comments
+                if c.parent_id is None or c.parent_id in visible_ids
+            ]
+        return comments
 
     # ========================================================================
     # 关系操作

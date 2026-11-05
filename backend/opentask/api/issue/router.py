@@ -1372,6 +1372,8 @@ async def add_comment(
             },
             "timestamp": 0,
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"添加评论失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

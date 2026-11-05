@@ -220,9 +220,11 @@ class NotificationService:
         comment_content: str,
         comment_id: Optional[str] = None,
         base_type: str = "commented",
+        parent_author_user_id: Optional[str] = None,
     ) -> list[Notification]:
         """评论：通知 assignee/reporter（非作者）+ @mention 工作区成员。
 
+        E74：回复时 recipients ∪ 父评作者（排除 actor）。
         base_type: normally "commented"; automation/system → "automation_comment".
         Mentions always use type "mentioned".
         """
@@ -255,6 +257,10 @@ class NotificationService:
         for uid in await self._watcher_ids(issue.id):
             if uid != str(actor_user_id):
                 recipients.setdefault(uid, comment_type)
+
+        # E74 Q4a：回复时父评作者进入 recipients（排除 actor）
+        if parent_author_user_id and str(parent_author_user_id) != str(actor_user_id):
+            recipients.setdefault(str(parent_author_user_id), comment_type)
 
         mentioned = await self._resolve_mentions(
             issue.workspace_id, comment_content or "", actor_user_id=actor_user_id
