@@ -870,6 +870,49 @@ def create_issue(obj: "Context", title: str, description: str, issue_type: str, 
         sys.exit(1)
 
 
+@issue_cli.command(name="duplicate")
+@click.argument("issue_id")
+@click.option("--title", "-t", default=None, help="Override title (default: source + ' (copy)')")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def duplicate_issue_cmd(obj: "Context", issue_id: str, title: str | None, as_json: bool):
+    """E75: Duplicate an issue (Linear-style copy). Prints new issue_code / id.
+
+    Examples:
+        opentask issue duplicate ISSUE-12
+        opentask issue duplicate abc-uuid --title "New title" --json
+    """
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+
+    try:
+        result = asyncio.run(client.duplicate_issue(issue_id, title=title))
+        # API may wrap in data
+        if isinstance(result, dict) and "data" in result and isinstance(result["data"], dict):
+            # some clients already unwrap; keep tolerant
+            if "issue_code" not in result and "id" not in result:
+                result = result["data"]
+        code = result.get("issue_code") or result.get("issueCode") or ""
+        new_id = result.get("id") or ""
+        if json_mode:
+            click.echo(_format_json_response(
+                success=True,
+                data=result,
+                message=f"Issue duplicated: {code or new_id}",
+            ))
+            return
+        skin.success(f"[OK] Issue duplicated: {code or new_id}")
+        skin.info(f"  id: {new_id}")
+        if code:
+            skin.info(f"  code: {code}")
+        if result.get("title"):
+            skin.info(f"  title: {result.get('title')}")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to duplicate issue", json_mode=json_mode)
+
+
 @issue_cli.command(name="update")
 @click.argument("issue_id")
 @click.option("--title", "-t", help="New title")

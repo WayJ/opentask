@@ -1717,6 +1717,30 @@ class OpenTaskClient:
 
         return await self.post("/api/issues", data=data)
 
+    async def duplicate_issue(
+        self,
+        issue_id: str,
+        *,
+        title: str | None = None,
+        project_id: str | None = None,
+        cycle_id: str | None = None,
+        parent_issue_id: str | None = None,
+        assignee_ids: list[str] | None = None,
+    ) -> dict:
+        """E75: POST /api/issues/{id}/duplicate — Linear-style copy."""
+        data: dict = {}
+        if title is not None:
+            data["title"] = title
+        if project_id is not None:
+            data["project_id"] = project_id
+        if cycle_id is not None:
+            data["cycle_id"] = cycle_id
+        if parent_issue_id is not None:
+            data["parent_issue_id"] = parent_issue_id
+        if assignee_ids is not None:
+            data["assignee_ids"] = assignee_ids
+        return await self.post(f"/api/issues/{issue_id}/duplicate", data=data)
+
     async def update_issue(self, issue_id: str, **kwargs) -> dict:
         """Update issue.
 
