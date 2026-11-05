@@ -130,9 +130,28 @@ async def test_user(db: AsyncSession) -> AsyncGenerator[UserModel, None]:
 
 
 @pytest_asyncio.fixture
-async def assignee_user(db: AsyncSession) -> AsyncGenerator[UserModel, None]:
-    """被分配人（验证 assignee 字符串 ID + metadata.username）"""
+async def assignee_user(
+    db: AsyncSession, test_user: UserModel
+) -> AsyncGenerator[UserModel, None]:
+    """被分配人（验证 assignee 字符串 ID + metadata.username）
+
+    E98：Issue 创建必带 workspace_id，assignee 必须是该 WS 成员（E71）。
+    将 assignee 加入 test_user 的唯一可写 Workspace，避免邻面契约测回归。
+    """
+    from opentask.models.workspace.model import WorkspaceMember
+    from opentask.services.workspace.issue_create_ws import list_writable_workspace_ids
+
     user = await _create_test_user(db, "assignee")
+    wids = await list_writable_workspace_ids(db, str(test_user.id))
+    assert len(wids) == 1, "test_user must have exactly one writable workspace"
+    db.add(
+        WorkspaceMember(
+            workspace_id=wids[0],
+            user_id=str(user.id),
+            role="member",
+        )
+    )
+    await db.commit()
     yield user
 
 

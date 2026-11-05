@@ -65,15 +65,47 @@ async def test_client_with_user(test_client: AsyncClient) -> AsyncClient:
 
 @pytest_asyncio.fixture
 async def test_token(test_client_with_user: AsyncClient) -> str:
-    """获取测试 token（使用本地登录接口）"""
-    # 使用本地登录接口，不需要加密密码
+    """获取测试 token，并确保 admin 恰有一个可写 Workspace（E98）。"""
+    import uuid as _uuid
+    from sqlalchemy import select, text as sql_text
+    from opentask.services.workspace.service import WorkspaceService
+    from opentask.services.workspace.issue_create_ws import list_writable_workspace_ids
+
     response = await test_client_with_user.post(
         "/api/auth/login-local",
         json={"userName": "admin", "password": "123456"}
     )
     assert response.status_code == 200, f"Failed to login: {response.text}"
     data = response.json()
-    return data["data"]["token"]
+    token = data["data"]["token"]
+
+    async with SessionCreator() as session:
+        user = (
+            await session.execute(select(UserModel).where(UserModel.username == "admin"))
+        ).scalar_one_or_none()
+        if user is None:
+            user = (
+                await session.execute(select(UserModel).where(UserModel.name == "admin"))
+            ).scalar_one()
+        writable = await list_writable_workspace_ids(session, str(user.id))
+        if len(writable) == 0:
+            await WorkspaceService(session).create_for_owner(
+                name="admin-e98-collection-ws",
+                owner_user_id=str(user.id),
+                issue_key=f"C{_uuid.uuid4().hex[:5].upper()}",
+            )
+            await session.commit()
+        elif len(writable) > 1:
+            for wid in writable[1:]:
+                await session.execute(
+                    sql_text(
+                        "UPDATE workspace_members SET role = 'viewer' "
+                        "WHERE user_id = :uid AND workspace_id = :wid"
+                    ),
+                    {"uid": str(user.id), "wid": wid},
+                )
+            await session.commit()
+    return token
 
 
 @pytest_asyncio.fixture(autouse=True)

@@ -829,6 +829,7 @@ async def create_issue(
                 service.db,
                 str(user.id),
                 explicit_workspace_id=workspace.id if workspace else None,
+                project_id=getattr(data, "project_id", None),
             )
         except WorkspaceRequiredError as e:
             raise HTTPException(status_code=400, detail=e.detail) from e
@@ -1126,8 +1127,9 @@ async def parse_collection(
     request_data: IssueParseRequest,
     current_user: UserModel = Depends(authenticate),
     service: IssueCollectionService = Depends(get_collection_service),
+    ws_ctx=Depends(get_optional_workspace_context),
 ):
-    """拆解问题集并创建 Issue
+    """拆解问题集并创建 Issue（E98：每条落到可靠 WS → KEY-N）
 
     此 API 供外部服务调用（如 AI 解析服务），将问题集拆解为具体的 Issue。
     """
@@ -1138,10 +1140,23 @@ async def parse_collection(
     user_id = str(current_user.id)
     print(f"[DEBUG] user_id: {user_id}")
 
+    workspace, _member, _user = ws_ctx
+    issues_payload = []
+    for item in request_data.issues:
+        if hasattr(item, "model_dump"):
+            d = item.model_dump()
+        elif isinstance(item, dict):
+            d = dict(item)
+        else:
+            d = dict(item)
+        if workspace is not None and not d.get("workspace_id"):
+            d["workspace_id"] = workspace.id
+        issues_payload.append(d)
+
     # 执行拆解和创建
     issue_ids, count = await service.parse_and_create_issues(
         collection_id=collection_id,
-        issues_data=request_data.issues,
+        issues_data=issues_payload,
         creator_id=user_id,
     )
 

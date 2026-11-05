@@ -36,14 +36,48 @@ async def test_client(seeded_users) -> AsyncGenerator[AsyncClient, None]:
 
 @pytest.fixture
 async def test_token(test_client: AsyncClient) -> str:
-    """获取测试 token"""
+    """获取测试 token，并确保 admin 恰有一个可写 Workspace（E98 无头创建可绑定）。"""
+    from sqlalchemy import text as sql_text
+    from opentask.models.user.model import UserModel
+    from opentask.repositories.base import SessionCreator
+    from opentask.services.workspace.service import WorkspaceService
+    from opentask.services.workspace.issue_create_ws import list_writable_workspace_ids
+
     response = await test_client.post(
         "/api/auth/login",
         json={"userName": "admin", "password": "123456"}
     )
     assert response.status_code == 200, "Failed to login"
     data = response.json()
-    return data["data"]["token"]
+    token = data["data"]["token"]
+
+    async with SessionCreator() as session:
+        from sqlalchemy import select
+        user = (
+            await session.execute(select(UserModel).where(UserModel.username == "admin"))
+        ).scalar_one()
+        writable = await list_writable_workspace_ids(session, str(user.id))
+        if len(writable) == 0:
+            import uuid as _uuid
+            await WorkspaceService(session).create_for_owner(
+                name="admin-e98-ws",
+                owner_user_id=str(user.id),
+                issue_key=f"A{_uuid.uuid4().hex[:5].upper()}",
+            )
+            await session.commit()
+        elif len(writable) > 1:
+            # Keep the earliest; demote extras to viewer so sole-writable binds
+            keep = writable[0]
+            for wid in writable[1:]:
+                await session.execute(
+                    sql_text(
+                        "UPDATE workspace_members SET role = 'viewer' "
+                        "WHERE user_id = :uid AND workspace_id = :wid"
+                    ),
+                    {"uid": str(user.id), "wid": wid},
+                )
+            await session.commit()
+    return token
 
 
 @pytest.fixture

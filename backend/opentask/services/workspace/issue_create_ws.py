@@ -38,23 +38,48 @@ async def list_writable_workspace_ids(
     return [row[0] for row in result.all()]
 
 
+async def _user_can_write(session: AsyncSession, user_id: str, workspace_id: str) -> bool:
+    result = await session.execute(
+        select(WorkspaceMember.id).where(
+            WorkspaceMember.user_id == user_id,
+            WorkspaceMember.workspace_id == workspace_id,
+            WorkspaceMember.role.in_(tuple(WRITABLE_ROLES)),
+        ).limit(1)
+    )
+    return result.first() is not None
+
+
 async def resolve_workspace_for_issue_create(
     session: AsyncSession,
     user_id: str,
     *,
     explicit_workspace_id: str | None = None,
+    project_id: str | None = None,
 ) -> str:
     """Return workspace_id for KEY-N allocation.
 
     Priority (Scheme A / Q2a / Q5a):
     1. explicit_workspace_id (header / already-resolved context)
-    2. exactly one personal-default WS (created_by == user, role=owner) when
+    2. project_id → project.workspace_id when set and caller is writable there
+       (reliable, not a cross-tenant guess)
+    3. exactly one personal-default WS (created_by == user, role=owner) when
        the user has multiple writable memberships
-    3. exactly one writable membership (owner|member; viewer excluded)
+    4. exactly one writable membership (owner|member; viewer excluded)
     Otherwise raise WorkspaceRequiredError.
     """
     if explicit_workspace_id:
         return explicit_workspace_id
+
+    if project_id:
+        from opentask.models.requirement.model import Project
+
+        proj = (
+            await session.execute(select(Project).where(Project.id == project_id))
+        ).scalar_one_or_none()
+        if proj is not None and proj.workspace_id:
+            if await _user_can_write(session, user_id, proj.workspace_id):
+                return proj.workspace_id
+            # Project has WS but caller cannot write → still 400 (do not guess another)
 
     writable = await list_writable_workspace_ids(session, user_id)
     if len(writable) == 1:
@@ -62,7 +87,6 @@ async def resolve_workspace_for_issue_create(
     if len(writable) == 0:
         raise WorkspaceRequiredError()
 
-    # Multiple writable: sole personal default (register create_for_owner style)
     personal = await session.execute(
         select(Workspace.id)
         .join(
