@@ -114,8 +114,18 @@ async def _create_test_user(db: AsyncSession, base_name: str) -> UserModel:
 
 @pytest_asyncio.fixture
 async def test_user(db: AsyncSession) -> AsyncGenerator[UserModel, None]:
-    """契约 API 的操作者（authenticate 覆盖返回它；reporter 默认落它）"""
+    """契约 API 的操作者（authenticate 覆盖返回它；reporter 默认落它）
+
+    E98：创建个人默认可写 Workspace，使无头 create 可可靠绑定 KEY-N。
+    """
+    from opentask.services.workspace.service import WorkspaceService
+
     user = await _create_test_user(db, "tester")
+    await WorkspaceService(db).create_for_owner(
+        name=f"{user.username}-ws",
+        owner_user_id=str(user.id),
+    )
+    await db.commit()
     yield user
 
 
@@ -249,8 +259,8 @@ _CT_SEED_SEQ = 900_000_000  # 远离业务序号段，避免与 _generate_issue_
 
 
 def next_seed_issue_code() -> str:
-    """种子行的 issue_code：数字后缀（_generate_issue_code 按 CAST INT 取 max，
-    非数字后缀会让后续 POST 的 CAST 报错，因此必须用数字）"""
+    """种子行的 issue_code：保留 legacy ISSUE{year}-N 形态（读路径兼容测）。
+    E98 新建不再走年号分配；序号远离业务 KEY-N counter。"""
     global _CT_SEED_SEQ
     _CT_SEED_SEQ += 1
     return f"ISSUE{datetime.now().year}-{_CT_SEED_SEQ}"

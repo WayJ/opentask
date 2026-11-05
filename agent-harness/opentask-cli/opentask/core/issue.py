@@ -1713,10 +1713,11 @@ def show_issue(obj: "Context", issue_id: str, as_json: bool, show_comments: bool
     - Otherwise: treated as UUID ID (e.g., 5ee3420e-2d69-4509-9ae7-524e8c40d6d1)
 
     Examples:
-        issue show ISSUE2026-32                         # Auto-detected as code
+        issue show OT-32                                # KEY-N (auto-detected)
+        issue show ISSUE2026-32                         # legacy still resolves
         issue show 5ee3420e-2d69-4509-9ae7-524e8c40d6d1 # Auto-detected as ID
-        issue show ISSUE2026-32 --json                  # JSON output
-        issue show ISSUE2026-32 --comments               # Show full comments
+        issue show OT-32 --json                         # JSON output
+        issue show OT-32 --comments                      # Show full comments
     """
     config: Config = obj.config
     client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
@@ -1773,7 +1774,7 @@ def show_issue(obj: "Context", issue_id: str, as_json: bool, show_comments: bool
         elif e.status_code == 404:
             skin.error(f"Issue not found: {issue_id}")
             if by_code:
-                skin.hint("Make sure the issue code is correct (e.g., ISSUE2026-32)")
+                skin.hint("Make sure the issue code is correct (e.g., OT-32 or legacy ISSUE2026-32)")
             else:
                 skin.hint("Use 'issue list' to browse issues")
         else:
@@ -1881,7 +1882,7 @@ def assign_issue(obj: "Context", issue_id: str, assignee_input: str, as_json: bo
 
     Examples:
         issue assign ISSUE-ID --assignee jiangwei
-        issue assign ISSUE2026-32 -a me
+        issue assign OT-32 -a me
         issue assign ISSUE-ID --assignee none
     """
     config: Config = obj.config
@@ -1988,7 +1989,7 @@ def batch_assign_issues(obj: "Context", issue_ids: tuple, assignee_input: str, a
 
     Examples:
         issue batch-assign ISSUE-ID1 ISSUE-ID2 ISSUE-ID3 --assignee me
-        issue batch-assign ISSUE2026-32 ISSUE2026-33 -a jiangwei
+        issue batch-assign OT-32 OT-33 -a jiangwei
         issue batch-assign ISSUE-ID1 ISSUE-ID2 --assignee none
     """
     config: Config = obj.config
@@ -2170,7 +2171,7 @@ def list_comments(obj: "Context", issue_id: str, as_json: bool):
 
     Examples:
         issue comment list ISSUE-ID
-        issue comment list ISSUE2026-32 --json
+        issue comment list OT-32 --json
     """
     config: Config = obj.config
     client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
@@ -2599,7 +2600,7 @@ def list_documents(obj: "Context", issue_id: str, as_json: bool):
 
     Examples:
         issue document list ISSUE-ID
-        issue document list ISSUE2026-32 --json
+        issue document list OT-32 --json
     """
     config: Config = obj.config
     client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)

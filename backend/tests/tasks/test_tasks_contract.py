@@ -146,7 +146,8 @@ class TestContractCrud:
         assert task["created_at"] and task["updated_at"]
         # D12：assignee 字符串 ID + metadata.username
         assert task["metadata"]["username"] == assignee_user.username
-        assert task["metadata"]["issue_code"].startswith("ISSUE")
+        import re as _re
+        assert _re.match(r"^[A-Z0-9]{2,6}-\d+$", task["metadata"]["issue_code"]), task["metadata"]["issue_code"]
 
         # 落库断言（Issue 行 + 标签关联 + created timeline）
         issue_row = (

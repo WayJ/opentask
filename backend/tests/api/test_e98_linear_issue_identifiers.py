@@ -267,3 +267,20 @@ def test_workspace_required_detail_mentions_key_n():
     assert "KEY-N" in WORKSPACE_REQUIRED_DETAIL
     assert "X-Workspace-Id" in WORKSPACE_REQUIRED_DETAIL
     assert "ISSUE" in WORKSPACE_REQUIRED_DETAIL
+
+
+def test_create_surfaces_call_resolver():
+    """Jira / Tasks / collection / POST issues wire resolve_workspace_for_issue_create."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2] / "opentask"
+    files = [
+        root / "api/issue/router.py",
+        root / "api/jira/router.py",
+        root / "api/tasks/router.py",
+        root / "services/issue_collection_service.py",
+    ]
+    for f in files:
+        src = f.read_text()
+        assert "resolve_workspace_for_issue_create" in src, f
+        assert "WorkspaceRequiredError" in src, f
