@@ -1,4 +1,4 @@
-"""E52 CLI: activity --watching + unread + version 1.61.0."""
+"""E52 CLI: activity --watching + unread + version 1.62.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli
@@ -8,7 +8,7 @@ def test_version_1_36_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.61.0" in result.output
+    assert "1.62.0" in result.output
 
 
 def test_activity_list_watching_help():

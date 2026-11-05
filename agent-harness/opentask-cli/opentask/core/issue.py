@@ -46,6 +46,12 @@ def link_cli():
     pass
 
 
+@issue_cli.group(name="parent")
+def parent_cli():
+    """E78: set or clear Issue parent (set-parent / promote-to-root)."""
+    pass
+
+
 # ============================================================================
 # Helper Functions
 # ============================================================================
@@ -3659,4 +3665,87 @@ def issue_timeline_export_workspace(obj, out_path, since, action_types, filter_i
             click.echo(text, nl=False if text.endswith("\n") else True)
     except APIError as e:
         _handle_error(skin, e, "Failed to export workspace timeline", json_mode)
+        sys.exit(1)
+
+
+@parent_cli.command(name="set")
+@click.argument("issue_id")
+@click.argument("parent_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def issue_parent_set(obj: "Context", issue_id: str, parent_id: str, as_json: bool):
+    """E78: Set Issue parent (same workspace; cycle rejected by API).
+
+    Examples:
+        opentask issue parent set WAY-2 WAY-1
+        opentask issue parent set <child-uuid> <parent-uuid> --json
+    """
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    try:
+        child_uuid, _ = asyncio.run(_resolve_issue_id(client, issue_id))
+        parent_uuid, parent_issue = asyncio.run(_resolve_issue_id(client, parent_id))
+        result = asyncio.run(
+            client.update_issue(child_uuid, parent_issue_id=parent_uuid)
+        )
+        if isinstance(result, dict) and "data" in result and isinstance(result["data"], dict):
+            if "id" not in result or "parent_issue_id" not in result:
+                result = result["data"]
+        new_parent = result.get("parent_issue_id") if isinstance(result, dict) else parent_uuid
+        parent_code = parent_issue.get("issue_code") or parent_uuid
+        if json_mode:
+            click.echo(
+                _format_json_response(
+                    success=True,
+                    data={
+                        "id": child_uuid,
+                        "parent_issue_id": new_parent,
+                        "parent_code": parent_code,
+                    },
+                    message=f"parent set → {parent_code}",
+                )
+            )
+            return
+        skin.success(f"[OK] Parent set: {parent_code} ({new_parent})")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to set parent", json_mode)
+        sys.exit(1)
+
+
+@parent_cli.command(name="clear")
+@click.argument("issue_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def issue_parent_clear(obj: "Context", issue_id: str, as_json: bool):
+    """E78: Clear Issue parent (promote to root).
+
+    Examples:
+        opentask issue parent clear WAY-2
+        opentask issue parent clear <uuid> --json
+    """
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    try:
+        child_uuid, _ = asyncio.run(_resolve_issue_id(client, issue_id))
+        result = asyncio.run(client.update_issue(child_uuid, parent_issue_id=None))
+        if isinstance(result, dict) and "data" in result and isinstance(result["data"], dict):
+            if "id" not in result or "parent_issue_id" not in result:
+                result = result["data"]
+        new_parent = result.get("parent_issue_id") if isinstance(result, dict) else None
+        if json_mode:
+            click.echo(
+                _format_json_response(
+                    success=True,
+                    data={"id": child_uuid, "parent_issue_id": new_parent},
+                    message="parent cleared (root)",
+                )
+            )
+            return
+        skin.success("[OK] Parent cleared (promoted to root)")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to clear parent", json_mode)
         sys.exit(1)
