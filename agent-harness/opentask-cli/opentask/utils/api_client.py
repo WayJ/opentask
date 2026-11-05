@@ -932,6 +932,25 @@ class OpenTaskClient:
             f"/api/initiatives/{initiative_id}/relations/{relation_id}"
         )
 
+    async def set_initiative_projects(self, initiative_id: str, project_ids: list[str]) -> dict:
+        """E90: PUT /api/initiatives/{id}/projects — full replace (empty clears; unknown → 400)."""
+        return await self.put(
+            f"/api/initiatives/{initiative_id}/projects",
+            data={"projectIds": list(project_ids)},
+        )
+
+    async def attach_initiative_project(self, initiative_id: str, project_id: str) -> dict:
+        """E90: POST /api/initiatives/{id}/projects/{project_id} — idempotent attach."""
+        return await self.post(
+            f"/api/initiatives/{initiative_id}/projects/{project_id}"
+        )
+
+    async def detach_initiative_project(self, initiative_id: str, project_id: str) -> dict:
+        """E90: DELETE /api/initiatives/{id}/projects/{project_id}."""
+        return await self.delete(
+            f"/api/initiatives/{initiative_id}/projects/{project_id}"
+        )
+
     # ========================================================================
     # Customers / Customer Requests (E22)
     # ========================================================================
