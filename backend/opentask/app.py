@@ -22,6 +22,7 @@ from opentask.api.search import router as search_router
 from opentask.api.favorites import router as favorites_router
 from opentask.api.triage import router as triage_router
 from opentask.api.issue_templates import router as issue_templates_router
+from opentask.api.project_templates import router as project_templates_router
 from opentask.api.initiatives import router as initiatives_router
 from opentask.api.customers import router as customers_router
 from opentask.api.customer_requests import router as customer_requests_router
@@ -126,6 +127,7 @@ class App(fastapi.FastAPI):
         self.include_router(favorites_router)
         self.include_router(triage_router)
         self.include_router(issue_templates_router)
+        self.include_router(project_templates_router)
         self.include_router(initiatives_router)
         self.include_router(customers_router)
         self.include_router(customer_requests_router)

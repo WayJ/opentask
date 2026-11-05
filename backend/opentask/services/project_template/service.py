@@ -285,8 +285,15 @@ class ProjectTemplateService:
 
         from opentask.services.project_service import ProjectService
 
+        resp = ProjectService(self.db).to_response(project)
+        project_data = resp.model_dump() if hasattr(resp, "model_dump") else resp.dict()
+        # JSON-friendly datetimes
+        for key in ("created_at", "updated_at", "starts_at", "target_date", "health_updated_at"):
+            val = project_data.get(key)
+            if hasattr(val, "isoformat"):
+                project_data[key] = val.isoformat()
         return {
-            "project": ProjectService(self.db).to_response(project).model_dump(mode="json"),
+            "project": project_data,
             "milestones": [serialize_milestone_row(m) for m in milestones],
         }
 

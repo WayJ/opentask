@@ -62,15 +62,33 @@ async def create_project(
     current_user: UserModel = Depends(authenticate),
     ws_ctx=Depends(get_optional_workspace_context),
 ):
-    """创建项目（可选 X-Workspace-Id：写入 workspace_id）；有工作区时创建者自动 watch"""
+    """创建项目（可选 X-Workspace-Id：写入 workspace_id）；有工作区时创建者自动 watch。
+    E72: 可选 template_id → 种子里程碑（需工作区上下文）。
+    """
     workspace, _member, user = ws_ctx
     # 部门归属快照：取创建人主部门写入（无归属则保持 NULL）
     dept_id = await RbacService(service.db).get_primary_dept_id(user)
+    template_id = getattr(dto, "template_id", None)
+    if template_id and workspace is not None:
+        from opentask.services.project_template.service import ProjectTemplateService
+
+        data = await ProjectTemplateService(service.db).apply(
+            workspace_id=workspace.id,
+            template_id=template_id,
+            name=dto.name,
+            description=dto.description,
+            starts_at=getattr(dto, "starts_at", None),
+            user_id=str(user.id),
+            dept_id=dept_id,
+        )
+        return success_response(data=data["project"], message="项目创建成功")
     project = await service.create(
         dto,
         dept_id=dept_id,
         workspace_id=workspace.id if workspace else None,
     )
+    if getattr(dto, "starts_at", None) is not None:
+        project = await service.update(project.id, starts_at=dto.starts_at)
     if workspace is not None:
         from opentask.services.project_watcher.service import ProjectWatcherService
 
