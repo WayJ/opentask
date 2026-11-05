@@ -19,8 +19,8 @@ Plan：`docs/superpowers/plans/2026-11-05-e79-project-lead-members-mid-plan.md`
 ## Tip
 
 - 分支：`sprint/E79-S1`
-- tip short：`c97d981`
-- tip full：`c97d9817798ac6534601095b849a341f3864326f`
+- tip short：`bbbe924`
+- tip full：`bbbe924772bd7b8d1bdcf28f89d0deb370445fd6`
 - **未 push / 未开 PR / 未开 E80**
 
 ## Gates（verification-before-completion）
