@@ -19,8 +19,8 @@ Plan：`docs/superpowers/plans/2026-11-05-e92-saved-view-write-cli-mid-plan.md`
 ## Tip
 
 - 分支：`sprint/E92-S1`
-- tip short：29420e1
-- tip full：29420e1bd0501d97fb180a012d14c27c3a435a38
+- tip short：6324f5c
+- tip full：6324f5c51efc79cfc051f5942320ca742693e52a
 - **未 push / 未开 PR / 未开 E93**
 
 ## Gates（verification-before-completion）
