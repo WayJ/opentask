@@ -51,6 +51,17 @@ async def get_requirement_repo_service(db: AsyncSession = Depends(get_session)) 
     return RequirementRepoService(db)
 
 
+async def _project_show_payload(service: ProjectService, project) -> dict:
+    """E79 Q4a: show = base + lead + members."""
+    from opentask.services.project_member.service import ProjectMemberService
+
+    base = service.to_response(project)
+    data = base.model_dump() if hasattr(base, "model_dump") else dict(base)
+    extras = await ProjectMemberService(service.db).enrich_show(project)
+    data.update(extras)
+    return data
+
+
 # ============================================================================
 # 项目路由
 # ============================================================================
@@ -97,7 +108,7 @@ async def create_project(
             workspace_id=workspace.id,
             user_id=str(user.id),
         )
-    return success_response(data=service.to_response(project), message="项目创建成功")
+    return success_response(data=await _project_show_payload(service, project), message="项目创建成功")
 
 
 @router.get("")
@@ -124,7 +135,19 @@ async def list_projects(
         workspace_id=ws_id,
         allowed_workspace_ids=allowed,
     )
-    return success_response(data=[service.to_response(p) for p in projects])
+    from opentask.services.project_member.service import ProjectMemberService
+
+    pm = ProjectMemberService(service.db)
+    counts = await pm.member_counts_for_projects([p.id for p in projects])
+    rows = []
+    for p in projects:
+        base = service.to_response(p)
+        data = base.model_dump() if hasattr(base, "model_dump") else dict(base)
+        data.update(await pm.enrich_list_item(p, counts=counts))
+        data.pop("members", None)
+        data.pop("lead", None)
+        rows.append(data)
+    return success_response(data=rows)
 
 
 @router.get("/{project_id}")
@@ -136,27 +159,72 @@ async def get_project(
     """获取单个项目（E15：校验实体 workspace 成员资格）"""
     project = await service.get_by_id(project_id)
     await ensure_entity_workspace_access(service.db, str(current_user.id), project.workspace_id)
-    return success_response(data=service.to_response(project))
+    return success_response(data=await _project_show_payload(service, project))
 
 
 class ProjectUpdateBody(BaseModel):
-    """项目更新请求体（全部可选）"""
+    """项目更新请求体（全部可选；E79: lead_id）"""
     name: str | None = None
     description: str | None = None
     starts_at: datetime | None = None
     target_date: datetime | None = None
+    lead_id: str | None = None  # E79: null clears lead
 
 
 @router.put("/{project_id}")
+@router.patch("/{project_id}")
 async def update_project(
     project_id: str,
     body: ProjectUpdateBody = Body(...),
     service: ProjectService = Depends(get_project_service),
     current_user: UserModel = Depends(authenticate),
+    ws_ctx=Depends(get_optional_workspace_context),
 ):
-    """更新项目（含 starts_at / target_date；E15：成员校验）"""
+    """更新项目（含 starts_at / target_date / E79 lead_id；E15：成员校验）"""
+    from opentask.services.project_member.service import ProjectMemberService, require_writer
+
     existing = await service.get_by_id(project_id)
     await ensure_entity_workspace_access(service.db, str(current_user.id), existing.workspace_id)
+
+    if "lead_id" in body.model_fields_set:
+        workspace, member, _user = ws_ctx
+        if workspace is None or existing.workspace_id is None or (
+            workspace.id != existing.workspace_id
+        ):
+            # Prefer explicit WS context matching the project for lead writes
+            from opentask.api.workspace.deps import require_workspace_context as _rwc
+            # Fall back: load membership in project's workspace
+            from sqlalchemy import select as _select
+            from opentask.models.workspace.model import WorkspaceMember as _WM
+
+            if existing.workspace_id is None:
+                raise HTTPException(status_code=400, detail="项目无工作区，无法设置 lead")
+            mem_q = await service.db.execute(
+                _select(_WM).where(
+                    _WM.workspace_id == existing.workspace_id,
+                    _WM.user_id == str(current_user.id),
+                )
+            )
+            member = mem_q.scalar_one_or_none()
+            if member is None:
+                raise HTTPException(status_code=404, detail="项目不存在")
+            require_writer(member)
+            await ProjectMemberService(service.db).set_lead(
+                project_id=project_id,
+                workspace_id=existing.workspace_id,
+                user_id=body.lead_id,
+            )
+        else:
+            require_writer(member)
+            await ProjectMemberService(service.db).set_lead(
+                project_id=project_id,
+                workspace_id=workspace.id,
+                user_id=body.lead_id,
+            )
+        project = await service.get_by_id(project_id)
+    else:
+        project = existing
+
     kwargs = {}
     if "name" in body.model_fields_set:
         kwargs["name"] = body.name
@@ -166,8 +234,9 @@ async def update_project(
         kwargs["starts_at"] = body.starts_at
     if "target_date" in body.model_fields_set:
         kwargs["target_date"] = body.target_date
-    project = await service.update(project_id, **kwargs)
-    return success_response(data=service.to_response(project), message="项目更新成功")
+    if kwargs:
+        project = await service.update(project_id, **kwargs)
+    return success_response(data=await _project_show_payload(service, project), message="项目更新成功")
 
 
 @router.delete("/{project_id}")
@@ -560,9 +629,80 @@ async def get_project_timeline(
     return success_response(data=data)
 
 
+
+# ============================================================================
+# Project members (E79 roster-only)
+# ============================================================================
+
+members_router = APIRouter(prefix="/{project_id}/members", tags=["Project Members"])
+
+
+class ProjectMemberBody(BaseModel):
+    user_id: str
+
+
+@members_router.get("")
+async def list_project_members(
+    project_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    from opentask.services.project_member.service import ProjectMemberService
+
+    ws, _member, _user = ctx
+    rows = await ProjectMemberService(db).list_member_summaries(
+        project_id=project_id, workspace_id=ws.id
+    )
+    return success_response(data=rows)
+
+
+@members_router.post("")
+async def add_project_member(
+    project_id: str,
+    body: ProjectMemberBody,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    from opentask.services.project_member.service import ProjectMemberService, require_writer, user_summary
+    from opentask.models.user.model import UserModel as _UM
+    from sqlalchemy import select as _select
+
+    ws, member, _user = ctx
+    require_writer(member)
+    row = await ProjectMemberService(db).add_member(
+        project_id=project_id, workspace_id=ws.id, user_id=body.user_id
+    )
+    uq = await db.execute(_select(_UM).where(_UM.id == str(row.user_id)))
+    summary = user_summary(uq.scalar_one_or_none(), str(row.user_id)) or {
+        "id": str(row.user_id),
+        "name": None,
+        "sso_name": None,
+        "sso_account": None,
+    }
+    return success_response(data=summary, message="已加入项目成员")
+
+
+@members_router.delete("/{user_id}")
+async def remove_project_member(
+    project_id: str,
+    user_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    db: AsyncSession = Depends(get_session),
+):
+    from opentask.services.project_member.service import ProjectMemberService, require_writer
+
+    ws, member, _user = ctx
+    require_writer(member)
+    await ProjectMemberService(db).remove_member(
+        project_id=project_id, workspace_id=ws.id, user_id=user_id
+    )
+    return success_response(message="已移除项目成员")
+
+
 # 将子路由器添加到主路由器
 router.include_router(repo_router)
 router.include_router(milestones_router)
 router.include_router(health_router)
 router.include_router(watchers_router)
+router.include_router(members_router)
 router.include_router(requirement_repo_router)

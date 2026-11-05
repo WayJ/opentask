@@ -59,6 +59,7 @@ from opentask.models.cycle import Cycle
 from opentask.models.milestone import Milestone
 from opentask.models.project_health import ProjectHealthUpdate
 from opentask.models.project_watcher import ProjectWatcher
+from opentask.models.project_member import ProjectMember
 from opentask.models.issue_watcher import IssueWatcher
 from opentask.models.issue_assignee import IssueAssignee
 from opentask.models.activity_read_cursor import ActivityReadCursor
@@ -141,6 +142,7 @@ __all__ = [
     "ProjectTemplate",
     "ProjectHealthUpdate",
     "ProjectWatcher",
+    "ProjectMember",
     "IssueWatcher",
     "IssueAssignee",
     "IssueLink",
