@@ -541,6 +541,39 @@ export const issueApi = {
     });
   },
 
+  /** E69: list comment attachments */
+  getCommentAttachments: (issueId: string, commentId: string) => {
+    return request<Api.Document.Response[]>({
+      url: `/api/issues/${issueId}/comments/${commentId}/attachments`,
+      method: 'GET'
+    });
+  },
+
+  /** E69: upload attachment onto a comment */
+  uploadCommentAttachment: (issueId: string, commentId: string, data: { file: File; description?: string }) => {
+    const formData = new FormData();
+    formData.append('file', data.file);
+    if (data.description) {
+      formData.append('description', data.description);
+    }
+    return request<Api.Document.Response>({
+      url: `/api/issues/${issueId}/comments/${commentId}/attachments`,
+      method: 'POST',
+      data: formData,
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+  },
+
+  /** E69: delete comment attachment */
+  deleteCommentAttachment: (issueId: string, commentId: string, attachmentId: string) => {
+    return request({
+      url: `/api/issues/${issueId}/comments/${commentId}/attachments/${attachmentId}`,
+      method: 'DELETE'
+    });
+  },
+
   /**
    * E66: 签发短 TTL 签名 URL（预览/下载内联用；须成员会话）
    */

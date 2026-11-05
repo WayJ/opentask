@@ -23,6 +23,8 @@ import ConversationViewer from './ConversationViewer.vue';
 
 interface Props {
   issueId: string;
+  /** E69: when set, upload/delete target comment attachments */
+  commentId?: string;
   attachments?: Api.Document.Response[];
   readonly?: boolean;
 }
@@ -32,6 +34,7 @@ interface Emits {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  commentId: undefined,
   attachments: () => [],
   readonly: false
 });
@@ -84,7 +87,11 @@ const handleUpload = async ({ file }: { file: { file?: File } }) => {
 
   uploading.value = true;
   try {
-    await issueApi.uploadAttachment(props.issueId, { file: uploadFile });
+    if (props.commentId) {
+      await issueApi.uploadCommentAttachment(props.issueId, props.commentId, { file: uploadFile });
+    } else {
+      await issueApi.uploadAttachment(props.issueId, { file: uploadFile });
+    }
     message.success('附件上传成功');
     emit('refresh');
     // 清空上传列表
@@ -102,7 +109,11 @@ const handleUpload = async ({ file }: { file: { file?: File } }) => {
 // 处理删除附件
 const handleDelete = async (attachmentId: string) => {
   try {
-    await issueApi.deleteAttachment(props.issueId, attachmentId);
+    if (props.commentId) {
+      await issueApi.deleteCommentAttachment(props.issueId, props.commentId, attachmentId);
+    } else {
+      await issueApi.deleteAttachment(props.issueId, attachmentId);
+    }
     message.success('附件删除成功');
     emit('refresh');
   } catch (error) {

@@ -222,6 +222,13 @@ export namespace Api.Issue {
     created_at: string;
     updated_at: string;
     user_info?: UserInfo;
+    /** E69 thin attachment summary */
+    attachments?: Array<{
+      id: string;
+      file_name: string;
+      file_size: number;
+      file_type: string;
+    }>;
   }
 
   /** Issue 关系基础信息 */

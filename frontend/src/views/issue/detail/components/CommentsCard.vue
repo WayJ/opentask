@@ -4,6 +4,15 @@ import { computed, ref } from 'vue';
 import { NAvatar, NButton, NCard, NDivider, NText } from 'naive-ui';
 import MarkdownEditor from '@/components/MarkdownEditor.vue';
 import CommentDisplay from '@/components/CommentDisplay.vue';
+import AttachmentList from '@/components/common/AttachmentList.vue';
+import { commentAttachmentToDocument } from '@/utils/attachmentUrls';
+
+interface CommentAttachment {
+  id: string;
+  file_name: string;
+  file_size: number;
+  file_type: string;
+}
 
 interface Comment {
   id: string;
@@ -12,6 +21,8 @@ interface Comment {
   user_info?: {
     sso_name?: string;
   };
+  attachments?: CommentAttachment[];
+  embedded_tasks?: any[];
 }
 
 interface Props {
@@ -21,6 +32,7 @@ interface Props {
 
 interface Emits {
   (e: 'add', content: string, embeddedTasks?: any[]): void;
+  (e: 'refresh'): void;
 }
 
 const props = defineProps<Props>();
@@ -55,6 +67,10 @@ const formatDateTime = (dateStr: string) => {
 const getUserName = (comment: Comment) => {
   return comment.user_info?.sso_name || '未知用户';
 };
+
+function mapAttachments(comment: Comment) {
+  return (comment.attachments || []).map(a => commentAttachmentToDocument(a, comment.id));
+}
 </script>
 
 <template>
@@ -94,6 +110,14 @@ const getUserName = (comment: Comment) => {
           <div class="comment-text">
             <CommentDisplay :content="comment.content" :embedded-tasks="comment.embedded_tasks" />
           </div>
+          <div class="comment-attachments">
+            <AttachmentList
+              :issue-id="issueId"
+              :comment-id="comment.id"
+              :attachments="mapAttachments(comment)"
+              @refresh="emit('refresh')"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -119,16 +143,12 @@ const getUserName = (comment: Comment) => {
 .comments-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-lg);
+  gap: var(--space-md);
 }
 
 .comment-item {
   display: flex;
-  gap: var(--space-md);
-}
-
-.comment-avatar {
-  flex-shrink: 0;
+  gap: var(--space-sm);
 }
 
 .comment-content {
@@ -139,20 +159,16 @@ const getUserName = (comment: Comment) => {
 .comment-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-xs);
+  margin-bottom: 4px;
 }
 
 .user-info {
   display: flex;
-  align-items: center;
-  gap: var(--space-sm);
+  align-items: baseline;
+  gap: 8px;
 }
 
-.comment-text {
-  font-size: var(--font-size-sm);
-  line-height: 1.5;
-  color: var(--color-text-primary);
-  white-space: pre-wrap;
+.comment-attachments {
+  margin-top: 8px;
 }
 </style>

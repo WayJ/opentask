@@ -49,6 +49,7 @@ import IssueReactions from '@/components/IssueReactions.vue';
 import IssueCustomFieldsEditor from '@/components/issue/IssueCustomFieldsEditor.vue';
 import UserSelect from '@/components/UserSelect.vue';
 import AttachmentList from '@/components/common/AttachmentList.vue';
+import { commentAttachmentToDocument } from '@/utils/attachmentUrls';
 import EntityDocsPanel from '@/components/entity-docs/EntityDocsPanel.vue';
 import IssuePrPanel from '@/components/issue-vcs/IssuePrPanel.vue';
 import EditableField from '@/components/EditableField.vue';
@@ -1392,6 +1393,14 @@ onUnmounted(() => {
                         :current-user-id="currentUserId"
                         @react="(emoji: string) => handleCommentReact(comment.id, emoji)"
                         @unreact="(emoji: string) => handleCommentUnreact(comment.id, emoji)"
+                      />
+                    </div>
+                    <div class="comment-attachments mt-8px">
+                      <AttachmentList
+                        :issue-id="issueId"
+                        :comment-id="comment.id"
+                        :attachments="(comment.attachments || []).map(a => commentAttachmentToDocument(a, comment.id))"
+                        @refresh="loadComments"
                       />
                     </div>
                   </div>
