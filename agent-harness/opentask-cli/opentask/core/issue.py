@@ -940,10 +940,15 @@ def duplicate_issue_cmd(obj: "Context", issue_id: str, title: str | None, as_jso
               help="Story points estimate (e.g. 1/2/3/5/8); omit to leave unchanged")
 @click.option("--start-date", default=None, help="E73: planned start date YYYY-MM-DD (empty string clears)")
 @click.option("--due-date", default=None, help="Due date YYYY-MM-DD (empty string clears)")
+@click.option("--project", "project_id", default=None,
+              help="E80: set project_id (empty string clears project)")
+@click.option("--milestone", "milestone_id", default=None, help="E80: set milestone_id")
+@click.option("--clear-milestone", is_flag=True, default=False,
+              help="E80: clear milestone_id")
 @click.option("--verbose", "-v", is_flag=True, help="Show detailed information")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.pass_obj
-def update_issue(obj: "Context", issue_id: str, title, description, issue_type, status, priority, assignee_id, assignees, reporter_id, estimate_points, start_date, due_date, verbose: bool, as_json: bool):
+def update_issue(obj: "Context", issue_id: str, title, description, issue_type, status, priority, assignee_id, assignees, reporter_id, estimate_points, start_date, due_date, project_id, milestone_id, clear_milestone: bool, verbose: bool, as_json: bool):
     """Update an issue.
 
     Issue identifier format is auto-detected:
@@ -962,6 +967,10 @@ def update_issue(obj: "Context", issue_id: str, title, description, issue_type, 
 
     # Use global JSON mode if no local flag
     json_mode = as_json or obj.json_mode
+
+    if clear_milestone and milestone_id is not None:
+        skin.error("--milestone and --clear-milestone are mutually exclusive")
+        return
 
     # Auto-detect: check if it's an issue code (ISSUE + digits + hyphen + digits)
     import re
@@ -1002,6 +1011,15 @@ def update_issue(obj: "Context", issue_id: str, title, description, issue_type, 
         kwargs["start_date"] = start_date if start_date != "" else None
     if due_date is not None:
         kwargs["due_date"] = due_date if due_date != "" else None
+    if project_id is not None:
+        kwargs["project_id"] = project_id if project_id != "" else None
+    if clear_milestone and milestone_id is not None:
+        skin.error("--milestone and --clear-milestone are mutually exclusive")
+        return
+    if clear_milestone:
+        kwargs["milestone_id"] = None
+    elif milestone_id is not None:
+        kwargs["milestone_id"] = milestone_id if milestone_id != "" else None
 
     if not kwargs:
         skin.error("At least one field must be specified for update")
@@ -1032,6 +1050,8 @@ def update_issue(obj: "Context", issue_id: str, title, description, issue_type, 
                 "Type": issue.get("type", ""),
                 "Status": issue.get("status", ""),
                 "Priority": issue.get("priority", ""),
+                "Project": issue.get("project_id") or "",
+                "Milestone": issue.get("milestone_id") or "",
             })
 
             if issue.get("description"):
