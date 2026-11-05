@@ -6,6 +6,7 @@ import {
   type FormFieldDef,
   type PublicFormSchema,
   fetchPublicFormSchema,
+  formSubmitSuccessCopy,
   submitPublicForm
 } from '@/service/api/forms';
 
@@ -17,7 +18,7 @@ const loading = ref(true);
 const submitting = ref(false);
 const schema = ref<PublicFormSchema | null>(null);
 const errorMsg = ref('');
-const success = ref<{ issueCode: string; title: string } | null>(null);
+const success = ref<{ issueCode: string; title: string; triageEnqueued?: boolean } | null>(null);
 const values = reactive<Record<string, string>>({});
 const fieldErrors = ref<Record<string, string>>({});
 
@@ -89,7 +90,11 @@ async function onSubmit() {
   fieldErrors.value = {};
   try {
     const result = await submitPublicForm(token.value, buildPayload(schema.value.fields || []));
-    success.value = { issueCode: result.issueCode, title: result.title };
+    success.value = {
+      issueCode: result.issueCode,
+      title: result.title,
+      triageEnqueued: !!result.triageEnqueued
+    };
   } catch (e: any) {
     const errs = e?.errors as { field?: string; message?: string }[] | undefined;
     if (Array.isArray(errs)) {
@@ -123,7 +128,7 @@ onMounted(load);
         <div v-if="errorMsg" class="py-6 text-center text-red-500">{{ errorMsg }}</div>
         <div v-else-if="success" class="py-6 text-center">
           <div class="text-lg font-medium mb-2">提交成功</div>
-          <NText depth="3">已创建 {{ success.issueCode }} · {{ success.title }}</NText>
+          <NText depth="3">{{ formSubmitSuccessCopy(success) }}</NText>
           <div class="mt-4">
             <NButton @click="resetForm">再提交一条</NButton>
           </div>

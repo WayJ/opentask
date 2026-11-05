@@ -31,6 +31,7 @@ export interface IssueFormRow {
   enabled: boolean;
   fields: FormFieldDef[];
   createCustomerRequest: boolean;
+  enqueueTriage?: boolean;
   createdBy?: string | null;
   publicPath?: string;
   createdAt?: string | null;
@@ -64,6 +65,7 @@ export function fetchCreateForm(body: {
   slug?: string;
   enabled?: boolean;
   createCustomerRequest?: boolean;
+  enqueueTriage?: boolean;
 }) {
   return request<IssueFormRow>({ url: '/api/forms', method: 'post', data: body });
 }
@@ -79,6 +81,7 @@ export function fetchUpdateForm(
     setSlug: boolean;
     enabled: boolean;
     createCustomerRequest: boolean;
+    enqueueTriage: boolean;
   }>
 ) {
   return request<IssueFormRow>({ url: `/api/forms/${id}`, method: 'patch', data: body });
@@ -106,7 +109,7 @@ export async function fetchPublicFormSchema(token: string): Promise<PublicFormSc
 export async function submitPublicForm(
   token: string,
   values: Record<string, unknown>
-): Promise<{ issueId: string; issueCode: string; title: string; requestId?: string | null }> {
+): Promise<{ issueId: string; issueCode: string; title: string; requestId?: string | null; triageEnqueued?: boolean }> {
   const base = import.meta.env.VITE_SERVICE_BASE_URL || '';
   const resp = await fetch(`${base}/api/public/forms/${encodeURIComponent(token)}/submit`, {
     method: 'POST',
@@ -129,6 +132,7 @@ export async function submitPublicForm(
     issueCode: string;
     title: string;
     requestId?: string | null;
+    triageEnqueued?: boolean;
   };
 }
 
@@ -145,4 +149,16 @@ export function ensureTitleField(fields: FormFieldDef[]): FormFieldDef[] {
 export function buildPublicUrl(tokenOrPath: string, origin = typeof window !== 'undefined' ? window.location.origin : ''): string {
   const path = tokenOrPath.startsWith('/f/') ? tokenOrPath : `/f/${tokenOrPath}`;
   return `${origin}${path}`;
+}
+
+/** E68: success-page copy — triage queue vs plain create (no status deep-link). */
+export function formSubmitSuccessCopy(input: {
+  issueCode: string;
+  title: string;
+  triageEnqueued?: boolean | null;
+}): string {
+  if (input.triageEnqueued) {
+    return `已进入受理队列，请等待处理（${input.issueCode} · ${input.title}）`;
+  }
+  return `已创建 ${input.issueCode} · ${input.title}`;
 }

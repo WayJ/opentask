@@ -30,6 +30,7 @@ const form = reactive({
   name: '',
   slug: '',
   description: '',
+  enqueueTriage: false,
   fieldsJson: JSON.stringify(
     [
       { key: 'title', type: 'title', label: '标题', required: true },
@@ -75,6 +76,17 @@ const columns: DataTableColumns<IssueFormRow> = [
         value: row.enabled,
         size: 'small',
         onUpdateValue: (v: boolean) => toggle(row, v)
+      })
+  },
+  {
+    title: '入 Triage',
+    key: 'enqueueTriage',
+    width: 110,
+    render: row =>
+      h(NSwitch, {
+        value: !!row.enqueueTriage,
+        size: 'small',
+        onUpdateValue: (v: boolean) => toggleEnqueue(row, v)
       })
   },
   {
@@ -142,7 +154,8 @@ async function createForm() {
       name: form.name.trim(),
       slug: form.slug.trim() || undefined,
       description: form.description.trim() || undefined,
-      fields
+      fields,
+      enqueueTriage: form.enqueueTriage
     });
     if (error) {
       window.$message?.error?.(error.message || '创建失败');
@@ -152,6 +165,7 @@ async function createForm() {
     form.name = '';
     form.slug = '';
     form.description = '';
+    form.enqueueTriage = false;
     await load();
   } finally {
     creating.value = false;
@@ -164,6 +178,16 @@ async function toggle(row: IssueFormRow, enabled: boolean) {
   const { error } = await fetchUpdateForm(row.id, { enabled });
   if (error) {
     row.enabled = prev;
+    window.$message?.error?.(error.message || '更新失败');
+  }
+}
+
+async function toggleEnqueue(row: IssueFormRow, enqueueTriage: boolean) {
+  const prev = !!row.enqueueTriage;
+  row.enqueueTriage = enqueueTriage;
+  const { error } = await fetchUpdateForm(row.id, { enqueueTriage });
+  if (error) {
+    row.enqueueTriage = prev;
     window.$message?.error?.(error.message || '更新失败');
   }
 }
@@ -214,6 +238,10 @@ onMounted(load);
           <NInput v-model:value="form.slug" placeholder="slug（可选，小写）" />
           <NInput v-model:value="form.description" type="textarea" placeholder="说明（公开页展示）" :rows="2" />
           <NInput v-model:value="form.fieldsJson" type="textarea" placeholder="fields JSON" :rows="8" />
+          <div class="flex items-center gap-2">
+            <NSwitch v-model:value="form.enqueueTriage" size="small" />
+            <NText depth="3">提交后进入 Triage</NText>
+          </div>
           <NButton type="primary" :loading="creating" @click="createForm">创建</NButton>
         </NSpace>
       </NCard>
