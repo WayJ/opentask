@@ -74,6 +74,7 @@ import {
   resolveRowBackground
 } from '@/utils/display-prefs';
 import { nestIssuesDepth1 } from '@/utils/nestIssuesDepth1';
+import { formatChildProgress } from '@/utils/childProgress';
 import {
   type ParsedQuery,
   customFieldsToCfParams,
@@ -1326,7 +1327,22 @@ const baseColumns: DataTableColumns<Api.Issue.Issue> = [
           row.title,
           ...relationBadgeNodes(row).map(n =>
             h('span', { style: 'margin-left: 6px; display: inline-flex; vertical-align: middle;' }, [n])
-          )
+          ),
+          ...(formatChildProgress(row.childProgress)
+            ? [
+                h(
+                  'span',
+                  { style: 'margin-left: 6px; display: inline-flex; vertical-align: middle;' },
+                  [
+                    h(
+                      NTag,
+                      { size: 'tiny', type: 'info', bordered: false },
+                      { default: () => formatChildProgress(row.childProgress) }
+                    )
+                  ]
+                )
+              ]
+            : [])
         ]
       );
     }

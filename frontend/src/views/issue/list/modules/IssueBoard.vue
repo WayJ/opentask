@@ -23,6 +23,7 @@ import type {
 } from '@/utils/display-prefs';
 import { resolveCellIcon, resolveRowBackground } from '@/utils/display-prefs';
 import type { Api } from '@/typings/api';
+import { formatChildProgress } from '@/utils/childProgress';
 
 defineOptions({ name: 'IssueBoard' });
 
@@ -303,6 +304,11 @@ function showField(key: keyof IssueDisplayFields): boolean {
                     @click.stop="openDetail(issue)"
                   >
                     阻塞 {{ issue.blocks_count }}
+                  </NTag>
+                </div>
+                <div v-if="formatChildProgress(issue.childProgress)" class="board-card-meta">
+                  <NTag size="tiny" type="info" :bordered="false">
+                    {{ formatChildProgress(issue.childProgress) }}
                   </NTag>
                 </div>
                 <div v-if="showField('type')" class="board-card-meta">

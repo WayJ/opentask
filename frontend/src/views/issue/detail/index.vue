@@ -9,6 +9,7 @@ import {
   NEmpty,
   NInput,
   NModal,
+  NProgress,
   NSelect,
   NSpace,
   NSpin,
@@ -45,6 +46,7 @@ import { subscribeWorkspaceRealtime } from '@/composables/use-workspace-realtime
 import { useIssueFocus } from '@/composables/use-issue-focus';
 import MarkdownEditor from '@/components/MarkdownEditor.vue';
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
+import { childProgressPercent, formatChildProgressLabel } from '@/utils/childProgress';
 import IssueReactions from '@/components/IssueReactions.vue';
 import IssueCustomFieldsEditor from '@/components/issue/IssueCustomFieldsEditor.vue';
 import UserSelect from '@/components/UserSelect.vue';
@@ -1337,6 +1339,44 @@ onUnmounted(() => {
           <div v-if="issueId" class="mt-12px">
             <EntityDocsPanel parent-type="issue" :parent-id="issueId" />
           </div>
+
+          <!-- E70: sub-issues + childProgress -->
+          <NCard class="mt-12px" size="small">
+            <template #header>
+              <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;width:100%">
+                <span>子问题</span>
+                <NButton text size="tiny" @click="showAddSubIssue = true">+ 添加</NButton>
+              </div>
+            </template>
+            <div v-if="(issue.childProgress?.total || 0) > 0" class="mb-8px">
+              <NSpace align="center" :size="8">
+                <NProgress
+                  type="line"
+                  :percentage="childProgressPercent(issue.childProgress)"
+                  :show-indicator="false"
+                  style="width: 160px"
+                />
+                <NText depth="3" style="font-size: 12px">
+                  {{ formatChildProgressLabel(issue.childProgress) }}
+                </NText>
+              </NSpace>
+            </div>
+            <NEmpty v-if="!childSummaries.length" description="暂无子问题" size="small" />
+            <NSpace v-else vertical :size="4">
+              <div v-for="c in childSummaries" :key="c.id" class="linked-issue">
+                <NButton
+                  text
+                  size="tiny"
+                  type="primary"
+                  @click="router.push({ path: '/issue/detail', query: { id: c.id } })"
+                >
+                  {{ c.issue_code }} · {{ c.title }}
+                </NButton>
+                <NTag size="tiny" :bordered="false">{{ c.status }}</NTag>
+              </div>
+            </NSpace>
+          </NCard>
+
 
           <div v-if="issueId" class="mt-12px">
             <IssuePrPanel :issue-id="issueId" />

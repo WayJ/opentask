@@ -141,6 +141,15 @@ export namespace Api.Issue {
     status: IssueStatus | string;
   }
 
+  /** E70: direct-child progress rollup */
+  export interface ChildProgress {
+    total: number;
+    done: number;
+    open: number;
+    percent: number | null;
+    byStatus?: Record<string, number>;
+  }
+
   export interface Issue extends IssueBase {
     id: string;
     issue_code: string;
@@ -162,6 +171,8 @@ export namespace Api.Issue {
     assignee?: UserInfo;
     reporter?: UserInfo;
     children?: IssueChildSummary[];
+    /** E70: present on detail by default; list when ?include=childProgress */
+    childProgress?: ChildProgress;
     tags?: IssueTag[];
   }
 
