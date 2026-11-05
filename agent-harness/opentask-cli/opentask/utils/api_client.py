@@ -1365,12 +1365,102 @@ class OpenTaskClient:
         """Get project details."""
         return await self.get(f"/api/projects/{project_id}")
 
-    async def create_project(self, name: str, description: str = "") -> dict:
-        """Create a new project."""
-        return await self.post("/api/projects", data={
-            "name": name,
-            "description": description
-        })
+    async def create_project(
+        self,
+        name: str,
+        description: str = "",
+        template_id: str | None = None,
+        starts_at: str | None = None,
+    ) -> dict:
+        """Create a new project (E72: optional template_id seeds milestones)."""
+        data: dict = {"name": name, "description": description}
+        if template_id:
+            data["template_id"] = template_id
+        if starts_at:
+            data["starts_at"] = starts_at
+        return await self.post("/api/projects", data=data)
+
+    async def list_project_templates(self) -> dict:
+        return await self.get("/api/project-templates")
+
+    async def get_project_template(self, template_id: str) -> dict:
+        return await self.get(f"/api/project-templates/{template_id}")
+
+    async def create_project_template(
+        self,
+        *,
+        name: str,
+        description: str | None = None,
+        icon: str | None = None,
+        payload: dict | None = None,
+        sort_order: int = 0,
+    ) -> dict:
+        body: dict = {"name": name, "sortOrder": sort_order}
+        if description is not None:
+            body["description"] = description
+        if icon is not None:
+            body["icon"] = icon
+        if payload is not None:
+            body["payload"] = payload
+        return await self.post("/api/project-templates", data=body)
+
+    async def update_project_template(
+        self,
+        template_id: str,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        icon: str | None = None,
+        payload: dict | None = None,
+        sort_order: int | None = None,
+    ) -> dict:
+        body: dict = {}
+        if name is not None:
+            body["name"] = name
+        if description is not None:
+            body["description"] = description
+        if icon is not None:
+            body["icon"] = icon
+        if payload is not None:
+            body["payload"] = payload
+        if sort_order is not None:
+            body["sortOrder"] = sort_order
+        return await self.patch(f"/api/project-templates/{template_id}", data=body)
+
+    async def delete_project_template(self, template_id: str) -> dict:
+        return await self.delete(f"/api/project-templates/{template_id}")
+
+    async def apply_project_template(
+        self,
+        template_id: str,
+        *,
+        name: str,
+        description: str | None = None,
+        starts_at: str | None = None,
+    ) -> dict:
+        body: dict = {"name": name}
+        if description is not None:
+            body["description"] = description
+        if starts_at is not None:
+            body["startsAt"] = starts_at
+        return await self.post(f"/api/project-templates/{template_id}/apply", data=body)
+
+    async def project_template_from_project(
+        self,
+        project_id: str,
+        *,
+        name: str,
+        description: str | None = None,
+        icon: str | None = None,
+    ) -> dict:
+        body: dict = {"name": name}
+        if description is not None:
+            body["description"] = description
+        if icon is not None:
+            body["icon"] = icon
+        return await self.post(
+            f"/api/project-templates/from-project/{project_id}", data=body
+        )
 
     async def update_project(
         self,

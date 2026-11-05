@@ -129,9 +129,11 @@ def show_project(obj: "Context", project_id: str, as_json: bool):
 @project_cli.command(name="create")
 @click.option("--name", "-n", required=True, help="Project name")
 @click.option("--description", "-d", default="", help="Project description")
+@click.option("--template-id", default=None, help="E72: apply project template milestones")
+@click.option("--starts-at", default=None, help="E72: ISO start for template offsets")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.pass_obj
-def create_project(obj: "Context", name: str, description: str, as_json: bool):
+def create_project(obj: "Context", name: str, description: str, template_id: str | None, starts_at: str | None, as_json: bool):
     """Create a new project."""
     config: Config = obj.config
     client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
@@ -139,7 +141,11 @@ def create_project(obj: "Context", name: str, description: str, as_json: bool):
 
     json_mode = as_json or getattr(obj, "json_mode", False)
     try:
-        project = asyncio.run(client.create_project(name, description))
+        project = asyncio.run(
+            client.create_project(
+                name, description, template_id=template_id, starts_at=starts_at
+            )
+        )
 
         if json_mode:
             echo_json(True, data=project, message="project created")
