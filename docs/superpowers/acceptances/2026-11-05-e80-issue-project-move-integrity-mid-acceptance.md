@@ -19,8 +19,8 @@ Plan：`docs/superpowers/plans/2026-11-05-e80-issue-project-move-integrity-mid-p
 ## Tip
 
 - 分支：`sprint/E80-S1`
-- tip short：`af9a4a4`
-- tip full：`af9a4a4e147979c3c9b4ebcdb837808981ae3d6f`
+- tip short：`f29c6eb`
+- tip full：`f29c6eb945c54df8b02284825344c47766a744c1`
 - **未 push / 未开 PR / 未开 E81**
 
 ## Gates（verification-before-completion）
