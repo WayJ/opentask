@@ -122,6 +122,26 @@ export const issueApi = {
   },
 
   /**
+   * E75: 复制 Issue（Linear-style duplicate）
+   */
+  duplicateIssue: (
+    id: string,
+    data?: {
+      title?: string;
+      project_id?: string | null;
+      cycle_id?: string | null;
+      parent_issue_id?: string | null;
+      assignee_ids?: string[];
+    }
+  ) => {
+    return request<Api.Issue.Issue>({
+      url: `/api/issues/${id}/duplicate`,
+      method: 'POST',
+      data: data || {}
+    });
+  },
+
+  /**
    * 更新 Issue
    */
   updateIssue: (id: string, data: Api.Issue.UpdateIssue) => {

@@ -1088,6 +1088,26 @@ function handleDeleteIssue() {
   });
 }
 
+const duplicateLoading = ref(false);
+
+/** E75: Linear-style duplicate → navigate to new issue */
+async function handleDuplicateIssue() {
+  if (!issue.value) return;
+  duplicateLoading.value = true;
+  try {
+    const created = await issueApi.duplicateIssue(issue.value.id);
+    const newId = created?.id;
+    const code = created?.issue_code || (created as any)?.issueCode || '';
+    if (!newId) throw new Error('missing id');
+    window.$message?.success(code ? `已复制为 ${code}` : 'Issue 复制成功');
+    router.push({ path: '/issue/detail', query: { id: newId } });
+  } catch (e: any) {
+    window.$message?.error(e?.message || 'Issue 复制失败');
+  } finally {
+    duplicateLoading.value = false;
+  }
+}
+
 // Format date
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '-';
@@ -1327,6 +1347,12 @@ onUnmounted(() => {
                     <icon-mdi-pencil />
                   </template>
                   编辑
+                </NButton>
+                <NButton size="small" :loading="duplicateLoading" @click="handleDuplicateIssue">
+                  <template #icon>
+                    <icon-mdi-content-copy />
+                  </template>
+                  复制 Issue
                 </NButton>
                 <NButton size="small" @click="startEdit('status', issue.status)">
                   <template #icon>
