@@ -19,8 +19,8 @@ Plan：`docs/superpowers/plans/2026-11-05-e81-project-milestones-cli-mid-plan.md
 ## Tip
 
 - 分支：`sprint/E81-S1`
-- tip short：`d0fa3a6`
-- tip full：`d0fa3a6d8be7fc8b0bd478245fb8c18526320fce`
+- tip short：`6b48a5a`
+- tip full：`6b48a5a7769da465d176c8c8211e0ad4d267d624`
 - **未 push / 未开 PR / 未开 E82**
 
 ## Gates（verification-before-completion）
