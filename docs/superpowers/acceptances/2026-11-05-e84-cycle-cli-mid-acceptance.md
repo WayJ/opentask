@@ -19,8 +19,8 @@ Plan：`docs/superpowers/plans/2026-11-05-e84-cycle-cli-mid-plan.md`
 ## Tip
 
 - 分支：`sprint/E84-S1`
-- tip short：`97cc567`
-- tip full：`97cc56796803110242d11415ad697a2143b070ad`
+- tip short：`c634110`
+- tip full：`c634110bce1aa00bd54e072dc0e08f39a2484e49`
 - **未 push / 未开 PR / 未开 E85**
 
 ## Gates（verification-before-completion）
