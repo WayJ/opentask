@@ -1587,6 +1587,7 @@ class OpenTaskClient:
         priority: str = "medium",
         project_id: str | None = None,
         assignee_id: str | None = None,
+        assignee_ids: list[str] | None = None,
         estimate_points: float | None = None,
     ) -> dict:
         """Create a new issue.
@@ -1605,7 +1606,9 @@ class OpenTaskClient:
         }
         if project_id:
             data["project_id"] = project_id
-        if assignee_id:
+        if assignee_ids:
+            data["assignee_ids"] = assignee_ids
+        elif assignee_id:
             data["assignee_id"] = assignee_id
         if estimate_points is not None:
             data["estimate_points"] = estimate_points

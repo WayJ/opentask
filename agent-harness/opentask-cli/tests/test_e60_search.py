@@ -1,4 +1,4 @@
-"""E60 CLI: top-level search + version 1.54.0."""
+"""E60 CLI: top-level search + version 1.55.0."""
 from click.testing import CliRunner
 
 from opentask import __version__
@@ -9,9 +9,9 @@ def test_version_pin_144():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.54.0" in result.output
-    assert VERSION == "1.54.0"
-    assert __version__ == "1.54.0"
+    assert "1.55.0" in result.output
+    assert VERSION == "1.55.0"
+    assert __version__ == "1.55.0"
 
 
 def test_search_help():

@@ -153,6 +153,17 @@ def _display_issue_details(skin: ReplSkin, client: OpenTaskClient, issue: dict, 
         "Assignee": assignee.get("name", "Unassigned") if assignee else "Unassigned",
         "Reporter": reporter.get("name", "N/A") if reporter else "N/A",
     })
+    # E71: Assignees list (primary marked)
+    assignees = issue.get("assignees") or []
+    if isinstance(assignees, list) and assignees:
+        labels = []
+        for i, a in enumerate(assignees):
+            if not isinstance(a, dict):
+                continue
+            name = a.get("name") or a.get("sso_name") or a.get("id", "")
+            labels.append(f"{name} (primary)" if i == 0 else str(name))
+        skin.info("Assignees")
+        skin.status_block({"Assignees": ", ".join(labels)})
 
     # Dates
     skin.info("Dates")
@@ -739,12 +750,14 @@ def list_my_issues(obj: "Context", status, issue_type, priority, project_id, ope
               help="Project ID [Optional: uses active project if set]")
 @click.option("--assignee", "-a", "assignee_id",
               help="Assignee user ID [Optional]")
+@click.option("--assignees", default=None,
+              help="E71: comma-separated assignee IDs (first=primary)")
 @click.option("--estimate-points", type=float, default=None,
               help="Story points estimate (e.g. 1/2/3/5/8)")
 @click.option("--verbose", "-v", is_flag=True, help="Show detailed information")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.pass_obj
-def create_issue(obj: "Context", title: str, description: str, issue_type: str, status: str, priority: str, project_id: str, assignee_id: str, estimate_points, verbose: bool, as_json: bool):
+def create_issue(obj: "Context", title: str, description: str, issue_type: str, status: str, priority: str, project_id: str, assignee_id: str, assignees, estimate_points, verbose: bool, as_json: bool):
     """Create a new issue.
 
     Required fields:
@@ -779,6 +792,9 @@ def create_issue(obj: "Context", title: str, description: str, issue_type: str, 
         project_id = config.active_project_id
 
     try:
+        assignee_ids = None
+        if assignees:
+            assignee_ids = [x.strip() for x in str(assignees).split(",") if x.strip()]
         result = asyncio.run(client.create_issue(
             title=title,
             description=description or "",
@@ -787,6 +803,7 @@ def create_issue(obj: "Context", title: str, description: str, issue_type: str, 
             priority=priority,
             project_id=project_id,
             assignee_id=assignee_id,
+            assignee_ids=assignee_ids,
             estimate_points=estimate_points,
         ))
 
@@ -851,13 +868,15 @@ def create_issue(obj: "Context", title: str, description: str, issue_type: str, 
 @click.option("--status", "-s", type=click.Choice(["open", "in_progress", "resolved", "closed"], case_sensitive=False), help="New status")
 @click.option("--priority", "-p", type=click.Choice(["low", "medium", "high", "critical"], case_sensitive=False), help="New priority")
 @click.option("--assignee", "-a", "assignee_id", help="New assignee user ID")
+@click.option("--assignees", default=None,
+              help="E71: comma-separated assignee IDs (first=primary; replaces set)")
 @click.option("--reporter", "-r", "reporter_id", help="New reporter user ID")
 @click.option("--estimate-points", type=float, default=None,
               help="Story points estimate (e.g. 1/2/3/5/8); omit to leave unchanged")
 @click.option("--verbose", "-v", is_flag=True, help="Show detailed information")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.pass_obj
-def update_issue(obj: "Context", issue_id: str, title, description, issue_type, status, priority, assignee_id, reporter_id, estimate_points, verbose: bool, as_json: bool):
+def update_issue(obj: "Context", issue_id: str, title, description, issue_type, status, priority, assignee_id, assignees, reporter_id, estimate_points, verbose: bool, as_json: bool):
     """Update an issue.
 
     Issue identifier format is auto-detected:
@@ -904,7 +923,9 @@ def update_issue(obj: "Context", issue_id: str, title, description, issue_type, 
         kwargs["status"] = status
     if priority:
         kwargs["priority"] = priority
-    if assignee_id:
+    if assignees is not None:
+        kwargs["assignee_ids"] = [x.strip() for x in str(assignees).split(",") if x.strip()]
+    elif assignee_id:
         kwargs["assignee_id"] = assignee_id
     if reporter_id:
         kwargs["reporter_id"] = reporter_id
