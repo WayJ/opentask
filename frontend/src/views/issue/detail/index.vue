@@ -47,6 +47,7 @@ import { useIssueFocus } from '@/composables/use-issue-focus';
 import MarkdownEditor from '@/components/MarkdownEditor.vue';
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
 import { childProgressPercent, formatChildProgressLabel } from '@/utils/childProgress';
+import { buildCommentTree } from '@/utils/buildCommentTree';
 import IssueReactions from '@/components/IssueReactions.vue';
 import IssueCustomFieldsEditor from '@/components/issue/IssueCustomFieldsEditor.vue';
 import UserSelect from '@/components/UserSelect.vue';
@@ -87,6 +88,9 @@ const copyBranchLoading = ref(false);
 const comments = ref<Api.Issue.IssueComment[]>([]);
 const commentsLoading = ref(false);
 const newComment = ref('');
+const replyToId = ref<string | null>(null);
+const replyToPreview = ref<string>('');
+const commentTree = computed(() => buildCommentTree(comments.value));
 
 // Timeline
 const timeline = ref<Api.Issue.IssueTimeline[]>([]);
@@ -1017,15 +1021,28 @@ function cancelEstimate() {
 }
 
 // Add comment
+function startReply(comment: Api.Issue.IssueComment) {
+  replyToId.value = comment.id;
+  const name = comment.user_info?.sso_name || comment.user_info?.name || comment.user_id || '';
+  replyToPreview.value = name ? `回复 @${name}` : '回复评论';
+}
+
+function cancelReply() {
+  replyToId.value = null;
+  replyToPreview.value = '';
+}
+
 async function handleAddComment() {
   if (!newComment.value.trim() || !issueId.value) return;
 
   try {
-    await issueStore.addComment(issueId.value, newComment.value);
+    const parentId = replyToId.value || undefined;
+    await issueStore.addComment(issueId.value, newComment.value, parentId);
     newComment.value = '';
+    cancelReply();
     await loadComments();
     await loadTimeline();
-    window.$message?.success('评论添加成功');
+    window.$message?.success(parentId ? '回复添加成功' : '评论添加成功');
   } catch {
     window.$message?.error('评论添加失败');
   }
@@ -1429,51 +1446,105 @@ onUnmounted(() => {
             <!-- Combined Timeline (Comments + Activities) -->
             <NSpin :show="commentsLoading || timelineLoading">
               <div v-if="comments.length > 0 || timeline.length > 0" class="activity-list">
-                <!-- Comments -->
-                <div v-for="comment in comments" :key="'comment-' + comment.id" class="activity-item comment">
-                  <div class="activity-icon">
-                    <icon-mdi-comment-text-outline />
+                <!-- Comments (E74: depth-1 tree) -->
+                <template v-for="node in commentTree" :key="'comment-root-' + node.comment.id">
+                  <div class="activity-item comment" :style="{ marginLeft: '0px' }">
+                    <div class="activity-icon">
+                      <icon-mdi-comment-text-outline />
+                    </div>
+                    <div class="activity-content">
+                      <div class="activity-header">
+                        <NSpace align="center" :size="8">
+                          <NText strong>
+                            {{ node.comment.user_info?.sso_name || node.comment.user_info?.name || node.comment.user_id }}
+                          </NText>
+                          <NText depth="3" style="font-size: 12px">
+                            {{ formatDateTime(node.comment.created_at) }}
+                          </NText>
+                        </NSpace>
+                        <NSpace :size="4">
+                          <NButton text size="tiny" @click="startReply(node.comment)">回复</NButton>
+                          <NButton
+                            v-if="node.comment.user_id === 'admin'"
+                            text
+                            size="tiny"
+                            @click="handleDeleteComment(node.comment.id)"
+                          >
+                            删除
+                          </NButton>
+                        </NSpace>
+                      </div>
+                      <div class="comment-text">
+                        <MarkdownRenderer :content="node.comment.content" />
+                      </div>
+                      <div class="comment-reactions mt-8px">
+                        <IssueReactions
+                          :model-value="(node.comment as any).reactions || {}"
+                          :current-user-id="currentUserId"
+                          @react="(emoji: string) => handleCommentReact(node.comment.id, emoji)"
+                          @unreact="(emoji: string) => handleCommentUnreact(node.comment.id, emoji)"
+                        />
+                      </div>
+                      <div class="comment-attachments mt-8px">
+                        <AttachmentList
+                          :issue-id="issueId"
+                          :comment-id="node.comment.id"
+                          :attachments="(node.comment.attachments || []).map(a => commentAttachmentToDocument(a, node.comment.id))"
+                          @refresh="loadComments"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div class="activity-content">
-                    <div class="activity-header">
-                      <NSpace align="center" :size="8">
-                        <NText strong>
-                          {{ comment.user_info?.sso_name || comment.user_info?.name || comment.user_id }}
-                        </NText>
-                        <NText depth="3" style="font-size: 12px">
-                          {{ formatDateTime(comment.created_at) }}
-                        </NText>
-                      </NSpace>
-                      <NButton
-                        v-if="comment.user_id === 'admin'"
-                        text
-                        size="tiny"
-                        @click="handleDeleteComment(comment.id)"
-                      >
-                        删除
-                      </NButton>
+                  <div
+                    v-for="reply in node.replies"
+                    :key="'comment-reply-' + reply.id"
+                    class="activity-item comment comment-reply"
+                    style="margin-left: 28px"
+                  >
+                    <div class="activity-icon">
+                      <icon-mdi-comment-text-outline />
                     </div>
-                    <div class="comment-text">
-                      <MarkdownRenderer :content="comment.content" />
-                    </div>
-                    <div class="comment-reactions mt-8px">
-                      <IssueReactions
-                        :model-value="(comment as any).reactions || {}"
-                        :current-user-id="currentUserId"
-                        @react="(emoji: string) => handleCommentReact(comment.id, emoji)"
-                        @unreact="(emoji: string) => handleCommentUnreact(comment.id, emoji)"
-                      />
-                    </div>
-                    <div class="comment-attachments mt-8px">
-                      <AttachmentList
-                        :issue-id="issueId"
-                        :comment-id="comment.id"
-                        :attachments="(comment.attachments || []).map(a => commentAttachmentToDocument(a, comment.id))"
-                        @refresh="loadComments"
-                      />
+                    <div class="activity-content">
+                      <div class="activity-header">
+                        <NSpace align="center" :size="8">
+                          <NText strong>
+                            {{ reply.user_info?.sso_name || reply.user_info?.name || reply.user_id }}
+                          </NText>
+                          <NText depth="3" style="font-size: 12px">
+                            {{ formatDateTime(reply.created_at) }}
+                          </NText>
+                        </NSpace>
+                        <NButton
+                          v-if="reply.user_id === 'admin'"
+                          text
+                          size="tiny"
+                          @click="handleDeleteComment(reply.id)"
+                        >
+                          删除
+                        </NButton>
+                      </div>
+                      <div class="comment-text">
+                        <MarkdownRenderer :content="reply.content" />
+                      </div>
+                      <div class="comment-reactions mt-8px">
+                        <IssueReactions
+                          :model-value="(reply as any).reactions || {}"
+                          :current-user-id="currentUserId"
+                          @react="(emoji: string) => handleCommentReact(reply.id, emoji)"
+                          @unreact="(emoji: string) => handleCommentUnreact(reply.id, emoji)"
+                        />
+                      </div>
+                      <div class="comment-attachments mt-8px">
+                        <AttachmentList
+                          :issue-id="issueId"
+                          :comment-id="reply.id"
+                          :attachments="(reply.attachments || []).map(a => commentAttachmentToDocument(a, reply.id))"
+                          @refresh="loadComments"
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
+                </template>
 
                 <!-- Timeline Activities (exclude commented, already shown above) -->
                 <div v-for="item in nonCommentTimeline" :key="'timeline-' + item.id" class="activity-item timeline">
@@ -1499,15 +1570,19 @@ onUnmounted(() => {
 
             <!-- Add Comment -->
             <div class="add-comment">
+              <div v-if="replyToId" class="reply-banner" style="margin-bottom: 8px">
+                <NText depth="3" style="font-size: 12px">{{ replyToPreview }}</NText>
+                <NButton text size="tiny" @click="cancelReply">取消</NButton>
+              </div>
               <MarkdownEditor
                 v-model="newComment"
-                placeholder="添加评论...支持 Markdown 语法。使用 @提及用户，+ISSUE-xxx 引用问题、+PROJECT-xxx 引用项目、+REQUIREMENT-xxx 引用需求等"
+                :placeholder="replyToId ? '写下回复...支持 Markdown' : '添加评论...支持 Markdown 语法。使用 @提及用户，+ISSUE-xxx 引用问题、+PROJECT-xxx 引用项目、+REQUIREMENT-xxx 引用需求等'"
                 :rows="4"
                 @submit="handleAddComment"
               />
               <div class="comment-actions">
                 <NButton type="primary" size="small" :disabled="!newComment.trim()" @click="handleAddComment">
-                  发表评论
+                  {{ replyToId ? '发表回复' : '发表评论' }}
                 </NButton>
               </div>
             </div>
