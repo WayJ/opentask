@@ -51,6 +51,7 @@ TABLES = (
     "requirements",
     "requirement_code_sequence",
     "projects",
+    "project_members",
     "knowledge_bases",
 )
 

@@ -92,7 +92,21 @@ from opentask.models.tag.model import Tag, TagGroup  # noqa: F401 — metadata �
 from opentask.models.issue_display_prefs import IssueDisplayPrefs  # noqa: F401 — metadata 注册
 from opentask.models.milestone import Milestone  # noqa: F401 — metadata 注册 E8-S1
 from opentask.models.issue_vcs_link import IssueVcsLink  # noqa: F401 — metadata 注册 E11-S1
+from opentask.models.issue_link import IssueLink  # noqa: F401 — metadata 注册 E76
+from opentask.models.activity_read_cursor import ActivityReadCursor  # noqa: F401 — E52
 from opentask.models.cycle import Cycle  # noqa: F401 — metadata 注册
+from opentask.models.customer import Customer, CustomerRequest, CustomerRequestIssue, CustomerRequestPublicReply  # noqa: F401 — E22/E63
+from opentask.models.custom_field import CustomField, IssueCustomFieldValue  # noqa: F401 — E25
+from opentask.models.automation import AutomationRule  # noqa: F401 — E26
+from opentask.models.automation import AutomationPendingAction  # noqa: F401 — E38
+from opentask.models.workspace_webhook import WorkspaceWebhook, WebhookDeliveryLog  # noqa: F401 — E29
+from opentask.models.issue_form import IssueForm  # noqa: F401 — E31
+from opentask.models.issue_recurrence import IssueRecurrence  # noqa: F401 — E35
+from opentask.models.notification_preference import NotificationPreference  # noqa: F401 — E27
+from opentask.models.due_reminder_delivery import DueReminderDelivery  # noqa: F401 — E39
+from opentask.models.webhook_alert_delivery import WebhookAlertDelivery  # noqa: F401 — E57
+from opentask.models.sla import SlaPolicy, IssueSlaClock  # noqa: F401 — E42
+from opentask.models.issue.model import CommentReaction  # noqa: F401 — E27
 from opentask.jwt_utils import create_access_token
 
 
@@ -194,6 +208,143 @@ async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
         async with engine.begin() as conn:
             from opentask.models.base import DBModel
             await conn.run_sync(lambda sync_conn: DBModel.metadata.create_all(sync_conn, checkfirst=True))
+            # Additive columns (create_all won't ALTER existing tables)
+            from sqlalchemy import text as _sql_text
+            await conn.execute(_sql_text(
+                "ALTER TABLE IF EXISTS notification_preferences "
+                "ADD COLUMN IF NOT EXISTS email_enabled BOOLEAN NOT NULL DEFAULT FALSE"
+            ))
+            await conn.execute(_sql_text(
+                "ALTER TABLE IF EXISTS notification_preferences "
+                "ADD COLUMN IF NOT EXISTS due_reminder BOOLEAN NOT NULL DEFAULT TRUE"
+            ))
+            await conn.execute(_sql_text(
+                "ALTER TABLE IF EXISTS notification_preferences "
+                "ADD COLUMN IF NOT EXISTS due_reminder_digest BOOLEAN NOT NULL DEFAULT FALSE"
+            ))
+            await conn.execute(_sql_text(
+                "ALTER TABLE IF EXISTS notification_preferences "
+                "ADD COLUMN IF NOT EXISTS sla_breached BOOLEAN NOT NULL DEFAULT TRUE"
+            ))
+            await conn.execute(_sql_text(
+                "ALTER TABLE IF EXISTS custom_fields "
+                "ADD COLUMN IF NOT EXISTS formula_expr TEXT"
+            ))
+            await conn.execute(_sql_text(
+                "ALTER TABLE IF EXISTS custom_fields "
+                "ADD COLUMN IF NOT EXISTS formula_result_type VARCHAR(32)"
+            ))
+            # E44 webhook delivery reliability
+            for _stmt in (
+                "ALTER TABLE IF EXISTS webhook_delivery_logs ADD COLUMN IF NOT EXISTS delivery_id VARCHAR(64)",
+                "ALTER TABLE IF EXISTS webhook_delivery_logs ADD COLUMN IF NOT EXISTS payload_json JSON",
+                "ALTER TABLE IF EXISTS webhook_delivery_logs ADD COLUMN IF NOT EXISTS status VARCHAR(32)",
+                "ALTER TABLE IF EXISTS webhook_delivery_logs ADD COLUMN IF NOT EXISTS next_attempt_at TIMESTAMP",
+                "ALTER TABLE IF EXISTS webhook_delivery_logs ADD COLUMN IF NOT EXISTS max_attempts INTEGER NOT NULL DEFAULT 5",
+            ):
+                await conn.execute(_sql_text(_stmt))
+            # E45 SLA v2 pause
+            for _stmt in (
+                "ALTER TABLE IF EXISTS sla_policies ADD COLUMN IF NOT EXISTS pause_statuses JSON NOT NULL DEFAULT '[]'",
+                "ALTER TABLE IF EXISTS issue_sla_clocks ADD COLUMN IF NOT EXISTS elapsed_before_pause_minutes INTEGER NOT NULL DEFAULT 0",
+                "ALTER TABLE IF EXISTS issue_sla_clocks ADD COLUMN IF NOT EXISTS paused_at TIMESTAMP",
+                "ALTER TABLE IF EXISTS issue_sla_clocks ADD COLUMN IF NOT EXISTS segment_started_at TIMESTAMP",
+            ):
+                await conn.execute(_sql_text(_stmt))
+            # E50 workspace business hours
+            for _stmt in (
+                "ALTER TABLE IF EXISTS workspaces ADD COLUMN IF NOT EXISTS timezone VARCHAR(64)",
+                "ALTER TABLE IF EXISTS workspaces ADD COLUMN IF NOT EXISTS business_hours JSON",
+            ):
+                await conn.execute(_sql_text(_stmt))
+            # E56 sla policy calendar overlay
+            await conn.execute(_sql_text(
+                "ALTER TABLE IF EXISTS sla_policies ADD COLUMN IF NOT EXISTS calendar JSON"
+            ))
+            # E57 webhook dead-letter alerts
+            for _stmt in (
+                "ALTER TABLE IF EXISTS workspaces ADD COLUMN IF NOT EXISTS webhook_alert_settings JSON",
+                "ALTER TABLE IF EXISTS workspace_webhooks ADD COLUMN IF NOT EXISTS alert_settings JSON",
+                "ALTER TABLE IF EXISTS workspace_webhooks ADD COLUMN IF NOT EXISTS paused_reason VARCHAR(64)",
+                "ALTER TABLE IF EXISTS notification_preferences ADD COLUMN IF NOT EXISTS webhook_delivery_alert BOOLEAN NOT NULL DEFAULT TRUE",
+                "ALTER TABLE IF EXISTS notification_preferences ADD COLUMN IF NOT EXISTS insights_digest BOOLEAN NOT NULL DEFAULT FALSE",
+            ):
+                await conn.execute(_sql_text(_stmt))
+            # E61 insights report visibility
+            await conn.execute(_sql_text(
+                "ALTER TABLE IF EXISTS insights_saved_reports "
+                "ADD COLUMN IF NOT EXISTS visibility VARCHAR(16) NOT NULL DEFAULT 'personal'"
+            ))
+            # E63 customer request public status
+            for _stmt in (
+                "ALTER TABLE IF EXISTS customer_requests ADD COLUMN IF NOT EXISTS status_token VARCHAR(64)",
+                "ALTER TABLE IF EXISTS customer_requests ADD COLUMN IF NOT EXISTS status_token_enabled BOOLEAN NOT NULL DEFAULT FALSE",
+                "ALTER TABLE IF EXISTS customer_requests ADD COLUMN IF NOT EXISTS public_replies_enabled BOOLEAN NOT NULL DEFAULT FALSE",
+                """
+                CREATE TABLE IF NOT EXISTS customer_request_public_replies (
+                    id VARCHAR(36) PRIMARY KEY,
+                    request_id VARCHAR(36) NOT NULL REFERENCES customer_requests(id) ON DELETE CASCADE,
+                    body TEXT NOT NULL,
+                    created_at TIMESTAMP NOT NULL
+                )
+                """,
+                "CREATE INDEX IF NOT EXISTS idx_cr_public_replies_request ON customer_request_public_replies (request_id, created_at)",
+                "CREATE UNIQUE INDEX IF NOT EXISTS ix_customer_requests_status_token ON customer_requests (status_token)",
+            ):
+                await conn.execute(_sql_text(_stmt))
+            # E60 search FTS mid — PG tsvector + GIN
+            for _tbl, _expr, _idx in (
+                (
+                    "issues",
+                    "to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(issue_code,'') || ' ' || "
+                    "coalesce(legacy_issue_code,'') || ' ' || left(coalesce(description,''), 16000))",
+                    "ix_issues_search_tsv",
+                ),
+                (
+                    "projects",
+                    "to_tsvector('simple', coalesce(name,'') || ' ' || left(coalesce(description,''), 16000))",
+                    "ix_projects_search_tsv",
+                ),
+                (
+                    "entity_documents",
+                    "to_tsvector('simple', coalesce(title,'') || ' ' || left(coalesce(body_md,''), 16000))",
+                    "ix_entity_documents_search_tsv",
+                ),
+                (
+                    "issue_comments",
+                    "to_tsvector('simple', left(coalesce(content,''), 16000))",
+                    "ix_issue_comments_search_tsv",
+                ),
+            ):
+                await conn.execute(_sql_text(
+                    f"ALTER TABLE IF EXISTS {_tbl} ADD COLUMN IF NOT EXISTS search_tsv tsvector "
+                    f"GENERATED ALWAYS AS ({_expr}) STORED"
+                ))
+                await conn.execute(_sql_text(
+                    f"CREATE INDEX IF NOT EXISTS {_idx} ON {_tbl} USING GIN (search_tsv)"
+                ))
+            # E79 project lead_id (create_all may miss ALTER on existing test DBs)
+            await conn.execute(_sql_text(
+                "ALTER TABLE IF EXISTS projects ADD COLUMN IF NOT EXISTS lead_id VARCHAR(36)"
+            ))
+            await conn.execute(_sql_text("""
+                CREATE TABLE IF NOT EXISTS project_members (
+                    id VARCHAR(36) PRIMARY KEY,
+                    project_id VARCHAR(36) NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+                    user_id VARCHAR(36) NOT NULL,
+                    role VARCHAR(32),
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (project_id, user_id)
+                )
+            """))
+            await conn.execute(_sql_text(
+                "CREATE INDEX IF NOT EXISTS ix_project_members_project ON project_members (project_id)"
+            ))
+            # E48 timeline_action enum values (no alembic per Q6a)
+            for _val in ("sla_paused", "sla_resumed", "link_added", "link_removed", "restored", "parent_changed"):
+                await conn.execute(
+                    _sql_text(f"ALTER TYPE timeline_action ADD VALUE IF NOT EXISTS '{_val}'")
+                )
             print(f"[OK] Test database ({TEST_DB_NAME}) tables created")
     except Exception as e:
         import logging

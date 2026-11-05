@@ -50,14 +50,38 @@ async def test_register_duplicate_username(test_client: AsyncClient):
     assert r2.status_code == 409
 
 
+CLEAR_PWD_MSG = "密码至少 8 位，且需同时包含字母和数字"
+
+
 @pytest.mark.asyncio
 async def test_register_weak_password(test_client: AsyncClient):
+    """过短 / 缺字母或数字时返回明确中文策略文案（与 AuthService 一致）。"""
     uname = f"weak_{uuid.uuid4().hex[:8]}"
+
+    # 过短
     resp = await test_client.post(
         "/api/auth/register",
         json={"userName": uname, "password": "abc"},
     )
     assert resp.status_code == 422
+    assert resp.json()["detail"] == CLEAR_PWD_MSG
+
+    # 7 位但已含字母+数字：仍过短，文案须明示「至少 8 位」
+    resp = await test_client.post(
+        "/api/auth/register",
+        json={"userName": f"{uname}7", "password": "Abc12x3"},
+    )
+    assert resp.status_code == 422
+    assert resp.json()["detail"] == CLEAR_PWD_MSG
+    assert "至少 8 位" in resp.json()["detail"]
+
+    # 8 位纯字母
+    resp = await test_client.post(
+        "/api/auth/register",
+        json={"userName": f"{uname}a", "password": "abcdefgh"},
+    )
+    assert resp.status_code == 422
+    assert resp.json()["detail"] == CLEAR_PWD_MSG
 
 
 @pytest.mark.asyncio

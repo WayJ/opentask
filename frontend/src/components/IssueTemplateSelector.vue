@@ -174,7 +174,9 @@ function close() {
   border-radius: 8px;
   padding: 16px;
   height: 100%;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 .template-item-hovered .template-card {
   border-color: var(--primary-color, #18a058);

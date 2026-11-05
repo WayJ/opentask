@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import Iterable, Optional
 
 from sqlalchemy import and_, func, or_, select, update
@@ -10,8 +10,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from opentask.models.issue.model import Issue
 from opentask.models.notification.model import Notification
+from opentask.models.due_reminder_delivery.model import (
+    DueReminderDelivery,
+    make_dedupe_key,
+)
+from opentask.models.issue_watcher.model import IssueWatcher
+from opentask.models.issue.enums import IssueStatus
+from opentask.models.notification_preference.model import (
+    PREF_KEYS,
+    TYPE_TO_PREF_KEY,
+    NotificationPreference,
+)
 from opentask.models.user.model import UserModel
-from opentask.models.workspace.model import WorkspaceMember
+from opentask.models.workspace.model import Workspace, WorkspaceMember
+from opentask.services.workspace_time import local_today
+from opentask.services.workspace_realtime import publish_inbox_created
+from opentask.services.email import (
+    email_configured,
+    resolve_recipient_email,
+    send_notification_email,
+)
 
 # @username 或 @uuid；捕获 token（不含 @）
 _MENTION_RE = re.compile(r"@([A-Za-z0-9_.-]{1,64})")
@@ -33,10 +51,16 @@ class NotificationService:
         title: str,
         body: Optional[str] = None,
     ) -> Optional[Notification]:
-        """创建通知；若 recipient==actor 则跳过。"""
+        """创建通知；若 recipient==actor 则跳过；尊重通知偏好（E27）。"""
         if not recipient_user_id:
             return None
         if actor_user_id and str(recipient_user_id) == str(actor_user_id):
+            return None
+        if not await self.is_type_enabled(
+            workspace_id=workspace_id,
+            user_id=str(recipient_user_id),
+            notif_type=type,
+        ):
             return None
         row = Notification(
             workspace_id=workspace_id,
@@ -49,32 +73,144 @@ class NotificationService:
             body=body,
         )
         self.db.add(row)
+        try:
+            await self.db.flush()
+        except Exception:
+            # flush 失败则交给调用方事务；不阻塞主路径
+            return row
+        await publish_inbox_created(row, actor_user_id=actor_user_id)
+        # E30：best-effort 出站邮件（失败不影响 Inbox）
+        await self._maybe_send_email(row)
         return row
+
+    def default_prefs_dict(self) -> dict:
+        return {k: True for k in PREF_KEYS}
+
+    def serialize_prefs(
+        self, row: Optional[NotificationPreference], *, user_id: str, workspace_id: str
+    ) -> dict:
+        base = self.default_prefs_dict()
+        out = {
+            "userId": user_id,
+            "workspaceId": workspace_id,
+            **base,
+            "due_reminder_digest": False,
+            "insights_digest": False,
+            "email_enabled": False,
+            "email_configured": email_configured(),
+        }
+        if row is None:
+            return out
+        for k in PREF_KEYS:
+            out[k] = bool(getattr(row, k))
+        out["due_reminder_digest"] = bool(getattr(row, "due_reminder_digest", False))
+        out["insights_digest"] = bool(getattr(row, "insights_digest", False))
+        out["email_enabled"] = bool(getattr(row, "email_enabled", False))
+        return out
+
+    async def get_prefs(
+        self, *, user_id: str, workspace_id: str
+    ) -> Optional[NotificationPreference]:
+        q = await self.db.execute(
+            select(NotificationPreference).where(
+                NotificationPreference.user_id == str(user_id),
+                NotificationPreference.workspace_id == workspace_id,
+            )
+        )
+        return q.scalar_one_or_none()
+
+    async def get_prefs_payload(self, *, user_id: str, workspace_id: str) -> dict:
+        row = await self.get_prefs(user_id=user_id, workspace_id=workspace_id)
+        return self.serialize_prefs(row, user_id=str(user_id), workspace_id=workspace_id)
+
+    async def upsert_prefs(
+        self, *, user_id: str, workspace_id: str, updates: dict
+    ) -> NotificationPreference:
+        row = await self.get_prefs(user_id=user_id, workspace_id=workspace_id)
+        if row is None:
+            row = NotificationPreference(
+                user_id=str(user_id),
+                workspace_id=workspace_id,
+            )
+            self.db.add(row)
+        for k in PREF_KEYS:
+            if k in updates and updates[k] is not None:
+                setattr(row, k, bool(updates[k]))
+        if "due_reminder_digest" in updates and updates["due_reminder_digest"] is not None:
+            row.due_reminder_digest = bool(updates["due_reminder_digest"])
+        if "insights_digest" in updates and updates["insights_digest"] is not None:
+            row.insights_digest = bool(updates["insights_digest"])
+        if "email_enabled" in updates and updates["email_enabled"] is not None:
+            row.email_enabled = bool(updates["email_enabled"])
+        row.updated_at = datetime.utcnow()
+        await self.db.commit()
+        await self.db.refresh(row)
+        return row
+
+    async def is_type_enabled(
+        self, *, workspace_id: str, user_id: str, notif_type: str
+    ) -> bool:
+        """Unknown types fail-open (still create)."""
+        pref_key = TYPE_TO_PREF_KEY.get(notif_type)
+        if not pref_key:
+            return True
+        row = await self.get_prefs(user_id=user_id, workspace_id=workspace_id)
+        if row is None:
+            return True
+        return bool(getattr(row, pref_key, True))
 
     async def notify_assigned(
         self,
         issue: Issue,
         *,
         actor_user_id: str,
-        new_assignee_id: Optional[str],
+        new_assignee_id: Optional[str] = None,
+        new_assignee_ids: Optional[list[str]] = None,
     ) -> Optional[Notification]:
-        if not new_assignee_id or not issue.workspace_id:
-            return None
-        title = f"你被指派到「{issue.title}」"
-        body = f"Issue {issue.issue_code or issue.id}"
-        n = await self.create(
-            workspace_id=issue.workspace_id,
-            recipient_user_id=new_assignee_id,
+        """指派：通知新加入的指派人；并 fanout 给 watchers（subscribed_update）。
+
+        E71: pass new_assignee_ids for fanout; new_assignee_id kept for compat.
+        """
+        created: list[Notification] = []
+        targets: list[str] = []
+        if new_assignee_ids:
+            targets = [str(u) for u in new_assignee_ids if u]
+        elif new_assignee_id:
+            targets = [str(new_assignee_id)]
+
+        if targets and issue.workspace_id:
+            title = f"你被指派到「{issue.title}」"
+            body = f"Issue {issue.issue_code or issue.id}"
+            for uid in targets:
+                if str(uid) == str(actor_user_id):
+                    continue
+                n = await self.create(
+                    workspace_id=issue.workspace_id,
+                    recipient_user_id=uid,
+                    actor_user_id=actor_user_id,
+                    type="assigned",
+                    resource_type="issue",
+                    resource_id=issue.id,
+                    title=title,
+                    body=body,
+                )
+                if n:
+                    created.append(n)
+
+        exclude = set(targets)
+        watcher_notes = await self.notify_watchers(
+            issue,
             actor_user_id=actor_user_id,
-            type="assigned",
-            resource_type="issue",
-            resource_id=issue.id,
-            title=title,
-            body=body,
+            type="subscribed_update",
+            title=f"「{issue.title}」负责人已更新",
+            body=f"Issue {issue.issue_code or issue.id}",
+            exclude_user_ids=exclude,
+            commit=False,
         )
-        if n:
+        created.extend(watcher_notes)
+        if created:
             await self.db.commit()
-        return n
+        return created[0] if created else None
 
     async def notify_comment(
         self,
@@ -83,8 +219,15 @@ class NotificationService:
         actor_user_id: str,
         comment_content: str,
         comment_id: Optional[str] = None,
+        base_type: str = "commented",
+        parent_author_user_id: Optional[str] = None,
     ) -> list[Notification]:
-        """评论：通知 assignee/reporter（非作者）+ @mention 工作区成员。"""
+        """评论：通知 assignee/reporter（非作者）+ @mention 工作区成员。
+
+        E74：回复时 recipients ∪ 父评作者（排除 actor）。
+        base_type: normally "commented"; automation/system → "automation_comment".
+        Mentions always use type "mentioned".
+        """
         if not issue.workspace_id:
             return []
 
@@ -92,11 +235,32 @@ class NotificationService:
         if len(snippet) > 200:
             snippet = snippet[:200] + "…"
 
+        comment_type = base_type if base_type in ("commented", "automation_comment") else "commented"
+
         recipients: dict[str, str] = {}  # user_id -> type
 
         for uid in (issue.assignee_id, issue.reporter_id):
             if uid and str(uid) != str(actor_user_id):
-                recipients[str(uid)] = "commented"
+                recipients[str(uid)] = comment_type
+
+        # E71: all assignees (collaborators)
+        try:
+            from opentask.services.issue_assignee.service import list_assignee_ids
+
+            for uid in await list_assignee_ids(self.db, issue.id):
+                if uid and str(uid) != str(actor_user_id):
+                    recipients.setdefault(str(uid), comment_type)
+        except Exception:
+            pass
+
+        # E18：关注者也收评论（mention 优先）
+        for uid in await self._watcher_ids(issue.id):
+            if uid != str(actor_user_id):
+                recipients.setdefault(uid, comment_type)
+
+        # E74 Q4a：回复时父评作者进入 recipients（排除 actor）
+        if parent_author_user_id and str(parent_author_user_id) != str(actor_user_id):
+            recipients.setdefault(str(parent_author_user_id), comment_type)
 
         mentioned = await self._resolve_mentions(
             issue.workspace_id, comment_content or "", actor_user_id=actor_user_id
@@ -109,6 +273,8 @@ class NotificationService:
         for uid, ntype in recipients.items():
             if ntype == "mentioned":
                 title = f"有人在「{issue.title}」中提到了你"
+            elif ntype == "automation_comment":
+                title = f"「{issue.title}」有自动化评论"
             else:
                 title = f"「{issue.title}」有新评论"
             n = await self.create(
@@ -124,6 +290,130 @@ class NotificationService:
             if n:
                 created.append(n)
 
+        if created:
+            await self.db.commit()
+        return created
+
+
+    async def _watcher_ids(self, issue_id: str) -> list[str]:
+        from opentask.services.issue_watcher.service import IssueWatcherService
+
+        return await IssueWatcherService(self.db).user_ids(issue_id=issue_id)
+
+    async def notify_watchers(
+        self,
+        issue: Issue,
+        *,
+        actor_user_id: str,
+        type: str,
+        title: str,
+        body: Optional[str] = None,
+        exclude_user_ids: Optional[set[str]] = None,
+        commit: bool = True,
+    ) -> list[Notification]:
+        """Fanout to issue watchers; skips actor and exclude set."""
+        if not issue.workspace_id:
+            return []
+        exclude = {str(x) for x in (exclude_user_ids or set()) if x}
+        exclude.add(str(actor_user_id))
+        created: list[Notification] = []
+        for uid in await self._watcher_ids(issue.id):
+            if uid in exclude:
+                continue
+            n = await self.create(
+                workspace_id=issue.workspace_id,
+                recipient_user_id=uid,
+                actor_user_id=actor_user_id,
+                type=type,
+                resource_type="issue",
+                resource_id=issue.id,
+                title=title,
+                body=body,
+            )
+            if n:
+                created.append(n)
+        if created and commit:
+            await self.db.commit()
+        return created
+
+    async def notify_status_changed(
+        self,
+        issue: Issue,
+        *,
+        actor_user_id: str,
+        old_status: Optional[str],
+        new_status: str,
+    ) -> list[Notification]:
+        if not issue.workspace_id:
+            return []
+        body = f"{old_status or '?'} → {new_status}"
+        title = f"「{issue.title}」状态已更新"
+        return await self.notify_watchers(
+            issue,
+            actor_user_id=actor_user_id,
+            type="status_changed",
+            title=title,
+            body=body,
+        )
+
+    async def notify_due_date_changed(
+        self,
+        issue: Issue,
+        *,
+        actor_user_id: str,
+        old_due=None,
+        new_due=None,
+    ) -> list[Notification]:
+        """E19：due_date 变更 → assignee + watchers（跳过 actor）。"""
+        if not issue.workspace_id:
+            return []
+
+        def _fmt(v):
+            if v is None:
+                return "—"
+            if hasattr(v, "isoformat"):
+                try:
+                    return v.isoformat()[:10]
+                except Exception:
+                    return str(v)[:10]
+            return str(v)[:10]
+
+        body = f"{_fmt(old_due)} → {_fmt(new_due)}"
+        title = f"「{issue.title}」截止日期已更新"
+        created: list[Notification] = []
+
+        from opentask.services.issue_assignee.service import list_assignee_ids
+
+        asg_ids = await list_assignee_ids(self.db, issue.id)
+        if not asg_ids and issue.assignee_id:
+            asg_ids = [str(issue.assignee_id)]
+        for uid in asg_ids:
+            if str(uid) == str(actor_user_id):
+                continue
+            n = await self.create(
+                workspace_id=issue.workspace_id,
+                recipient_user_id=str(uid),
+                actor_user_id=actor_user_id,
+                type="due_date_changed",
+                resource_type="issue",
+                resource_id=issue.id,
+                title=title,
+                body=body,
+            )
+            if n:
+                created.append(n)
+
+        exclude = {str(u) for u in asg_ids}
+        watcher_notes = await self.notify_watchers(
+            issue,
+            actor_user_id=actor_user_id,
+            type="due_date_changed",
+            title=title,
+            body=body,
+            exclude_user_ids=exclude,
+            commit=False,
+        )
+        created.extend(watcher_notes)
         if created:
             await self.db.commit()
         return created
@@ -284,6 +574,360 @@ class NotificationService:
         return row
 
 
+
+    async def is_email_enabled(self, *, workspace_id: str, user_id: str) -> bool:
+        """Channel toggle; no row → False (opt-in)."""
+        row = await self.get_prefs(user_id=user_id, workspace_id=workspace_id)
+        if row is None:
+            return False
+        return bool(getattr(row, "email_enabled", False))
+
+    async def _maybe_send_email(self, row: Notification) -> None:
+        """After inbox create: email_enabled + configured + recipient address."""
+        try:
+            if not email_configured():
+                return
+            if not await self.is_email_enabled(
+                workspace_id=row.workspace_id, user_id=str(row.recipient_user_id)
+            ):
+                return
+            uq = await self.db.execute(
+                select(UserModel).where(UserModel.id == str(row.recipient_user_id))
+            )
+            user = uq.scalar_one_or_none()
+            to = resolve_recipient_email(user)
+            if not to:
+                return
+            await send_notification_email(
+                to=to,
+                title=row.title or "",
+                body=row.body,
+                notif_type=row.type,
+                resource_type=row.resource_type,
+                resource_id=row.resource_id,
+            )
+        except Exception:
+            # never break inbox path
+            import logging
+
+            logging.getLogger(__name__).exception(
+                "email hook failed notif=%s", getattr(row, "id", None)
+            )
+
+
+    LEAD_DAYS = 3
+    CLOSED_STATUSES = {
+        IssueStatus.CLOSED.value,
+        IssueStatus.RESOLVED.value,
+        IssueStatus.REJECTED.value,
+    }
+
+    def _as_date(self, value) -> Optional[date]:
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value.date()
+        if isinstance(value, date):
+            return value
+        return None
+
+    async def _watcher_ids(self, issue_id: str) -> list[str]:
+        q = await self.db.execute(
+            select(IssueWatcher.user_id).where(IssueWatcher.issue_id == issue_id)
+        )
+        return [str(uid) for uid in q.scalars().all()]
+
+    def _recipients_for_issue(
+        self,
+        issue: Issue,
+        watcher_ids: list[str],
+        assignee_ids: list[str] | None = None,
+    ) -> list[str]:
+        ids: set[str] = set()
+        if issue.assignee_id:
+            ids.add(str(issue.assignee_id))
+        for uid in assignee_ids or []:
+            ids.add(str(uid))
+        for uid in watcher_ids:
+            ids.add(str(uid))
+        return sorted(ids)
+
+    async def _delivery_exists(self, *, workspace_id: str, dedupe_key: str) -> bool:
+        q = await self.db.execute(
+            select(DueReminderDelivery.id).where(
+                DueReminderDelivery.workspace_id == workspace_id,
+                DueReminderDelivery.dedupe_key == dedupe_key,
+            )
+        )
+        return q.scalar_one_or_none() is not None
+
+    async def _insert_delivery(
+        self,
+        *,
+        workspace_id: str,
+        issue_id: Optional[str],
+        user_id: str,
+        kind: str,
+        bucket_date: date,
+        due_date_bucket: Optional[date],
+        notification_id: Optional[str],
+    ) -> DueReminderDelivery:
+        key = make_dedupe_key(
+            kind=kind,
+            user_id=str(user_id),
+            issue_id=issue_id,
+            bucket_date=bucket_date,
+            due_date_bucket=due_date_bucket,
+        )
+        row = DueReminderDelivery(
+            workspace_id=workspace_id,
+            issue_id=issue_id,
+            user_id=str(user_id),
+            kind=kind,
+            bucket_date=bucket_date,
+            due_date_bucket=due_date_bucket,
+            dedupe_key=key,
+            notification_id=notification_id,
+        )
+        self.db.add(row)
+        try:
+            await self.db.flush()
+        except Exception:
+            await self.db.rollback()
+            raise
+        return row
+
+    def _format_due_title(self, issue: Issue, kind: str) -> str:
+        code = issue.issue_code or issue.id
+        if kind == "overdue":
+            return f"已逾期：{code} {issue.title}"
+        return f"即将到期：{code} {issue.title}"
+
+    def _format_due_body(self, issue: Issue, kind: str, due_d: date) -> str:
+        label = "逾期" if kind == "overdue" else "到期"
+        return f"{label}日 {due_d.isoformat()} · Issue {issue.issue_code or issue.id}"
+
+    def _format_digest_body(self, items: list[tuple[str, Issue, date]]) -> str:
+        soon_lines = []
+        overdue_lines = []
+        for kind, issue, due_d in items:
+            line = f"- {issue.issue_code or issue.id} {issue.title} (due {due_d.isoformat()})"
+            if kind == "overdue":
+                overdue_lines.append(line)
+            else:
+                soon_lines.append(line)
+        parts = []
+        if overdue_lines:
+            parts.append("已逾期:\n" + "\n".join(overdue_lines))
+        if soon_lines:
+            parts.append("即将到期:\n" + "\n".join(soon_lines))
+        return "\n\n".join(parts) if parts else ""
+
+    async def run_due_reminders(
+        self,
+        *,
+        workspace_id: str,
+        actor_user_id: Optional[str] = None,
+        today: Optional[date] = None,
+        now_utc: Optional[datetime] = None,
+    ) -> dict:
+        """External tick: soon/overdue Inbox (+ optional digest). No in-process cron.
+
+        Calendar day is workspace-local (E67); empty/invalid TZ → UTC.
+        Injected ``today=`` still wins (tests / operators).
+        """
+        if today is None:
+            ws_row = (
+                await self.db.execute(
+                    select(Workspace).where(Workspace.id == workspace_id)
+                )
+            ).scalar_one_or_none()
+            today = local_today(ws_row, now_utc=now_utc)
+        lead_end = today + timedelta(days=self.LEAD_DAYS)
+
+        q = await self.db.execute(
+            select(Issue).where(
+                Issue.workspace_id == workspace_id,
+                Issue.due_date.isnot(None),
+                Issue.status.notin_(list(self.CLOSED_STATUSES)),
+            )
+        )
+        issues = list(q.scalars().all())
+
+        processed = 0
+        reminders_created = 0
+        digests_created = 0
+        skipped = 0
+        errors: list[dict] = []
+        # user_id -> list[(kind, issue, due_d)]
+        buffers: dict[str, list[tuple[str, Issue, date]]] = {}
+
+        for issue in issues:
+            due_d = self._as_date(issue.due_date)
+            if due_d is None:
+                continue
+            if due_d < today:
+                kind = "overdue"
+            elif today <= due_d <= lead_end:
+                kind = "soon"
+            else:
+                continue
+            processed += 1
+            watchers = await self._watcher_ids(issue.id)
+            from opentask.services.issue_assignee.service import list_assignee_ids
+
+            asg = await list_assignee_ids(self.db, issue.id)
+            recipients = self._recipients_for_issue(issue, watchers, assignee_ids=asg)
+            if not recipients:
+                skipped += 1
+                continue
+
+            for user_id in recipients:
+                try:
+                    prefs_row = await self.get_prefs(
+                        user_id=user_id, workspace_id=workspace_id
+                    )
+                    due_on = True if prefs_row is None else bool(
+                        getattr(prefs_row, "due_reminder", True)
+                    )
+                    digest_on = False if prefs_row is None else bool(
+                        getattr(prefs_row, "due_reminder_digest", False)
+                    )
+                    if not due_on:
+                        skipped += 1
+                        continue
+                    if digest_on:
+                        buffers.setdefault(user_id, []).append((kind, issue, due_d))
+                        continue
+
+                    dedupe = make_dedupe_key(
+                        kind=kind,
+                        user_id=user_id,
+                        issue_id=issue.id,
+                        bucket_date=today,
+                        due_date_bucket=due_d if kind == "soon" else None,
+                    )
+                    if await self._delivery_exists(
+                        workspace_id=workspace_id, dedupe_key=dedupe
+                    ):
+                        skipped += 1
+                        continue
+
+                    n = await self.create(
+                        workspace_id=workspace_id,
+                        recipient_user_id=user_id,
+                        actor_user_id=None,  # system tick — never self-skip
+                        type="due_reminder",
+                        resource_type="issue",
+                        resource_id=issue.id,
+                        title=self._format_due_title(issue, kind),
+                        body=self._format_due_body(issue, kind, due_d),
+                    )
+                    if n is None:
+                        skipped += 1
+                        continue
+                    await self._insert_delivery(
+                        workspace_id=workspace_id,
+                        issue_id=issue.id,
+                        user_id=user_id,
+                        kind=kind,
+                        bucket_date=today,
+                        due_date_bucket=due_d if kind == "soon" else None,
+                        notification_id=getattr(n, "id", None),
+                    )
+                    reminders_created += 1
+                except Exception as e:
+                    errors.append(
+                        {
+                            "issueId": issue.id,
+                            "userId": user_id,
+                            "kind": kind,
+                            "message": str(e)[:500],
+                        }
+                    )
+
+        for user_id, items in buffers.items():
+            try:
+                digest_key = make_dedupe_key(
+                    kind="digest",
+                    user_id=user_id,
+                    issue_id=None,
+                    bucket_date=today,
+                    due_date_bucket=None,
+                )
+                if await self._delivery_exists(
+                    workspace_id=workspace_id, dedupe_key=digest_key
+                ):
+                    skipped += 1
+                    continue
+                body = self._format_digest_body(items)
+                title = f"今日到期提醒 ({len(items)})"
+                n = await self.create(
+                    workspace_id=workspace_id,
+                    recipient_user_id=user_id,
+                    actor_user_id=None,
+                    type="due_reminder_digest",
+                    resource_type="workspace",
+                    resource_id=workspace_id,
+                    title=title,
+                    body=body,
+                )
+                if n is None:
+                    skipped += 1
+                    continue
+                await self._insert_delivery(
+                    workspace_id=workspace_id,
+                    issue_id=None,
+                    user_id=user_id,
+                    kind="digest",
+                    bucket_date=today,
+                    due_date_bucket=None,
+                    notification_id=getattr(n, "id", None),
+                )
+                digests_created += 1
+            except Exception as e:
+                errors.append(
+                    {
+                        "issueId": None,
+                        "userId": user_id,
+                        "kind": "digest",
+                        "message": str(e)[:500],
+                    }
+                )
+
+        try:
+            await self.db.commit()
+        except Exception:
+            await self.db.rollback()
+            raise
+
+        return {
+            "processedIssues": processed,
+            "remindersCreated": reminders_created,
+            "digestsCreated": digests_created,
+            "skipped": skipped,
+            "errors": errors,
+        }
+
+    async def list_due_reminder_deliveries(
+        self,
+        *,
+        workspace_id: str,
+        bucket_date: Optional[date] = None,
+        limit: int = 100,
+    ) -> list[DueReminderDelivery]:
+        limit = max(1, min(int(limit or 100), 100))
+        stmt = select(DueReminderDelivery).where(
+            DueReminderDelivery.workspace_id == workspace_id
+        )
+        if bucket_date is not None:
+            stmt = stmt.where(DueReminderDelivery.bucket_date == bucket_date)
+        stmt = stmt.order_by(DueReminderDelivery.created_at.desc()).limit(limit)
+        q = await self.db.execute(stmt)
+        return list(q.scalars().all())
+
+
+
 def serialize_notification(n: Notification) -> dict:
     return {
         "id": n.id,
@@ -299,3 +943,6 @@ def serialize_notification(n: Notification) -> dict:
         "snoozedUntil": n.snoozed_until,
         "createdAt": n.created_at,
     }
+
+
+__all_pref_keys__ = PREF_KEYS

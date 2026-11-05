@@ -18,12 +18,18 @@ import {
   fetchCreateIssueTemplate,
   fetchDeleteIssueTemplate,
   fetchIssueTemplates,
+  fetchSeedIssueTemplates,
   fetchUpdateIssueTemplate
 } from '@/service/api/issue-templates';
+import {
+  issueTemplateSeedConfirmText,
+  issueTemplateSourceLabel
+} from '@/utils/issueTemplateSourceLabel';
 
 defineOptions({ name: 'WorkspaceIssueTemplatesPage' });
 
 const loading = ref(false);
+const seeding = ref(false);
 const rows = ref<IssueTemplateRow[]>([]);
 const showEditor = ref(false);
 const saving = ref(false);
@@ -79,7 +85,7 @@ const columns: DataTableColumns<IssueTemplateRow> = [
       h(
         NTag,
         { size: 'small', type: row.source === 'seed' ? 'info' : 'success', bordered: false },
-        { default: () => (row.source === 'seed' ? '内置' : '自定义') }
+        { default: () => issueTemplateSourceLabel(row.source) }
       )
   },
   {
@@ -97,16 +103,20 @@ const columns: DataTableColumns<IssueTemplateRow> = [
     key: 'actions',
     width: 160,
     render: row =>
-      h(NSpace, { size: 8 }, {
-        default: () => [
-          h(NButton, { size: 'tiny', tertiary: true, onClick: () => openEdit(row) }, { default: () => '编辑' }),
-          h(
-            NButton,
-            { size: 'tiny', tertiary: true, type: 'error', onClick: () => removeRow(row.id) },
-            { default: () => '删除' }
-          )
-        ]
-      })
+      h(
+        NSpace,
+        { size: 8 },
+        {
+          default: () => [
+            h(NButton, { size: 'tiny', tertiary: true, onClick: () => openEdit(row) }, { default: () => '编辑' }),
+            h(
+              NButton,
+              { size: 'tiny', tertiary: true, type: 'error', onClick: () => removeRow(row.id) },
+              { default: () => '删除' }
+            )
+          ]
+        }
+      )
   }
 ];
 
@@ -202,6 +212,24 @@ async function removeRow(id: string) {
   await load();
 }
 
+
+async function seedBuiltin() {
+  const ok = window.confirm(issueTemplateSeedConfirmText());
+  if (!ok) return;
+  seeding.value = true;
+  try {
+    const { error } = await fetchSeedIssueTemplates();
+    if (error) {
+      window.$message?.error?.(error.message || '恢复内置失败');
+      return;
+    }
+    window.$message?.success?.('内置模板已就绪');
+    await load();
+  } finally {
+    seeding.value = false;
+  }
+}
+
 onMounted(load);
 </script>
 
@@ -211,7 +239,10 @@ onMounted(load);
       <NSpace vertical :size="16">
         <NSpace justify="space-between">
           <NText depth="3">工作区 Issue 创建模板（与 PGE Prompt 无关）</NText>
-          <NButton type="primary" @click="openCreate">新建模板</NButton>
+          <NSpace>
+            <NButton :loading="seeding" @click="seedBuiltin">恢复内置</NButton>
+            <NButton type="primary" @click="openCreate">新建模板</NButton>
+          </NSpace>
         </NSpace>
         <NDataTable :columns="columns" :data="rows" :loading="loading" :bordered="false" size="small" />
       </NSpace>

@@ -1,0 +1,63 @@
+{
+  "region": "US",
+  "year": 2026,
+  "name": "US Federal Holidays 2026",
+  "sourceNote": "Common US federal holidays 2026 (no state variants); Independence Day observed Fri Jul 3 when Sat Jul 4",
+  "holidays": [
+    {
+      "date": "2026-01-01",
+      "kind": "closed",
+      "label": "New Year's Day"
+    },
+    {
+      "date": "2026-01-19",
+      "kind": "closed",
+      "label": "Birthday of Martin Luther King, Jr."
+    },
+    {
+      "date": "2026-02-16",
+      "kind": "closed",
+      "label": "Washington's Birthday"
+    },
+    {
+      "date": "2026-05-25",
+      "kind": "closed",
+      "label": "Memorial Day"
+    },
+    {
+      "date": "2026-06-19",
+      "kind": "closed",
+      "label": "Juneteenth National Independence Day"
+    },
+    {
+      "date": "2026-07-03",
+      "kind": "closed",
+      "label": "Independence Day (observed)"
+    },
+    {
+      "date": "2026-09-07",
+      "kind": "closed",
+      "label": "Labor Day"
+    },
+    {
+      "date": "2026-10-12",
+      "kind": "closed",
+      "label": "Columbus Day"
+    },
+    {
+      "date": "2026-11-11",
+      "kind": "closed",
+      "label": "Veterans Day"
+    },
+    {
+      "date": "2026-11-26",
+      "kind": "closed",
+      "label": "Thanksgiving Day"
+    },
+    {
+      "date": "2026-12-25",
+      "kind": "closed",
+      "label": "Christmas Day"
+    }
+  ]
+}

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { NButton, NPopconfirm, NSpace, NTag, NText } from 'naive-ui';
+import { NButton, NInput, NModal, NPopconfirm, NSelect, NSpace, NSpin, NTag, NText } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
 import {
+  addProjectMember,
   createProjectMilestone,
   createRepoConfig,
   deleteProjectMilestone,
@@ -11,20 +12,25 @@ import {
   fetchAddFavorite,
   fetchFavorites,
   fetchProjectHealth,
+  fetchProjectMembers,
   fetchProjectMilestones,
   fetchProjectRepos,
   fetchProjectTimeline,
   fetchProjectWatchers,
   fetchRemoveFavorite,
   postProjectHealth,
+  removeProjectMember,
   unwatchProject,
   updateProjectMilestone,
   updateRepoConfig,
   watchProject
 } from '@/service/api';
+import { fetchWorkspaceMembers } from '@/service/api/workspace';
+import { localStg } from '@/utils/storage';
+import { formatMilestoneIssueCount, milestoneDeleteConfirmText } from '@/utils/formatMilestoneIssueCount';
+import { formatMemberCount, leadLabel } from '@/utils/projectLeadMembers';
 import { useAuthStore } from '@/store/modules/auth';
 import { useProjectStore } from '@/store/modules/project';
-import EntityDocsPanel from '@/components/entity-docs/EntityDocsPanel.vue';
 import {
   HEALTH_LABELS,
   HEALTH_TAG_TYPE,
@@ -33,8 +39,11 @@ import {
   computeTimelineRange,
   isTimelineEmpty,
   offsetDays,
-  timelineDayWidth
+  timelineDayWidth,
+  issueTimelinePlacement
 } from '@/utils/project-timeline';
+import EntityDocsPanel from '@/components/entity-docs/EntityDocsPanel.vue';
+import { fetchProjectTemplateFromProject } from '@/service/api/project-templates';
 
 defineOptions({
   name: 'ProjectDetail'
@@ -47,6 +56,9 @@ const projectStore = useProjectStore();
 const project = ref<Api.Project.Project | null>(null);
 const repos = ref<Api.Project.RepoConfig[]>([]);
 const milestones = ref<Api.Project.Milestone[]>([]);
+const showSaveAsTemplate = ref(false);
+const saveAsName = ref('');
+const saveAsLoading = ref(false);
 const loading = ref(false);
 const repoLoading = ref(false);
 const milestoneLoading = ref(false);
@@ -62,6 +74,14 @@ const projectFormData = reactive({
   starts_at: null as string | null,
   target_date: null as string | null
 });
+
+/** E79: lead + members roster */
+const rosterMembers = ref<Api.Project.ProjectMemberUser[]>([]);
+const wsUserOptions = ref<Array<{ label: string; value: string }>>([]);
+const leadSelect = ref<string | null>(null);
+const memberToAdd = ref<string | null>(null);
+const rosterLoading = ref(false);
+const rosterSaving = ref(false);
 
 const showMilestoneModal = ref(false);
 const milestoneModalMode = ref<'create' | 'edit'>('create');
@@ -223,6 +243,97 @@ async function loadWatchers() {
     watching.value = false;
   }
 }
+
+async function loadRoster() {
+  if (!projectId) return;
+  rosterLoading.value = true;
+  try {
+    const memRes = await fetchProjectMembers(projectId);
+    rosterMembers.value = memRes.data || [];
+    leadSelect.value = project.value?.lead_id || null;
+  } catch {
+    rosterMembers.value = project.value?.members || [];
+    leadSelect.value = project.value?.lead_id || null;
+  } finally {
+    rosterLoading.value = false;
+  }
+}
+
+async function loadWsUsers() {
+  try {
+    const wsId = localStg.get('workspaceId') as string | null;
+    if (!wsId) return;
+    const mRes = await fetchWorkspaceMembers(wsId);
+    const rows = (mRes.data || []) as Array<{
+      userId?: string;
+      user_id?: string;
+      name?: string;
+      username?: string;
+    }>;
+    wsUserOptions.value = rows
+      .map(m => ({
+        label: m.name || m.username || m.userId || m.user_id || 'user',
+        value: String(m.userId || m.user_id || '')
+      }))
+      .filter(u => u.value);
+  } catch {
+    wsUserOptions.value = [];
+  }
+}
+
+async function saveLead() {
+  if (!projectId) return;
+  rosterSaving.value = true;
+  try {
+    await projectStore.editProject(projectId, { lead_id: leadSelect.value });
+    project.value = projectStore.currentProject || project.value;
+    await loadRoster();
+    window.$message?.success('负责人已更新');
+  } catch {
+    window.$message?.error('更新负责人失败');
+  } finally {
+    rosterSaving.value = false;
+  }
+}
+
+async function clearLead() {
+  leadSelect.value = null;
+  await saveLead();
+}
+
+async function addMember() {
+  if (!projectId || !memberToAdd.value) return;
+  rosterSaving.value = true;
+  try {
+    await addProjectMember(projectId, memberToAdd.value);
+    memberToAdd.value = null;
+    const refreshed = await projectStore.getProject(projectId);
+    project.value = refreshed || project.value;
+    await loadRoster();
+    window.$message?.success('已添加成员');
+  } catch {
+    window.$message?.error('添加成员失败');
+  } finally {
+    rosterSaving.value = false;
+  }
+}
+
+async function removeMember(userId: string) {
+  if (!projectId) return;
+  rosterSaving.value = true;
+  try {
+    await removeProjectMember(projectId, userId);
+    const refreshed = await projectStore.getProject(projectId);
+    project.value = refreshed || project.value;
+    await loadRoster();
+    window.$message?.success('已移除成员');
+  } catch {
+    window.$message?.error('移除成员失败');
+  } finally {
+    rosterSaving.value = false;
+  }
+}
+
 
 async function loadPinState() {
   if (!projectId) {
@@ -551,6 +662,12 @@ const milestoneColumns: DataTableColumns<Api.Project.Milestone> = [
       )
   },
   {
+    title: '占用',
+    key: 'issue_count',
+    width: 90,
+    render: row => formatMilestoneIssueCount(row.issue_count)
+  },
+  {
     title: '描述',
     key: 'description',
     ellipsis: { tooltip: true },
@@ -572,7 +689,7 @@ const milestoneColumns: DataTableColumns<Api.Project.Milestone> = [
             },
             {
               trigger: () => h(NButton, { size: 'small', type: 'error' }, { default: () => '删除' }),
-              default: () => '确定删除此里程碑吗?'
+              default: () => milestoneDeleteConfirmText(row.issue_count)
             }
           )
         ]
@@ -580,12 +697,42 @@ const milestoneColumns: DataTableColumns<Api.Project.Milestone> = [
   }
 ];
 
+
+async function openSaveAsTemplate() {
+  saveAsName.value = project.value ? `${project.value.name} 模板` : 'Project 模板';
+  showSaveAsTemplate.value = true;
+}
+
+async function confirmSaveAsTemplate() {
+  if (!projectId.value || !saveAsName.value.trim()) {
+    window.$message?.warning?.('请输入模板名称');
+    return;
+  }
+  saveAsLoading.value = true;
+  try {
+    const { error } = await fetchProjectTemplateFromProject(projectId.value, {
+      name: saveAsName.value.trim(),
+      description: project.value?.description || undefined
+    });
+    if (error) {
+      window.$message?.error?.(error.message || '另存失败');
+      return;
+    }
+    window.$message?.success?.('已另存为 Project 模板');
+    showSaveAsTemplate.value = false;
+  } finally {
+    saveAsLoading.value = false;
+  }
+}
+
 onMounted(() => {
   loadProject();
   loadRepos();
   loadMilestones();
   loadHealth();
   loadWatchers();
+  loadRoster();
+  loadWsUsers();
   loadPinState();
   loadTimeline();
 });
@@ -621,6 +768,7 @@ onMounted(() => {
                 {{ pinnedFavoriteId ? '取消侧栏收藏' : '收藏到侧栏' }}
               </NButton>
               <NButton @click="openHealthModal">更新健康</NButton>
+              <NButton @click="openSaveAsTemplate">另存为模板</NButton>
               <NButton @click="openEditProjectModal">
                 <template #icon>
                   <icon-mdi-pencil />
@@ -635,6 +783,55 @@ onMounted(() => {
         <NCard title="项目描述" :bordered="false" class="mt-4">
           <NText v-if="project.description">{{ project.description }}</NText>
           <NText v-else depth="3">暂无描述</NText>
+        </NCard>
+
+        <!-- E79: Lead + Members (roster-only) -->
+        <NCard title="负责人与成员" :bordered="false" class="mt-4">
+          <NSpin :show="rosterLoading">
+            <NSpace vertical style="width: 100%">
+              <NSpace align="center">
+                <NText depth="3">负责人</NText>
+                <NText>{{ leadLabel(project.lead) }}</NText>
+                <NTag v-if="project.member_count != null" size="small">{{ formatMemberCount(project.member_count) }}</NTag>
+              </NSpace>
+              <NSpace align="center">
+                <NSelect
+                  v-model:value="leadSelect"
+                  :options="wsUserOptions"
+                  clearable
+                  filterable
+                  placeholder="选择负责人"
+                  style="min-width: 220px"
+                />
+                <NButton type="primary" size="small" :loading="rosterSaving" @click="saveLead">保存负责人</NButton>
+                <NButton size="small" :disabled="!project.lead_id" :loading="rosterSaving" @click="clearLead">清除</NButton>
+              </NSpace>
+              <NSpace align="center">
+                <NSelect
+                  v-model:value="memberToAdd"
+                  :options="wsUserOptions"
+                  clearable
+                  filterable
+                  placeholder="添加成员"
+                  style="min-width: 220px"
+                />
+                <NButton size="small" type="primary" :loading="rosterSaving" :disabled="!memberToAdd" @click="addMember">
+                  添加
+                </NButton>
+              </NSpace>
+              <NSpace>
+                <NTag
+                  v-for="m in rosterMembers"
+                  :key="m.id"
+                  closable
+                  @close="removeMember(m.id)"
+                >
+                  {{ leadLabel(m) }}
+                </NTag>
+                <NText v-if="!rosterMembers.length" depth="3">暂无成员</NText>
+              </NSpace>
+            </NSpace>
+          </NSpin>
         </NCard>
 
         <div v-if="projectId" class="mt-4">
@@ -762,7 +959,15 @@ onMounted(() => {
                 <div v-for="issue in timelineData?.issues || []" :key="issue.id" class="timeline-row">
                   <div class="timeline-label">{{ issue.issue_code || issue.title }}</div>
                   <div class="timeline-track">
+                    <template v-if="issueTimelinePlacement(issue)?.kind === 'bar'">
+                      <div
+                        class="timeline-bar issue-bar"
+                        :style="barStyle(issue.start_date, issue.due_date)"
+                        :title="issue.title"
+                      />
+                    </template>
                     <div
+                      v-else-if="issue.due_date"
                       class="timeline-dot"
                       :style="{ left: leftFor(issue.due_date) + 'px' }"
                       :title="issue.title"
@@ -927,7 +1132,6 @@ onMounted(() => {
         </NSpace>
       </template>
     </NModal>
-
   </div>
 </template>
 
@@ -997,6 +1201,9 @@ onMounted(() => {
   white-space: nowrap;
 }
 
+.issue-bar {
+  background: rgba(59, 130, 246, 0.55);
+}
 .project-bar {
   background: #2080f0;
 }

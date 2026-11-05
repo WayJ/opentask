@@ -1,3 +1,15 @@
-from opentask.models.initiative.model import INITIATIVE_STATUSES, Initiative, InitiativeProject
+from opentask.models.initiative.model import (
+    INITIATIVE_RELATION_TYPES,
+    INITIATIVE_STATUSES,
+    Initiative,
+    InitiativeProject,
+    InitiativeRelation,
+)
 
-__all__ = ["INITIATIVE_STATUSES", "Initiative", "InitiativeProject"]
+__all__ = [
+    "INITIATIVE_RELATION_TYPES",
+    "INITIATIVE_STATUSES",
+    "Initiative",
+    "InitiativeProject",
+    "InitiativeRelation",
+]

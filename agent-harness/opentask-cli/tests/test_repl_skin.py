@@ -100,6 +100,8 @@ class TestColorDetection:
 
     def test_color_support_when_tty(self, monkeypatch):
         """测试 TTY 终端支持颜色"""
+        monkeypatch.delenv("NO_COLOR", raising=False)
+        monkeypatch.delenv("OPENTASK_NO_COLOR", raising=False)
         with mock.patch('sys.stdout.isatty', return_value=True):
             skin = ReplSkin("test")
             assert skin._color is True

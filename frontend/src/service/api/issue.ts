@@ -1,5 +1,33 @@
+
+/** E28：拼导出 query（与列表常用过滤对齐） */
+export function buildIssueExportParams(filters: Record<string, unknown> = {}) {
+  const allowed = ['status', 'priority', 'type', 'project_id', 'assignee_id', 'cycle_id', 'search'] as const;
+  const out: Record<string, string> = {};
+  for (const key of allowed) {
+    const v = filters[key];
+    if (v !== undefined && v !== null && v !== '') out[key] = String(v);
+  }
+  return out;
+}
+
+/** E28：格式化导入结果摘要 */
+export function formatIssueImportSummary(data: {
+  created?: number;
+  updated?: number;
+  errors?: { row: number; message: string }[];
+}) {
+  const created = data.created ?? 0;
+  const updated = data.updated ?? 0;
+  const errors = data.errors ?? [];
+  const base = `创建 ${created} · 更新 ${updated}`;
+  if (!errors.length) return base;
+  const first = errors.slice(0, 3).map(e => `行${e.row}: ${e.message}`).join('；');
+  const more = errors.length > 3 ? ` 等 ${errors.length} 条错误` : '';
+  return `${base} · 错误 ${errors.length}（${first}${more}）`;
+}
+
 /** Issue API 客户端 */
-import { request } from '@/service/request';
+import { downloadRequest, request } from '@/service/request';
 import type { Api } from '@/typings/api';
 
 /**
@@ -10,9 +38,13 @@ function cleanParams(params: Record<string, any>): Record<string, any> {
 }
 
 /** Build query params for issue detail; used by getIssue and unit-tested. */
-export function buildIssueDetailParams(opts?: { byCode?: boolean }): { by_code: true } | undefined {
-  if (opts?.byCode) return { by_code: true };
-  return undefined;
+export function buildIssueDetailParams(
+  opts?: { byCode?: boolean; includeDeleted?: boolean }
+): Record<string, true> | undefined {
+  const params: Record<string, true> = {};
+  if (opts?.byCode) params.by_code = true;
+  if (opts?.includeDeleted) params.include_deleted = true;
+  return Object.keys(params).length ? params : undefined;
 }
 
 export const issueApi = {
@@ -30,15 +62,63 @@ export const issueApi = {
     });
   },
 
+  /** E28：导出 CSV（blob） */
+  exportIssuesCsv: (params?: Record<string, unknown>) => {
+    return downloadRequest<Blob>({
+      url: '/api/issues/export.csv',
+      method: 'GET',
+      params: buildIssueExportParams(params || {}),
+      responseType: 'blob'
+    });
+  },
+
+  /** E28：导入模板 CSV */
+  downloadImportTemplateCsv: () => {
+    return downloadRequest<Blob>({
+      url: '/api/issues/import/template.csv',
+      method: 'GET',
+      responseType: 'blob'
+    });
+  },
+
+  /** E28：导入 CSV */
+  importIssuesCsv: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request<{ created: number; updated: number; errors: { row: number; message: string }[] }>({
+      url: '/api/issues/import',
+      method: 'POST',
+      data: form
+    });
+  },
+
   /**
    * 获取 Issue 详情
    * @param opts.byCode 为 true 时按 issue_code 查询（?by_code=true）
    */
-  getIssue: (id: string, opts?: { byCode?: boolean }) => {
+  getIssue: (id: string, opts?: { byCode?: boolean; includeDeleted?: boolean }) => {
     return request<Api.Issue.Issue>({
       url: `/api/issues/${id}`,
       method: 'GET',
       params: buildIssueDetailParams(opts)
+    });
+  },
+
+  /** E77: list soft-deleted Issues */
+  listTrash: (params?: { page?: number; page_size?: number }) => {
+    const cleanedParams = params ? cleanParams(params) : undefined;
+    return request<Api.Issue.IssueListResponse['data']>({
+      url: '/api/issues/trash',
+      method: 'GET',
+      params: cleanedParams
+    });
+  },
+
+  /** E77: restore soft-deleted Issue */
+  restoreIssue: (id: string) => {
+    return request<Api.Issue.Issue>({
+      url: `/api/issues/${id}/restore`,
+      method: 'POST'
     });
   },
 
@@ -60,6 +140,26 @@ export const issueApi = {
       url: '/api/issues',
       method: 'POST',
       data
+    });
+  },
+
+  /**
+   * E75: 复制 Issue（Linear-style duplicate）
+   */
+  duplicateIssue: (
+    id: string,
+    data?: {
+      title?: string;
+      project_id?: string | null;
+      cycle_id?: string | null;
+      parent_issue_id?: string | null;
+      assignee_ids?: string[];
+    }
+  ) => {
+    return request<Api.Issue.Issue>({
+      url: `/api/issues/${id}/duplicate`,
+      method: 'POST',
+      data: data || {}
     });
   },
 
@@ -261,6 +361,60 @@ export const issueApi = {
     });
   },
 
+  /** E47/E52：工作区 Activity Feed */
+  fetchWorkspaceActivity: (params?: Record<string, unknown>) => {
+    return request<{
+      items: Array<{
+        id: string;
+        issueId: string;
+        issueCode?: string | null;
+        issueTitle?: string | null;
+        actionType: string;
+        actor?: { id: string; username?: string | null; displayName?: string | null } | null;
+        createdAt?: string | null;
+        payload?: Record<string, unknown> | null;
+        reactions?: {
+          scope: 'issue' | 'comment';
+          commentId?: string | null;
+          summary: Array<{ emoji: string; count: number; myReacted: boolean }>;
+        } | null;
+      }>;
+      nextCursor: string | null;
+    }>({
+      url: '/api/issues/activity',
+      method: 'GET',
+      params: cleanParams(params || {})
+    });
+  },
+
+  /** E52：薄铃铛未读数 */
+  fetchActivityUnreadCount: (params?: { watching?: boolean }) => {
+    return request<{ count: number; capped: boolean }>({
+      url: '/api/issues/activity/unread-count',
+      method: 'GET',
+      params: cleanParams({ watching: params?.watching ?? true })
+    });
+  },
+
+  /** E52：打开 Feed 标记已读 */
+  markActivityRead: (body?: { watching?: boolean }) => {
+    return request<{ lastSeenAt?: string | null; lastSeenId?: string }>({
+      url: '/api/issues/activity/mark-read',
+      method: 'POST',
+      data: body ?? { watching: true }
+    });
+  },
+
+  /** E41：单 Issue timeline CSV */
+  exportTimelineCsv: (issueId: string, params?: Record<string, unknown>) => {
+    return downloadRequest<Blob>({
+      url: `/api/issues/${issueId}/timeline/export.csv`,
+      method: 'GET',
+      params,
+      responseType: 'blob'
+    });
+  },
+
   /**
    * 获取统计信息
    */
@@ -351,6 +505,29 @@ export const issueApi = {
     });
   },
 
+  getCommentReactions: (issueId: string, commentId: string) => {
+    return request<{ reactions: Record<string, string[]> }>({
+      url: `/api/issues/${issueId}/comments/${commentId}/reactions`,
+      method: 'GET'
+    });
+  },
+
+  addCommentReaction: (issueId: string, commentId: string, emoji: string) => {
+    return request<{ reaction_id: number; reactions: Record<string, string[]> }>({
+      url: `/api/issues/${issueId}/comments/${commentId}/reactions`,
+      method: 'POST',
+      data: { emoji }
+    });
+  },
+
+  removeCommentReaction: (issueId: string, commentId: string, emoji: string) => {
+    return request<{ reactions: Record<string, string[]> }>({
+      url: `/api/issues/${issueId}/comments/${commentId}/reactions`,
+      method: 'DELETE',
+      params: { emoji }
+    });
+  },
+
   /**
    * 批量获取 Issues（优化性能，避免 N+1 查询）
    */
@@ -406,11 +583,108 @@ export const issueApi = {
     });
   },
 
+  /** E69: list comment attachments */
+  getCommentAttachments: (issueId: string, commentId: string) => {
+    return request<Api.Document.Response[]>({
+      url: `/api/issues/${issueId}/comments/${commentId}/attachments`,
+      method: 'GET'
+    });
+  },
+
+  /** E69: upload attachment onto a comment */
+  uploadCommentAttachment: (issueId: string, commentId: string, data: { file: File; description?: string }) => {
+    const formData = new FormData();
+    formData.append('file', data.file);
+    if (data.description) {
+      formData.append('description', data.description);
+    }
+    return request<Api.Document.Response>({
+      url: `/api/issues/${issueId}/comments/${commentId}/attachments`,
+      method: 'POST',
+      data: formData,
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+  },
+
+  /** E69: delete comment attachment */
+  deleteCommentAttachment: (issueId: string, commentId: string, attachmentId: string) => {
+    return request({
+      url: `/api/issues/${issueId}/comments/${commentId}/attachments/${attachmentId}`,
+      method: 'DELETE'
+    });
+  },
+
   /**
-   * 获取附件下载链接（公共访问，无需认证）
+   * E66: 签发短 TTL 签名 URL（预览/下载内联用；须成员会话）
+   */
+  createAttachmentSignedUrl: (
+    attachmentId: string,
+    purpose: 'download' | 'preview',
+    ttlSeconds?: number
+  ) => {
+    return request<{ url: string; expiresAt: string }>({
+      url: `/api/attachments/${attachmentId}/signed-url`,
+      method: 'POST',
+      data: {
+        purpose,
+        ...(ttlSeconds != null ? { ttlSeconds } : {})
+      }
+    });
+  },
+
+  /**
+   * E66: 鉴权会话下载附件为 Blob（显式「下载」按钮）
+   */
+  downloadAttachmentBlob: (attachmentId: string) => {
+    return downloadRequest<Blob>({
+      url: `/api/attachments/${attachmentId}/download`,
+      method: 'GET',
+      responseType: 'blob'
+    });
+  },
+
+  /**
+   * @deprecated E66: 裸公共 URL 已废除；请用 createAttachmentSignedUrl / downloadAttachmentBlob
    */
   getAttachmentDownloadUrl: (_issueId: string, attachmentId: string) => {
-    // 使用独立的附件路由，不需要 issueId
     return `/api/attachments/${attachmentId}/download`;
+  },
+
+  /** E18: list issue watchers */
+  listWatchers: (issueId: string) => {
+    return request<Array<{ id: string; workspace_id: string; issue_id: string; user_id: string }>>({
+      url: `/api/issues/${issueId}/watchers`,
+      method: 'GET'
+    });
+  },
+
+  /** E18: watch issue */
+  watch: (issueId: string) => {
+    return request<{ id: string; workspace_id: string; issue_id: string; user_id: string }>({
+      url: `/api/issues/${issueId}/watchers`,
+      method: 'POST'
+    });
+  },
+
+  /** E18: unwatch issue */
+  unwatch: (issueId: string) => {
+    return request({
+      url: `/api/issues/${issueId}/watchers`,
+      method: 'DELETE'
+    });
   }
 };
+
+export function fetchIssueWatchers(issueId: string) {
+  return issueApi.listWatchers(issueId);
+}
+
+export function watchIssue(issueId: string) {
+  return issueApi.watch(issueId);
+}
+
+export function unwatchIssue(issueId: string) {
+  return issueApi.unwatch(issueId);
+}

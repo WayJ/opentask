@@ -1,0 +1,126 @@
+"""Favorites commands (E14 / E88 reorder)."""
+from __future__ import annotations
+
+import asyncio
+import click
+
+from ..utils.api_client import APIError
+from ..utils.cli_output import echo_json, handle_api_error, make_client, require_workspace_id
+from ..utils.config import Config
+
+
+@click.group(name="favorite")
+def favorite_cli():
+    """侧栏收藏 Favorites。"""
+    pass
+
+
+def _parse_ordered_ids(ids_csv: str | None, positional: tuple[str, ...] | None) -> list[str]:
+    ids: list[str] = []
+    if ids_csv is not None and str(ids_csv).strip() != "":
+        ids.extend([p.strip() for p in str(ids_csv).split(",") if p.strip()])
+    for p in positional or ():
+        s = str(p).strip()
+        if s:
+            ids.append(s)
+    return ids
+
+
+@favorite_cli.command(name="list")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def favorite_list(obj, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.list_favorites())
+        if json_mode:
+            echo_json(True, data=data)
+            return
+        rows = (data or {}).get("rows", []) if isinstance(data, dict) else []
+        if not rows:
+            obj.skin.info("无收藏")
+            return
+        obj.skin.table(
+            ["ID", "Type", "Target", "Position"],
+            [
+                [
+                    (r.get("id") or "")[:8],
+                    r.get("targetType") or r.get("target_type") or "",
+                    r.get("targetId") or r.get("target_id") or "",
+                    r.get("position") if r.get("position") is not None else "",
+                ]
+                for r in rows
+            ],
+        )
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@favorite_cli.command(name="add")
+@click.option("--type", "target_type", required=True, help="issue|project|…")
+@click.option("--id", "target_id", required=True)
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def favorite_add(obj, target_type, target_id, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.add_favorite(target_type, target_id))
+        if json_mode:
+            echo_json(True, data=data, message="favorited")
+            return
+        obj.skin.success("已收藏")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@favorite_cli.command(name="remove")
+@click.argument("favorite_id")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def favorite_remove(obj, favorite_id, as_json):
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.remove_favorite(favorite_id))
+        if json_mode:
+            echo_json(True, data=data or {"id": favorite_id})
+            return
+        obj.skin.success("已移除收藏")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@favorite_cli.command(name="reorder")
+@click.option("--ids", "ids_csv", default=None, help="Comma-separated favorite ids in new order")
+@click.argument("positional_ids", nargs=-1)
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def favorite_reorder(obj, ids_csv, positional_ids, as_json):
+    """E88: 按 ordered_ids 重排侧栏收藏（须覆盖当前全部收藏）。"""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    ordered_ids = _parse_ordered_ids(ids_csv, positional_ids)
+    if not ordered_ids:
+        raise click.ClickException("Specify --ids ID1,ID2,... or positional favorite ids")
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.reorder_favorites(ordered_ids))
+        if json_mode:
+            echo_json(True, data=data, message="reordered")
+            return
+        obj.skin.success("顺序已更新")
+    except APIError as e:
+        handle_api_error(e, json_mode)

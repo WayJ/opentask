@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import {
+import { NAvatar,
   NAlert,
   NButton,
   NCard,
@@ -9,6 +9,7 @@ import {
   NEmpty,
   NInput,
   NModal,
+  NProgress,
   NSelect,
   NSpace,
   NSpin,
@@ -26,20 +27,47 @@ import {
 import { fetchProjectMilestones, projectApi } from '@/service/api/project';
 import { type CycleItem, fetchCycles } from '@/service/api/cycles';
 import { type TagItem, tagApi } from '@/service/api/tag';
-import { issueApi } from '@/service/api/issue';
+import { fetchIssueWatchers, issueApi, unwatchIssue, watchIssue } from '@/service/api/issue';
 import { fetchAddFavorite, fetchFavorites, fetchRemoveFavorite } from '@/service/api/favorites';
+import { type CustomerRequestRow, fetchCustomerRequests } from '@/service/api/customer-requests';
 import { fetchIssueBranchName } from '@/service/api/issue-vcs';
+import type { IssueCustomFieldValue } from '@/service/api/custom-fields';
+import {
+  type SlaClockRow,
+  fetchIssueSla,
+  formatSlaPaused,
+  formatSlaRemaining,
+  slaBadgeType,
+  slaMetricBadgePrefix
+} from '@/service/api/sla';
 import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
+import { subscribeWorkspaceRealtime } from '@/composables/use-workspace-realtime';
 import { useIssueFocus } from '@/composables/use-issue-focus';
 import MarkdownEditor from '@/components/MarkdownEditor.vue';
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
+import { childProgressPercent, formatChildProgressLabel } from '@/utils/childProgress';
+import { buildCommentTree } from '@/utils/buildCommentTree';
 import IssueReactions from '@/components/IssueReactions.vue';
+import IssueCustomFieldsEditor from '@/components/issue/IssueCustomFieldsEditor.vue';
 import UserSelect from '@/components/UserSelect.vue';
 import AttachmentList from '@/components/common/AttachmentList.vue';
+import { commentAttachmentToDocument } from '@/utils/attachmentUrls';
 import EntityDocsPanel from '@/components/entity-docs/EntityDocsPanel.vue';
 import IssuePrPanel from '@/components/issue-vcs/IssuePrPanel.vue';
+import IssueLinksPanel from '@/components/issue-links/IssueLinksPanel.vue';
 import EditableField from '@/components/EditableField.vue';
+import { formatTimelineAction } from '@/utils/formatTimelineAction';
+import { deletedReadonlyBanner, restoreSuccessMessage } from '@/utils/issueTrashMeta';
+import {
+  canPromoteToRoot,
+  excludeSelfFromPicker,
+  setParentSuccessMessage
+} from '@/utils/issueParentMeta';
+import {
+  nextMilestoneAfterProjectMove,
+  projectMoveClearedMessage
+} from '@/utils/nextMilestoneAfterProjectMove';
 import type { Api } from '@/typings/api';
 
 defineOptions({
@@ -59,12 +87,21 @@ const issue = ref<Api.Issue.Issue | null>(null);
 const loading = ref(false);
 const pinnedFavoriteId = ref<string | null>(null);
 const pinLoading = ref(false);
+const watching = ref(false);
+const linkedCustomerRequests = ref<CustomerRequestRow[]>([]);
+const customFields = ref<IssueCustomFieldValue[]>([]);
+const slaClocks = ref<SlaClockRow[]>([]);
+const watchLoading = ref(false);
+const watchers = ref<Array<{ user_id: string; username?: string; name?: string }>>([]);
 const copyBranchLoading = ref(false);
 
 // Comments
 const comments = ref<Api.Issue.IssueComment[]>([]);
 const commentsLoading = ref(false);
 const newComment = ref('');
+const replyToId = ref<string | null>(null);
+const replyToPreview = ref<string>('');
+const commentTree = computed(() => buildCommentTree(comments.value));
 
 // Timeline
 const timeline = ref<Api.Issue.IssueTimeline[]>([]);
@@ -87,6 +124,17 @@ const relations = ref<{
   as_source: Api.Issue.IssueRelation[];
   as_target: Api.Issue.IssueRelation[];
 } | null>(null);
+const showAddRelation = ref(false);
+const pendingRelationTarget = ref('');
+const pendingRelationType = ref<Api.Issue.RelationType>('blocks');
+const relationBusy = ref(false);
+const relationTypeOptions = [
+  { label: '阻塞', value: 'blocks' },
+  { label: '被阻塞', value: 'is_blocked_by' },
+  { label: '关联', value: 'relates_to' },
+  { label: '重复', value: 'duplicates' },
+  { label: '依赖', value: 'depends_on' }
+];
 
 // E4-S3 父子
 const parentIssue = ref<Api.Issue.Issue | null>(null);
@@ -160,21 +208,25 @@ const editingPriority = ref(false);
 const editingType = ref(false);
 const editingAssignee = ref(false);
 const editingReporter = ref(false);
+const editingStartDate = ref(false);
 const editingDueDate = ref(false);
 const editingProject = ref(false);
 const editingCycle = ref(false);
 const editingMilestone = ref(false);
+const editingEstimate = ref(false);
 
 // 临时值
 const tempStatus = ref<string | null>(null);
 const tempPriority = ref<string | null>(null);
 const tempType = ref<string | null>(null);
-const tempAssignee = ref<string | null>(null);
+const tempAssignee = ref<string[]>([]);
 const tempReporter = ref<string | null>(null);
+const tempStartDate = ref<number | null>(null);
 const tempDueDate = ref<number | null>(null);
 const tempProject = ref<string | null>(null);
 const tempCycle = ref<string | null>(null);
 const tempMilestone = ref<string | null>(null);
+const tempEstimate = ref<number | null>(null);
 
 // Constants for template
 const getTypeType = getIssueTypeTagType;
@@ -183,15 +235,56 @@ const getPriorityType = getIssuePriorityTagType;
 const statusOptions = issueStatusOptions;
 const priorityOptions = issuePriorityOptions;
 const typeOptions = issueTypeOptions;
+const estimateOptions = [
+  { label: '—', value: null },
+  { label: '1', value: 1 },
+  { label: '2', value: 2 },
+  { label: '3', value: 3 },
+  { label: '5', value: 5 },
+  { label: '8', value: 8 },
+  { label: '13', value: 13 },
+  { label: '21', value: 21 }
+];
 
 // Load issue detail
+const restoreLoading = ref(false);
+async function handleRestoreFromTrash() {
+  if (!issue.value) return;
+  restoreLoading.value = true;
+  try {
+    const restored = await issueApi.restoreIssue(issue.value.id);
+    const payload = (restored as any)?.data ?? restored;
+    issue.value = payload;
+    window.$message?.success(restoreSuccessMessage(payload?.issue_code || issue.value?.issue_code || ''));
+    router.replace({ path: '/issue/detail', query: { id: payload.id || issue.value.id } });
+  } catch {
+    window.$message?.error('恢复失败（需要 member 权限）');
+  } finally {
+    restoreLoading.value = false;
+  }
+}
+
 async function loadIssue() {
   if (!issueId.value) return;
 
   loading.value = true;
   try {
-    const data = await issueStore.getIssue(issueId.value);
+    const fromTrash = route.query.trash === '1';
+    let data: Api.Issue.Issue | null = null;
+    if (fromTrash) {
+      const res = await issueApi.getIssue(issueId.value, { includeDeleted: true });
+      data = ((res as any)?.data ?? res) as Api.Issue.Issue;
+    } else {
+      data = await issueStore.getIssue(issueId.value);
+    }
     issue.value = data;
+    customFields.value = ((data as any)?.customFields as IssueCustomFieldValue[]) || [];
+    try {
+      const slaRes = await fetchIssueSla(issueId.value);
+      slaClocks.value = (!slaRes.error && slaRes.data?.rows) ? slaRes.data.rows : [];
+    } catch {
+      slaClocks.value = [];
+    }
     // 加载相关数据
     Promise.all([
       loadComments(),
@@ -201,7 +294,8 @@ async function loadIssue() {
       loadAvailableTags(),
       loadReactions(),
       loadAttachments(),
-      loadParentAndChildren()
+      loadParentAndChildren(),
+      loadLinkedCustomerRequests()
     ]);
   } finally {
     loading.value = false;
@@ -233,6 +327,25 @@ async function loadTimeline() {
     timelineLoading.value = false;
   }
 }
+
+const timelineExportLoading = ref(false);
+async function exportTimelineCsv() {
+  if (!issueId.value) return;
+  timelineExportLoading.value = true;
+  try {
+    const blob = await issueApi.exportTimelineCsv(issueId.value);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const code = issue.value?.issue_code || issueId.value;
+    a.download = `issue-${code}-timeline.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } finally {
+    timelineExportLoading.value = false;
+  }
+}
+
 
 // Load attachments
 async function loadAttachments() {
@@ -518,6 +631,42 @@ async function loadRelations() {
   }
 }
 
+async function handleAddRelation() {
+  if (!issueId.value || !pendingRelationTarget.value.trim()) return;
+  relationBusy.value = true;
+  try {
+    let targetId = pendingRelationTarget.value.trim();
+    if (/^[A-Z][A-Z0-9]*-\d+$/i.test(targetId)) {
+      const { data, error } = await issueApi.getIssue(targetId, { byCode: true });
+      if (error || !data?.id) {
+        window.$message?.error?.('找不到目标 Issue');
+        return;
+      }
+      targetId = data.id;
+    }
+    await issueStore.addRelation(issueId.value, targetId, pendingRelationType.value);
+    pendingRelationTarget.value = '';
+    showAddRelation.value = false;
+    await loadRelations();
+    window.$message?.success?.('关系已添加');
+  } catch {
+    window.$message?.error?.('添加关系失败');
+  } finally {
+    relationBusy.value = false;
+  }
+}
+
+async function handleRemoveRelation(targetId: string, relationType: Api.Issue.RelationType) {
+  if (!issueId.value) return;
+  try {
+    await issueStore.removeRelation(issueId.value, targetId, relationType);
+    await loadRelations();
+    window.$message?.success?.('关系已移除');
+  } catch {
+    window.$message?.error?.('移除关系失败');
+  }
+}
+
 // Load tags
 async function loadTags() {
   if (!issueId.value) return;
@@ -688,6 +837,34 @@ async function handleUnreact(emoji: string) {
   }
 }
 
+async function handleCommentReact(commentId: string, emoji: string) {
+  if (!issueId.value) return;
+  const { data, error } = await issueApi.addCommentReaction(issueId.value, commentId, emoji);
+  if (error) {
+    window.$message?.error?.(error.message || '反应失败');
+    return;
+  }
+  const c = comments.value.find(x => x.id === commentId);
+  if (c && data?.reactions) {
+    (c as any).reactions = data.reactions;
+  }
+}
+
+async function handleCommentUnreact(commentId: string, emoji: string) {
+  if (!issueId.value) return;
+  const { data, error } = await issueApi.removeCommentReaction(issueId.value, commentId, emoji);
+  if (error) {
+    window.$message?.error?.(error.message || '取消反应失败');
+    return;
+  }
+  const c = comments.value.find(x => x.id === commentId);
+  if (c && data?.reactions) {
+    (c as any).reactions = data.reactions;
+  }
+}
+
+
+
 // Inline editing functions
 async function saveStatus() {
   if (!issueId.value || tempStatus.value === null) return;
@@ -740,17 +917,28 @@ function cancelType() {
 async function saveAssignee() {
   if (!issueId.value) return;
   try {
-    await issueStore.updateAssignee(issueId.value, tempAssignee.value || undefined);
+    const ids = Array.isArray(tempAssignee.value) ? tempAssignee.value.filter(Boolean) : [];
+    await issueStore.updateIssue(issueId.value, { assignee_ids: ids });
     await loadIssue();
-    window.$message?.success('负责人更新成功');
+    window.$message?.success('指派人更新成功');
   } catch {
-    window.$message?.error('负责人更新失败');
+    window.$message?.error('指派人更新失败');
   }
 }
 
 function cancelAssignee() {
-  tempAssignee.value = null;
+  tempAssignee.value = [];
   editingAssignee.value = false;
+}
+
+function assigneesDisplayValue(): string {
+  const list = issue.value?.assignees;
+  if (Array.isArray(list) && list.length) {
+    return list
+      .map(a => a.sso_name || a.name || a.id.slice(0, 8))
+      .join(', ');
+  }
+  return issue.value?.assignee?.sso_name || issue.value?.assignee?.name || issue.value?.assignee_id || '未分配';
 }
 
 async function saveReporter() {
@@ -767,6 +955,22 @@ async function saveReporter() {
 function cancelReporter() {
   tempReporter.value = null;
   editingReporter.value = false;
+}
+
+async function saveStartDate() {
+  if (!issueId.value) return;
+  try {
+    await issueStore.updateIssue(issueId.value, { start_date: tempStartDate.value });
+    await loadIssue();
+    window.$message?.success('计划开始日更新成功');
+  } catch {
+    window.$message?.error('计划开始日更新失败');
+  }
+}
+
+function cancelStartDate() {
+  tempStartDate.value = null;
+  editingStartDate.value = false;
 }
 
 async function saveDueDate() {
@@ -787,10 +991,20 @@ function cancelDueDate() {
 
 async function saveProject() {
   if (!issueId.value) return;
+  const oldProjectId = issue.value?.project_id ?? null;
+  const hadMilestone = Boolean(issue.value?.milestone_id);
   try {
-    await issueStore.updateIssue(issueId.value, { project_id: tempProject.value || undefined });
+    await issueStore.updateIssue(issueId.value, { project_id: tempProject.value || null });
     await loadIssue();
-    window.$message?.success('项目更新成功');
+    const newProjectId = issue.value?.project_id ?? null;
+    tempMilestone.value = nextMilestoneAfterProjectMove(
+      oldProjectId,
+      newProjectId,
+      issue.value?.milestone_id
+    );
+    await loadMilestones(newProjectId);
+    const tip = projectMoveClearedMessage(oldProjectId, newProjectId, hadMilestone);
+    window.$message?.success(tip ? `项目更新成功；${tip}` : '项目更新成功');
   } catch {
     window.$message?.error('项目更新失败');
   }
@@ -833,16 +1047,47 @@ function cancelMilestone() {
   editingMilestone.value = false;
 }
 
+async function saveEstimate() {
+  if (!issueId.value) return;
+  try {
+    await issueStore.updateIssue(issueId.value, {
+      estimate_points: tempEstimate.value
+    });
+    await loadIssue();
+    window.$message?.success('估点已更新');
+  } catch {
+    window.$message?.error('估点更新失败');
+  }
+}
+
+function cancelEstimate() {
+  tempEstimate.value = null;
+  editingEstimate.value = false;
+}
+
 // Add comment
+function startReply(comment: Api.Issue.IssueComment) {
+  replyToId.value = comment.id;
+  const name = comment.user_info?.sso_name || comment.user_info?.name || comment.user_id || '';
+  replyToPreview.value = name ? `回复 @${name}` : '回复评论';
+}
+
+function cancelReply() {
+  replyToId.value = null;
+  replyToPreview.value = '';
+}
+
 async function handleAddComment() {
   if (!newComment.value.trim() || !issueId.value) return;
 
   try {
-    await issueStore.addComment(issueId.value, newComment.value);
+    const parentId = replyToId.value || undefined;
+    await issueStore.addComment(issueId.value, newComment.value, parentId);
     newComment.value = '';
+    cancelReply();
     await loadComments();
     await loadTimeline();
-    window.$message?.success('评论添加成功');
+    window.$message?.success(parentId ? '回复添加成功' : '评论添加成功');
   } catch {
     window.$message?.error('评论添加失败');
   }
@@ -888,6 +1133,113 @@ function handleDeleteIssue() {
   });
 }
 
+const duplicateLoading = ref(false);
+
+// E78: set-parent / promote-to-root
+const showSetParentModal = ref(false);
+const setParentMode = ref<'set' | 'change'>('set');
+const setParentLoading = ref(false);
+const promoteRootLoading = ref(false);
+const pendingParentId = ref<string | null>(null);
+const parentPickerOptions = ref<Array<{ label: string; value: string }>>([]);
+const parentPickerLoading = ref(false);
+
+async function loadParentPickerOptions(query: string = '') {
+  parentPickerLoading.value = true;
+  try {
+    const res = await issueApi.getIssues({
+      search: query || undefined,
+      page: 1,
+      page_size: 30
+    } as any);
+    const rows = (res as any)?.data?.rows || (res as any)?.rows || [];
+    const filtered = excludeSelfFromPicker(rows, issue.value?.id || '');
+    parentPickerOptions.value = filtered.map((r: any) => ({
+      label: `${r.issue_code || r.id} · ${r.title || ''}`.trim(),
+      value: r.id
+    }));
+  } catch {
+    parentPickerOptions.value = [];
+  } finally {
+    parentPickerLoading.value = false;
+  }
+}
+
+function openSetParentModal(mode: 'set' | 'change' = 'set') {
+  setParentMode.value = mode;
+  pendingParentId.value = null;
+  showSetParentModal.value = true;
+  void loadParentPickerOptions('');
+}
+
+async function confirmSetParent() {
+  if (!issue.value || !pendingParentId.value) {
+    window.$message?.warning('请选择父 Issue');
+    return;
+  }
+  setParentLoading.value = true;
+  try {
+    const { data, error } = await issueApi.updateIssue(issue.value.id, {
+      parent_issue_id: pendingParentId.value
+    } as any);
+    if (error || !data) {
+      window.$message?.error((error as any)?.message || '设置父 Issue 失败');
+      return;
+    }
+    const parentCode =
+      parentPickerOptions.value.find(o => o.value === pendingParentId.value)?.label?.split(' · ')[0] ||
+      (data as any).parent_issue_id ||
+      pendingParentId.value;
+    window.$message?.success(setParentSuccessMessage(String(parentCode)));
+    showSetParentModal.value = false;
+    await loadIssue();
+    await loadParentAndChildren();
+  } catch (e: any) {
+    window.$message?.error(e?.message || '设置父 Issue 失败');
+  } finally {
+    setParentLoading.value = false;
+  }
+}
+
+async function handlePromoteToRoot() {
+  if (!issue.value || !canPromoteToRoot(issue.value.parent_issue_id)) return;
+  promoteRootLoading.value = true;
+  try {
+    const { data, error } = await issueApi.updateIssue(issue.value.id, {
+      parent_issue_id: null
+    } as any);
+    if (error || !data) {
+      window.$message?.error((error as any)?.message || '提升为根失败');
+      return;
+    }
+    window.$message?.success(setParentSuccessMessage(null));
+    await loadIssue();
+    await loadParentAndChildren();
+  } catch (e: any) {
+    window.$message?.error(e?.message || '提升为根失败');
+  } finally {
+    promoteRootLoading.value = false;
+  }
+}
+
+/** E75: Linear-style duplicate → navigate to new issue */
+async function handleDuplicateIssue() {
+  if (!issue.value) return;
+  duplicateLoading.value = true;
+  try {
+    const created = await issueApi.duplicateIssue(issue.value.id);
+    const newId = created?.id;
+    const code = created?.issue_code || (created as any)?.issueCode || '';
+    if (!newId) throw new Error('missing id');
+    window.$message?.success(code ? `已复制为 ${code}` : 'Issue 复制成功');
+    router.push({ path: '/issue/detail', query: { id: newId } });
+  } catch (e: any) {
+    window.$message?.error(e?.message || 'Issue 复制失败');
+  } finally {
+    duplicateLoading.value = false;
+  }
+}
+
 // Format date
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '-';
@@ -898,92 +1250,7 @@ function formatDateTime(dateStr: string): string {
   return new Date(dateStr).toLocaleString();
 }
 
-// Format timeline action text
-// 辅助函数：获取状态的中文标签
-function getStatusLabel(status: string) {
-  return statusOptions.find(s => s.value === status)?.label || status;
-}
-
-// 辅助函数：获取优先级的中文标签
-function getPriorityLabel(priority: string) {
-  return priorityOptions.find(p => p.value === priority)?.label || priority;
-}
-
-// 辅助函数：格式化用户信息
-function formatUserInfo(user: any) {
-  if (!user) return '未分配';
-  // 如果是对象（新格式）
-  if (typeof user === 'object') {
-    return user.sso_name || user.name || user.sso_account || user.id || '未分配';
-  }
-  // 如果是字符串（旧格式，用户ID）
-  return user;
-}
-
-// 辅助函数：格式化状态变更
-function formatStatusChange(actionData: any): string {
-  return `将状态从 "${getStatusLabel(actionData?.from || '')}" 改为 "${getStatusLabel(actionData?.to || '')}"`;
-}
-
-// 辅助函数：格式化负责人变更
-function formatAssignedChange(actionData: any): string {
-  return `将负责人从 "${formatUserInfo(actionData?.from)}" 改为 "${formatUserInfo(actionData?.to)}"`;
-}
-
-// 辅助函数：格式化优先级变更
-function formatPriorityChange(actionData: any): string {
-  return `将优先级从 "${getPriorityLabel(actionData?.from || '')}" 改为 "${getPriorityLabel(actionData?.to || '')}"`;
-}
-
-// 辅助函数：格式化反应动作
-function formatReactionAction(actionData: any, actionType: string): string {
-  const emoji = actionData?.emoji || '';
-  return actionType === 'reaction_added' ? `添加了反应 ${emoji}` : `移除了反应 ${emoji}`;
-}
-
-function formatTimelineAction(item: Api.Issue.IssueTimeline): string {
-  const { action_type, action_data } = item;
-
-  switch (action_type) {
-    case 'created':
-      return '创建了此 Issue';
-    case 'updated':
-      return '更新了 Issue';
-    case 'commented':
-      return '添加了评论';
-    case 'status_changed':
-      return formatStatusChange(action_data);
-    case 'assigned':
-      return formatAssignedChange(action_data);
-    case 'priority_changed':
-      return formatPriorityChange(action_data);
-    case 'due_date_changed':
-      return '修改了截止日期';
-    case 'relation_added':
-      return `添加了关联: ${action_data?.relation_type}`;
-    case 'relation_removed':
-      return '移除了关联';
-    case 'attachment_added':
-      return '添加了附件';
-    case 'attachment_removed':
-      return '移除了附件';
-    case 'label_added':
-      return '添加了标签';
-    case 'label_removed':
-      return '移除了标签';
-    case 'reaction_added':
-    case 'reaction_removed':
-      return formatReactionAction(action_data, action_type);
-    case 'resolved':
-      return '标记为已解决';
-    case 'closed':
-      return '关闭了此 Issue';
-    case 'reopened':
-      return '重新打开此 Issue';
-    default:
-      return action_type;
-  }
-}
+// Format timeline action text — see @/utils/formatTimelineAction (E41)
 
 // Go back to list
 function goBack() {
@@ -1008,6 +1275,8 @@ watch(
   issueId,
   id => {
     issueFocus.ensureDetailFocus(id);
+    loadPinState();
+    loadWatchState();
   },
   { immediate: true }
 );
@@ -1018,7 +1287,6 @@ watch(
     loadMilestones(pid);
   }
 );
-
 
 async function loadPinState() {
   const id = issueId.value;
@@ -1036,7 +1304,6 @@ async function loadPinState() {
   }
 }
 
-
 async function copyGitBranchName() {
   if (!issue.value?.id) return;
   copyBranchLoading.value = true;
@@ -1052,6 +1319,50 @@ async function copyGitBranchName() {
     window.$message?.error(e?.message || '复制分支名失败');
   } finally {
     copyBranchLoading.value = false;
+  }
+}
+
+async function loadWatchState() {
+  const id = issueId.value;
+  if (!id) {
+    watching.value = false;
+    watchers.value = [];
+    return;
+  }
+  try {
+    const response = await fetchIssueWatchers(id);
+    const rows = (response as any).data || [];
+    watchers.value = Array.isArray(rows) ? rows : [];
+    watching.value = watchers.value.some((r: any) => r.user_id === currentUserId.value);
+  } catch {
+    watching.value = false;
+    watchers.value = [];
+  }
+}
+
+function watcherLabel(w: { user_id: string; username?: string; name?: string }) {
+  return w.name || w.username || w.user_id.slice(0, 8);
+}
+
+async function toggleWatch() {
+  const id = issueId.value;
+  if (!id) return;
+  watchLoading.value = true;
+  try {
+    if (watching.value) {
+      await unwatchIssue(id);
+      watching.value = false;
+      window.$message?.success('已取消关注');
+    } else {
+      await watchIssue(id);
+      watching.value = true;
+      window.$message?.success('已关注 Issue');
+    }
+    await loadWatchState();
+  } catch {
+    window.$message?.error('关注操作失败');
+  } finally {
+    watchLoading.value = false;
   }
 }
 
@@ -1077,11 +1388,49 @@ async function toggleSidebarPin() {
   }
 }
 
+function onCustomFieldsUpdated(rows: IssueCustomFieldValue[]) {
+  customFields.value = rows;
+}
+
+async function loadLinkedCustomerRequests() {
+  const id = issueId.value;
+  if (!id) {
+    linkedCustomerRequests.value = [];
+    return;
+  }
+  try {
+    const { data, error } = await fetchCustomerRequests({ issueId: id });
+    if (error || !data) {
+      linkedCustomerRequests.value = [];
+      return;
+    }
+    linkedCustomerRequests.value = data.rows || [];
+  } catch {
+    linkedCustomerRequests.value = [];
+  }
+}
+
+let unsubRealtime: (() => void) | null = null;
 onMounted(() => {
+  unsubRealtime = subscribeWorkspaceRealtime(ev => {
+    if (!ev.type || !String(ev.type).startsWith('issue.')) return;
+    const id = String(ev.payload?.id || '');
+    if (id && id === String(issueId.value)) {
+      loadIssue();
+      loadComments();
+    }
+  });
   loadIssue();
   loadPinState();
+  loadWatchState();
+  loadLinkedCustomerRequests();
   loadProjects();
   loadCycles();
+});
+
+onUnmounted(() => {
+  unsubRealtime?.();
+  unsubRealtime = null;
 });
 </script>
 
@@ -1122,14 +1471,46 @@ onMounted(() => {
               </div>
             </div>
 
+            <NAlert v-if="issue.is_deleted" type="warning" class="mb-3">
+              <div class="flex items-center justify-between gap-3">
+                <span>{{ deletedReadonlyBanner() }}</span>
+                <NButton size="small" type="primary" :loading="restoreLoading" @click="handleRestoreFromTrash">
+                  恢复
+                </NButton>
+              </div>
+            </NAlert>
+
             <!-- Quick Actions -->
-            <div class="issue-actions">
+            <div v-if="!issue.is_deleted" class="issue-actions">
               <NButtonGroup>
                 <NButton size="small" @click="router.push({ path: '/issue/edit', query: { id: issue.id } })">
                   <template #icon>
                     <icon-mdi-pencil />
                   </template>
                   编辑
+                </NButton>
+                <NButton size="small" :loading="duplicateLoading" @click="handleDuplicateIssue">
+                  <template #icon>
+                    <icon-mdi-content-copy />
+                  </template>
+                  复制 Issue
+                </NButton>
+                <NButton size="small" @click="openSetParentModal(issue.parent_issue_id ? 'change' : 'set')">
+                  <template #icon>
+                    <icon-mdi-file-tree />
+                  </template>
+                  {{ issue.parent_issue_id ? '更换父' : '设为子项…' }}
+                </NButton>
+                <NButton
+                  v-if="canPromoteToRoot(issue.parent_issue_id)"
+                  size="small"
+                  :loading="promoteRootLoading"
+                  @click="handlePromoteToRoot"
+                >
+                  <template #icon>
+                    <icon-mdi-arrow-up-bold />
+                  </template>
+                  提升为根
                 </NButton>
                 <NButton size="small" @click="startEdit('status', issue.status)">
                   <template #icon>
@@ -1142,6 +1523,9 @@ onMounted(() => {
                     <icon-mdi-delete />
                   </template>
                   删除
+                </NButton>
+                <NButton size="small" :loading="watchLoading" @click="toggleWatch">
+                  {{ watching ? '取消关注' : '关注' }}
                 </NButton>
                 <NButton size="small" :loading="pinLoading" @click="toggleSidebarPin">
                   {{ pinnedFavoriteId ? '取消侧栏收藏' : '收藏到侧栏' }}
@@ -1183,8 +1567,50 @@ onMounted(() => {
           </NCard>
 
           <div v-if="issueId" class="mt-12px">
+            <IssueLinksPanel :issue-id="issueId" />
+          </div>
+
+          <div v-if="issueId" class="mt-12px">
             <EntityDocsPanel parent-type="issue" :parent-id="issueId" />
           </div>
+
+          <!-- E70: sub-issues + childProgress -->
+          <NCard class="mt-12px" size="small">
+            <template #header>
+              <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;width:100%">
+                <span>子问题</span>
+                <NButton text size="tiny" @click="showAddSubIssue = true">+ 添加</NButton>
+              </div>
+            </template>
+            <div v-if="(issue.childProgress?.total || 0) > 0" class="mb-8px">
+              <NSpace align="center" :size="8">
+                <NProgress
+                  type="line"
+                  :percentage="childProgressPercent(issue.childProgress)"
+                  :show-indicator="false"
+                  style="width: 160px"
+                />
+                <NText depth="3" style="font-size: 12px">
+                  {{ formatChildProgressLabel(issue.childProgress) }}
+                </NText>
+              </NSpace>
+            </div>
+            <NEmpty v-if="!childSummaries.length" description="暂无子问题" size="small" />
+            <NSpace v-else vertical :size="4">
+              <div v-for="c in childSummaries" :key="c.id" class="linked-issue">
+                <NButton
+                  text
+                  size="tiny"
+                  type="primary"
+                  @click="router.push({ path: '/issue/detail', query: { id: c.id } })"
+                >
+                  {{ c.issue_code }} · {{ c.title }}
+                </NButton>
+                <NTag size="tiny" :bordered="false">{{ c.status }}</NTag>
+              </div>
+            </NSpace>
+          </NCard>
+
 
           <div v-if="issueId" class="mt-12px">
             <IssuePrPanel :issue-id="issueId" />
@@ -1192,42 +1618,121 @@ onMounted(() => {
 
           <!-- Comments & Timeline -->
           <div class="issue-activity">
-            <div class="section-header">
+            <div class="section-header" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
               <NText strong>活动 ({{ timeline.length }})</NText>
+              <NButton
+                size="tiny"
+                secondary
+                :loading="timelineExportLoading"
+                :disabled="!issueId"
+                @click="exportTimelineCsv"
+              >
+                导出 CSV
+              </NButton>
             </div>
 
             <!-- Combined Timeline (Comments + Activities) -->
             <NSpin :show="commentsLoading || timelineLoading">
               <div v-if="comments.length > 0 || timeline.length > 0" class="activity-list">
-                <!-- Comments -->
-                <div v-for="comment in comments" :key="'comment-' + comment.id" class="activity-item comment">
-                  <div class="activity-icon">
-                    <icon-mdi-comment-text-outline />
-                  </div>
-                  <div class="activity-content">
-                    <div class="activity-header">
-                      <NSpace align="center" :size="8">
-                        <NText strong>
-                          {{ comment.user_info?.sso_name || comment.user_info?.name || comment.user_id }}
-                        </NText>
-                        <NText depth="3" style="font-size: 12px">
-                          {{ formatDateTime(comment.created_at) }}
-                        </NText>
-                      </NSpace>
-                      <NButton
-                        v-if="comment.user_id === 'admin'"
-                        text
-                        size="tiny"
-                        @click="handleDeleteComment(comment.id)"
-                      >
-                        删除
-                      </NButton>
+                <!-- Comments (E74: depth-1 tree) -->
+                <template v-for="node in commentTree" :key="'comment-root-' + node.comment.id">
+                  <div class="activity-item comment" :style="{ marginLeft: '0px' }">
+                    <div class="activity-icon">
+                      <icon-mdi-comment-text-outline />
                     </div>
-                    <div class="comment-text">
-                      <MarkdownRenderer :content="comment.content" />
+                    <div class="activity-content">
+                      <div class="activity-header">
+                        <NSpace align="center" :size="8">
+                          <NText strong>
+                            {{ node.comment.user_info?.sso_name || node.comment.user_info?.name || node.comment.user_id }}
+                          </NText>
+                          <NText depth="3" style="font-size: 12px">
+                            {{ formatDateTime(node.comment.created_at) }}
+                          </NText>
+                        </NSpace>
+                        <NSpace :size="4">
+                          <NButton text size="tiny" @click="startReply(node.comment)">回复</NButton>
+                          <NButton
+                            v-if="node.comment.user_id === 'admin'"
+                            text
+                            size="tiny"
+                            @click="handleDeleteComment(node.comment.id)"
+                          >
+                            删除
+                          </NButton>
+                        </NSpace>
+                      </div>
+                      <div class="comment-text">
+                        <MarkdownRenderer :content="node.comment.content" />
+                      </div>
+                      <div class="comment-reactions mt-8px">
+                        <IssueReactions
+                          :model-value="(node.comment as any).reactions || {}"
+                          :current-user-id="currentUserId"
+                          @react="(emoji: string) => handleCommentReact(node.comment.id, emoji)"
+                          @unreact="(emoji: string) => handleCommentUnreact(node.comment.id, emoji)"
+                        />
+                      </div>
+                      <div class="comment-attachments mt-8px">
+                        <AttachmentList
+                          :issue-id="issueId"
+                          :comment-id="node.comment.id"
+                          :attachments="(node.comment.attachments || []).map(a => commentAttachmentToDocument(a, node.comment.id))"
+                          @refresh="loadComments"
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
+                  <div
+                    v-for="reply in node.replies"
+                    :key="'comment-reply-' + reply.id"
+                    class="activity-item comment comment-reply"
+                    style="margin-left: 28px"
+                  >
+                    <div class="activity-icon">
+                      <icon-mdi-comment-text-outline />
+                    </div>
+                    <div class="activity-content">
+                      <div class="activity-header">
+                        <NSpace align="center" :size="8">
+                          <NText strong>
+                            {{ reply.user_info?.sso_name || reply.user_info?.name || reply.user_id }}
+                          </NText>
+                          <NText depth="3" style="font-size: 12px">
+                            {{ formatDateTime(reply.created_at) }}
+                          </NText>
+                        </NSpace>
+                        <NButton
+                          v-if="reply.user_id === 'admin'"
+                          text
+                          size="tiny"
+                          @click="handleDeleteComment(reply.id)"
+                        >
+                          删除
+                        </NButton>
+                      </div>
+                      <div class="comment-text">
+                        <MarkdownRenderer :content="reply.content" />
+                      </div>
+                      <div class="comment-reactions mt-8px">
+                        <IssueReactions
+                          :model-value="(reply as any).reactions || {}"
+                          :current-user-id="currentUserId"
+                          @react="(emoji: string) => handleCommentReact(reply.id, emoji)"
+                          @unreact="(emoji: string) => handleCommentUnreact(reply.id, emoji)"
+                        />
+                      </div>
+                      <div class="comment-attachments mt-8px">
+                        <AttachmentList
+                          :issue-id="issueId"
+                          :comment-id="reply.id"
+                          :attachments="(reply.attachments || []).map(a => commentAttachmentToDocument(a, reply.id))"
+                          @refresh="loadComments"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </template>
 
                 <!-- Timeline Activities (exclude commented, already shown above) -->
                 <div v-for="item in nonCommentTimeline" :key="'timeline-' + item.id" class="activity-item timeline">
@@ -1253,15 +1758,19 @@ onMounted(() => {
 
             <!-- Add Comment -->
             <div class="add-comment">
+              <div v-if="replyToId" class="reply-banner" style="margin-bottom: 8px">
+                <NText depth="3" style="font-size: 12px">{{ replyToPreview }}</NText>
+                <NButton text size="tiny" @click="cancelReply">取消</NButton>
+              </div>
               <MarkdownEditor
                 v-model="newComment"
-                placeholder="添加评论...支持 Markdown 语法。使用 @提及用户，+ISSUE-xxx 引用问题、+PROJECT-xxx 引用项目、+REQUIREMENT-xxx 引用需求等"
+                :placeholder="replyToId ? '写下回复...支持 Markdown' : '添加评论...支持 Markdown 语法。使用 @提及用户，+ISSUE-xxx 引用问题、+PROJECT-xxx 引用项目、+REQUIREMENT-xxx 引用需求等'"
                 :rows="4"
                 @submit="handleAddComment"
               />
               <div class="comment-actions">
                 <NButton type="primary" size="small" :disabled="!newComment.trim()" @click="handleAddComment">
-                  发表评论
+                  {{ replyToId ? '发表回复' : '发表评论' }}
                 </NButton>
               </div>
             </div>
@@ -1288,28 +1797,50 @@ onMounted(() => {
               </template>
             </EditableField>
 
-            <!-- Assignee -->
+            <!-- Assignees (E71 multi) -->
             <EditableField
               v-model="tempAssignee"
               v-model:editing="editingAssignee"
-              label="负责人"
-              :display-value="issue.assignee?.sso_name || issue.assignee?.name || issue.assignee_id || '未分配'"
+              label="指派人"
+              :display-value="assigneesDisplayValue()"
               placeholder="未分配"
               @save="saveAssignee"
               @cancel="cancelAssignee"
-              @start-edit="tempAssignee = issue.assignee_id || ''"
+              @start-edit="
+                tempAssignee = (issue.assignees?.map(a => a.id) || (issue.assignee_id ? [issue.assignee_id] : [])).slice()
+              "
             >
               <template #label-icon>
-                <icon-mdi-account />
+                <icon-mdi-account-multiple />
+              </template>
+              <template #display>
+                <div class="flex items-center gap-4px flex-wrap">
+                  <template v-if="issue.assignees?.length">
+                    <NAvatar
+                      v-for="(a, idx) in issue.assignees.slice(0, 3)"
+                      :key="a.id"
+                      :size="22"
+                      round
+                      :style="{ backgroundColor: idx === 0 ? '#18a058' : '#2080f0', color: 'white', fontSize: '11px' }"
+                      :title="(a.sso_name || a.name || a.id) + (idx === 0 ? ' (primary)' : '')"
+                    >
+                      {{ (a.sso_name || a.name || a.id || '?').charAt(0).toUpperCase() }}
+                    </NAvatar>
+                    <NText v-if="issue.assignees.length > 3" depth="3" class="text-12px">+{{ issue.assignees.length - 3 }}</NText>
+                  </template>
+                  <NText v-else depth="3">{{ assigneesDisplayValue() }}</NText>
+                </div>
               </template>
               <template #editor>
                 <UserSelect
                   :model-value="tempAssignee"
-                  placeholder="选择负责人"
+                  multiple
+                  :max="10"
+                  placeholder="选择指派人（首位=负责人）"
                   size="small"
                   @update:model-value="
                     value => {
-                      tempAssignee = value;
+                      tempAssignee = Array.isArray(value) ? value : value ? [value] : [];
                     }
                   "
                 />
@@ -1400,6 +1931,25 @@ onMounted(() => {
               </template>
             </EditableField>
 
+            <!-- Start Date (E73) -->
+            <EditableField
+              v-model="tempStartDate"
+              v-model:editing="editingStartDate"
+              label="开始"
+              :display-value="formatDate(issue.start_date)"
+              placeholder="-"
+              @save="saveStartDate"
+              @cancel="cancelStartDate"
+              @start-edit="tempStartDate = issue.start_date ? Number(new Date(issue.start_date).getTime() / 1000) : null"
+            >
+              <template #label-icon>
+                <icon-mdi-calendar-start />
+              </template>
+              <template #editor>
+                <NDatePicker v-model:value="tempStartDate" type="date" size="small" clearable />
+              </template>
+            </EditableField>
+
             <!-- Due Date -->
             <EditableField
               v-model="tempDueDate"
@@ -1418,6 +1968,30 @@ onMounted(() => {
                 <NDatePicker v-model:value="tempDueDate" type="date" size="small" />
               </template>
             </EditableField>
+
+            <!-- Watchers (E19) -->
+            <div class="sidebar-section watchers-block">
+              <div class="sidebar-section-title">关注者</div>
+              <NEmpty v-if="!watchers.length" description="暂无关注者" size="small" />
+              <NSpace v-else vertical :size="4">
+                <div v-for="w in watchers" :key="w.user_id" class="watcher-row">
+                  <NAvatar round size="small" class="watcher-avatar">
+                    {{ watcherLabel(w).slice(0, 1).toUpperCase() }}
+                  </NAvatar>
+                  <NText class="watcher-name">{{ watcherLabel(w) }}</NText>
+                  <NButton
+                    v-if="w.user_id === currentUserId"
+                    text
+                    size="tiny"
+                    type="primary"
+                    :loading="watchLoading"
+                    @click="toggleWatch"
+                  >
+                    取消
+                  </NButton>
+                </div>
+              </NSpace>
+            </div>
 
             <!-- Reporter -->
             <EditableField
@@ -1466,6 +2040,25 @@ onMounted(() => {
               </template>
             </EditableField>
 
+            <!-- Estimate points (E16) -->
+            <EditableField
+              v-model="tempEstimate"
+              v-model:editing="editingEstimate"
+              label="估点"
+              :display-value="issue.estimate_points != null ? String(issue.estimate_points) : ''"
+              :options="estimateOptions"
+              placeholder="未设置"
+              select-width="100px"
+              :clearable="true"
+              @save="saveEstimate"
+              @cancel="cancelEstimate"
+              @start-edit="tempEstimate = issue.estimate_points ?? null"
+            >
+              <template #label-icon>
+                <icon-mdi-counter />
+              </template>
+            </EditableField>
+
             <!-- Time Tracking -->
             <div v-if="issue.estimated_hours || issue.actual_hours" class="sidebar-field">
               <div class="field-label">
@@ -1478,15 +2071,60 @@ onMounted(() => {
               </div>
             </div>
 
-            <!-- Linked Issues -->
-            <div
-              v-if="relations && (relations.as_source.length > 0 || relations.as_target.length > 0)"
-              class="sidebar-section"
-            >
-              <div class="sidebar-section-title">关联 Issue</div>
+            <!-- Custom fields (E25) -->
+            <div v-if="slaClocks.length" id="issue-sla" class="sidebar-section">
+              <div class="sidebar-section-title">SLA</div>
+              <div v-for="c in slaClocks" :key="c.id" style="margin-bottom: 6px">
+                <NTag size="small" :type="slaBadgeType(c.status)" :bordered="false">
+                  {{ slaMetricBadgePrefix(c.metric) }} · {{ c.policyName || c.policyId.slice(0, 8) }} ·
+                  {{ c.status === 'paused' ? '已暂停' : c.status }}
+                </NTag>
+                <NText v-if="c.status === 'running'" depth="3" style="font-size: 12px; margin-left: 6px">
+                  {{ formatSlaRemaining(c.deadlineAt) }}
+                </NText>
+                <NText v-else-if="c.status === 'paused'" depth="3" style="font-size: 12px; margin-left: 6px">
+                  {{ formatSlaPaused(c.elapsedBeforePauseMinutes) }}
+                </NText>
+              </div>
+            </div>
+
+            <div id="issue-custom-fields" class="sidebar-section">
+              <div class="sidebar-section-title">
+                <span>自定义字段</span>
+              </div>
+              <IssueCustomFieldsEditor :issue-id="issueId" :values="customFields" @updated="onCustomFieldsUpdated" />
+            </div>
+
+            <!-- Customer requests (E22) — only when linked -->
+            <div v-if="linkedCustomerRequests.length" id="issue-customer-requests" class="sidebar-section">
+              <div class="sidebar-section-title">
+                <span>客户需求</span>
+                <NTag size="tiny" :bordered="false">{{ linkedCustomerRequests.length }}</NTag>
+              </div>
+              <NSpace vertical :size="4">
+                <div v-for="req in linkedCustomerRequests" :key="req.id" class="linked-issue">
+                  <NButton
+                    text
+                    size="tiny"
+                    type="primary"
+                    @click="router.push({ name: 'requests_detail', query: { id: req.id } })"
+                  >
+                    {{ req.title }}
+                  </NButton>
+                  <NText depth="3" style="font-size: 11px">{{ req.customerName || '' }}</NText>
+                </div>
+              </NSpace>
+            </div>
+
+            <!-- Linked Issues / Relations CRUD (E20) -->
+            <div id="issue-relations" class="sidebar-section">
+              <div class="sidebar-section-title">
+                <span>关联 Issue</span>
+                <NButton text size="tiny" @click="showAddRelation = !showAddRelation">+ 添加</NButton>
+              </div>
               <div class="linked-issues">
                 <div
-                  v-for="(rel, idx) in relations.as_source"
+                  v-for="(rel, idx) in relations?.as_source || []"
                   :key="'source-' + idx + '-' + rel.target_id"
                   class="linked-issue"
                 >
@@ -1498,13 +2136,21 @@ onMounted(() => {
                   >
                     {{ rel.target_issue?.issue_code || rel.target_id }}
                   </NButton>
+                  <NButton
+                    text
+                    size="tiny"
+                    type="error"
+                    @click="handleRemoveRelation(rel.target_id, rel.relation_type)"
+                  >
+                    移除
+                  </NButton>
                 </div>
                 <div
-                  v-for="(rel, idx) in relations.as_target"
+                  v-for="(rel, idx) in relations?.as_target || []"
                   :key="'target-' + idx + '-' + rel.source_id"
                   class="linked-issue"
                 >
-                  <NTag size="tiny" :bordered="false">{{ getRelationLabel(rel.relation_type) }}</NTag>
+                  <NTag size="tiny" :bordered="false">{{ getRelationLabel(rel.relation_type) }} ←</NTag>
                   <NButton
                     text
                     size="tiny"
@@ -1513,6 +2159,31 @@ onMounted(() => {
                     {{ rel.source_issue?.issue_code || rel.source_id }}
                   </NButton>
                 </div>
+                <NText
+                  v-if="!relations || (!relations.as_source.length && !relations.as_target.length)"
+                  depth="3"
+                  style="font-size: 12px"
+                >
+                  暂无关联
+                </NText>
+              </div>
+              <div v-if="showAddRelation" class="mt-2">
+                <NInput
+                  v-model:value="pendingRelationTarget"
+                  size="small"
+                  placeholder="目标 Issue ID 或 KEY-N"
+                  class="mb-2"
+                />
+                <NSelect v-model:value="pendingRelationType" :options="relationTypeOptions" size="small" class="mb-2" />
+                <NButton
+                  size="tiny"
+                  type="primary"
+                  :loading="relationBusy"
+                  :disabled="!pendingRelationTarget.trim()"
+                  @click="handleAddRelation"
+                >
+                  确认添加
+                </NButton>
               </div>
             </div>
 
@@ -1598,6 +2269,38 @@ onMounted(() => {
       <NEmpty v-else-if="!loading" description="Issue 不存在" size="large" />
     </NSpin>
 
+    <!-- E78: set / change parent -->
+    <NModal
+      v-model:show="showSetParentModal"
+      preset="card"
+      :title="setParentMode === 'change' ? '更换父 Issue' : '设为子项'"
+      style="width: 480px"
+    >
+      <NSpace vertical>
+        <NText depth="3">选择同工作区的父 Issue（排除自身；环由服务端校验）。</NText>
+        <NSelect
+          v-model:value="pendingParentId"
+          filterable
+          clearable
+          :loading="parentPickerLoading"
+          :options="parentPickerOptions"
+          placeholder="搜索 Issue…"
+          @search="loadParentPickerOptions"
+        />
+        <NSpace justify="end">
+          <NButton @click="showSetParentModal = false">取消</NButton>
+          <NButton
+            type="primary"
+            :loading="setParentLoading"
+            :disabled="!pendingParentId"
+            @click="confirmSetParent"
+          >
+            确认
+          </NButton>
+        </NSpace>
+      </NSpace>
+    </NModal>
+
     <!-- Agent Prompt Modal -->
     <NModal v-model:show="showAddSubIssue" preset="card" title="添加子 Issue" style="width: 480px">
       <NSpace vertical>
@@ -1666,14 +2369,15 @@ onMounted(() => {
   background: var(--color-bg-primary);
   border-radius: var(--radius-md);
   padding: var(--space-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
   margin-bottom: var(--space-md);
   border: 1px solid var(--color-border-subtle);
   transition: box-shadow 0.2s ease;
 }
 
 .issue-header:hover {
-  box-shadow: var(--shadow-md);
+  box-shadow: none;
+  border-color: var(--color-hairline-strong);
 }
 
 .issue-title-row {
@@ -1739,7 +2443,7 @@ onMounted(() => {
   border-radius: var(--radius-md);
   padding: var(--space-md);
   margin-bottom: var(--space-md);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
   transition: box-shadow 0.2s ease;
 }
 
@@ -1915,7 +2619,7 @@ onMounted(() => {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
   padding: var(--space-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
   margin-bottom: var(--space-lg);
   transition: box-shadow 0.2s ease;
 }
@@ -2118,11 +2822,26 @@ onMounted(() => {
   line-height: 1.6;
   color: var(--color-border-subtle);
 }
+
+.watchers-block {
+  margin: 8px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-hairline, rgba(0, 0, 0, 0.06));
+}
+.watcher-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.watcher-avatar {
+  flex-shrink: 0;
+  font-size: 11px;
+}
+.watcher-name {
+  flex: 1;
+  font-size: 13px;
+}
 </style>
 
-/* E11-S4: 属性栏标签不换行（避免「负责/人」） */
-:deep(.editable-field__label),
-:deep(.field-label),
-:deep(.n-form-item-label) {
-  white-space: nowrap;
-}
+/* E11-S4: 属性栏标签不换行（避免「负责/人」） */ :deep(.editable-field__label), :deep(.field-label),
+:deep(.n-form-item-label) { white-space: nowrap; }

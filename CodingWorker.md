@@ -28,7 +28,7 @@
 
 #### 2. 执行开发循环（Issue 驱动）
 
-1. 按 Issue 描述与验收标准实现改动；优先复用仓库内已有技能（brainstorming → TDD → 实现 → 验证）。
+1. **强制 superpowers 流程**（Epic/厚迭代同）：brainstorming → `docs/superpowers/specs/*-design.md` → writing-plans（`docs/superpowers/plans/`）→ TDD（先红测）→ 实现 → verification-before-completion → `docs/superpowers/acceptances/` 收口。无 design/plan 不得写业务代码；门禁不过不得称完成。
 2. **不要**默认调用 `POST /api/tasks` 创建 PGE 任务；该 API 已标记 Deprecated。
 3. UI 改动须本地/浏览器验证；提交前跑相关测试。
 

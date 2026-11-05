@@ -2,16 +2,26 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
+  type InitiativeRelationItem,
+  type InitiativeRelationType,
   type InitiativeRow,
   type InitiativeStatus,
   fetchAddFavorite,
+  fetchAddInitiativeRelation,
   fetchFavorites,
   fetchInitiative,
+  fetchInitiativeRelations,
+  fetchInitiatives,
   fetchProjectList,
   fetchRemoveFavorite,
+  fetchRemoveInitiativeRelation,
   fetchSetInitiativeProjects,
   fetchUpdateInitiative
 } from '@/service/api';
+import {
+  groupRelationItems,
+  relationDirectionLabel
+} from '@/utils/initiativeRelations';
 import EntityDocsPanel from '@/components/entity-docs/EntityDocsPanel.vue';
 
 defineOptions({ name: 'InitiativeDetailPage' });
@@ -24,6 +34,14 @@ const pinLoading = ref(false);
 const pinnedFavoriteId = ref<string | null>(null);
 const row = ref<InitiativeRow | null>(null);
 const projectOptions = ref<Array<{ label: string; value: string }>>([]);
+const relationItems = ref<InitiativeRelationItem[]>([]);
+const relationsLoading = ref(false);
+const relationSaving = ref(false);
+const peerOptions = ref<Array<{ label: string; value: string }>>([]);
+const addForm = reactive({
+  targetInitiativeId: null as string | null,
+  type: 'blocks' as InitiativeRelationType
+});
 
 const form = reactive({
   name: '',
@@ -33,6 +51,8 @@ const form = reactive({
 });
 
 const id = computed(() => String(route.query.id || ''));
+
+const grouped = computed(() => groupRelationItems(relationItems.value));
 
 const healthType: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
   on_track: 'success',
@@ -45,6 +65,12 @@ const healthLabel: Record<string, string> = {
   off_track: '偏离'
 };
 
+const typeOptions = [
+  { label: '阻塞 (blocks)', value: 'blocks' },
+  { label: '被阻塞 (is_blocked_by)', value: 'is_blocked_by' },
+  { label: '相关 (relates_to)', value: 'relates_to' }
+];
+
 async function loadProjects() {
   try {
     const response = await fetchProjectList();
@@ -55,6 +81,78 @@ async function loadProjects() {
     }));
   } catch {
     projectOptions.value = [];
+  }
+}
+
+async function loadPeers() {
+  try {
+    const { data } = await fetchInitiatives();
+    const rows = data?.rows || [];
+    peerOptions.value = rows
+      .filter(r => r.id !== id.value)
+      .map(r => ({ label: `${r.name} (${r.status})`, value: r.id }));
+  } catch {
+    peerOptions.value = [];
+  }
+}
+
+async function loadRelations() {
+  if (!id.value) {
+    relationItems.value = [];
+    return;
+  }
+  relationsLoading.value = true;
+  try {
+    const { data, error } = await fetchInitiativeRelations(id.value);
+    if (error) {
+      window.$message?.error(error.message || '加载依赖失败');
+      relationItems.value = [];
+      return;
+    }
+    relationItems.value = data?.items || [];
+  } finally {
+    relationsLoading.value = false;
+  }
+}
+
+async function onAddRelation() {
+  if (!id.value || !addForm.targetInitiativeId) {
+    window.$message?.warning('请选择目标 Initiative');
+    return;
+  }
+  relationSaving.value = true;
+  try {
+    const { error } = await fetchAddInitiativeRelation(id.value, {
+      targetInitiativeId: addForm.targetInitiativeId,
+      type: addForm.type
+    });
+    if (error) {
+      window.$message?.error(error.message || '添加失败');
+      return;
+    }
+    addForm.targetInitiativeId = null;
+    window.$message?.success('已添加依赖');
+    await loadRelations();
+    await load();
+  } finally {
+    relationSaving.value = false;
+  }
+}
+
+async function onRemoveRelation(relationId: string) {
+  if (!id.value) return;
+  relationSaving.value = true;
+  try {
+    const { error } = await fetchRemoveInitiativeRelation(id.value, relationId);
+    if (error) {
+      window.$message?.error(error.message || '删除失败');
+      return;
+    }
+    window.$message?.success('已删除');
+    await loadRelations();
+    await load();
+  } finally {
+    relationSaving.value = false;
   }
 }
 
@@ -153,12 +251,16 @@ async function onSave() {
 watch(id, () => {
   load();
   loadPinState();
+  loadPeers();
+  loadRelations();
 });
 
 onMounted(async () => {
   await loadProjects();
   await load();
   await loadPinState();
+  await loadPeers();
+  await loadRelations();
 });
 </script>
 
@@ -176,6 +278,12 @@ onMounted(async () => {
           {{ healthLabel[row.healthSummary.overall] || row.healthSummary.overall }}
         </NTag>
         <NTag v-else size="small" :bordered="false">健康未汇总</NTag>
+        <NTag v-if="(row?.blocksCount || 0) > 0" size="small" type="warning">
+          阻塞 {{ row?.blocksCount }}
+        </NTag>
+        <NTag v-if="(row?.blockedByCount || 0) > 0" size="small" type="error">
+          被阻 {{ row?.blockedByCount }}
+        </NTag>
       </div>
       <NButton :loading="pinLoading" secondary @click="toggleSidebarPin">
         {{ pinnedFavoriteId ? '取消侧栏钉' : '钉到侧栏' }}
@@ -238,6 +346,79 @@ onMounted(async () => {
             </NFormItem>
           </NForm>
         </NCard>
+
+        <NCollapse>
+          <NCollapseItem title="依赖" name="relations">
+            <NSpin :show="relationsLoading">
+              <div class="flex-col gap-12px">
+                <div class="flex flex-wrap items-end gap-8px">
+                  <div class="min-w-220px">
+                    <div class="mb-4px text-12px text-gray-500">目标 Initiative</div>
+                    <NSelect
+                      v-model:value="addForm.targetInitiativeId"
+                      filterable
+                      clearable
+                      placeholder="选择"
+                      :options="peerOptions"
+                    />
+                  </div>
+                  <div class="min-w-200px">
+                    <div class="mb-4px text-12px text-gray-500">类型</div>
+                    <NSelect v-model:value="addForm.type" :options="typeOptions" />
+                  </div>
+                  <NButton type="primary" :loading="relationSaving" @click="onAddRelation">添加</NButton>
+                </div>
+
+                <div v-if="grouped.blocks.length" class="flex-col gap-4px">
+                  <div class="text-13px font-500">阻塞</div>
+                  <div
+                    v-for="item in grouped.blocks"
+                    :key="item.id"
+                    class="flex items-center justify-between gap-8px rounded bg-gray-50 px-8px py-6px"
+                  >
+                    <span>
+                      <NTag size="tiny" type="warning">{{ relationDirectionLabel(item.type, item.direction) }}</NTag>
+                      {{ item.initiative.name }}
+                    </span>
+                    <NButton size="tiny" quaternary type="error" @click="onRemoveRelation(item.id)">删除</NButton>
+                  </div>
+                </div>
+
+                <div v-if="grouped.blockedBy.length" class="flex-col gap-4px">
+                  <div class="text-13px font-500">被阻塞</div>
+                  <div
+                    v-for="item in grouped.blockedBy"
+                    :key="item.id"
+                    class="flex items-center justify-between gap-8px rounded bg-gray-50 px-8px py-6px"
+                  >
+                    <span>
+                      <NTag size="tiny" type="error">{{ relationDirectionLabel(item.type, item.direction) }}</NTag>
+                      {{ item.initiative.name }}
+                    </span>
+                    <NButton size="tiny" quaternary type="error" @click="onRemoveRelation(item.id)">删除</NButton>
+                  </div>
+                </div>
+
+                <div v-if="grouped.relatesTo.length" class="flex-col gap-4px">
+                  <div class="text-13px font-500">相关</div>
+                  <div
+                    v-for="item in grouped.relatesTo"
+                    :key="item.id"
+                    class="flex items-center justify-between gap-8px rounded bg-gray-50 px-8px py-6px"
+                  >
+                    <span>
+                      <NTag size="tiny">{{ relationDirectionLabel(item.type, item.direction) }}</NTag>
+                      {{ item.initiative.name }}
+                    </span>
+                    <NButton size="tiny" quaternary type="error" @click="onRemoveRelation(item.id)">删除</NButton>
+                  </div>
+                </div>
+
+                <p v-if="!relationItems.length" class="text-12px text-gray-400">暂无依赖关系</p>
+              </div>
+            </NSpin>
+          </NCollapseItem>
+        </NCollapse>
 
         <EntityDocsPanel v-if="id" parent-type="initiative" :parent-id="id" />
       </div>

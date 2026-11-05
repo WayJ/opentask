@@ -36,9 +36,21 @@ export function buildNavActions(
     cycles?: string;
     labels?: string;
     issueTemplates?: string;
+    search?: string;
   }
 ): PaletteItem[] {
   const items: PaletteItem[] = [
+    ...(titles.search
+      ? [
+          {
+            id: 'nav.search',
+            kind: 'action' as const,
+            title: titles.search,
+            keywords: ['search', '搜索', 'find', '查找'],
+            run: () => navigate('/search')
+          }
+        ]
+      : []),
     {
       id: 'nav.issues',
       kind: 'action',
@@ -129,10 +141,12 @@ export function buildNavActions(
 export function buildFocusIssueActions(opts: {
   hasFocusedIssue: boolean;
   openLabels: () => void;
+  openEstimate?: () => void;
   title?: string;
+  estimateTitle?: string;
 }): PaletteItem[] {
   if (!opts.hasFocusedIssue) return [];
-  return [
+  const items: PaletteItem[] = [
     {
       id: 'action.labels',
       kind: 'action',
@@ -141,6 +155,16 @@ export function buildFocusIssueActions(opts: {
       run: () => opts.openLabels()
     }
   ];
+  if (opts.openEstimate) {
+    items.push({
+      id: 'action.estimate',
+      kind: 'action',
+      title: opts.estimateTitle ?? 'Set estimate…',
+      keywords: ['estimate', 'points', '估点', 'story points', 'E'],
+      run: () => opts.openEstimate?.()
+    });
+  }
+  return items;
 }
 
 export function menusToPaletteItems(

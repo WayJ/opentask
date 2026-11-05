@@ -293,20 +293,62 @@ class CycleService:
         )
         return int(result.scalar_one() or 0)
 
-    async def _completed_issue_count(self, cycle_id: str) -> int:
+    async def _completed_issue_stats(self, cycle_id: str) -> dict:
+        """E16: done-issue count + story-point / hours sums for capacity."""
         result = await self.db.execute(
-            select(func.count())
+            select(
+                func.count(),
+                func.coalesce(func.sum(Issue.estimate_points), 0),
+                func.coalesce(func.sum(Issue.estimated_hours), 0),
+            )
             .select_from(Issue)
             .where(
                 Issue.cycle_id == cycle_id,
                 Issue.status.in_(tuple(DONE_STATUSES)),
             )
         )
-        return int(result.scalar_one() or 0)
+        row = result.one()
+        return {
+            "completedIssueCount": int(row[0] or 0),
+            "completedPoints": float(row[1] or 0),
+            "completedHours": float(row[2] or 0),
+        }
+
+    async def _cycle_load(self, cycle_id: str) -> dict:
+        """All issues currently in a cycle (not only done) — for active load."""
+        result = await self.db.execute(
+            select(
+                func.count(),
+                func.coalesce(func.sum(Issue.estimate_points), 0),
+                func.coalesce(func.sum(Issue.estimated_hours), 0),
+            )
+            .select_from(Issue)
+            .where(Issue.cycle_id == cycle_id)
+        )
+        row = result.one()
+        return {
+            "issueCount": int(row[0] or 0),
+            "points": float(row[1] or 0),
+            "hours": float(row[2] or 0),
+        }
+
+    @staticmethod
+    def _friendly_mean(values: list[float]) -> float | int:
+        if not values:
+            return 0
+        mean = sum(values) / len(values)
+        return int(mean) if float(mean).is_integer() else round(mean, 2)
 
     async def capacity_hint(
         self, *, workspace: Workspace, cycle_id: Optional[str] = None
     ) -> dict:
+        """E16: default capacity unit is story points; hours/issue-count secondary.
+
+        Priority:
+        1) history + any completedPoints > 0 → unit=points, suggested=mean(points)
+        2) history but all points 0 → unit=issues, suggested=mean(issue counts)
+        3) no history → unit=members, suggested=member count
+        """
         lookback = int(workspace.cycle_capacity_lookback or 3)
         if lookback < 1:
             lookback = 3
@@ -323,32 +365,51 @@ class CycleService:
         cycles = list(completed.scalars().all())
         samples: list[dict] = []
         for c in cycles:
-            count = await self._completed_issue_count(c.id)
+            stats = await self._completed_issue_stats(c.id)
             samples.append(
                 {
                     "cycleId": c.id,
                     "name": c.name,
-                    "completedIssueCount": count,
+                    "completedIssueCount": stats["completedIssueCount"],
+                    "completedPoints": stats["completedPoints"],
+                    "completedHours": stats["completedHours"],
                 }
             )
 
+        current_load = None
+        if cycle_id:
+            current_load = await self._cycle_load(cycle_id)
+
         if samples:
-            mean = sum(s["completedIssueCount"] for s in samples) / len(samples)
-            # integer-friendly if whole number
-            suggested = int(mean) if float(mean).is_integer() else round(mean, 2)
+            points = [float(s["completedPoints"]) for s in samples]
+            if any(p > 0 for p in points):
+                return {
+                    "basis": "history",
+                    "unit": "points",
+                    "suggestedCapacity": self._friendly_mean(points),
+                    "lookbackN": lookback,
+                    "samples": samples,
+                    "cycleId": cycle_id,
+                    "currentLoad": current_load,
+                }
+            counts = [float(s["completedIssueCount"]) for s in samples]
             return {
                 "basis": "history",
-                "suggestedCapacity": suggested,
+                "unit": "issues",
+                "suggestedCapacity": self._friendly_mean(counts),
                 "lookbackN": lookback,
                 "samples": samples,
                 "cycleId": cycle_id,
+                "currentLoad": current_load,
             }
 
         members = await self._member_count(workspace.id)
         return {
             "basis": "members",
+            "unit": "members",
             "suggestedCapacity": members,
             "lookbackN": lookback,
             "samples": [],
             "cycleId": cycle_id,
+            "currentLoad": current_load,
         }

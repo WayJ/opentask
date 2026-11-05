@@ -61,11 +61,12 @@ function handleDingtalkLogin() {
 
 const rules = computed<Record<keyof FormModel, App.Global.FormRule[]>>(() => {
   // inside computed to make locale reactive, if not apply i18n, you can define it without computed
-  const { formRules } = useFormRules();
+  // 登录只校验必填：强度策略留给注册/改密，避免存量弱口令无法登录
+  const { formRules, createRequiredRule } = useFormRules();
 
   return {
     userName: formRules.userName,
-    password: formRules.pwd
+    password: [createRequiredRule($t('form.pwd.required'))]
   };
 });
 

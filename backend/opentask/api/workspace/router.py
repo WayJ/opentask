@@ -37,6 +37,9 @@ def _ws_out(ws, role: str | None = None) -> dict:
         "gitStatusHooksEnabled": bool(getattr(ws, "git_status_hooks_enabled", False)),
         "gitHookOnPrOpen": getattr(ws, "git_hook_on_pr_open", None) or "in_progress",
         "gitHookOnPrMerged": getattr(ws, "git_hook_on_pr_merged", None) or "resolved",
+        "timezone": getattr(ws, "timezone", None),
+        "businessHours": getattr(ws, "business_hours", None) or {"enabled": False, "windows": {}},
+        "appliedHolidayPacks": getattr(ws, "applied_holiday_packs", None) or [],
         "createdAt": ws.created_at,
         "updatedAt": ws.updated_at,
     }
@@ -47,7 +50,14 @@ async def list_workspaces(
     current_user: UserModel = Depends(authenticate),
     session: AsyncSession = Depends(get_session),
 ):
-    rows = await WorkspaceService(session).list_for_user(str(current_user.id))
+    svc = WorkspaceService(session)
+    # E16: lazily purge orphan Default Workspace seed on list
+    try:
+        await svc.cleanup_orphan_default_workspace()
+        await session.commit()
+    except Exception:
+        await session.rollback()
+    rows = await svc.list_for_user(str(current_user.id))
     return success_response(data=[_ws_out(ws, role) for ws, role in rows])
 
 

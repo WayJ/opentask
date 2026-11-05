@@ -1,9 +1,16 @@
 """Issue 服务层"""
 from typing import Optional, List, Tuple, Dict, Any
-from datetime import datetime
+from datetime import datetime, date, timedelta
+import re
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update, delete, or_, and_
 from sqlalchemy.orm import selectinload, joinedload
+
+from opentask.services.custom_field.service import FORMULA_SORT_CANDIDATE_CAP
+
+_CF_SORT_RE = re.compile(r"^cf:([a-z][a-z0-9_-]{0,63})$")
+_CF_SORT_OK_TYPES = frozenset({"number", "text", "date", "boolean"})
 
 from opentask.models.issue.model import (
     Issue,
@@ -12,11 +19,13 @@ from opentask.models.issue.model import (
     IssueTimeline,
     IssueTag,
     IssueReaction,
+    CommentReaction,
 )
 from opentask.models.document.model import Document
 from opentask.services.storage.service import get_storage_service
 from opentask.models.issue.schema import (
     IssueCreate,
+    IssueDuplicateRequest,
     IssueUpdate,
     IssueBulkUpdate,
     IssueBoardMove,
@@ -32,12 +41,44 @@ from opentask.models.cycle.model import Cycle
 from opentask.models.milestone.model import Milestone
 from opentask.services.user_center.rbac_service import RbacService
 from opentask.services.notification.service import NotificationService
+from opentask.services.automation.service import fire_automations
+from opentask.services.workspace_webhook.service import fire_webhooks
+from opentask.services.issue_assignee.service import (
+    list_assignee_ids,
+    list_assignee_user_infos,
+    list_assignee_user_infos_for_issues,
+    normalize_assignee_ids,
+    replace_issue_assignees,
+)
+from opentask.services.sla.service import SlaService
+from opentask.services.workspace_realtime import (
+    publish_comment_created,
+    publish_issue_created,
+    publish_issue_deleted,
+    publish_issue_updated,
+)
 
 from opentask.models.workspace.model import Workspace
+
+from opentask.services.issue_duplicate import build_duplicate_title
+from opentask.services.issue_project_move import (
+    apply_project_move_integrity,
+    milestone_for_duplicate,
+)
 
 
 class IssueService:
     """Issue 服务"""
+
+    @staticmethod
+    def _naive_utc(value):
+        """TIMESTAMP WITHOUT TIME ZONE：去掉 tzinfo（按 UTC 墙钟）。"""
+        if value is None:
+            return None
+        if isinstance(value, datetime) and value.tzinfo is not None:
+            return value.replace(tzinfo=None)
+        return value
+
 
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -92,6 +133,7 @@ class IssueService:
         user_id: str | None = None,
         workspace_id: str | None = None,
         allowed_workspace_ids: list[str] | None = None,
+        custom_field_filters: list[tuple[str, str, str]] | None = None,
     ) -> Tuple[List[Issue], int]:
         """获取 Issue 列表
 
@@ -119,6 +161,20 @@ class IssueService:
             query = query.where(Issue.project_id == params.project_id)
         if params.assignee_id:
             query = query.where(Issue.assignee_id == params.assignee_id)
+        if getattr(params, "assignee_any", None):
+            from opentask.models.issue_assignee.model import IssueAssignee
+
+            any_uid = params.assignee_any
+            query = query.where(
+                or_(
+                    Issue.assignee_id == any_uid,
+                    Issue.id.in_(
+                        select(IssueAssignee.issue_id).where(
+                            IssueAssignee.user_id == any_uid
+                        )
+                    ),
+                )
+            )
         if params.reporter_id:
             query = query.where(Issue.reporter_id == params.reporter_id)
         if params.cycle_id:
@@ -142,6 +198,63 @@ class IssueService:
                 )
             )
 
+        # E19：watching / due_before / due_soon
+        if getattr(params, "watching", None) and user_id:
+            from opentask.models.issue_watcher.model import IssueWatcher
+
+            query = query.join(
+                IssueWatcher,
+                and_(
+                    IssueWatcher.issue_id == Issue.id,
+                    IssueWatcher.user_id == str(user_id),
+                ),
+            )
+        if getattr(params, "due_before", None):
+            try:
+                before = date.fromisoformat(str(params.due_before)[:10])
+            except ValueError:
+                before = None
+            if before is not None:
+                query = query.where(
+                    Issue.due_date.is_not(None),
+                    func.date(Issue.due_date) <= before,
+                )
+        # E73: start_before / start_after
+        if getattr(params, "start_before", None):
+            try:
+                s_before = date.fromisoformat(str(params.start_before)[:10])
+            except ValueError:
+                s_before = None
+            if s_before is not None:
+                query = query.where(
+                    Issue.start_date.is_not(None),
+                    func.date(Issue.start_date) <= s_before,
+                )
+        if getattr(params, "start_after", None):
+            try:
+                s_after = date.fromisoformat(str(params.start_after)[:10])
+            except ValueError:
+                s_after = None
+            if s_after is not None:
+                query = query.where(
+                    Issue.start_date.is_not(None),
+                    func.date(Issue.start_date) >= s_after,
+                )
+        if getattr(params, "due_soon", None):
+            today = date.today()
+            until = today + timedelta(days=3)
+            closed = {
+                IssueStatus.CLOSED.value,
+                IssueStatus.RESOLVED.value,
+                IssueStatus.REJECTED.value,
+            }
+            query = query.where(
+                Issue.due_date.is_not(None),
+                func.date(Issue.due_date) >= today,
+                func.date(Issue.due_date) <= until,
+                Issue.status.notin_(list(closed)),
+            )
+
         # 工作区隔离（E3-S1）
         if workspace_id is not None:
             query = query.where(Issue.workspace_id == workspace_id)
@@ -152,6 +265,17 @@ class IssueService:
                     Issue.workspace_id.is_(None),
                 )
             )
+
+        # E32：自定义字段过滤（须属当前 workspace）
+        if custom_field_filters and workspace_id is not None:
+            from opentask.services.custom_field.service import CustomFieldService
+
+            query = await CustomFieldService(self.db).apply_list_filters(
+                query, workspace_id=workspace_id, filters=custom_field_filters
+            )
+        elif custom_field_filters:
+            # 无 WS 上下文时忽略 cf 过滤（避免跨租户误匹配）
+            query = query.where(Issue.id.in_([]))
 
         # 数据范围过滤（visible_dept_ids=None 时 apply_data_scope 原样返回，旧调用零破坏）
         query = RbacService(session=None).apply_data_scope(
@@ -165,7 +289,20 @@ class IssueService:
         # 获取总数
         count_query = select(func.count()).select_from(query.subquery())
         result = await self.db.execute(count_query)
-        total = result.scalar()
+        total = result.scalar() or 0
+
+        # E46：sort_by=cf:<key> — 内存排序（cap + nulls last）
+        cf_sort_m = _CF_SORT_RE.match((params.sort_by or "").strip())
+        if cf_sort_m:
+            return await self._list_sorted_by_cf(
+                query=query,
+                total=total,
+                workspace_id=workspace_id,
+                field_key=cf_sort_m.group(1),
+                sort_order=(params.sort_order or "desc").lower(),
+                page=params.page,
+                page_size=params.page_size,
+            )
 
         # 排序（白名单；position 支持看板同源排序，NULL 靠后）
         allowed_sort = {
@@ -176,6 +313,7 @@ class IssueService:
             "status",
             "title",
             "due_date",
+            "start_date",
         }
         sort_key = params.sort_by if params.sort_by in allowed_sort else "created_at"
         sort_column = getattr(Issue, sort_key)
@@ -199,16 +337,148 @@ class IssueService:
 
         return list(issues), total
 
+    async def _list_sorted_by_cf(
+        self,
+        *,
+        query,
+        total: int,
+        workspace_id: str | None,
+        field_key: str,
+        sort_order: str,
+        page: int,
+        page_size: int,
+    ) -> Tuple[List[Issue], int]:
+        from opentask.services.custom_field.service import CustomFieldService
+
+        if workspace_id is None:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "cf_sort_unsupported",
+                    "message": "cf 排序需要工作区上下文",
+                },
+            )
+        cf_svc = CustomFieldService(self.db)
+        field = await cf_svc.get_by_key_optional(
+            workspace_id=workspace_id, key=field_key
+        )
+        if field is None or field.archived_at is not None:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "cf_sort_unsupported",
+                    "message": f"字段 {field_key} 不存在或已归档",
+                },
+            )
+        result_type = field.type
+        if field.type == "formula":
+            result_type = (
+                getattr(field, "formula_result_type", None) or "number"
+            ).strip() or "number"
+        if field.type == "multi_select" or result_type not in _CF_SORT_OK_TYPES:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "cf_sort_unsupported",
+                    "message": f"字段 {field_key} 类型不支持排序",
+                },
+            )
+        if total > FORMULA_SORT_CANDIDATE_CAP:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "formula_sort_too_broad",
+                    "message": (
+                        f"公式/CF 排序候选超过 {FORMULA_SORT_CANDIDATE_CAP}，"
+                        "请先用过滤条件收窄"
+                    ),
+                },
+            )
+
+        id_rows = await self.db.execute(
+            query.order_by(None).with_only_columns(Issue.id).distinct()
+        )
+        candidate_ids = [row[0] for row in id_rows.all()]
+        if not candidate_ids:
+            return [], total
+
+        # load issues with same options as list
+        iss_q = (
+            select(Issue)
+            .options(
+                joinedload(Issue.assignee),
+                joinedload(Issue.reporter),
+            )
+            .where(Issue.id.in_(candidate_ids))
+        )
+        iss_res = await self.db.execute(iss_q)
+        issues = list(iss_res.scalars().unique().all())
+        by_id = {i.id: i for i in issues}
+
+        bundled = await cf_svc.values_for_issues(
+            workspace_id=workspace_id, issue_ids=candidate_ids
+        )
+
+        def _entry_val(iid: str):
+            items = bundled.get(iid) or []
+            entry = next((x for x in items if x.get("key") == field_key), None)
+            if not entry or entry.get("error"):
+                return None
+            return entry.get("value")
+
+        def _primary(iid: str):
+            """Return (null_rank, primary) — null_rank 1 sorts last."""
+            val = _entry_val(iid)
+            if val is None:
+                return 1, None
+            if result_type == "number":
+                try:
+                    return 0, float(val)
+                except (TypeError, ValueError):
+                    return 1, None
+            if result_type == "boolean":
+                return 0, 1 if val else 0
+            return 0, str(val)
+
+        reverse = sort_order == "desc"
+
+        def _sort_key(iid: str):
+            null_rank, primary = _primary(iid)
+            issue = by_id[iid]
+            created = issue.created_at or datetime.min
+            if null_rank == 1:
+                # nulls last: high null_rank; within nulls use created/id
+                return (1, created if not reverse else datetime.max - (created - datetime.min) if False else created, iid)
+            # non-null: decorate primary for reverse via sign flip for numbers, else leave and reverse list
+            return (0, primary, created, iid)
+
+        non_null = [i for i in candidate_ids if _primary(i)[0] == 0]
+        nulls = [i for i in candidate_ids if _primary(i)[0] == 1]
+        non_null.sort(
+            key=lambda i: (_primary(i)[1], by_id[i].created_at or datetime.min, i),
+            reverse=reverse,
+        )
+        nulls.sort(
+            key=lambda i: (by_id[i].created_at or datetime.min, i),
+            reverse=reverse,
+        )
+        ordered_ids = non_null + nulls
+        offset = (page - 1) * page_size
+        page_ids = ordered_ids[offset : offset + page_size]
+        return [by_id[i] for i in page_ids if i in by_id], total
+
     async def get_issue(
         self,
         issue_id: str,
         by_code: bool = False,
         workspace_id: str | None = None,
+        include_deleted: bool = False,
     ) -> Optional[Issue]:
         """获取单个 Issue。
 
         by_code: 按 issue_code 或 legacy_issue_code 查询。
         workspace_id: 若提供则限制租户（跨 WS by_code → 找不到）。
+        include_deleted: E77 — True 时不排除软删（回收站详情 / restore）。
         """
         query = (
             select(Issue)
@@ -221,8 +491,9 @@ class IssueService:
                 selectinload(Issue.timeline),
                 selectinload(Issue.tags),
             )
-            .where(Issue.is_deleted == False)
         )
+        if not include_deleted:
+            query = query.where(Issue.is_deleted == False)
 
         if by_code:
             query = query.where(
@@ -299,6 +570,9 @@ class IssueService:
 
         parent = await self.get_issue(parent_issue_id)
         if not parent:
+            deleted = await self.get_issue(parent_issue_id, include_deleted=True)
+            if deleted is not None and getattr(deleted, "is_deleted", False):
+                raise ValueError("不能将已删除的 Issue 设为父")
             raise ValueError("父 Issue 不存在")
 
         if workspace_id is not None and parent.workspace_id != workspace_id:
@@ -364,6 +638,7 @@ class IssueService:
         user_id: str,
         dept_id: str | None = None,
         workspace_id: str | None = None,
+        created_action_extra: dict | None = None,
     ) -> Issue:
         """创建 Issue
 
@@ -375,6 +650,17 @@ class IssueService:
 
         issue_data = data.model_dump()
         issue_data.pop("template_id", None)
+        raw_assignee_ids = issue_data.pop("assignee_ids", None)
+        if "due_date" in issue_data:
+            issue_data["due_date"] = self._naive_utc(issue_data.get("due_date"))
+        if "start_date" in issue_data:
+            issue_data["start_date"] = self._naive_utc(issue_data.get("start_date"))
+        from opentask.services.issue_dates import validate_start_due
+
+        validate_start_due(
+            start_date=issue_data.get("start_date"),
+            due_date=issue_data.get("due_date"),
+        )
         await self._validate_parent_issue_id(
             issue_id=None,
             parent_issue_id=issue_data.get("parent_issue_id"),
@@ -406,16 +692,203 @@ class IssueService:
         await self.db.flush()
 
         # 创建时间线记录
+        created_action = {
+            "title": issue.title,
+            "type": (issue.type.value if hasattr(issue.type, "value") else issue.type),
+            "issue_code": issue_code,
+        }
+        if created_action_extra:
+            created_action.update(created_action_extra)
         await self._add_timeline(
             issue_id=issue.id,
             action_type=TimelineAction.CREATED,
             user_id=user_id,
-            action_data={"title": issue.title, "type": (issue.type.value if hasattr(issue.type, "value") else issue.type), "issue_code": issue_code},
+            action_data=created_action,
         )
+
+        # E42：create 时若 status∈start 也启钟（同事务）
+        await SlaService(self.db).sync_clocks(
+            issue=issue,
+            old_status=None,
+            new_status=getattr(issue.status, "value", issue.status),
+        )
+
+        # E71: multi-assignee — assignee_ids wins; else single assignee_id → junction
+        if raw_assignee_ids is not None:
+            initial_ids = normalize_assignee_ids(raw_assignee_ids)
+        elif issue_data.get("assignee_id"):
+            initial_ids = normalize_assignee_ids([issue_data.get("assignee_id")])
+        else:
+            initial_ids = []
+        if initial_ids or raw_assignee_ids is not None:
+            await replace_issue_assignees(
+                self.db, issue=issue, user_ids=initial_ids, validate=True
+            )
 
         await self.db.commit()
         await self.db.refresh(issue)
+        if initial_ids:
+            await NotificationService(self.db).notify_assigned(
+                issue,
+                actor_user_id=user_id,
+                new_assignee_id=initial_ids[0],
+                new_assignee_ids=initial_ids,
+            )
+        await publish_issue_created(issue, actor_user_id=user_id)
+        await fire_automations(
+            self.db,
+            workspace_id=issue.workspace_id,
+            trigger_type="issue.created",
+            issue=issue,
+            actor_user_id=user_id,
+        )
+        await fire_webhooks(
+            self.db,
+            workspace_id=issue.workspace_id,
+            event_type="issue.created",
+            data={
+                "id": str(issue.id),
+                "issueCode": issue.issue_code,
+                "title": issue.title,
+                "status": getattr(issue.status, "value", issue.status),
+                "priority": getattr(issue.priority, "value", issue.priority),
+            },
+        )
         return issue
+
+    async def duplicate_issue(
+        self,
+        source_issue_id: str,
+        *,
+        user_id: str,
+        workspace_id: str,
+        dept_id: str | None = None,
+        overrides: IssueDuplicateRequest | None = None,
+    ) -> Issue:
+        """E75: Linear-style duplicate — whitelist copy + relates_to → source.
+
+        Q1a: duplicated_from only in CREATED timeline meta (no column).
+        Q2a: keep parent_issue_id unless overridden.
+        Q3a: title suffix " (copy)" unless title override.
+        Q4a: add relates_to from new → source.
+        Q5a: reuse issue.created webhook via create_issue.
+        """
+        source = await self.get_issue(source_issue_id, workspace_id=workspace_id)
+        if source is None:
+            raise LookupError("Issue 不存在")
+
+        ov = (overrides or IssueDuplicateRequest()).model_dump(exclude_unset=True)
+
+        def _enum(v):
+            return v.value if hasattr(v, "value") else v
+
+        title = build_duplicate_title(
+            source.title,
+            override=ov["title"] if "title" in ov else None,
+        )
+
+        if "parent_issue_id" in ov:
+            parent_issue_id = ov.get("parent_issue_id")
+        else:
+            parent_issue_id = source.parent_issue_id
+
+        if "project_id" in ov:
+            project_id = ov.get("project_id")
+        else:
+            project_id = source.project_id
+
+        if "cycle_id" in ov:
+            cycle_id = ov.get("cycle_id")
+        else:
+            cycle_id = source.cycle_id
+
+        if "assignee_ids" in ov:
+            assignee_ids = normalize_assignee_ids(ov.get("assignee_ids"))
+        else:
+            assignee_ids = await list_assignee_ids(self.db, source.id)
+            if not assignee_ids and source.assignee_id:
+                assignee_ids = [source.assignee_id]
+
+        create_payload: dict[str, Any] = {
+            "title": title,
+            "description": source.description,
+            "type": _enum(source.type),
+            "status": IssueStatus.OPEN,
+            "priority": _enum(source.priority),
+            "project_id": project_id,
+            "cycle_id": cycle_id,
+            "milestone_id": milestone_for_duplicate(
+                source_project_id=source.project_id,
+                target_project_id=project_id,
+                source_milestone_id=source.milestone_id,
+            ),
+            "estimate_points": source.estimate_points,
+            "estimated_hours": source.estimated_hours,
+            "start_date": source.start_date,
+            "due_date": source.due_date,
+            "parent_issue_id": parent_issue_id,
+            "reporter_id": user_id,
+            "assignee_ids": assignee_ids,
+        }
+        # Drop Nones that would fight defaults except explicit null parent/project/cycle
+        data = IssueCreate(**create_payload)
+
+        new_issue = await self.create_issue(
+            data,
+            user_id,
+            dept_id=dept_id,
+            workspace_id=workspace_id,
+            created_action_extra={"duplicated_from": source.id},
+        )
+
+        # tags
+        from opentask.services.tag.service import TagService
+
+        tag_svc = TagService(self.db)
+        src_tags = await tag_svc.list_issue_tags(source.id, workspace_id=workspace_id)
+        if src_tags:
+            await tag_svc.replace_issue_tags(
+                issue_id=new_issue.id,
+                tag_ids=[t.id for t in src_tags],
+                workspace_id=workspace_id,
+                user_id=user_id,
+            )
+
+        # custom fields (skip formula)
+        from opentask.services.custom_field.service import CustomFieldService
+
+        cf_svc = CustomFieldService(self.db)
+        cf_map = await cf_svc.values_for_issues(
+            workspace_id=workspace_id, issue_ids=[source.id]
+        )
+        entries = []
+        for item in cf_map.get(source.id, []):
+            if item.get("type") == "formula":
+                continue
+            if item.get("archived"):
+                continue
+            val = item.get("value")
+            if val is None:
+                continue
+            entries.append({"fieldId": item["fieldId"], "value": val})
+        if entries:
+            await cf_svc.upsert_issue_values(
+                workspace_id=workspace_id,
+                issue_id=new_issue.id,
+                entries=entries,
+                actor_user_id=user_id,
+            )
+
+        # Q4a: relates_to → source
+        await self.add_relation(
+            source_id=new_issue.id,
+            target_id=source.id,
+            relation_type=RelationType.RELATES_TO,
+            user_id=user_id,
+        )
+
+        refreshed = await self.get_issue(new_issue.id, workspace_id=workspace_id)
+        return refreshed or new_issue
 
     async def update_issue(
         self,
@@ -428,6 +901,18 @@ class IssueService:
         if not update_data:
             return await self.get_issue(issue_id)
 
+        project_move_meta = None  # E80: ProjectMoveIntegrityResult | None
+        if "project_id" in update_data:
+            existing_for_move = await self.get_issue(issue_id)
+            if not existing_for_move:
+                return None
+            project_move_meta = apply_project_move_integrity(
+                update_data,
+                existing_project_id=existing_for_move.project_id,
+                existing_milestone_id=existing_for_move.milestone_id,
+            )
+
+        parent_changed_pair = None  # E78: (from, to)
         if "parent_issue_id" in update_data:
             existing = await self.get_issue(issue_id)
             if not existing:
@@ -437,6 +922,10 @@ class IssueService:
                 parent_issue_id=update_data.get("parent_issue_id"),
                 workspace_id=existing.workspace_id,
             )
+            old_parent = existing.parent_issue_id
+            new_parent = update_data.get("parent_issue_id")
+            if old_parent != new_parent:
+                parent_changed_pair = (old_parent, new_parent)
 
         if "cycle_id" in update_data:
             existing = await self.get_issue(issue_id)
@@ -462,9 +951,11 @@ class IssueService:
         update_data["updated_by"] = user_id
 
         # 记录状态变更
+        status_changed = None  # (old, new)
         if "status" in update_data:
             old_status = await self._get_issue_status(issue_id)
             if old_status != update_data["status"]:
+                status_changed = (old_status, update_data["status"])
                 await self._add_timeline(
                     issue_id=issue_id,
                     action_type=TimelineAction.STATUS_CHANGED,
@@ -498,24 +989,124 @@ class IssueService:
                     },
                 )
 
-        # 记录分配变更
-        assignee_changed_to = None
-        if "assignee_id" in update_data:
-            old_assignee = await self._get_issue_assignee(issue_id)
-            if old_assignee != update_data["assignee_id"]:
-                assignee_changed_to = update_data["assignee_id"]
-                # 获取用户信息对象
-                old_assignee_info = await self._get_user_info_dict(old_assignee)
-                new_assignee_info = await self._get_user_info_dict(update_data["assignee_id"])
+        # E73 Q1a: validate start vs due after merging with persisted other end
+        if "start_date" in update_data or "due_date" in update_data:
+            from opentask.services.issue_dates import validate_start_due
 
-                # 构建action_data，只包含非None的值
+            if "start_date" in update_data:
+                update_data["start_date"] = self._naive_utc(update_data.get("start_date"))
+            if "due_date" in update_data:
+                update_data["due_date"] = self._naive_utc(update_data.get("due_date"))
+            cur = await self.db.execute(
+                select(Issue.start_date, Issue.due_date).where(Issue.id == issue_id)
+            )
+            row = cur.one()
+            eff_start = update_data["start_date"] if "start_date" in update_data else row[0]
+            eff_due = update_data["due_date"] if "due_date" in update_data else row[1]
+            validate_start_due(start_date=eff_start, due_date=eff_due)
+
+        # E19：截止日期变更
+        due_date_changed = None  # (old, new)
+        if "due_date" in update_data:
+            update_data["due_date"] = self._naive_utc(update_data.get("due_date"))
+            old_due_q = await self.db.execute(
+                select(Issue.due_date).where(Issue.id == issue_id)
+            )
+            old_due = old_due_q.scalar_one_or_none()
+            new_due = update_data.get("due_date")
+            # normalize for compare
+            def _due_key(v):
+                if v is None:
+                    return None
+                if isinstance(v, datetime):
+                    return v.replace(tzinfo=None).isoformat()
+                return str(v)
+
+            if _due_key(old_due) != _due_key(new_due):
+                due_date_changed = (old_due, new_due)
+                await self._add_timeline(
+                    issue_id=issue_id,
+                    action_type=TimelineAction.DUE_DATE_CHANGED,
+                    user_id=user_id,
+                    action_data={
+                        "from": old_due.isoformat() if isinstance(old_due, datetime) else old_due,
+                        "to": new_due.isoformat() if isinstance(new_due, datetime) else new_due,
+                    },
+                )
+
+        # E73: planned start_date change (≠ started_at)
+        start_date_changed = None  # (old, new)
+        if "start_date" in update_data:
+            update_data["start_date"] = self._naive_utc(update_data.get("start_date"))
+            old_start_q = await self.db.execute(
+                select(Issue.start_date).where(Issue.id == issue_id)
+            )
+            old_start = old_start_q.scalar_one_or_none()
+            new_start = update_data.get("start_date")
+
+            def _start_key(v):
+                if v is None:
+                    return None
+                if isinstance(v, datetime):
+                    return v.replace(tzinfo=None).isoformat()
+                return str(v)
+
+            if _start_key(old_start) != _start_key(new_start):
+                start_date_changed = (old_start, new_start)
+                await self._add_timeline(
+                    issue_id=issue_id,
+                    action_type=TimelineAction.START_DATE_CHANGED,
+                    user_id=user_id,
+                    action_data={
+                        "from": old_start.isoformat() if isinstance(old_start, datetime) else old_start,
+                        "to": new_start.isoformat() if isinstance(new_start, datetime) else new_start,
+                    },
+                )
+
+        # E71: multi-assignee sync
+        assignee_changed_to = None
+        assignee_changed_from = None
+        assignee_did_change = False
+        assignee_ids_new: list[str] | None = None
+        assignee_ids_old: list[str] = []
+        assignee_ids_provided = "assignee_ids" in update_data
+        assignee_id_provided = "assignee_id" in update_data
+        raw_assignee_ids = update_data.pop("assignee_ids", None)
+
+        if assignee_ids_provided or assignee_id_provided:
+            assignee_ids_old = await list_assignee_ids(self.db, issue_id)
+            if not assignee_ids_old:
+                prev = await self._get_issue_assignee(issue_id)
+                if prev:
+                    assignee_ids_old = [prev]
+
+            if assignee_ids_provided:
+                assignee_ids_new = normalize_assignee_ids(raw_assignee_ids)
+            else:
+                # Q2a: PATCH only assignee_id → primary + clear collaborators
+                aid = update_data.get("assignee_id")
+                assignee_ids_new = [aid] if aid else []
+
+            update_data["assignee_id"] = (
+                assignee_ids_new[0] if assignee_ids_new else None
+            )
+
+            old_assignee = assignee_ids_old[0] if assignee_ids_old else None
+            new_primary = assignee_ids_new[0] if assignee_ids_new else None
+            assignee_changed_from = old_assignee
+            assignee_changed_to = new_primary
+            assignee_did_change = list(assignee_ids_old) != list(assignee_ids_new)
+
+            if assignee_did_change:
+                old_assignee_info = await self._get_user_info_dict(old_assignee)
+                new_assignee_info = await self._get_user_info_dict(new_primary)
                 action_data = {}
                 if old_assignee_info is not None:
                     action_data["from"] = old_assignee_info
                 if new_assignee_info is not None:
                     action_data["to"] = new_assignee_info
-
-                # 只有当有实际变更时才记录timeline
+                action_data["assignee_ids"] = list(assignee_ids_new)
+                action_data["assignee_ids_from"] = list(assignee_ids_old)
                 if action_data:
                     await self._add_timeline(
                         issue_id=issue_id,
@@ -524,21 +1115,283 @@ class IssueService:
                         action_data=action_data,
                     )
 
+        # E41：cycle / estimate / project 变更 → timeline（同事务）
+        # E51：捕获实际变更供专用 webhook（与 issue.updated 并存）
+        cycle_changed_pair = None  # (from, to)
+        estimate_changed_pair = None
+        project_changed_pair = None
+        if "cycle_id" in update_data:
+            old_cycle_q = await self.db.execute(
+                select(Issue.cycle_id).where(Issue.id == issue_id)
+            )
+            old_cycle = old_cycle_q.scalar_one_or_none()
+            new_cycle = update_data.get("cycle_id")
+            if old_cycle != new_cycle:
+                cycle_changed_pair = (old_cycle, new_cycle)
+                await self._add_timeline(
+                    issue_id=issue_id,
+                    action_type=TimelineAction.CYCLE_CHANGED,
+                    user_id=user_id,
+                    action_data={"from": old_cycle, "to": new_cycle},
+                )
+
+        if "estimate_points" in update_data:
+            old_est_q = await self.db.execute(
+                select(Issue.estimate_points).where(Issue.id == issue_id)
+            )
+            old_est = old_est_q.scalar_one_or_none()
+            new_est = update_data.get("estimate_points")
+
+            def _est_num(v):
+                if v is None:
+                    return None
+                try:
+                    return float(v)
+                except (TypeError, ValueError):
+                    return v
+
+            old_n, new_n = _est_num(old_est), _est_num(new_est)
+            if old_n != new_n:
+                estimate_changed_pair = (old_n, new_n)
+                await self._add_timeline(
+                    issue_id=issue_id,
+                    action_type=TimelineAction.ESTIMATE_CHANGED,
+                    user_id=user_id,
+                    action_data={"from": old_n, "to": new_n},
+                )
+
+        if "project_id" in update_data:
+            old_proj_q = await self.db.execute(
+                select(Issue.project_id).where(Issue.id == issue_id)
+            )
+            old_proj = old_proj_q.scalar_one_or_none()
+            new_proj = update_data.get("project_id")
+            if old_proj != new_proj:
+                project_changed_pair = (old_proj, new_proj)
+                action_data = {"from": old_proj, "to": new_proj}
+                if project_move_meta is not None and project_move_meta.milestone_cleared:
+                    action_data["milestone_cleared"] = True
+                    action_data["milestone_from"] = project_move_meta.milestone_from
+                await self._add_timeline(
+                    issue_id=issue_id,
+                    action_type=TimelineAction.PROJECT_CHANGED,
+                    user_id=user_id,
+                    action_data=action_data,
+                )
+
+        # E78: parent_issue_id change → timeline parent_changed (no new webhook name)
+        if parent_changed_pair is not None:
+            old_p, new_p = parent_changed_pair
+            await self._add_timeline(
+                issue_id=issue_id,
+                action_type=TimelineAction.PARENT_CHANGED,
+                user_id=user_id,
+                action_data={"from": old_p, "to": new_p},
+            )
+
         query = (
             update(Issue)
             .where(Issue.id == issue_id, Issue.is_deleted == False)
             .values(**update_data)
         )
         await self.db.execute(query)
+
+        # E42：status 实际变更 → 同事务启停 SLA 时钟
+        if status_changed:
+            old_s, new_s = status_changed
+            issue_for_sla = await self.get_issue(issue_id)
+            if issue_for_sla:
+                await SlaService(self.db).sync_clocks(
+                    issue=issue_for_sla,
+                    old_status=str(getattr(old_s, "value", old_s)) if old_s is not None else None,
+                    new_status=str(getattr(new_s, "value", new_s)),
+                )
+
+        if assignee_ids_new is not None:
+            # Ensure ORM issue loaded for replace (workspace_id)
+            issue_for_asg = await self.get_issue(issue_id)
+            if issue_for_asg is None:
+                return None
+            await replace_issue_assignees(
+                self.db,
+                issue=issue_for_asg,
+                user_ids=assignee_ids_new,
+                validate=True,
+            )
+
         await self.db.commit()
 
         issue = await self.get_issue(issue_id)
-        if issue and assignee_changed_to:
-            await NotificationService(self.db).notify_assigned(
+        if issue and assignee_did_change and assignee_ids_new is not None:
+            newly = [u for u in assignee_ids_new if u not in set(assignee_ids_old)]
+            if newly:
+                await NotificationService(self.db).notify_assigned(
+                    issue,
+                    actor_user_id=user_id,
+                    new_assignee_id=newly[0],
+                    new_assignee_ids=newly,
+                )
+        if issue and status_changed:
+            old_s, new_s = status_changed
+            new_s_val = getattr(new_s, "value", new_s)
+            old_s_val = getattr(old_s, "value", old_s) if old_s is not None else None
+            await NotificationService(self.db).notify_status_changed(
                 issue,
                 actor_user_id=user_id,
-                new_assignee_id=assignee_changed_to,
+                old_status=str(old_s_val) if old_s_val is not None else None,
+                new_status=str(new_s_val),
             )
+        if issue and due_date_changed:
+            old_d, new_d = due_date_changed
+            await NotificationService(self.db).notify_due_date_changed(
+                issue,
+                actor_user_id=user_id,
+                old_due=old_d,
+                new_due=new_d,
+            )
+        # E43: best-effort formula cache refresh when issue attrs used by formulas change
+        if issue and issue.workspace_id:
+            formula_attrs: list[str] = []
+            if status_changed:
+                formula_attrs.append("status")
+            if "priority" in update_data:
+                formula_attrs.append("priority")
+            if due_date_changed:
+                formula_attrs.extend(["due_date", "days_until_due"])
+            if "estimate_points" in update_data:
+                formula_attrs.append("estimate_points")
+            if formula_attrs:
+                try:
+                    from opentask.services.custom_field.service import CustomFieldService
+
+                    await CustomFieldService(self.db).refresh_formula_cache_for_issue(
+                        workspace_id=issue.workspace_id,
+                        issue_id=issue_id,
+                        depending_on_issue_attrs=formula_attrs,
+                    )
+                except Exception:
+                    import logging
+
+                    logging.getLogger(__name__).exception(
+                        "formula cache refresh on issue update failed issue=%s", issue_id
+                    )
+        if issue:
+            # exclude internal bookkeeping keys from changed summary
+            changed = [
+                k
+                for k in update_data.keys()
+                if k not in {"updated_by", "updated_at"}
+            ]
+            await publish_issue_updated(
+                issue, actor_user_id=user_id, changed=changed
+            )
+            await fire_webhooks(
+                self.db,
+                workspace_id=issue.workspace_id,
+                event_type="issue.updated",
+                data={
+                    "id": str(issue.id),
+                    "issueCode": issue.issue_code,
+                    "title": issue.title,
+                    "status": getattr(issue.status, "value", issue.status),
+                    "changed": changed,
+                },
+            )
+            if status_changed:
+                old_s, new_s = status_changed
+                await fire_automations(
+                    self.db,
+                    workspace_id=issue.workspace_id,
+                    trigger_type="issue.status_changed",
+                    issue=issue,
+                    actor_user_id=user_id,
+                    event={
+                        "from": str(getattr(old_s, "value", old_s)) if old_s is not None else None,
+                        "to": str(getattr(new_s, "value", new_s)),
+                    },
+                )
+                await fire_webhooks(
+                    self.db,
+                    workspace_id=issue.workspace_id,
+                    event_type="issue.status_changed",
+                    data={
+                        "id": str(issue.id),
+                        "issueCode": issue.issue_code,
+                        "from": str(getattr(old_s, "value", old_s)) if old_s is not None else None,
+                        "to": str(getattr(new_s, "value", new_s)),
+                    },
+                )
+            if assignee_did_change:
+                await fire_automations(
+                    self.db,
+                    workspace_id=issue.workspace_id,
+                    trigger_type="issue.assignee_changed",
+                    issue=issue,
+                    actor_user_id=user_id,
+                    event={"to": assignee_changed_to},
+                )
+                # E44: dedicated outbound webhook (also keep issue.updated above)
+                await fire_webhooks(
+                    self.db,
+                    workspace_id=issue.workspace_id,
+                    event_type="issue.assignee_changed",
+                    data={
+                        "id": str(issue.id),
+                        "issueCode": issue.issue_code,
+                        "title": issue.title,
+                        "from": assignee_changed_from,
+                        "to": assignee_changed_to,
+                        "assignee_ids": list(assignee_ids_new or []),
+                        "assignee_ids_from": list(assignee_ids_old or []),
+                        "actorUserId": user_id,
+                    },
+                )
+            # E51: dedicated cycle/estimate/project webhooks (coexist with issue.updated)
+            if cycle_changed_pair is not None:
+                old_c, new_c = cycle_changed_pair
+                await fire_webhooks(
+                    self.db,
+                    workspace_id=issue.workspace_id,
+                    event_type="issue.cycle_changed",
+                    data={
+                        "id": str(issue.id),
+                        "issueCode": issue.issue_code,
+                        "title": issue.title,
+                        "from": old_c,
+                        "to": new_c,
+                        "actorUserId": user_id,
+                    },
+                )
+            if estimate_changed_pair is not None:
+                old_e, new_e = estimate_changed_pair
+                await fire_webhooks(
+                    self.db,
+                    workspace_id=issue.workspace_id,
+                    event_type="issue.estimate_changed",
+                    data={
+                        "id": str(issue.id),
+                        "issueCode": issue.issue_code,
+                        "title": issue.title,
+                        "from": old_e,
+                        "to": new_e,
+                        "actorUserId": user_id,
+                    },
+                )
+            if project_changed_pair is not None:
+                old_p, new_p = project_changed_pair
+                await fire_webhooks(
+                    self.db,
+                    workspace_id=issue.workspace_id,
+                    event_type="issue.project_changed",
+                    data={
+                        "id": str(issue.id),
+                        "issueCode": issue.issue_code,
+                        "title": issue.title,
+                        "from": old_p,
+                        "to": new_p,
+                        "actorUserId": user_id,
+                    },
+                )
         return issue
 
     async def move_issue_on_board(
@@ -604,6 +1457,7 @@ class IssueService:
 
     async def delete_issue(self, issue_id: str, user_id: str) -> bool:
         """删除 Issue（软删除）"""
+        issue = await self.get_issue(issue_id)
         query = (
             update(Issue)
             .where(Issue.id == issue_id)
@@ -615,7 +1469,76 @@ class IssueService:
         )
         result = await self.db.execute(query)
         await self.db.commit()
-        return result.rowcount > 0
+        ok = result.rowcount > 0
+        if ok and issue:
+            await publish_issue_deleted(issue, actor_user_id=user_id)
+        return ok
+
+    async def list_trashed(
+        self,
+        *,
+        workspace_id: str,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> Tuple[List[Issue], int]:
+        """E77: list soft-deleted Issues in workspace (updated_at desc)."""
+        page = max(1, int(page))
+        page_size = min(100, max(1, int(page_size)))
+        base = select(Issue).where(
+            Issue.workspace_id == workspace_id,
+            Issue.is_deleted == True,  # noqa: E712
+        )
+        total = (
+            await self.db.execute(select(func.count()).select_from(base.subquery()))
+        ).scalar_one()
+        result = await self.db.execute(
+            base.order_by(Issue.updated_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        return list(result.scalars().all()), int(total or 0)
+
+    async def restore_issue(
+        self,
+        issue_id: str,
+        user_id: str,
+        *,
+        workspace_id: str,
+    ) -> Issue:
+        """E77: restore soft-deleted Issue (idempotent if already live).
+
+        Q2a: does NOT cascade to deleted children.
+        Q3a: already-live → return as-is (no extra timeline).
+        Q5a: timeline RESTORED; no new webhook event name.
+        """
+        issue = await self.get_issue(
+            issue_id, workspace_id=None, include_deleted=True
+        )
+        if issue is None or issue.workspace_id != workspace_id:
+            raise LookupError("Issue 不存在")
+        if not issue.is_deleted:
+            return issue
+
+        await self.db.execute(
+            update(Issue)
+            .where(Issue.id == issue.id, Issue.workspace_id == workspace_id)
+            .values(
+                is_deleted=False,
+                updated_by=user_id,
+                updated_at=datetime.utcnow(),
+            )
+        )
+        await self._add_timeline(
+            issue.id,
+            TimelineAction.RESTORED,
+            user_id,
+            {"from": "trash"},
+        )
+        await self.db.commit()
+        restored = await self.get_issue(issue.id, include_deleted=False)
+        if restored is None:
+            raise LookupError("Issue 不存在")
+        return restored
 
     # ========================================================================
     # 批量操作
@@ -625,9 +1548,28 @@ class IssueService:
         self,
         data: IssueBulkUpdate,
         user_id: str,
+        *,
+        workspace_id: str,
     ) -> int:
-        """批量更新 Issue"""
-        update_data = {
+        """批量更新 Issue（E20：强制 workspace 过滤；支持 cycle_id / tag_ids）"""
+        allowed_q = await self.db.execute(
+            select(Issue.id).where(
+                Issue.id.in_(data.issue_ids),
+                Issue.is_deleted == False,  # noqa: E712
+                Issue.workspace_id == workspace_id,
+            )
+        )
+        allowed_ids = [row[0] for row in allowed_q.all()]
+        if not allowed_ids:
+            raise PermissionError("无权批量更新这些 Issue")
+
+        if "cycle_id" in data.model_fields_set:
+            await self._validate_cycle_id(
+                cycle_id=data.cycle_id,
+                workspace_id=workspace_id,
+            )
+
+        update_data: Dict[str, Any] = {
             "updated_by": user_id,
             "updated_at": datetime.utcnow(),
         }
@@ -638,19 +1580,89 @@ class IssueService:
             update_data["priority"] = data.priority
         if data.assignee_id is not None:
             update_data["assignee_id"] = data.assignee_id
+        if "cycle_id" in data.model_fields_set:
+            update_data["cycle_id"] = data.cycle_id
 
-        query = (
-            update(Issue)
-            .where(
-                Issue.id.in_(data.issue_ids),
-                Issue.is_deleted == False,
+        field_updates = {
+            k: v for k, v in update_data.items() if k not in ("updated_by", "updated_at")
+        }
+        affected = 0
+        if field_updates or True:
+            # 始终刷新 updated_*；若仅改标签也会 bump
+            query = (
+                update(Issue)
+                .where(
+                    Issue.id.in_(allowed_ids),
+                    Issue.is_deleted == False,  # noqa: E712
+                )
+                .values(**update_data)
             )
-            .values(**update_data)
-        )
-        result = await self.db.execute(query)
-        await self.db.commit()
+            result = await self.db.execute(query)
+            affected = result.rowcount or 0
 
-        return result.rowcount
+        # E71 Q4a: bulk still primary-only; sync junction to mirror Q2a
+        if data.assignee_id is not None:
+            for iid in allowed_ids:
+                issue_row = await self.get_issue(iid)
+                if issue_row is None:
+                    continue
+                await replace_issue_assignees(
+                    self.db,
+                    issue=issue_row,
+                    user_ids=[data.assignee_id],
+                    validate=True,
+                )
+
+        if data.tag_ids is not None:
+            from opentask.services.tag.service import TagService
+
+            tag_svc = TagService(self.db)
+            for iid in allowed_ids:
+                await tag_svc.replace_issue_tags(
+                    issue_id=iid,
+                    tag_ids=data.tag_ids,
+                    workspace_id=workspace_id,
+                    user_id=user_id,
+                )
+            # replace_issue_tags commits internally; ensure count reflects tag work
+            if not field_updates:
+                affected = len(allowed_ids)
+        else:
+            await self.db.commit()
+
+        return int(affected)
+
+    async def relation_block_counts(
+        self,
+        issue_ids: List[str],
+    ) -> Dict[str, Dict[str, int]]:
+        """E20：批量统计 blocks / blocked_by 数量。"""
+        empty = {iid: {"blocks_count": 0, "blocked_by_count": 0} for iid in issue_ids}
+        if not issue_ids:
+            return empty
+
+        result = await self.db.execute(
+            select(IssueRelation).where(
+                or_(
+                    IssueRelation.source_id.in_(issue_ids),
+                    IssueRelation.target_id.in_(issue_ids),
+                )
+            )
+        )
+        rows = list(result.scalars().all())
+        for rel in rows:
+            rtype = rel.relation_type.value if hasattr(rel.relation_type, "value") else str(rel.relation_type)
+            if rel.source_id in empty:
+                if rtype == RelationType.BLOCKS.value:
+                    empty[rel.source_id]["blocks_count"] += 1
+                elif rtype == RelationType.IS_BLOCKED_BY.value:
+                    empty[rel.source_id]["blocked_by_count"] += 1
+            if rel.target_id in empty:
+                if rtype == RelationType.BLOCKS.value:
+                    empty[rel.target_id]["blocked_by_count"] += 1
+                elif rtype == RelationType.IS_BLOCKED_BY.value:
+                    empty[rel.target_id]["blocks_count"] += 1
+        return empty
 
     async def bulk_delete_issues(
         self,
@@ -685,7 +1697,35 @@ class IssueService:
         comment_type: str = "comment",  # 使用小写值，与 CommentType.COMMENT.value 一致
         meta_data: Optional[dict] = None,
     ) -> IssueComment:
-        """添加评论"""
+        """添加评论（E74：parent 同 Issue / 未软删 / 深度=1）"""
+        parent_author_user_id: Optional[str] = None
+        if parent_id:
+            from opentask.services.comment_threading import (
+                ParentCommentView,
+                validate_comment_parent,
+            )
+
+            parent_row = (
+                await self.db.execute(
+                    select(IssueComment).where(IssueComment.id == parent_id)
+                )
+            ).scalar_one_or_none()
+            view = (
+                ParentCommentView(
+                    id=parent_row.id,
+                    issue_id=parent_row.issue_id,
+                    parent_id=parent_row.parent_id,
+                    is_deleted=bool(parent_row.is_deleted),
+                    user_id=parent_row.user_id,
+                )
+                if parent_row is not None
+                else None
+            )
+            validate_comment_parent(
+                issue_id=issue_id, parent=view, parent_id=parent_id
+            )
+            parent_author_user_id = view.user_id if view else None
+
         comment = IssueComment(
             issue_id=issue_id,
             user_id=user_id,
@@ -696,6 +1736,8 @@ class IssueService:
         )
 
         self.db.add(comment)
+        # E52：flush 以拿到 comment.id，供 timeline / Activity 反应摘要挂载
+        await self.db.flush()
 
         # 更新 Issue 评论计数
         await self._increment_comment_count(issue_id)
@@ -708,18 +1750,50 @@ class IssueService:
             action_data={"comment_id": comment.id, "parent_id": parent_id},
         )
 
+        # E48：非创建者首评 → first_response clocks met（同事务）
+        issue = await self.get_issue(issue_id)
+        if issue is not None:
+            await SlaService(self.db).mark_first_response(
+                issue=issue, actor_user_id=user_id
+            )
+
         await self.db.commit()
         # 注释掉 refresh 以避免枚举值问题
         # await self.db.refresh(comment)
 
-        # Inbox：评论 / @mention 通知（非作者）
-        issue = await self.get_issue(issue_id)
+        # Inbox：评论 / @mention 通知（非作者）；自动化 → automation_comment
+        if issue is None:
+            issue = await self.get_issue(issue_id)
         if issue:
+            meta = meta_data or {}
+            is_automation = (
+                str(comment_type).lower() in ("system", "commenttype.system")
+                or meta.get("source") == "automation"
+            )
             await NotificationService(self.db).notify_comment(
                 issue,
                 actor_user_id=user_id,
                 comment_content=content,
                 comment_id=comment.id,
+                base_type="automation_comment" if is_automation else "commented",
+                parent_author_user_id=parent_author_user_id,
+            )
+            await publish_comment_created(
+                workspace_id=issue.workspace_id,
+                issue_id=issue_id,
+                comment_id=str(comment.id),
+                issue_code=issue.issue_code,
+                actor_user_id=user_id,
+            )
+            await fire_webhooks(
+                self.db,
+                workspace_id=issue.workspace_id,
+                event_type="comment.created",
+                data={
+                    "id": str(comment.id),
+                    "issueId": str(issue_id),
+                    "issueCode": issue.issue_code,
+                },
             )
         return comment
 
@@ -750,7 +1824,7 @@ class IssueService:
         return comment
 
     async def delete_comment(self, comment_id: str, user_id: str) -> bool:
-        """删除评论（软删除）"""
+        """删除评论（软删除；E74 Q3a：级联软删直接子评）"""
         query = (
             update(IssueComment)
             .where(
@@ -760,6 +1834,12 @@ class IssueService:
             .values(is_deleted=True, updated_at=datetime.utcnow())
         )
         result = await self.db.execute(query)
+        if result.rowcount > 0:
+            await self.db.execute(
+                update(IssueComment)
+                .where(IssueComment.parent_id == comment_id)
+                .values(is_deleted=True, updated_at=datetime.utcnow())
+            )
         await self.db.commit()
 
         return result.rowcount > 0
@@ -769,7 +1849,7 @@ class IssueService:
         issue_id: str,
         include_deleted: bool = False,
     ) -> List[IssueComment]:
-        """获取 Issue 的所有评论"""
+        """获取 Issue 的所有评论（E74：用户侧隐藏「父已软删」的子评）"""
         query = select(IssueComment).where(IssueComment.issue_id == issue_id)
 
         if not include_deleted:
@@ -778,7 +1858,15 @@ class IssueService:
         query = query.order_by(IssueComment.created_at.asc())
 
         result = await self.db.execute(query)
-        return list(result.scalars().all())
+        comments = list(result.scalars().all())
+        if not include_deleted:
+            visible_ids = {c.id for c in comments}
+            comments = [
+                c
+                for c in comments
+                if c.parent_id is None or c.parent_id in visible_ids
+            ]
+        return comments
 
     # ========================================================================
     # 关系操作
@@ -1011,6 +2099,87 @@ class IssueService:
         return stats
 
     # ========================================================================
+    # 评论反应（E27）
+    # ========================================================================
+
+    async def get_comment_reactions(self, comment_id: str) -> List["CommentReaction"]:
+        from opentask.models.issue.model import CommentReaction
+
+        result = await self.db.execute(
+            select(CommentReaction)
+            .where(CommentReaction.comment_id == comment_id)
+            .order_by(CommentReaction.created_at.desc())
+        )
+        return list(result.scalars().all())
+
+    async def get_comment_reaction_map(self, comment_id: str) -> Dict[str, List[str]]:
+        reactions = await self.get_comment_reactions(comment_id)
+        out: Dict[str, List[str]] = {}
+        for r in reactions:
+            out.setdefault(r.emoji, []).append(r.user_id)
+        return out
+
+    async def get_comments_reaction_maps(
+        self, comment_ids: List[str]
+    ) -> Dict[str, Dict[str, List[str]]]:
+        from opentask.models.issue.model import CommentReaction
+
+        if not comment_ids:
+            return {}
+        result = await self.db.execute(
+            select(CommentReaction).where(CommentReaction.comment_id.in_(comment_ids))
+        )
+        out: Dict[str, Dict[str, List[str]]] = {cid: {} for cid in comment_ids}
+        for r in result.scalars().all():
+            out.setdefault(r.comment_id, {}).setdefault(r.emoji, []).append(r.user_id)
+        return out
+
+    async def add_comment_reaction(
+        self, comment_id: str, emoji: str, user_id: str
+    ) -> "CommentReaction":
+        from opentask.models.issue.model import CommentReaction
+
+        result = await self.db.execute(
+            select(CommentReaction).where(
+                and_(
+                    CommentReaction.comment_id == comment_id,
+                    CommentReaction.emoji == emoji,
+                    CommentReaction.user_id == user_id,
+                )
+            )
+        )
+        existing = result.scalar_one_or_none()
+        if existing:
+            return existing
+        reaction = CommentReaction(
+            comment_id=comment_id,
+            emoji=emoji,
+            user_id=user_id,
+        )
+        self.db.add(reaction)
+        await self.db.commit()
+        await self.db.refresh(reaction)
+        return reaction
+
+    async def remove_comment_reaction(
+        self, comment_id: str, emoji: str, user_id: str
+    ) -> bool:
+        from opentask.models.issue.model import CommentReaction
+
+        result = await self.db.execute(
+            delete(CommentReaction).where(
+                and_(
+                    CommentReaction.comment_id == comment_id,
+                    CommentReaction.emoji == emoji,
+                    CommentReaction.user_id == user_id,
+                )
+            )
+        )
+        await self.db.commit()
+        return bool(result.rowcount)
+
+
+    # ========================================================================
     # 时间线操作
     # ========================================================================
 
@@ -1218,11 +2387,11 @@ class IssueService:
         return result.scalar_one_or_none()
 
     async def get_attachment_by_id(self, attachment_id: str) -> Optional[Document]:
-        """通过附件 ID 直接获取附件（用于公共下载接口）"""
+        """通过附件 ID 直接获取附件（E66/E69：issue 或 issue_comment；调用方须自行做 WS 成员鉴权）"""
         query = select(Document).where(
             and_(
                 Document.id == attachment_id,
-                Document.entity_type == "issue"
+                Document.entity_type.in_(("issue", "issue_comment")),
             )
         )
         result = await self.db.execute(query)
@@ -1331,3 +2500,206 @@ class IssueService:
             .values(attachment_count=Issue.attachment_count - 1)
         )
         await self.db.execute(query)
+
+
+    # ========================================================================
+    # E69: comment attachments (entity_type=issue_comment)
+    # ========================================================================
+
+    async def get_comment_by_id(
+        self,
+        comment_id: str,
+        *,
+        include_deleted: bool = False,
+    ) -> Optional[IssueComment]:
+        """Load a single IssueComment by id."""
+        query = select(IssueComment).where(IssueComment.id == comment_id)
+        if not include_deleted:
+            query = query.where(IssueComment.is_deleted == False)  # noqa: E712
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def get_comment_attachments(self, comment_id: str) -> List[Document]:
+        """List documents attached to an issue_comment."""
+        query = (
+            select(Document)
+            .where(
+                and_(
+                    Document.entity_type == "issue_comment",
+                    Document.entity_id == comment_id,
+                )
+            )
+            .order_by(Document.created_at.desc())
+        )
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def get_comments_attachments_map(
+        self,
+        comment_ids: List[str],
+        *,
+        cap_per: int = 20,
+    ) -> Dict[str, List[dict]]:
+        """Thin attachment summaries keyed by comment id (Q4a; cap per comment)."""
+        if not comment_ids:
+            return {}
+        query = (
+            select(Document)
+            .where(
+                and_(
+                    Document.entity_type == "issue_comment",
+                    Document.entity_id.in_(comment_ids),
+                )
+            )
+            .order_by(Document.created_at.desc())
+        )
+        result = await self.db.execute(query)
+        rows = list(result.scalars().all())
+        out: Dict[str, List[dict]] = {cid: [] for cid in comment_ids}
+        for doc in rows:
+            bucket = out.setdefault(doc.entity_id, [])
+            if len(bucket) >= cap_per:
+                continue
+            bucket.append(
+                {
+                    "id": doc.id,
+                    "file_name": doc.file_name,
+                    "file_size": doc.file_size,
+                    "file_type": doc.file_type,
+                }
+            )
+        return out
+
+    async def add_comment_attachment(
+        self,
+        issue_id: str,
+        comment_id: str,
+        file_path: str,
+        file_name: str,
+        file_type: str,
+        file_size: int,
+        user_id: str,
+        dept_id: str | None = None,
+    ) -> Document:
+        """Attach a file to an issue_comment (Q1a). Validates comment belongs to issue_id.
+
+        Q5a: does not fire new webhook event names.
+        """
+        comment = await self.get_comment_by_id(comment_id)
+        if comment is None or comment.issue_id != issue_id:
+            raise ValueError("评论不存在或不属于该 Issue")
+
+        attachment = Document(
+            entity_type="issue_comment",
+            entity_id=comment_id,
+            file_path=file_path,
+            file_name=file_name,
+            file_type=file_type,
+            file_size=file_size,
+            created_by=user_id,
+            updated_by=user_id,
+            dept_id=dept_id,
+        )
+        self.db.add(attachment)
+        # Optional timeline on parent issue with commentId metadata (not a new webhook name)
+        await self._add_timeline(
+            issue_id=issue_id,
+            action_type=TimelineAction.ATTACHMENT_ADDED,
+            user_id=user_id,
+            action_data={
+                "file_name": file_name,
+                "file_type": file_type,
+                "file_size": file_size,
+                "comment_id": comment_id,
+            },
+        )
+        await self.db.commit()
+        await self.db.refresh(attachment)
+        return attachment
+
+    async def delete_comment_attachment(
+        self,
+        issue_id: str,
+        comment_id: str,
+        attachment_id: str,
+        user_id: str,
+    ) -> bool:
+        """Delete a comment-scoped attachment (Document + object storage)."""
+        comment = await self.get_comment_by_id(comment_id, include_deleted=True)
+        if comment is None or comment.issue_id != issue_id:
+            return False
+        query = select(Document).where(
+            and_(
+                Document.id == attachment_id,
+                Document.entity_type == "issue_comment",
+                Document.entity_id == comment_id,
+            )
+        )
+        result = await self.db.execute(query)
+        attachment = result.scalar_one_or_none()
+        if attachment is None:
+            return False
+
+        storage_service = get_storage_service()
+        storage_service.delete_file(attachment.file_path)
+
+        del_q = delete(Document).where(Document.id == attachment_id)
+        result = await self.db.execute(del_q)
+        await self._add_timeline(
+            issue_id=issue_id,
+            action_type=TimelineAction.ATTACHMENT_REMOVED,
+            user_id=user_id,
+            action_data={"file_name": attachment.file_name, "comment_id": comment_id},
+        )
+        await self.db.commit()
+        return result.rowcount > 0
+
+    async def hard_delete_comment(self, comment_id: str, user_id: str) -> bool:
+        """Q3a: physically delete comment and cascade Document + object storage.
+
+        Soft-delete path remains separate and does not scan files.
+        """
+        comment = await self.get_comment_by_id(comment_id, include_deleted=True)
+        if comment is None:
+            return False
+        # Ownership: author or any caller with access (service-level; router gates membership)
+        _ = user_id
+
+        attachments = await self.get_comment_attachments(comment_id)
+        storage_service = get_storage_service()
+        for att in attachments:
+            try:
+                storage_service.delete_file(att.file_path)
+            except Exception:
+                pass
+            await self.db.execute(delete(Document).where(Document.id == att.id))
+
+        await self.db.execute(delete(IssueComment).where(IssueComment.id == comment_id))
+        await self.db.commit()
+        return True
+
+
+    async def child_progress_for_parent(self, parent_id: str) -> dict:
+        """E70: aggregate direct non-deleted children into childProgress."""
+        from opentask.services.child_progress import compute_child_progress
+
+        children = await self.list_child_issues(parent_id)
+        return compute_child_progress([c.status for c in children])
+
+    async def child_progress_for_parents(self, parent_ids: list[str]) -> dict[str, dict]:
+        """E70: batch childProgress for many parents (one query)."""
+        from opentask.services.child_progress import compute_child_progress
+
+        if not parent_ids:
+            return {}
+        q = await self.db.execute(
+            select(Issue.parent_issue_id, Issue.status).where(
+                Issue.parent_issue_id.in_(parent_ids),
+                Issue.is_deleted == False,  # noqa: E712
+            )
+        )
+        buckets: dict[str, list] = {pid: [] for pid in parent_ids}
+        for pid, status in q.all():
+            if pid in buckets:
+                buckets[pid].append(status)
+        return {pid: compute_child_progress(sts) for pid, sts in buckets.items()}

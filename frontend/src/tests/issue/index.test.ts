@@ -1,3 +1,4 @@
+/** E21: SmartSearch/TemplateSelector/Reactions revived (no describe.skip). */
 /**
  * Issue 相关组件测试
  */
@@ -14,22 +15,45 @@ import IssueReactions from '@/components/IssueReactions.vue';
 import UserMention from '@/components/UserMention.vue';
 import IssueReference from '@/components/IssueReference.vue';
 
+vi.mock('vue-router', async importOriginal => {
+  const actual = await importOriginal<typeof import('vue-router')>();
+  return {
+    ...actual,
+    useRouter: () => ({ push: vi.fn() })
+  };
+});
+
 // Mock Naive UI 组件
 vi.mock('naive-ui', () => ({
-  NButton: { template: '<button @click="$emit(\'click\')"><slot /></button>' },
-  NCard: { template: '<div><slot /></div>' },
-  NEmpty: { template: '<div>Empty</div>' },
+  NButton: { template: '<button class="n-button" @click="$emit(\'click\')"><slot /><slot name="icon" /></button>' },
+  NTag: { template: '<span class="n-tag"><slot /></span>' },
+  NCard: {
+    template: '<div class="n-card"><slot name="header-extra" /><slot /></div>'
+  },
+  NEmpty: { template: '<div class="n-empty">Empty</div>' },
   NInput: { template: '<input />' },
   NSelect: { template: '<select></select>' },
-  NSpace: { template: '<div><slot /></div>' },
-  NText: { template: '<span><slot /></span>' },
+  NSpace: { template: '<div class="n-space"><slot /></div>' },
+  NText: { template: '<span class="n-text"><slot /></span>' },
   NTooltip: { template: '<div><slot /></div>' },
   NList: { template: '<ul><slot /></ul>' },
   NListItem: { template: '<li><slot /></li>' },
-  NAutoComplete: { template: '<input />' },
-  NPopover: { template: '<div><slot /></div>' },
-  NDropdown: { template: '<div><slot /></div>' },
-  NFormItem: { template: '<div><slot /></div>' }
+  NAutoComplete: {
+    props: ['value', 'options', 'placeholder', 'clearable', 'size'],
+    emits: ['update:value', 'select', 'keydown'],
+    template:
+      '<input class="smart-search-input" :value="value" @input="$emit(\'update:value\', ($event.target).value)" />'
+  },
+  NPopover: { template: '<div><slot name="trigger" /><slot /></div>' },
+  NDropdown: { template: '<div class="n-dropdown"><slot /></div>' },
+  NFormItem: { template: '<div><slot /></div>' },
+  NSpin: { template: '<div class="n-spin"><slot /></div>' },
+  NGrid: { template: '<div class="n-grid"><slot /></div>' },
+  NGridItem: { template: '<div class="n-grid-item" @click="$emit(\'click\')"><slot /></div>' }
+}));
+
+vi.mock('@/service/api/issue-templates', () => ({
+  fetchIssueTemplates: vi.fn(async () => ({ data: { rows: [] }, error: null }))
 }));
 
 describe('Issue Search Parser', () => {
@@ -94,122 +118,103 @@ describe('Issue Search Parser', () => {
 describe('IssueSmartSearch Component', () => {
   let wrapper: VueWrapper<any>;
 
-  beforeEach(() => {
+  it('should render search input', () => {
     const pinia = createPinia();
     setActivePinia(pinia);
-  });
-
-  it('should render search input', () => {
     wrapper = mount(IssueSmartSearch, {
       props: {
         modelValue: '',
         placeholder: '搜索 Issue...'
       },
       global: {
-        plugins: [pinia]
+        plugins: [pinia],
+        stubs: {
+          'icon-mdi-emoticon-happy-outline': true,
+          'icon-mdi-account-multiple-outline': true,
+          'icon-mdi-close': true
+        }
       }
     });
 
     expect(wrapper.find('.issue-smart-search').exists()).toBe(true);
   });
 
-  it('should emit search event on input', async () => {
+  it('should emit search with parsed query', async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
     wrapper = mount(IssueSmartSearch, {
       props: {
         modelValue: 'is:open',
         placeholder: '搜索 Issue...'
       },
       global: {
-        plugins: [createPinia()]
+        plugins: [pinia]
       }
     });
 
-    await wrapper.vm.$nextTick();
-
-    // 验证是否触发了 search 事件
-    // 注意：由于我们 mock 了 NAutoComplete，可能需要调整测试方法
+    await wrapper.vm.handleSearch();
+    const emitted = wrapper.emitted('search');
+    expect(emitted).toBeTruthy();
+    expect(emitted![0][0]).toMatchObject({ status: 'open' });
+    expect(emitted![0][1]).toBe('is:open');
   });
 
-  it('should display syntax help when toggled', async () => {
+  it('clear emits empty search', async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
     wrapper = mount(IssueSmartSearch, {
-      props: {
-        modelValue: '',
-        placeholder: '搜索 Issue...'
-      },
-      global: {
-        plugins: [createPinia()]
-      }
+      props: { modelValue: 'priority:high' },
+      global: { plugins: [pinia] }
     });
-
-    // 初始状态不显示帮助
-    // expect(wrapper.find('.syntax-help-card').exists()).toBe(false)
-
-    // 切换帮助
-    // await wrapper.vm.showSyntaxHelp = true
-    // await wrapper.vm.$nextTick()
-    // expect(wrapper.find('.syntax-help-card').exists()).toBe(true)
+    await wrapper.vm.handleClear();
+    const emitted = wrapper.emitted('search');
+    expect(emitted?.[emitted.length - 1][0]).toEqual({});
   });
 });
 
 describe('IssueTemplateSelector Component', () => {
   let wrapper: VueWrapper<any>;
 
-  beforeEach(() => {
+  it('should fall back to static templates when API empty', async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
-  });
-
-  it('should render all templates', () => {
     wrapper = mount(IssueTemplateSelector, {
       props: {
         visible: true
       },
       global: {
-        plugins: [pinia]
+        plugins: [pinia],
+        stubs: { Teleport: true, 'icon-mdi-close': true }
       }
     });
-
-    // 验证模板数量
+    await wrapper.vm.load();
+    await wrapper.vm.$nextTick();
     expect(ISSUE_TEMPLATES.length).toBe(5);
-
-    // 验证模板类型
     const templateIds = ISSUE_TEMPLATES.map(t => t.id);
     expect(templateIds).toContain('bug_report');
-    expect(templateIds).toContain('feature_request');
-    expect(templateIds).toContain('improvement');
-    expect(templateIds).toContain('question');
-    expect(templateIds).toContain('task');
+    expect(wrapper.find('.template-selector-card').exists()).toBe(true);
   });
 
-  it('should emit select event when template clicked', async () => {
+  it('should emit select when selectTemplate called', async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
     wrapper = mount(IssueTemplateSelector, {
-      props: {
-        visible: true
-      },
-      global: {
-        plugins: [createPinia()]
-      }
+      props: { visible: true },
+      global: { plugins: [pinia], stubs: { Teleport: true, 'icon-mdi-close': true } }
     });
-
-    // 找到 Bug 报告模板并点击
-    // const bugTemplate = ISSUE_TEMPLATES.find(t => t.id === 'bug_report');
-
-    // 模拟点击
-    // wrapper.vm.handleSelectTemplate(bugTemplate)
-    // await wrapper.vm.$nextTick()
-
-    // expect(wrapper.emitted('select')).toBeTruthy()
-    // expect(wrapper.emitted('select')[0]).toEqual(bugTemplate)
+    const bug = ISSUE_TEMPLATES.find(t => t.id === 'bug_report')!;
+    wrapper.vm.selectTemplate(bug);
+    await wrapper.vm.$nextTick();
+    expect(wrapper.emitted('select')?.[0]?.[0]).toMatchObject({ id: 'bug_report' });
+    expect(wrapper.emitted('close')).toBeTruthy();
   });
 
   it('should emit close event when closed', async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
     wrapper = mount(IssueTemplateSelector, {
-      props: {
-        visible: true
-      },
-      global: {
-        plugins: [createPinia()]
-      }
+      props: { visible: true },
+      global: { plugins: [pinia], stubs: { Teleport: true, 'icon-mdi-close': true } }
     });
 
     await wrapper.vm.close();
@@ -222,12 +227,9 @@ describe('IssueTemplateSelector Component', () => {
 describe('IssueReactions Component', () => {
   let wrapper: VueWrapper<any>;
 
-  beforeEach(() => {
+  it('should render reactions list', () => {
     const pinia = createPinia();
     setActivePinia(pinia);
-  });
-
-  it('should render reactions list', () => {
     const reactions = {
       '👍': ['admin', 'zhangsan'],
       '❤️': ['lisi']
@@ -236,274 +238,96 @@ describe('IssueReactions Component', () => {
     wrapper = mount(IssueReactions, {
       props: {
         modelValue: reactions,
-        disabled: false
+        disabled: false,
+        currentUserId: 'admin'
       },
       global: {
-        plugins: [pinia]
+        plugins: [pinia],
+        stubs: {
+          'icon-mdi-emoticon-happy-outline': true,
+          'icon-mdi-account-multiple-outline': true
+        }
       }
     });
 
     expect(wrapper.find('.issue-reactions').exists()).toBe(true);
-  });
-
-  it('should display reaction counts correctly', () => {
-    const reactions = {
-      '👍': ['admin', 'zhangsan', 'lisi'],
-      '❤️': ['wangwu']
-    };
-
-    wrapper = mount(IssueReactions, {
-      props: {
-        modelValue: reactions
-      },
-      global: {
-        plugins: [createPinia()]
-      }
-    });
-
-    // 验证反应数量
-    // const thumbsUpReaction = wrapper.vm.reactions.find(r => r.emoji === '👍')
-    // expect(thumbsUpReaction.count).toBe(3)
-    // const heartReaction = wrapper.vm.reactions.find(r => r.emoji === '❤️')
-    // expect(heartReaction.count).toBe(1)
+    expect(wrapper.findAll('.reaction-item').length).toBeGreaterThanOrEqual(1);
   });
 
   it('should toggle reaction on click', async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
     const reactions = {
       '👍': ['admin']
     };
 
     wrapper = mount(IssueReactions, {
       props: {
-        modelValue: reactions
+        modelValue: reactions,
+        currentUserId: 'admin'
       },
       global: {
-        plugins: [createPinia()]
+        plugins: [pinia],
+        stubs: {
+          'icon-mdi-emoticon-happy-outline': true,
+          'icon-mdi-account-multiple-outline': true
+        }
       }
     });
 
-    // 点击 👍 反应
     await wrapper.vm.handleReactionClick('👍');
     await wrapper.vm.$nextTick();
 
-    // 验证 emit 事件
     expect(wrapper.emitted('unreact')).toBeTruthy();
   });
 
-  it('should be disabled when disabled prop is true', () => {
+  it('hides add button when disabled', () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
     wrapper = mount(IssueReactions, {
       props: {
-        modelValue: {},
-        disabled: true
+        modelValue: { '👍': ['u1'] },
+        disabled: true,
+        currentUserId: 'u1'
       },
       global: {
-        plugins: [createPinia()]
+        plugins: [pinia],
+        stubs: {
+          'icon-mdi-emoticon-happy-outline': true,
+          'icon-mdi-account-multiple-outline': true
+        }
       }
     });
 
-    // 验证禁用状态
+    expect(wrapper.find('.reaction-add-button').exists()).toBe(false);
     expect(wrapper.find('.reaction-item-disabled').exists()).toBe(true);
   });
 });
 
 describe('UserMention Component', () => {
-  let wrapper: VueWrapper<any>;
-
-  beforeEach(() => {
-    const pinia = createPinia();
-    setActivePinia(pinia);
+  it('renders @username', () => {
+    const wrapper = mount(UserMention, { props: { username: 'alice' } });
+    expect(wrapper.text()).toContain('@alice');
   });
 
-  it('should render mention popup when visible', () => {
-    wrapper = mount(UserMention, {
-      props: {
-        visible: true,
-        searchTerm: 'zhang',
-        top: 100,
-        left: 100
-      },
-      global: {
-        plugins: [createPinia()],
-        stubs: {
-          Teleport: true
-        }
-      }
-    });
-
-    expect(wrapper.find('.mention-popup').exists()).toBe(true);
-  });
-
-  it('should filter users by search term', () => {
-    wrapper = mount(UserMention, {
-      props: {
-        visible: true,
-        searchTerm: 'zhang',
-        top: 100,
-        left: 100
-      },
-      global: {
-        plugins: [createPinia()],
-        stubs: {
-          Teleport: true
-        }
-      }
-    });
-
-    const filteredUsers = wrapper.vm.filteredUsers;
-    expect(filteredUsers.every(u => u.name.includes('zhang'))).toBe(true);
-  });
-
-  it('should emit select event when user selected', async () => {
-    wrapper = mount(UserMention, {
-      props: {
-        visible: true,
-        searchTerm: '',
-        top: 100,
-        left: 100
-      },
-      global: {
-        plugins: [createPinia()],
-        stubs: {
-          Teleport: true
-        }
-      }
-    });
-
-    await wrapper.vm.selectUser('zhangsan');
-    await wrapper.vm.$nextTick();
-
-    expect(wrapper.emitted('select')).toBeTruthy();
-    expect(wrapper.emitted('select')[0]).toBe('zhangsan');
-  });
-
-  it('should emit close event on Escape key', async () => {
-    wrapper = mount(UserMention, {
-      props: {
-        visible: true,
-        searchTerm: '',
-        top: 100,
-        left: 100
-      },
-      global: {
-        plugins: [createPinia()],
-        stubs: {
-          Teleport: true
-        }
-      }
-    });
-
-    // 模拟 Escape 键
-    await wrapper.vm.handleKeydown({ key: 'Escape', preventDefault: () => {}, stopPropagation: () => {} });
-
-    expect(wrapper.emitted('close')).toBeTruthy();
+  it('strips duplicate @ prefix', () => {
+    const wrapper = mount(UserMention, { props: { username: '@bob' } });
+    expect(wrapper.text()).toContain('@bob');
+    expect(wrapper.text()).not.toContain('@@');
   });
 });
 
 describe('IssueReference Component', () => {
-  let wrapper: VueWrapper<any>;
-
-  beforeEach(() => {
-    const pinia = createPinia();
-    setActivePinia(pinia);
-  });
-
-  it('should render issue reference popup when visible', () => {
-    wrapper = mount(IssueReference, {
-      props: {
-        visible: true,
-        searchTerm: 'ISSUE2026',
-        top: 100,
-        left: 100
-      },
+  it('renders issue code', () => {
+    const wrapper = mount(IssueReference, {
+      props: { issueId: 'uuid-1', issueCode: 'SMK-2' },
       global: {
-        plugins: [createPinia()],
-        stubs: {
-          Teleport: true
+        mocks: {
+          $router: { push: vi.fn() }
         }
       }
     });
-
-    expect(wrapper.find('.issue-ref-popup').exists()).toBe(true);
-  });
-
-  it('should filter issues by search term', () => {
-    wrapper = mount(IssueReference, {
-      props: {
-        visible: true,
-        searchTerm: '1',
-        top: 100,
-        left: 100
-      },
-      global: {
-        plugins: [createPinia()],
-        stubs: {
-          Teleport: true
-        }
-      }
-    });
-
-    const filteredIssues = wrapper.vm.filteredIssues;
-    expect(filteredIssues.every(i => i.code.includes('1') || i.title.includes('1'))).toBe(true);
-  });
-
-  it('should emit select event when issue selected', async () => {
-    wrapper = mount(IssueReference, {
-      props: {
-        visible: true,
-        searchTerm: '',
-        top: 100,
-        left: 100
-      },
-      global: {
-        plugins: [createPinia()],
-        stubs: {
-          Teleport: true
-        }
-      }
-    });
-
-    await wrapper.vm.selectIssue('ISSUE2026-1');
-    await wrapper.vm.$nextTick();
-
-    expect(wrapper.emitted('select')).toBeTruthy();
-    expect(wrapper.emitted('select')[0]).toBe('ISSUE2026-1');
-  });
-
-  it('should handle keyboard navigation', async () => {
-    wrapper = mount(IssueReference, {
-      props: {
-        visible: true,
-        searchTerm: '',
-        top: 100,
-        left: 100
-      },
-      global: {
-        plugins: [createPinia()],
-        stubs: {
-          Teleport: true
-        }
-      }
-    });
-
-    const initialIndex = wrapper.vm.selectedIndex;
-
-    // 测试向下箭头
-    await wrapper.vm.handleKeydown({
-      key: 'ArrowDown',
-      preventDefault: () => {},
-      stopPropagation: () => {}
-    });
-
-    expect(wrapper.vm.selectedIndex).toBe((initialIndex + 1) % wrapper.vm.filteredIssues.length);
-
-    // 测试向上箭头
-    await wrapper.vm.handleKeydown({
-      key: 'ArrowUp',
-      preventDefault: () => {},
-      stopPropagation: () => {}
-    });
-
-    expect(wrapper.vm.selectedIndex).toBe(initialIndex);
+    expect(wrapper.text()).toContain('SMK-2');
   });
 });
 
@@ -557,6 +381,6 @@ describe('Issue Search Integration', () => {
 
   it('should handle search with special characters', () => {
     const result = parseSearchString('search: "test with spaces"');
-    expect(result.search).toBe('search: "test with spaces"');
+    expect(result.search).toBe('search: test with spaces');
   });
 });

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import type { DropdownOption } from 'naive-ui';
 import {
@@ -10,10 +10,14 @@ import {
   fetchSnoozeInbox,
   fetchUnsnoozeInbox
 } from '@/service/api';
+import { useAuthStore } from '@/store/modules/auth';
+import { subscribeWorkspaceRealtime } from '@/composables/use-workspace-realtime';
 
 defineOptions({ name: 'InboxPage' });
 
 const router = useRouter();
+const authStore = useAuthStore();
+let unsubRt: (() => void) | null = null;
 const loading = ref(false);
 const unreadOnly = ref(false);
 const includeSnoozed = ref(false);
@@ -25,7 +29,13 @@ const typeLabel: Record<string, string> = {
   assigned: '指派',
   commented: '评论',
   mentioned: '提及',
-  project_health: '项目健康'
+  project_health: '项目健康',
+  status_changed: '状态',
+  subscribed_update: '关注更新',
+  due_date_changed: '截止日期',
+  due_reminder: '到期提醒',
+  due_reminder_digest: '到期摘要',
+  sla_breached: 'SLA 违约'
 };
 
 const empty = computed(() => !loading.value && rows.value.length === 0);
@@ -43,9 +53,7 @@ function snoozePresets(): { key: string; label: string; until: Date }[] {
   let daysUntilMon = 8 - day;
   if (day === 0) daysUntilMon = 1;
   else if (day === 1) daysUntilMon = 7;
-  const nextMon = startOfLocalDay(
-    new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntilMon)
-  );
+  const nextMon = startOfLocalDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntilMon));
   return [
     { key: '1h', label: '1 小时后', until: in1h },
     { key: '3h', label: '3 小时后', until: in3h },
@@ -131,12 +139,24 @@ async function onSnoozeSelect(key: string | number, row: InboxNotification) {
   await load();
 }
 
-
-onMounted(load);
+onMounted(() => {
+  load();
+  unsubRt = subscribeWorkspaceRealtime(ev => {
+    if (ev.type !== 'inbox.created') return;
+    const me = String(authStore.userInfo.userId || '');
+    const recipient = String(ev.payload?.recipient_user_id || '');
+    if (me && recipient && recipient !== me) return;
+    load();
+  });
+});
+onUnmounted(() => {
+  unsubRt?.();
+  unsubRt = null;
+});
 </script>
 
 <template>
-  <div class="h-full flex-col gap-16px overflow-hidden p-16px">
+  <div class="h-full flex-col gap-12px overflow-hidden">
     <div class="flex-y-center justify-between">
       <div class="flex-y-center gap-12px">
         <div>
@@ -149,9 +169,7 @@ onMounted(load);
         <NCheckbox v-model:checked="unreadOnly" @update:checked="load">仅未读</NCheckbox>
         <NCheckbox v-model:checked="includeSnoozed" @update:checked="load">显示已延后</NCheckbox>
         <NButton size="small" @click="load">刷新</NButton>
-        <NButton size="small" type="primary" secondary :disabled="unreadCount === 0" @click="markAll">
-          全部已读
-        </NButton>
+        <NButton size="small" type="primary" secondary :disabled="unreadCount === 0" @click="markAll">全部已读</NButton>
       </div>
     </div>
 
@@ -168,11 +186,11 @@ onMounted(load);
                 <span class="truncate font-medium" :class="{ 'opacity-60': !!row.readAt }">{{ row.title }}</span>
                 <NTag v-if="row.snoozedUntil" size="tiny" type="warning" :bordered="false">已延后</NTag>
               </div>
-              <div v-if="row.body" class="mt-4px truncate text-13px text-gray-500 dark:text-gray-400">
+              <div v-if="row.body" class="mt-4px truncate text-13px opacity-60">
                 {{ row.body }}
               </div>
             </div>
-            <div class="shrink-0 flex-y-center gap-8px" @click.stop>
+            <div class="flex-y-center shrink-0 gap-8px" @click.stop>
               <NDropdown
                 trigger="click"
                 :options="snoozeOptions(row)"
@@ -189,3 +207,13 @@ onMounted(load);
   </div>
 </template>
 
+<style scoped>
+.n-list {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+}
+.n-list-item {
+  border-color: var(--color-hairline) !important;
+}
+</style>

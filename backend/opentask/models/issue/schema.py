@@ -45,6 +45,7 @@ class IssueBase(BaseModel):
     reporter_id: Optional[str] = Field(None, description="报告人 ID [可选：默认为当前用户]")
     position: Optional[int] = Field(None, description="排序位置")
     due_date: Optional[datetime] = Field(None, description="截止日期")
+    start_date: Optional[datetime] = Field(None, description="E73：计划开始日")
     estimated_hours: Optional[float] = Field(None, ge=0, description="预估工时")
     actual_hours: Optional[float] = Field(None, ge=0, description="实际工时")
     parent_issue_id: Optional[str] = Field(None, description="父 Issue ID（一等公民子 Issue）")
@@ -56,6 +57,20 @@ class IssueBase(BaseModel):
 class IssueCreate(IssueBase):
     """创建 Issue Schema"""
     template_id: Optional[str] = Field(None, description="E9-S2：应用工作区 Issue 模板")
+    assignee_ids: Optional[List[str]] = Field(
+        None, description="E71: ordered assignees; first=primary (mirrors assignee_id)"
+    )
+
+
+class IssueDuplicateRequest(BaseModel):
+    """E75: optional overrides for POST /api/issues/{id}/duplicate"""
+    title: Optional[str] = Field(None, min_length=1, max_length=255)
+    project_id: Optional[str] = None
+    cycle_id: Optional[str] = None
+    parent_issue_id: Optional[str] = None
+    assignee_ids: Optional[List[str]] = Field(
+        None, description="Replace assignees on the copy; omit to copy source"
+    )
 
 
 class IssueUpdate(BaseModel):
@@ -69,9 +84,13 @@ class IssueUpdate(BaseModel):
     task_id: Optional[str] = None
     requirement_id: Optional[str] = None
     assignee_id: Optional[str] = None
+    assignee_ids: Optional[List[str]] = Field(
+        None, description="E71: replace ordered assignees; first=primary"
+    )
     reporter_id: Optional[str] = None
     position: Optional[int] = None
     due_date: Optional[datetime] = None
+    start_date: Optional[datetime] = None
     estimated_hours: Optional[float] = None
     actual_hours: Optional[float] = None
     parent_issue_id: Optional[str] = None
@@ -110,6 +129,15 @@ class IssueChildSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ChildProgress(BaseModel):
+    """E70: direct-child progress rollup"""
+    total: int
+    done: int
+    open: int
+    percent: Optional[int] = None
+    byStatus: Optional[dict] = None
+
+
 class IssueResponse(IssueBase):
     """Issue 响应 Schema"""
     id: str
@@ -127,9 +155,15 @@ class IssueResponse(IssueBase):
     updated_by: Optional[str]
     project: Optional[ProjectInfo] = Field(None, description="关联项目")
     assignee: Optional[UserInfo] = Field(None, description="负责人信息")
+    assignees: Optional[List[UserInfo]] = Field(
+        None, description="E71: ordered assignees (first=primary)"
+    )
     reporter: Optional[UserInfo] = Field(None, description="报告人信息")
     children: Optional[List[IssueChildSummary]] = Field(
         None, description="子 Issue 摘要（详情接口填充）"
+    )
+    childProgress: Optional[ChildProgress] = Field(
+        None, description="E70: 直接子问题进度汇总（详情默认；列表 ?include=childProgress）"
     )
     triage_status: Optional[str] = Field(None, description="pending|null triage 队列状态")
 
@@ -203,6 +237,12 @@ class IssueCommentResponse(IssueCommentBase):
     created_at: datetime
     updated_at: datetime
     user_info: Optional[UserInfo] = Field(None, description="用户信息")
+    reactions: Optional[dict] = Field(
+        None, description="E27：emoji → userId[] 映射"
+    )
+    attachments: Optional[List[dict]] = Field(
+        None, description="E69：评论附件薄摘要 [{id,file_name,file_size,file_type}]"
+    )
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -270,6 +310,9 @@ class IssueQueryParams(BaseModel):
     priority: Optional[IssuePriority] = Field(None, description="优先级筛选")
     project_id: Optional[str] = Field(None, description="项目 ID")
     assignee_id: Optional[str] = Field(None, description="负责人 ID")
+    assignee_any: Optional[str] = Field(
+        None, description="E71: match primary OR any collaborator"
+    )
     reporter_id: Optional[str] = Field(None, description="报告人 ID")
     search: Optional[str] = Field(None, description="搜索关键词")
     cycle_id: Optional[str] = Field(
@@ -279,6 +322,26 @@ class IssueQueryParams(BaseModel):
     milestone_id: Optional[str] = Field(
         None,
         description="Milestone ID 筛选；传 __none__ 表示无里程碑",
+    )
+    watching: Optional[bool] = Field(
+        None,
+        description="E19：仅当前用户关注的 Issue（需配合 user_id）",
+    )
+    due_before: Optional[str] = Field(
+        None,
+        description="E19：due_date 日期 ≤ YYYY-MM-DD",
+    )
+    start_before: Optional[str] = Field(
+        None,
+        description="E73：start_date 日期 ≤ YYYY-MM-DD",
+    )
+    start_after: Optional[str] = Field(
+        None,
+        description="E73：start_date 日期 ≥ YYYY-MM-DD",
+    )
+    due_soon: Optional[bool] = Field(
+        None,
+        description="E19：今日起 3 日内到期且未关闭",
     )
     sort_by: str = Field("created_at", description="排序字段")
     sort_order: str = Field("desc", pattern="^(asc|desc)$", description="排序方向")
@@ -306,12 +369,17 @@ class IssueBoardMove(BaseModel):
 
 
 class IssueBulkUpdate(BaseModel):
-
-    """批量更新 Schema"""
+    """批量更新 Schema（E20：+cycle_id / tag_ids；需 X-Workspace-Id）"""
     issue_ids: List[str] = Field(..., min_length=1, description="Issue ID 列表")
     status: Optional[IssueStatus] = None
     priority: Optional[IssuePriority] = None
     assignee_id: Optional[str] = None
+    cycle_id: Optional[str] = Field(
+        None, description="目标 Cycle ID；显式 null 可清空（需出现在 payload）"
+    )
+    tag_ids: Optional[List[int]] = Field(
+        None, description="替换为这些标签 ID；省略则不改标签；[] 清空"
+    )
 
 
 class IssueBulkDelete(BaseModel):

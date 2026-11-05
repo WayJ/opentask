@@ -16,6 +16,8 @@ export interface WorkspaceItem {
   gitStatusHooksEnabled?: boolean;
   gitHookOnPrOpen?: string;
   gitHookOnPrMerged?: string;
+  timezone?: string | null;
+  businessHours?: { enabled?: boolean; windows?: Record<string, { start: string; end: string }[]> } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -45,6 +47,8 @@ export function fetchUpdateWorkspace(
     gitStatusHooksEnabled?: boolean;
     gitHookOnPrOpen?: string;
     gitHookOnPrMerged?: string;
+    timezone?: string | null;
+    businessHours?: { enabled?: boolean; windows?: Record<string, { start: string; end: string }[]> } | null;
   }
 ) {
   return request<WorkspaceItem>({ url: `/api/workspaces/${id}`, method: 'patch', data });
@@ -79,10 +83,7 @@ export function fetchWorkspaceMembers(workspaceId: string) {
   });
 }
 
-export function fetchAddWorkspaceMember(
-  workspaceId: string,
-  data: { userId: string; role?: string }
-) {
+export function fetchAddWorkspaceMember(workspaceId: string, data: { userId: string; role?: string }) {
   return request<WorkspaceMemberItem>({
     url: `/api/workspaces/${workspaceId}/members`,
     method: 'post',
@@ -90,11 +91,7 @@ export function fetchAddWorkspaceMember(
   });
 }
 
-export function fetchUpdateWorkspaceMemberRole(
-  workspaceId: string,
-  userId: string,
-  role: string
-) {
+export function fetchUpdateWorkspaceMemberRole(workspaceId: string, userId: string, role: string) {
   return request<WorkspaceMemberItem>({
     url: `/api/workspaces/${workspaceId}/members/${userId}`,
     method: 'patch',

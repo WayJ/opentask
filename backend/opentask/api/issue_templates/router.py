@@ -51,6 +51,20 @@ async def list_templates(
     )
 
 
+@router.get("/{template_id}")
+async def get_template(
+    template_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    """E82 Q1a: GET by id → serialize; missing/cross-tenant → 404 via service.get."""
+    ws, _member, _user = ctx
+    row = await IssueTemplateService(session).get(
+        workspace_id=ws.id, template_id=template_id
+    )
+    return success_response(data=serialize_issue_template(row))
+
+
 @router.post("/seed")
 async def seed_templates(
     ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),

@@ -59,10 +59,13 @@ class TimelineAction(str, Enum):
     ASSIGNED = "assigned"                    # 分配
     PRIORITY_CHANGED = "priority_changed"    # 优先级变更
     DUE_DATE_CHANGED = "due_date_changed"    # 截止日期变更
+    START_DATE_CHANGED = "start_date_changed"  # E73：计划开始日变更
     RELATION_ADDED = "relation_added"        # 添加关系
     RELATION_REMOVED = "relation_removed"    # 移除关系
     ATTACHMENT_ADDED = "attachment_added"    # 添加附件
     ATTACHMENT_REMOVED = "attachment_removed"  # 移除附件
+    LINK_ADDED = "link_added"                  # E76：添加外链
+    LINK_REMOVED = "link_removed"              # E76：移除外链
     LABEL_ADDED = "label_added"              # 添加标签
     LABEL_REMOVED = "label_removed"          # 移除标签
     REACTION_ADDED = "reaction_added"        # 添加反应
@@ -70,3 +73,11 @@ class TimelineAction(str, Enum):
     RESOLVED = "resolved"                    # 已解决
     CLOSED = "closed"                        # 已关闭
     REOPENED = "reopened"                    # 重新打开
+    CUSTOM_FIELD_CHANGED = "custom_field_changed"  # E41：自定义字段变更
+    CYCLE_CHANGED = "cycle_changed"              # E41：Cycle 变更
+    ESTIMATE_CHANGED = "estimate_changed"        # E41：估分变更
+    PROJECT_CHANGED = "project_changed"          # E41：项目变更
+    SLA_PAUSED = "sla_paused"                    # E48：SLA 暂停
+    SLA_RESUMED = "sla_resumed"                  # E48：SLA 恢复
+    RESTORED = "restored"                          # E77：从回收站恢复
+    PARENT_CHANGED = "parent_changed"                  # E78：父子关系变更

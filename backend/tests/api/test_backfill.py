@@ -55,6 +55,7 @@ TABLES = (
     "requirements",
     "issues",
     "projects",
+    "project_members",
     "knowledge_bases",
     "documents",
     "tasks",

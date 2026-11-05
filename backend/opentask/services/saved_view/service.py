@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from opentask.models.issue_saved_view.model import IssueSavedView
 from opentask.models.workspace.model import WorkspaceMember
+from opentask.services.display_prefs.service import validate_and_normalize_display
 
 
 def require_writer(member: WorkspaceMember) -> None:
@@ -136,6 +137,14 @@ class SavedViewService:
         shared = bool(is_shared)
         # Favorite is personal-only (E7 design / E8 for shared favorites)
         favorite = False if shared else bool(is_favorite)
+        resolved_display = display_json
+        if display_json is not None:
+            resolved_display = await validate_and_normalize_display(
+                self.db,
+                workspace_id=workspace_id,
+                raw=display_json,
+                on_write=True,
+            )
         row = IssueSavedView(
             workspace_id=workspace_id,
             owner_user_id=str(owner_user_id),
@@ -144,7 +153,7 @@ class SavedViewService:
             is_shared=shared,
             filter_json=filter_json or {},
             sort_json=sort_json,
-            display_json=display_json,
+            display_json=resolved_display,
             created_at=now,
             updated_at=now,
         )
@@ -171,7 +180,12 @@ class SavedViewService:
         if sort_json is not None:
             view.sort_json = sort_json
         if display_json is not None:
-            view.display_json = display_json
+            view.display_json = await validate_and_normalize_display(
+                self.db,
+                workspace_id=view.workspace_id,
+                raw=display_json,
+                on_write=True,
+            )
         if is_shared is not None:
             view.is_shared = bool(is_shared)
             if view.is_shared:

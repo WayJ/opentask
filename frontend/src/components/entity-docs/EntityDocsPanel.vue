@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import {
   type EntityDocParentType,
   type EntityDocumentRow,
@@ -17,6 +17,7 @@ const props = defineProps<{
 
 defineOptions({ name: 'EntityDocsPanel' });
 
+const route = useRoute();
 const router = useRouter();
 const loading = ref(false);
 const saving = ref(false);
@@ -41,9 +42,17 @@ async function load() {
       return;
     }
     rows.value = data.rows || [];
+    openDocFromQuery();
   } finally {
     loading.value = false;
   }
+}
+
+function openDocFromQuery() {
+  const docId = String(route.query.doc || '');
+  if (!docId) return;
+  const hit = rows.value.find(r => r.id === docId);
+  if (hit) openEdit(hit);
 }
 
 function openCreate() {

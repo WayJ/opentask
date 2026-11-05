@@ -83,14 +83,16 @@ class TestConfigFileOperations:
                 assert config.active_project_name == "existing_project"
 
     def test_config_default_values(self):
-        """测试配置默认值"""
-        config = Config()
-
-        # 检查默认值
-        assert config.api_url is not None
-        assert isinstance(config.api_url, str)
-        assert config.token is None
-        assert config.active_project_name is None
+        """测试配置默认值（隔离真实 ~/.opentask）"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_dir = Path(tmpdir) / ".opentask"
+            config_dir.mkdir()
+            with mock.patch('opentask.utils.config.Config.DEFAULT_CONFIG_DIR', config_dir):
+                config = Config()
+                assert config.api_url is not None
+                assert isinstance(config.api_url, str)
+                assert config.token is None
+                assert config.active_project_name is None
 
     def test_config_update_and_save(self):
         """测试更新配置并保存"""

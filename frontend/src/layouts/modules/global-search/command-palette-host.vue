@@ -50,6 +50,7 @@ watchEffect(() => {
   });
 
   const navActions = buildNavActions(navigate, {
+    search: $t('common.commandPalette.navSearch'),
     issues: $t('common.commandPalette.navIssues'),
     createIssue: $t('common.commandPalette.navCreateIssue'),
     createFromTemplate: $t('common.commandPalette.navCreateFromTemplate'),
@@ -64,7 +65,9 @@ watchEffect(() => {
   const focusActions = buildFocusIssueActions({
     hasFocusedIssue: Boolean(focus.focusedIssueId.value),
     openLabels: () => pickers.openLabels(),
-    title: $t('common.commandPalette.actionAddLabel')
+    openEstimate: () => pickers.openEstimate(),
+    title: $t('common.commandPalette.actionAddLabel'),
+    estimateTitle: '设置估点…'
   });
   const actions = [...navActions, ...focusActions];
 

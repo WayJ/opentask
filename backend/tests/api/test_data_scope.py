@@ -50,6 +50,7 @@ TABLES = (
     "workspace_members",
     "requirements",
     "projects",
+    "project_members",
     "documents",
 )
 

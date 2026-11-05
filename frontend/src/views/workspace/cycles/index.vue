@@ -63,10 +63,20 @@ const statusType: Record<string, 'default' | 'info' | 'success' | 'warning'> = {
 
 const capacityText = computed(() => {
   if (!capacity.value) return '';
+  const unit = capacity.value.unit || (capacity.value.basis === 'members' ? 'members' : 'issues');
+  const unitLabel = unit === 'points' ? '点' : unit === 'members' ? '（成员数）' : '个 Issue';
+  let text = '';
   if (capacity.value.basis === 'history') {
-    return `建议容量约 ${capacity.value.suggestedCapacity} 个 Issue（近 ${capacity.value.lookbackN} 个已完成 Cycle 均值）`;
+    text = `建议容量约 ${capacity.value.suggestedCapacity} ${unitLabel}（近 ${capacity.value.lookbackN} 个已完成 Cycle 均值；默认按故事点，无点时回退 Issue 数）`;
+  } else {
+    text = `建议容量约 ${capacity.value.suggestedCapacity} ${unitLabel}（尚无完成历史，按成员数回退）`;
   }
-  return `建议容量约 ${capacity.value.suggestedCapacity}（按成员数回退，尚无完成历史）`;
+  const load = capacity.value.currentLoad;
+  if (load) {
+    text += `；当前 Cycle 负载 ${load.points} 点 / ${load.issueCount} Issue`;
+    if (load.hours) text += ` / ${load.hours}h`;
+  }
+  return text;
 });
 
 function toIsoDate(ts: number) {
@@ -363,7 +373,7 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="h-full flex-col gap-16px overflow-auto p-16px">
+  <div class="h-full flex-col gap-12px overflow-auto p-12px">
     <div class="flex-y-center justify-between">
       <div>
         <h2 class="text-18px font-medium">Cycles</h2>
@@ -393,14 +403,14 @@ onMounted(load);
         </NCard>
 
         <NCard title="Git / PR" size="small" class="mb-16px">
-          <div class="flex-y-center gap-12px flex-wrap">
+          <div class="flex-y-center flex-wrap gap-12px">
             <span>从 PR 自动更新 Issue 状态</span>
             <NSwitch
               :value="settingsForm.gitStatusHooksEnabled"
               :disabled="!isOwner"
               @update:value="onToggleGitHooks"
             />
-            <p class="text-12px text-gray-400 w-full">
+            <p class="w-full text-12px text-gray-400">
               默认关闭。开启后：PR open → in_progress（仅自 open）；merged → resolved；未合并 close 不改 Issue。
             </p>
           </div>
@@ -422,7 +432,7 @@ onMounted(load);
               <span>启用 Cycles</span>
               <NSwitch :value="enabled" :disabled="!isOwner" @update:value="onToggleEnabled" />
             </div>
-            <div class="flex-y-center gap-12px flex-wrap">
+            <div class="flex-y-center flex-wrap gap-12px">
               <span>从 PR 自动更新 Issue 状态</span>
               <NSwitch
                 :value="settingsForm.gitStatusHooksEnabled"

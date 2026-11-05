@@ -119,3 +119,111 @@ describe('groupIssuesBy', () => {
     expect(isGroupByKey('foo')).toBe(false);
   });
 });
+
+describe('groupIssuesBy cf:<key> (E37)', () => {
+  function withCf(partial: Parameters<typeof makeIssue>[0], fields: any[]) {
+    return makeIssue({ ...partial, customFields: fields } as any);
+  }
+
+  it('isGroupByKey accepts cf:severity', () => {
+    expect(isGroupByKey('cf:severity')).toBe(true);
+    expect(isGroupByKey('cf:Bad')).toBe(false);
+    expect(isGroupByKey('cf:')).toBe(false);
+  });
+
+  it('groups single_select by option value with label', () => {
+    const issues = [
+      withCf(
+        { id: '1', title: 'A', status: 'open' as any },
+        [
+          {
+            key: 'severity',
+            type: 'single_select',
+            value: 's1',
+            options: [
+              { value: 's1', label: 'S1' },
+              { value: 's2', label: 'S2' }
+            ]
+          }
+        ]
+      ),
+      withCf(
+        { id: '2', title: 'B', status: 'open' as any },
+        [
+          {
+            key: 'severity',
+            type: 'single_select',
+            value: 's2',
+            options: [
+              { value: 's1', label: 'S1' },
+              { value: 's2', label: 'S2' }
+            ]
+          }
+        ]
+      ),
+      withCf({ id: '3', title: 'C', status: 'open' as any }, [])
+    ];
+    const buckets = groupIssuesBy(issues, 'cf:severity');
+    expect(buckets.find(b => b.key === 's1')?.label).toBe('S1');
+    expect(buckets.find(b => b.key === 's1')?.issues.map(i => i.id)).toEqual(['1']);
+    expect(buckets.find(b => b.key === 's2')?.issues.map(i => i.id)).toEqual(['2']);
+    expect(buckets.find(b => b.key === '__empty__')?.issues.map(i => i.id)).toEqual(['3']);
+  });
+
+  it('groups boolean true/false/empty', () => {
+    const issues = [
+      withCf({ id: '1', title: 'A' }, [{ key: 'shipped', type: 'boolean', value: true }]),
+      withCf({ id: '2', title: 'B' }, [{ key: 'shipped', type: 'boolean', value: false }]),
+      withCf({ id: '3', title: 'C' }, [{ key: 'shipped', type: 'boolean', value: null }])
+    ];
+    const buckets = groupIssuesBy(issues, 'cf:shipped');
+    expect(buckets.find(b => b.key === 'true')?.label).toBe('是');
+    expect(buckets.find(b => b.key === 'false')?.label).toBe('否');
+    expect(buckets.find(b => b.key === '__empty__')?.issues.map(i => i.id)).toEqual(['3']);
+  });
+
+  it('groups text/number/date by normalized string', () => {
+    const issues = [
+      withCf({ id: '1', title: 'A' }, [{ key: 'area', type: 'text', value: 'API' }]),
+      withCf({ id: '2', title: 'B' }, [{ key: 'area', type: 'text', value: 'API' }]),
+      withCf({ id: '3', title: 'C' }, [{ key: 'area', type: 'text', value: '' }])
+    ];
+    const buckets = groupIssuesBy(issues, 'cf:area');
+    expect(buckets.find(b => b.key === 'API')?.issues).toHaveLength(2);
+    expect(buckets.find(b => b.key === '__empty__')?.issues.map(i => i.id)).toEqual(['3']);
+  });
+});
+
+
+describe('groupIssuesBy cf:<formula> (E43)', () => {
+  it('isGroupingCfType allows formula with number/text/boolean', async () => {
+    const { isGroupingCfType } = await import('./groupIssuesBy');
+    expect(isGroupingCfType('formula', 'number')).toBe(true);
+    expect(isGroupingCfType('formula', 'date')).toBe(false);
+  });
+
+  it('puts formula error into __error__ bucket and empty into __empty__', async () => {
+    const { groupIssuesBy, ERROR_CF_KEY, EMPTY_CF_KEY } = await import('./groupIssuesBy');
+    const issues = [
+      {
+        id: '1',
+        title: 'ok',
+        customFields: [{ key: 'score', type: 'formula', value: 10, formulaResultType: 'number' }]
+      },
+      {
+        id: '2',
+        title: 'err',
+        customFields: [{ key: 'score', type: 'formula', value: null, error: 'div_zero', formulaResultType: 'number' }]
+      },
+      {
+        id: '3',
+        title: 'empty',
+        customFields: [{ key: 'score', type: 'formula', value: null, formulaResultType: 'number' }]
+      }
+    ] as any;
+    const buckets = groupIssuesBy(issues, 'cf:score');
+    expect(buckets.find(b => b.key === '10')?.issues.map(i => i.id)).toEqual(['1']);
+    expect(buckets.find(b => b.key === ERROR_CF_KEY)?.issues.map(i => i.id)).toEqual(['2']);
+    expect(buckets.find(b => b.key === EMPTY_CF_KEY)?.issues.map(i => i.id)).toEqual(['3']);
+  });
+});

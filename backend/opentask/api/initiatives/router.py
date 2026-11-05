@@ -61,13 +61,18 @@ class ProjectsBody(BaseModel):
 
 @router.get("")
 async def list_initiatives(
+    include: Optional[str] = None,
     ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
     session: AsyncSession = Depends(get_session),
 ):
     ws, _member, _user = ctx
     svc = InitiativeService(session)
     rows = await svc.list(workspace_id=ws.id)
-    payload = [await svc.to_response(r, pids) for r, pids in rows]
+    want_counts = bool(include and "relationCounts" in {p.strip() for p in include.split(",")})
+    payload = [
+        await svc.to_response(r, pids, include_relation_counts=want_counts)
+        for r, pids in rows
+    ]
     return success_response(data={"rows": payload, "total": len(payload)})
 
 
@@ -103,7 +108,11 @@ async def get_initiative(
     ws, _member, _user = ctx
     svc = InitiativeService(session)
     row = await svc.get(workspace_id=ws.id, initiative_id=initiative_id)
-    return success_response(data=await svc.to_response(row, include_projects=True))
+    return success_response(
+        data=await svc.to_response(
+            row, include_projects=True, include_relation_counts=True
+        )
+    )
 
 
 @router.patch("/{initiative_id}")
@@ -196,3 +205,58 @@ async def detach_project(
         project_id=project_id,
     )
     return success_response(data=await svc.to_response(row, pids, include_projects=True), message="已解除关联")
+
+
+class RelationCreate(BaseModel):
+    targetInitiativeId: str = Field(..., min_length=1)
+    type: str = Field(..., min_length=1)
+
+
+@router.get("/{initiative_id}/relations")
+async def list_relations(
+    initiative_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    ws, _member, _user = ctx
+    svc = InitiativeService(session)
+    items = await svc.list_relations(workspace_id=ws.id, initiative_id=initiative_id)
+    return success_response(data={"items": items})
+
+
+@router.post("/{initiative_id}/relations")
+async def add_relation(
+    initiative_id: str,
+    body: RelationCreate,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    ws, member, user = ctx
+    require_writer(member)
+    svc = InitiativeService(session)
+    item = await svc.add_relation(
+        workspace_id=ws.id,
+        initiative_id=initiative_id,
+        target_initiative_id=body.targetInitiativeId,
+        relation_type=body.type,
+        user_id=str(user.id),
+    )
+    return success_response(data=item, message="已添加关系")
+
+
+@router.delete("/{initiative_id}/relations/{relation_id}")
+async def remove_relation(
+    initiative_id: str,
+    relation_id: str,
+    ctx: tuple[Workspace, WorkspaceMember, UserModel] = Depends(require_workspace_context),
+    session: AsyncSession = Depends(get_session),
+):
+    ws, member, _user = ctx
+    require_writer(member)
+    svc = InitiativeService(session)
+    await svc.remove_relation(
+        workspace_id=ws.id,
+        initiative_id=initiative_id,
+        relation_id=relation_id,
+    )
+    return success_response(data={"id": relation_id}, message="已删除关系")

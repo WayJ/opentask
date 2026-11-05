@@ -1,13 +1,14 @@
-"""Milestone 领域服务（E8-S1）"""
+"""Milestone 领域服务（E8-S1 + E81 issue_count / status filter）"""
 from __future__ import annotations
 
 from datetime import datetime
 from typing import Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from opentask.models.issue.model import Issue
 from opentask.models.milestone.model import Milestone
 from opentask.models.requirement.model import Project
 from opentask.models.workspace.model import WorkspaceMember
@@ -21,7 +22,8 @@ def require_writer(member: WorkspaceMember) -> None:
         )
 
 
-def serialize_milestone(m: Milestone) -> dict:
+def serialize_milestone(m: Milestone, *, issue_count: int = 0) -> dict:
+    """Q1a: always include issue_count (non-deleted issues same project+workspace)."""
     return {
         "id": m.id,
         "workspace_id": m.workspace_id,
@@ -33,6 +35,7 @@ def serialize_milestone(m: Milestone) -> dict:
         "position": m.position,
         "created_at": m.created_at,
         "updated_at": m.updated_at,
+        "issue_count": int(issue_count or 0),
     }
 
 
@@ -73,10 +76,46 @@ class MilestoneService:
             )
         return project
 
-    async def list(self, *, project_id: str, workspace_id: str) -> list[Milestone]:
+    async def count_issues_by_milestone(
+        self,
+        *,
+        project_id: str,
+        workspace_id: str,
+        milestone_ids: list[str],
+    ) -> dict[str, int]:
+        """Non-deleted issues in same project+workspace grouped by milestone_id."""
+        if not milestone_ids:
+            return {}
+        q = (
+            select(Issue.milestone_id, func.count())
+            .where(
+                Issue.workspace_id == workspace_id,
+                Issue.project_id == project_id,
+                Issue.milestone_id.in_(milestone_ids),
+                Issue.is_deleted.is_(False),
+            )
+            .group_by(Issue.milestone_id)
+        )
+        rows = (await self.db.execute(q)).all()
+        counts = {mid: 0 for mid in milestone_ids}
+        for mid, cnt in rows:
+            if mid is not None:
+                counts[mid] = int(cnt)
+        return counts
+
+    async def list(
+        self,
+        *,
+        project_id: str,
+        workspace_id: str,
+        status: Optional[str] = None,
+    ) -> list[Milestone]:
         await self.get_project_in_workspace(
             project_id=project_id, workspace_id=workspace_id
         )
+        if status is not None:
+            if status not in ("planned", "done"):
+                raise HTTPException(status_code=400, detail="无效的 status")
         q = (
             select(Milestone)
             .where(
@@ -85,6 +124,8 @@ class MilestoneService:
             )
             .order_by(Milestone.position.asc(), Milestone.created_at.asc())
         )
+        if status is not None:
+            q = q.where(Milestone.status == status)
         return list((await self.db.execute(q)).scalars().all())
 
     async def get(

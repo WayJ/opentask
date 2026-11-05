@@ -58,7 +58,7 @@ const handleUpdateDescription = (value: string) => {
   demoIssue.value.description = value;
 };
 
-const handleAddComment = (content: string) => {
+const handleAddComment = (content: string, _embedded?: any[], _parentId?: string) => {
   demoComments.value.unshift({
     id: Date.now().toString(),
     content,

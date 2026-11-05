@@ -3,6 +3,7 @@ import { useFullscreen } from '@vueuse/core';
 import { GLOBAL_HEADER_MENU_ID } from '@/constants/app';
 import { useAppStore } from '@/store/modules/app';
 import { useThemeStore } from '@/store/modules/theme';
+import { useWorkspaceRealtime } from '@/composables/use-workspace-realtime';
 import GlobalLogo from '../global-logo/index.vue';
 import GlobalBreadcrumb from '../global-breadcrumb/index.vue';
 import GlobalSearch from '../global-search/index.vue';
@@ -29,6 +30,7 @@ defineProps<Props>();
 const appStore = useAppStore();
 const themeStore = useThemeStore();
 const { isFullscreen, toggle } = useFullscreen();
+const { connected: realtimeConnected } = useWorkspaceRealtime();
 </script>
 
 <template>
@@ -41,6 +43,13 @@ const { isFullscreen, toggle } = useFullscreen();
     </div>
     <div class="h-full flex-y-center justify-end">
       <WorkspaceSwitcher />
+      <span
+        class="mx-4px text-12px"
+        :title="realtimeConnected ? '实时已连接' : '实时未连接（重连中）'"
+        :style="{ color: realtimeConnected ? '#27a644' : '#8a8f98' }"
+      >
+        ●
+      </span>
       <InboxBell />
       <GlobalSearch v-if="themeStore.header.globalSearch.visible" />
       <FullScreen v-if="!appStore.isMobile" :full="isFullscreen" @click="toggle" />

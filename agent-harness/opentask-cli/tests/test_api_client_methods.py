@@ -368,7 +368,7 @@ class TestCollectionAPI:
             mock_post.assert_called_once_with("/api/issue-collections", data={
                 "title": "New Collection",
                 "description": "Test",
-                "status": "planning"
+                "status": "draft"
             })
 
     @pytest.mark.asyncio

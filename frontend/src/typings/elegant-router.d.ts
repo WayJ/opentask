@@ -20,12 +20,22 @@ declare module "@elegant-router/types" {
     "403": "/403";
     "404": "/404";
     "500": "/500";
+    "activity": "/activity";
     "agents": "/agents";
+    "customers": "/customers";
+    "customers_detail": "/customers/detail";
     "dashboard": "/dashboard";
     "home": "/home";
     "iframe-page": "/iframe-page/:url";
     "inbox": "/inbox";
+    "initiatives": "/initiatives";
+    "initiatives_detail": "/initiatives/detail";
+    "insights": "/insights";
     "invite": "/invite/:token";
+    "f": "/f/:token";
+    "r": "/r/:token";
+    "public-form": "/f/:token";
+    "public-request-status": "/r/:token";
     "issue": "/issue";
     "issue_collection": "/issue/collection/:id";
     "issue_collection-create": "/issue/collection-create";
@@ -34,6 +44,7 @@ declare module "@elegant-router/types" {
     "issue_detail": "/issue/detail";
     "issue_edit": "/issue/edit";
     "issue_list": "/issue/list";
+    "issue_trash": "/issue/trash";
     "knowledge-base": "/knowledge-base";
     "knowledge-base_knowledge": "/knowledge-base/knowledge";
     "knowledge-base_knowledge_detail": "/knowledge-base/knowledge/detail/:id";
@@ -55,9 +66,16 @@ declare module "@elegant-router/types" {
     "profile": "/profile";
     "profile_access-tokens": "/profile/access-tokens";
     "profile_userinfo": "/profile/userinfo";
+    "requests": "/requests";
+    "requests_detail": "/requests/detail";
+    "search": "/search";
+    "settings": "/settings";
+    "settings_forms": "/settings/forms";
+    "settings_notifications": "/settings/notifications";
+    "settings_recurrences": "/settings/recurrences";
+    "settings_sla": "/settings/sla";
+    "settings_webhooks": "/settings/webhooks";
     "triage": "/triage";
-    "initiatives": "/initiatives";
-    "initiatives_detail": "/initiatives/detail";
     "work-management": "/work-management";
     "work-management_cost-projects": "/work-management/cost-projects";
     "work-management_cost-projects_create": "/work-management/cost-projects/create";
@@ -80,10 +98,13 @@ declare module "@elegant-router/types" {
     "workflow_requirement-detail": "/workflow/requirement-detail";
     "workflow_requirements": "/workflow/requirements";
     "workspace": "/workspace";
+    "workspace_automations": "/workspace/automations";
+    "workspace_custom-fields": "/workspace/custom-fields";
     "workspace_cycles": "/workspace/cycles";
     "workspace_issue-templates": "/workspace/issue-templates";
     "workspace_labels": "/workspace/labels";
     "workspace_members": "/workspace/members";
+    "workspace_project-templates": "/workspace/project-templates";
   };
 
   /**
@@ -118,21 +139,30 @@ declare module "@elegant-router/types" {
     | "403"
     | "404"
     | "500"
+    | "activity"
     | "agents"
+    | "customers"
     | "dashboard"
     | "home"
     | "iframe-page"
     | "inbox"
+    | "initiatives"
+    | "insights"
     | "invite"
+    | "f"
+    | "r"
+    | "public-form"
+    | "public-request-status"
     | "issue"
     | "knowledge-base"
     | "login"
     | "manage"
     | "oauth2"
     | "profile"
+    | "requests"
+    | "search"
+    | "settings"
     | "triage"
-    | "initiatives"
-    | "initiatives_detail"
     | "work-management"
     | "workflow"
     | "workspace"
@@ -157,11 +187,21 @@ declare module "@elegant-router/types" {
     | "500"
     | "iframe-page"
     | "login"
+    | "activity"
     | "agents"
+    | "customers_detail"
+    | "customers"
     | "dashboard"
     | "home"
     | "inbox"
+    | "initiatives_detail"
+    | "initiatives"
+    | "insights"
     | "invite"
+    | "f"
+    | "r"
+    | "public-form"
+    | "public-request-status"
     | "issue_collection-create"
     | "issue_collection-list"
     | "issue_collection"
@@ -169,6 +209,7 @@ declare module "@elegant-router/types" {
     | "issue_detail"
     | "issue_edit"
     | "issue_list"
+    | "issue_trash"
     | "knowledge-base_knowledge_detail"
     | "knowledge-base_knowledge_edit_git"
     | "knowledge-base_knowledge_edit"
@@ -184,9 +225,15 @@ declare module "@elegant-router/types" {
     | "oauth2"
     | "profile_access-tokens"
     | "profile_userinfo"
+    | "requests_detail"
+    | "requests"
+    | "search"
+    | "settings_forms"
+    | "settings_notifications"
+    | "settings_recurrences"
+    | "settings_sla"
+    | "settings_webhooks"
     | "triage"
-    | "initiatives"
-    | "initiatives_detail"
     | "work-management_cost-projects_create"
     | "work-management_cost-projects_detail"
     | "work-management_cost-projects_list"
@@ -203,10 +250,13 @@ declare module "@elegant-router/types" {
     | "workflow_projects"
     | "workflow_requirement-detail"
     | "workflow_requirements"
+    | "workspace_automations"
+    | "workspace_custom-fields"
     | "workspace_cycles"
     | "workspace_issue-templates"
     | "workspace_labels"
     | "workspace_members"
+    | "workspace_project-templates"
   >;
 
   /**

@@ -100,11 +100,43 @@ function createLinkTokens({ refType, refId, refName, level }: LinkTokenParams) {
   ];
 }
 
-// 处理文本节点中的引用
+// 处理文本节点中的引用（+ISSUE-… / @user / KEY-N）
 function processTextContent(child: any) {
   const refRegex = /\+((?:ISSUE|PROJECT|REQUIREMENT|DOC|issue|project|requirement|doc))-([-\w]+)/g;
+  const mentionRegex = /(@[A-Za-z0-9_.-]{1,64})|(#?[A-Z][A-Z0-9]*-\d+)/g;
   const parts = child.content.split(refRegex);
   const newChildren = [];
+
+  function pushPlainOrMentions(text: string, level: number) {
+    if (!text) return;
+    let last = 0;
+    let m: RegExpExecArray | null;
+    mentionRegex.lastIndex = 0;
+    while ((m = mentionRegex.exec(text)) !== null) {
+      if (m.index > last) {
+        newChildren.push({ type: 'text', content: text.slice(last, m.index), level });
+      }
+      const raw = m[0];
+      if (raw.startsWith('@')) {
+        newChildren.push({
+          type: 'html_inline',
+          content: `<span class="ref-mention ref-user">@${raw.slice(1)}</span>`,
+          level
+        });
+      } else {
+        const code = raw.replace(/^#/, '');
+        newChildren.push({
+          type: 'html_inline',
+          content: `<a class="ref-mention ref-issue" href="/issue/detail?id=${encodeURIComponent(code)}">${code}</a>`,
+          level
+        });
+      }
+      last = m.index + raw.length;
+    }
+    if (last < text.length) {
+      newChildren.push({ type: 'text', content: text.slice(last), level });
+    }
+  }
 
   for (let k = 0; k < parts.length; k += 1) {
     const part = parts[k];
@@ -116,11 +148,7 @@ function processTextContent(child: any) {
       newChildren.push(...linkTokens);
       k += 1;
     } else if (part) {
-      newChildren.push({
-        type: 'text',
-        content: part,
-        level: child.level
-      });
+      pushPlainOrMentions(part, child.level);
     }
   }
 

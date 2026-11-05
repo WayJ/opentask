@@ -6,8 +6,10 @@ import { issuePriorityOptions, issueTypeOptions } from '@/constants/issue';
 import type { IssueTemplate } from '@/constants/issueTemplates';
 import { fetchProjectList } from '@/service/api';
 import { fetchIssueTemplates } from '@/service/api/issue-templates';
+import { type CustomFieldRow, fetchCustomFields, fetchPatchIssueCustomFields } from '@/service/api/custom-fields';
 import { issueApi } from '@/service/api/issue';
 import { useIssueStore } from '@/store/modules/issue';
+import IssueCustomFieldsEditor from '@/components/issue/IssueCustomFieldsEditor.vue';
 import MarkdownEditor from '@/components/MarkdownEditor.vue';
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
 import IssueTemplateSelector from '@/components/IssueTemplateSelector.vue';
@@ -35,6 +37,8 @@ const projectsLoading = ref(false);
 const showTemplateSelector = ref(false);
 const showTemplateForm = ref(false);
 const selectedTemplate = ref<IssueTemplate | null>(null);
+const customFieldDefs = ref<CustomFieldRow[]>([]);
+const customFieldDraft = ref<Array<{ key: string; value: unknown }>>([]);
 const appliedTemplateId = ref<string | null>(null);
 
 // 表单数据
@@ -193,6 +197,10 @@ function handleCreateFromTemplate(title: string, content: string) {
 }
 
 // 创建 Issue
+function onCustomFieldDraft(rows: Array<{ key: string; value: unknown }>) {
+  customFieldDraft.value = rows;
+}
+
 async function handleCreate() {
   if (!formData.value.title.trim()) {
     window.$message?.error('请输入 Issue 标题');
@@ -217,6 +225,18 @@ async function handleCreate() {
 
     // 上传待上传的附件
     await uploadPendingAttachments(issue.id);
+
+    const filled = customFieldDraft.value.filter(d => d.value !== null && d.value !== undefined && d.value !== '');
+    if (filled.length) {
+      try {
+        await fetchPatchIssueCustomFields(
+          issue.id,
+          filled.map(d => ({ key: d.key, value: d.value }))
+        );
+      } catch {
+        window.$message?.warning?.('Issue 已创建，但自定义字段保存失败');
+      }
+    }
 
     window.$message?.success('Issue 创建成功');
     hasUnsavedChanges.value = false;
@@ -329,6 +349,9 @@ async function openTemplateFromQuery() {
 }
 
 onMounted(async () => {
+  fetchCustomFields().then(({ data }) => {
+    customFieldDefs.value = data?.rows || [];
+  });
   loadProjects();
   await openTemplateFromQuery();
   // 自动聚焦标题输入框
@@ -396,7 +419,6 @@ onBeforeRouteLeave((_to, _from, next) => {
             </template>
             {{ showPreview ? '编辑模式' : '预览模式' }}
           </NTooltip>
-
           <!-- 创建按钮 -->
           <NButton type="primary" :loading="loading" @click="handleCreate">
             <template #icon>
@@ -439,6 +461,17 @@ onBeforeRouteLeave((_to, _from, next) => {
             @submit="handleCreate"
           />
         </div>
+
+        <NCard
+          v-if="customFieldDefs.length"
+          id="create-custom-fields"
+          title="自定义字段（可选）"
+          size="small"
+          :bordered="false"
+          style="margin-bottom: 12px"
+        >
+          <IssueCustomFieldsEditor local-only :definitions="customFieldDefs" @draft-change="onCustomFieldDraft" />
+        </NCard>
 
         <!-- 附件上传区域 -->
         <div class="attachment-section">

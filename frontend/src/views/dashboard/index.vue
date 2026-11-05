@@ -66,6 +66,9 @@ onMounted(() => {
       </NGi>
     </NGrid>
     <NCard :bordered="false" class="card-wrapper" title="最近动态">
+      <template #header-extra>
+        <RouterLink class="text-13px text-primary" to="/activity">查看全部活动</RouterLink>
+      </template>
       <RecentActivity :data="dashboardData?.recent_activities" :loading="loading" />
     </NCard>
   </NSpace>
