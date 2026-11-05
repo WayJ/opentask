@@ -323,9 +323,22 @@ async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
                 await conn.execute(_sql_text(
                     f"CREATE INDEX IF NOT EXISTS {_idx} ON {_tbl} USING GIN (search_tsv)"
                 ))
-                        # E79 project lead_id (create_all may miss ALTER on existing test DBs)
+            # E79 project lead_id (create_all may miss ALTER on existing test DBs)
             await conn.execute(_sql_text(
                 "ALTER TABLE IF EXISTS projects ADD COLUMN IF NOT EXISTS lead_id VARCHAR(36)"
+            ))
+            await conn.execute(_sql_text("""
+                CREATE TABLE IF NOT EXISTS project_members (
+                    id VARCHAR(36) PRIMARY KEY,
+                    project_id VARCHAR(36) NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+                    user_id VARCHAR(36) NOT NULL,
+                    role VARCHAR(32),
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (project_id, user_id)
+                )
+            """))
+            await conn.execute(_sql_text(
+                "CREATE INDEX IF NOT EXISTS ix_project_members_project ON project_members (project_id)"
             ))
             # E48 timeline_action enum values (no alembic per Q6a)
             for _val in ("sla_paused", "sla_resumed", "link_added", "link_removed", "restored", "parent_changed"):
