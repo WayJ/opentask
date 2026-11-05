@@ -1,4 +1,4 @@
-"""E80 CLI: issue update --project|--milestone|--clear-milestone + version 1.66.0."""
+"""E80 CLI: issue update --project|--milestone|--clear-milestone + version 1.67.0."""
 from __future__ import annotations
 
 import json
@@ -14,20 +14,20 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_version_pins_1_64_0():
-    assert __version__ == "1.66.0"
-    assert VERSION == "1.66.0"
-    assert (ROOT / "VERSION").read_text().strip() == "1.66.0"
+    assert __version__ == "1.67.0"
+    assert VERSION == "1.67.0"
+    assert (ROOT / "VERSION").read_text().strip() == "1.67.0"
     pyproject = (ROOT / "pyproject.toml").read_text()
-    assert 'version = "1.66.0"' in pyproject
+    assert 'version = "1.67.0"' in pyproject
     setup = (ROOT / "setup.py").read_text()
-    assert "1.66.0" in setup
+    assert "1.67.0" in setup
 
 
 def test_version_flag():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.66.0" in result.output
+    assert "1.67.0" in result.output
 
 
 def test_issue_update_help_has_project_milestone_flags():

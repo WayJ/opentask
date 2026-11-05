@@ -1,4 +1,4 @@
-"""E55 CLI: insights summary filters + export + version 1.66.0."""
+"""E55 CLI: insights summary filters + export + version 1.67.0."""
 from click.testing import CliRunner
 
 from opentask import __version__
@@ -9,9 +9,9 @@ def test_version_1_39_0_pins():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.66.0" in result.output
-    assert VERSION == "1.66.0"
-    assert __version__ == "1.66.0"
+    assert "1.67.0" in result.output
+    assert VERSION == "1.67.0"
+    assert __version__ == "1.67.0"
 
 
 def test_insights_export_help():

@@ -1,4 +1,4 @@
-"""E68 CLI: form --enqueue-triage + version 1.66.0."""
+"""E68 CLI: form --enqueue-triage + version 1.67.0."""
 from click.testing import CliRunner
 
 from opentask import __version__
@@ -9,9 +9,9 @@ def test_version_1520():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.66.0" in result.output
-    assert VERSION == "1.66.0"
-    assert __version__ == "1.66.0"
+    assert "1.67.0" in result.output
+    assert VERSION == "1.67.0"
+    assert __version__ == "1.67.0"
 
 
 def test_form_create_help_enqueue_triage():

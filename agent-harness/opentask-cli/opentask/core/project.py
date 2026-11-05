@@ -2,7 +2,7 @@
 import asyncio
 import click
 from ..utils.api_client import OpenTaskClient, APIError
-from ..utils.cli_output import echo_json, handle_api_error
+from ..utils.cli_output import echo_json, handle_api_error, require_workspace_id
 from ..utils.config import Config
 from ..utils.repl_skin import ReplSkin
 
@@ -120,13 +120,27 @@ def show_project(obj: "Context", project_id: str, as_json: bool):
     config: Config = obj.config
     client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
     skin: ReplSkin = obj.skin
+    json_mode = as_json or getattr(obj, "json_mode", False)
 
     try:
-        project = asyncio.run(client.get_project(project_id))
+        project = asyncio.run(client.get_project(project_id)) or {}
+        watchers = []
+        watching_count = 0
+        try:
+            watchers = asyncio.run(client.list_project_watchers(project.get("id") or project_id))
+            if isinstance(watchers, dict):
+                watchers = watchers.get("data") or watchers.get("rows") or []
+            watching_count = len(watchers) if isinstance(watchers, list) else 0
+        except (APIError, TypeError, ValueError):
+            watchers = []
+            watching_count = 0
 
-        if as_json:
+        if json_mode:
             import json
-            click.echo(json.dumps(project, indent=2, ensure_ascii=False))
+            output = dict(project) if isinstance(project, dict) else {"project": project}
+            output["watchers"] = watchers if isinstance(watchers, list) else []
+            output["watching_count"] = watching_count
+            click.echo(json.dumps(output, indent=2, ensure_ascii=False, default=str))
             return
 
         skin.section("Project Details")
@@ -136,12 +150,16 @@ def show_project(obj: "Context", project_id: str, as_json: bool):
             "Name": project.get("name", ""),
             "Description": project.get("description", "") or "N/A",
             "Active": "Yes" if project.get("is_active") else "No",
+            "Watching": str(watching_count),
             "Created": project.get("created_at", "")[:19] if project.get("created_at") else "N/A",
             "Updated": project.get("updated_at", "")[:19] if project.get("updated_at") else "N/A"
         })
 
     except APIError as e:
-        skin.error(f"Failed to get project: {e.message}")
+        if json_mode:
+            handle_api_error(e, json_mode, "Failed to get project")
+        else:
+            skin.error(f"Failed to get project: {e.message}")
 
 
 @project_cli.command(name="create")
@@ -269,6 +287,89 @@ def current_project(obj: "Context", as_json: bool):
     else:
         skin.info("No active project set")
         skin.hint("Use 'project use <id>' to set active project")
+
+
+
+
+@project_cli.command(name="watch")
+@click.argument("project_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def watch_project_cmd(obj: "Context", project_id: str, as_json: bool):
+    """关注 Project（Inbox 收健康/更新）。E83."""
+    config: Config = obj.config
+    json_mode = as_json or getattr(obj, "json_mode", False)
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    try:
+        data = asyncio.run(client.watch_project(project_id))
+        if json_mode:
+            echo_json(True, data=data, message="watching")
+            return
+        skin.success(f"已关注项目 {project_id}")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@project_cli.command(name="unwatch")
+@click.argument("project_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def unwatch_project_cmd(obj: "Context", project_id: str, as_json: bool):
+    """取消关注 Project。E83."""
+    config: Config = obj.config
+    json_mode = as_json or getattr(obj, "json_mode", False)
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    try:
+        data = asyncio.run(client.unwatch_project(project_id))
+        if json_mode:
+            echo_json(True, data=data or {"id": project_id}, message="unwatched")
+            return
+        skin.success(f"已取消关注项目 {project_id}")
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@project_cli.command(name="watchers")
+@click.argument("project_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def list_project_watchers_cmd(obj: "Context", project_id: str, as_json: bool):
+    """列出 Project 关注者。E83."""
+    config: Config = obj.config
+    json_mode = as_json or getattr(obj, "json_mode", False)
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    try:
+        rows = asyncio.run(client.list_project_watchers(project_id))
+        if isinstance(rows, dict):
+            rows = rows.get("data") or rows.get("rows") or []
+        if json_mode:
+            echo_json(True, data={"rows": rows})
+            return
+        if not rows:
+            skin.info("无关注者")
+            return
+        skin.table(
+            ["User", "Username", "Since"],
+            [
+                [
+                    str(r.get("user_id", ""))[:8],
+                    r.get("username") or r.get("name") or "",
+                    str(r.get("created_at") or "")[:19],
+                ]
+                for r in rows
+            ],
+        )
+    except APIError as e:
+        handle_api_error(e, json_mode)
 
 
 @project_cli.command(name="delete")

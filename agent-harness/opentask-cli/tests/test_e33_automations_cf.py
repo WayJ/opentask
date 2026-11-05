@@ -1,4 +1,4 @@
-"""E33 CLI: automation create|update CF + version 1.66.0."""
+"""E33 CLI: automation create|update CF + version 1.67.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli
@@ -8,7 +8,7 @@ def test_version_1_17_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.66.0" in result.output
+    assert "1.67.0" in result.output
 
 
 def test_automation_help_has_update():

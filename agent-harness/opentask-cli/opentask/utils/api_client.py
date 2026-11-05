@@ -767,6 +767,24 @@ class OpenTaskClient:
         return await self.delete(f"/api/issues/{issue_id}/watchers")
 
     # ============================================================================
+    # Project Watchers API (E83)
+    # ============================================================================
+
+    async def list_project_watchers(self, project_id: str) -> list:
+        data = await self.get(f"/api/projects/{project_id}/watchers")
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict) and isinstance(data.get("data"), list):
+            return data["data"]
+        return data or []
+
+    async def watch_project(self, project_id: str) -> dict:
+        return await self.post(f"/api/projects/{project_id}/watchers")
+
+    async def unwatch_project(self, project_id: str) -> dict:
+        return await self.delete(f"/api/projects/{project_id}/watchers")
+
+    # ============================================================================
     # Saved Views API
     # ============================================================================
 
