@@ -1078,12 +1078,14 @@ class OpenTaskClient:
         slug: str | None = None,
         enabled: bool = True,
         create_customer_request: bool = False,
+        enqueue_triage: bool = False,
     ) -> dict:
         data = {
             "name": name,
             "fields": fields,
             "enabled": enabled,
             "createCustomerRequest": create_customer_request,
+            "enqueueTriage": enqueue_triage,
         }
         if description is not None:
             data["description"] = description

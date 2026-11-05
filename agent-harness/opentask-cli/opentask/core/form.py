@@ -37,12 +37,13 @@ def form_list(obj, as_json):
             obj.skin.info("无表单")
             return
         obj.skin.table(
-            ["Name", "Slug", "Enabled", "Token", "Id"],
+            ["Name", "Slug", "Enabled", "EnqueueTriage", "Token", "Id"],
             [
                 [
                     r.get("name") or "",
                     r.get("slug") or "",
                     "yes" if r.get("enabled") else "no",
+                    "yes" if r.get("enqueueTriage") else "no",
                     (r.get("token") or "")[:10] + "…",
                     (r.get("id") or "")[:8],
                 ]
@@ -63,10 +64,11 @@ def form_list(obj, as_json):
     help='字段 JSON 数组；默认仅 title+description',
 )
 @click.option("--create-request", is_flag=True, help="提交时尝试创建 Customer Request")
+@click.option("--enqueue-triage/--no-enqueue-triage", default=False, help="提交后进入 Triage 队列")
 @click.option("--disabled", is_flag=True)
 @click.option("--json", "as_json", is_flag=True)
 @click.pass_obj
-def form_create(obj, name, slug, description, fields_json, create_request, disabled, as_json):
+def form_create(obj, name, slug, description, fields_json, create_request, enqueue_triage, disabled, as_json):
     config: Config = obj.config
     json_mode = as_json or obj.json_mode
     if not require_workspace_id(config, json_mode):
@@ -88,6 +90,7 @@ def form_create(obj, name, slug, description, fields_json, create_request, disab
                 slug=slug,
                 enabled=not disabled,
                 create_customer_request=create_request,
+                enqueue_triage=enqueue_triage,
             )
         )
         if json_mode:
@@ -110,10 +113,11 @@ def form_create(obj, name, slug, description, fields_json, create_request, disab
 @click.option("--fields-json", default=None)
 @click.option("--enabled", type=click.BOOL, default=None)
 @click.option("--create-request", type=click.BOOL, default=None)
+@click.option("--enqueue-triage", type=click.BOOL, default=None, help="提交后进入 Triage")
 @click.option("--json", "as_json", is_flag=True)
 @click.pass_obj
 def form_update(
-    obj, form_id, name, slug, description, fields_json, enabled, create_request, as_json
+    obj, form_id, name, slug, description, fields_json, enabled, create_request, enqueue_triage, as_json
 ):
     config: Config = obj.config
     json_mode = as_json or obj.json_mode
@@ -133,6 +137,8 @@ def form_update(
         body["enabled"] = enabled
     if create_request is not None:
         body["createCustomerRequest"] = create_request
+    if enqueue_triage is not None:
+        body["enqueueTriage"] = enqueue_triage
     if not body:
         raise click.ClickException("无更新字段")
     client = make_client(config)
