@@ -76,6 +76,10 @@ from opentask.models.issue.enums import TimelineAction
 from opentask.models.issue.model import Issue
 from opentask.api.workspace.deps import get_optional_workspace_context, require_workspace_context, ensure_entity_workspace_access
 from opentask.services.sla.service import SlaService, serialize_clock
+from opentask.services.issue_assignee.service import (
+    list_assignee_user_infos,
+    list_assignee_user_infos_for_issues,
+)
 from opentask.utils.response import success_response
 from opentask.models.workspace.model import Workspace, WorkspaceMember
 from pydantic import BaseModel, Field
@@ -86,6 +90,13 @@ from opentask.services.issue_collection_service import IssueCollectionService
 from opentask.auth import authenticate
 
 logger = logging.getLogger(__name__)
+
+
+async def _embed_assignees(db, payload: dict, issue_id: str) -> dict:
+    """E71: attach ordered assignees[] to a serialized issue payload."""
+    payload["assignees"] = await list_assignee_user_infos(db, issue_id)
+    return payload
+
 
 router = APIRouter(prefix="/api/issues", tags=["Issue 管理"])
 
@@ -151,6 +162,7 @@ async def get_issues(
     priority: Optional[str] = Query(None, description="优先级筛选"),
     project_id: Optional[str] = Query(None, description="项目 ID"),
     assignee_id: Optional[str] = Query(None, description="负责人 ID；传 me 表示当前用户"),
+    assignee_any: Optional[str] = Query(None, description="E71：primary 或任一协作者；me=当前用户"),
     reporter_id: Optional[str] = Query(None, description="报告人 ID；传 me 表示当前用户"),
     search: Optional[str] = Query(None, description="搜索关键词"),
     cycle_id: Optional[str] = Query(None, description="Cycle ID；__none__ 表示无 Cycle"),
@@ -168,6 +180,7 @@ async def get_issues(
     """获取 Issue 列表（部门数据范围 + 工作区隔离）"""
     workspace, _member, user = ws_ctx
     resolved_assignee = str(user.id) if assignee_id == "me" else assignee_id
+    resolved_assignee_any = str(user.id) if assignee_any == "me" else assignee_any
     resolved_reporter = str(user.id) if reporter_id == "me" else reporter_id
     params = IssueQueryParams(
         page=page,
@@ -177,6 +190,7 @@ async def get_issues(
         priority=priority,  # type: ignore
         project_id=project_id,
         assignee_id=resolved_assignee,
+        assignee_any=resolved_assignee_any,
         reporter_id=resolved_reporter,
         search=search,
         cycle_id=cycle_id,
@@ -220,10 +234,14 @@ async def get_issues(
     progress_map = {}
     if "childProgress" in include_set:
         progress_map = await service.child_progress_for_parents([i.id for i in issues])
+    assignees_map = await list_assignee_user_infos_for_issues(
+        service.db, [i.id for i in issues]
+    )
     rows = []
     for issue in issues:
         payload = IssueResponse.model_validate(issue).model_dump(mode="json", exclude_none=False)
         payload.pop("childProgress", None)  # list default: omit unless include
+        payload["assignees"] = assignees_map.get(issue.id, [])
         payload["tags"] = [serialize_tag_brief(t) for t in tag_map.get(issue.id, [])]
         counts = block_map.get(issue.id, {"blocks_count": 0, "blocked_by_count": 0})
         payload["blocks_count"] = counts["blocks_count"]
@@ -718,10 +736,12 @@ async def create_issue(
             dept_id=dept_id,
             workspace_id=workspace.id if workspace else None,
         )
+        payload = IssueResponse.model_validate(issue).model_dump(mode="json", exclude_none=False)
+        await _embed_assignees(service.db, payload, issue.id)
         return {
             "code": 200,
             "message": "Issue 创建成功",
-            "data": IssueResponse.model_validate(issue),
+            "data": payload,
             "timestamp": 0,
         }
     except ValueError as e:
@@ -1079,6 +1099,9 @@ async def get_issue(
     from opentask.services.child_progress import compute_child_progress
     issue_dict["childProgress"] = compute_child_progress([c.status for c in children])
 
+    # E71: assignees always on detail
+    await _embed_assignees(db, issue_dict, issue.id)
+
     # 如果有关联项目，查询项目信息
     if issue.project_id:
         result = await db.execute(
@@ -1118,10 +1141,12 @@ async def update_issue(
     if not issue:
         raise HTTPException(status_code=404, detail="Issue 不存在")
 
+    payload = IssueResponse.model_validate(issue).model_dump(mode="json", exclude_none=False)
+    await _embed_assignees(service.db, payload, issue.id)
     return {
         "code": 200,
         "message": "Issue 更新成功",
-        "data": IssueResponse.model_validate(issue),
+        "data": payload,
         "timestamp": 0,
     }
 

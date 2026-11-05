@@ -56,6 +56,9 @@ class IssueBase(BaseModel):
 class IssueCreate(IssueBase):
     """创建 Issue Schema"""
     template_id: Optional[str] = Field(None, description="E9-S2：应用工作区 Issue 模板")
+    assignee_ids: Optional[List[str]] = Field(
+        None, description="E71: ordered assignees; first=primary (mirrors assignee_id)"
+    )
 
 
 class IssueUpdate(BaseModel):
@@ -69,6 +72,9 @@ class IssueUpdate(BaseModel):
     task_id: Optional[str] = None
     requirement_id: Optional[str] = None
     assignee_id: Optional[str] = None
+    assignee_ids: Optional[List[str]] = Field(
+        None, description="E71: replace ordered assignees; first=primary"
+    )
     reporter_id: Optional[str] = None
     position: Optional[int] = None
     due_date: Optional[datetime] = None
@@ -136,6 +142,9 @@ class IssueResponse(IssueBase):
     updated_by: Optional[str]
     project: Optional[ProjectInfo] = Field(None, description="关联项目")
     assignee: Optional[UserInfo] = Field(None, description="负责人信息")
+    assignees: Optional[List[UserInfo]] = Field(
+        None, description="E71: ordered assignees (first=primary)"
+    )
     reporter: Optional[UserInfo] = Field(None, description="报告人信息")
     children: Optional[List[IssueChildSummary]] = Field(
         None, description="子 Issue 摘要（详情接口填充）"
@@ -288,6 +297,9 @@ class IssueQueryParams(BaseModel):
     priority: Optional[IssuePriority] = Field(None, description="优先级筛选")
     project_id: Optional[str] = Field(None, description="项目 ID")
     assignee_id: Optional[str] = Field(None, description="负责人 ID")
+    assignee_any: Optional[str] = Field(
+        None, description="E71: match primary OR any collaborator"
+    )
     reporter_id: Optional[str] = Field(None, description="报告人 ID")
     search: Optional[str] = Field(None, description="搜索关键词")
     cycle_id: Optional[str] = Field(

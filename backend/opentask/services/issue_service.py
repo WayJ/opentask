@@ -42,6 +42,13 @@ from opentask.services.user_center.rbac_service import RbacService
 from opentask.services.notification.service import NotificationService
 from opentask.services.automation.service import fire_automations
 from opentask.services.workspace_webhook.service import fire_webhooks
+from opentask.services.issue_assignee.service import (
+    list_assignee_ids,
+    list_assignee_user_infos,
+    list_assignee_user_infos_for_issues,
+    normalize_assignee_ids,
+    replace_issue_assignees,
+)
 from opentask.services.sla.service import SlaService
 from opentask.services.workspace_realtime import (
     publish_comment_created,
@@ -147,6 +154,20 @@ class IssueService:
             query = query.where(Issue.project_id == params.project_id)
         if params.assignee_id:
             query = query.where(Issue.assignee_id == params.assignee_id)
+        if getattr(params, "assignee_any", None):
+            from opentask.models.issue_assignee.model import IssueAssignee
+
+            any_uid = params.assignee_any
+            query = query.where(
+                or_(
+                    Issue.assignee_id == any_uid,
+                    Issue.id.in_(
+                        select(IssueAssignee.issue_id).where(
+                            IssueAssignee.user_id == any_uid
+                        )
+                    ),
+                )
+            )
         if params.reporter_id:
             query = query.where(Issue.reporter_id == params.reporter_id)
         if params.cycle_id:
@@ -593,6 +614,7 @@ class IssueService:
 
         issue_data = data.model_dump()
         issue_data.pop("template_id", None)
+        raw_assignee_ids = issue_data.pop("assignee_ids", None)
         if "due_date" in issue_data:
             issue_data["due_date"] = self._naive_utc(issue_data.get("due_date"))
         await self._validate_parent_issue_id(
@@ -640,8 +662,27 @@ class IssueService:
             new_status=getattr(issue.status, "value", issue.status),
         )
 
+        # E71: multi-assignee — assignee_ids wins; else single assignee_id → junction
+        if raw_assignee_ids is not None:
+            initial_ids = normalize_assignee_ids(raw_assignee_ids)
+        elif issue_data.get("assignee_id"):
+            initial_ids = normalize_assignee_ids([issue_data.get("assignee_id")])
+        else:
+            initial_ids = []
+        if initial_ids or raw_assignee_ids is not None:
+            await replace_issue_assignees(
+                self.db, issue=issue, user_ids=initial_ids, validate=True
+            )
+
         await self.db.commit()
         await self.db.refresh(issue)
+        if initial_ids:
+            await NotificationService(self.db).notify_assigned(
+                issue,
+                actor_user_id=user_id,
+                new_assignee_id=initial_ids[0],
+                new_assignee_ids=initial_ids,
+            )
         await publish_issue_created(issue, actor_user_id=user_id)
         await fire_automations(
             self.db,
@@ -776,28 +817,50 @@ class IssueService:
                     },
                 )
 
-        # 记录分配变更
+        # E71: multi-assignee sync
         assignee_changed_to = None
         assignee_changed_from = None
         assignee_did_change = False
-        if "assignee_id" in update_data:
-            old_assignee = await self._get_issue_assignee(issue_id)
-            if old_assignee != update_data["assignee_id"]:
-                assignee_changed_from = old_assignee
-                assignee_changed_to = update_data["assignee_id"]
-                assignee_did_change = True
-                # 获取用户信息对象
-                old_assignee_info = await self._get_user_info_dict(old_assignee)
-                new_assignee_info = await self._get_user_info_dict(update_data["assignee_id"])
+        assignee_ids_new: list[str] | None = None
+        assignee_ids_old: list[str] = []
+        assignee_ids_provided = "assignee_ids" in update_data
+        assignee_id_provided = "assignee_id" in update_data
+        raw_assignee_ids = update_data.pop("assignee_ids", None)
 
-                # 构建action_data，只包含非None的值
+        if assignee_ids_provided or assignee_id_provided:
+            assignee_ids_old = await list_assignee_ids(self.db, issue_id)
+            if not assignee_ids_old:
+                prev = await self._get_issue_assignee(issue_id)
+                if prev:
+                    assignee_ids_old = [prev]
+
+            if assignee_ids_provided:
+                assignee_ids_new = normalize_assignee_ids(raw_assignee_ids)
+            else:
+                # Q2a: PATCH only assignee_id → primary + clear collaborators
+                aid = update_data.get("assignee_id")
+                assignee_ids_new = [aid] if aid else []
+
+            update_data["assignee_id"] = (
+                assignee_ids_new[0] if assignee_ids_new else None
+            )
+
+            old_assignee = assignee_ids_old[0] if assignee_ids_old else None
+            new_primary = assignee_ids_new[0] if assignee_ids_new else None
+            assignee_changed_from = old_assignee
+            assignee_changed_to = new_primary
+            assignee_did_change = list(assignee_ids_old) != list(assignee_ids_new)
+
+            if assignee_did_change:
+                old_assignee_info = await self._get_user_info_dict(old_assignee)
+                new_assignee_info = await self._get_user_info_dict(new_primary)
                 action_data = {}
                 if old_assignee_info is not None:
                     action_data["from"] = old_assignee_info
                 if new_assignee_info is not None:
                     action_data["to"] = new_assignee_info
-
-                # 只有当有实际变更时才记录timeline
+                action_data["assignee_ids"] = list(assignee_ids_new)
+                action_data["assignee_ids_from"] = list(assignee_ids_old)
                 if action_data:
                     await self._add_timeline(
                         issue_id=issue_id,
@@ -884,15 +947,30 @@ class IssueService:
                     new_status=str(getattr(new_s, "value", new_s)),
                 )
 
+        if assignee_ids_new is not None:
+            # Ensure ORM issue loaded for replace (workspace_id)
+            issue_for_asg = await self.get_issue(issue_id)
+            if issue_for_asg is None:
+                return None
+            await replace_issue_assignees(
+                self.db,
+                issue=issue_for_asg,
+                user_ids=assignee_ids_new,
+                validate=True,
+            )
+
         await self.db.commit()
 
         issue = await self.get_issue(issue_id)
-        if issue and assignee_changed_to:
-            await NotificationService(self.db).notify_assigned(
-                issue,
-                actor_user_id=user_id,
-                new_assignee_id=assignee_changed_to,
-            )
+        if issue and assignee_did_change and assignee_ids_new is not None:
+            newly = [u for u in assignee_ids_new if u not in set(assignee_ids_old)]
+            if newly:
+                await NotificationService(self.db).notify_assigned(
+                    issue,
+                    actor_user_id=user_id,
+                    new_assignee_id=newly[0],
+                    new_assignee_ids=newly,
+                )
         if issue and status_changed:
             old_s, new_s = status_changed
             new_s_val = getattr(new_s, "value", new_s)
@@ -1003,6 +1081,8 @@ class IssueService:
                         "title": issue.title,
                         "from": assignee_changed_from,
                         "to": assignee_changed_to,
+                        "assignee_ids": list(assignee_ids_new or []),
+                        "assignee_ids_from": list(assignee_ids_old or []),
                         "actorUserId": user_id,
                     },
                 )
@@ -1193,6 +1273,19 @@ class IssueService:
             )
             result = await self.db.execute(query)
             affected = result.rowcount or 0
+
+        # E71 Q4a: bulk still primary-only; sync junction to mirror Q2a
+        if data.assignee_id is not None:
+            for iid in allowed_ids:
+                issue_row = await self.get_issue(iid)
+                if issue_row is None:
+                    continue
+                await replace_issue_assignees(
+                    self.db,
+                    issue=issue_row,
+                    user_ids=[data.assignee_id],
+                    validate=True,
+                )
 
         if data.tag_ids is not None:
             from opentask.services.tag.service import TagService

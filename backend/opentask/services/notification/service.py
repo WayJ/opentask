@@ -164,33 +164,47 @@ class NotificationService:
         issue: Issue,
         *,
         actor_user_id: str,
-        new_assignee_id: Optional[str],
+        new_assignee_id: Optional[str] = None,
+        new_assignee_ids: Optional[list[str]] = None,
     ) -> Optional[Notification]:
-        """指派：通知新负责人；并 fanout 给 watchers（subscribed_update）。"""
+        """指派：通知新加入的指派人；并 fanout 给 watchers（subscribed_update）。
+
+        E71: pass new_assignee_ids for fanout; new_assignee_id kept for compat.
+        """
         created: list[Notification] = []
-        if new_assignee_id and issue.workspace_id:
+        targets: list[str] = []
+        if new_assignee_ids:
+            targets = [str(u) for u in new_assignee_ids if u]
+        elif new_assignee_id:
+            targets = [str(new_assignee_id)]
+
+        if targets and issue.workspace_id:
             title = f"你被指派到「{issue.title}」"
             body = f"Issue {issue.issue_code or issue.id}"
-            n = await self.create(
-                workspace_id=issue.workspace_id,
-                recipient_user_id=new_assignee_id,
-                actor_user_id=actor_user_id,
-                type="assigned",
-                resource_type="issue",
-                resource_id=issue.id,
-                title=title,
-                body=body,
-            )
-            if n:
-                created.append(n)
+            for uid in targets:
+                if str(uid) == str(actor_user_id):
+                    continue
+                n = await self.create(
+                    workspace_id=issue.workspace_id,
+                    recipient_user_id=uid,
+                    actor_user_id=actor_user_id,
+                    type="assigned",
+                    resource_type="issue",
+                    resource_id=issue.id,
+                    title=title,
+                    body=body,
+                )
+                if n:
+                    created.append(n)
 
+        exclude = set(targets)
         watcher_notes = await self.notify_watchers(
             issue,
             actor_user_id=actor_user_id,
             type="subscribed_update",
             title=f"「{issue.title}」负责人已更新",
             body=f"Issue {issue.issue_code or issue.id}",
-            exclude_user_ids={str(new_assignee_id)} if new_assignee_id else set(),
+            exclude_user_ids=exclude,
             commit=False,
         )
         created.extend(watcher_notes)
@@ -226,6 +240,16 @@ class NotificationService:
         for uid in (issue.assignee_id, issue.reporter_id):
             if uid and str(uid) != str(actor_user_id):
                 recipients[str(uid)] = comment_type
+
+        # E71: all assignees (collaborators)
+        try:
+            from opentask.services.issue_assignee.service import list_assignee_ids
+
+            for uid in await list_assignee_ids(self.db, issue.id):
+                if uid and str(uid) != str(actor_user_id):
+                    recipients.setdefault(str(uid), comment_type)
+        except Exception:
+            pass
 
         # E18：关注者也收评论（mention 优先）
         for uid in await self._watcher_ids(issue.id):
@@ -352,10 +376,17 @@ class NotificationService:
         title = f"「{issue.title}」截止日期已更新"
         created: list[Notification] = []
 
-        if issue.assignee_id and str(issue.assignee_id) != str(actor_user_id):
+        from opentask.services.issue_assignee.service import list_assignee_ids
+
+        asg_ids = await list_assignee_ids(self.db, issue.id)
+        if not asg_ids and issue.assignee_id:
+            asg_ids = [str(issue.assignee_id)]
+        for uid in asg_ids:
+            if str(uid) == str(actor_user_id):
+                continue
             n = await self.create(
                 workspace_id=issue.workspace_id,
-                recipient_user_id=str(issue.assignee_id),
+                recipient_user_id=str(uid),
                 actor_user_id=actor_user_id,
                 type="due_date_changed",
                 resource_type="issue",
@@ -366,7 +397,7 @@ class NotificationService:
             if n:
                 created.append(n)
 
-        exclude = {str(issue.assignee_id)} if issue.assignee_id else set()
+        exclude = {str(u) for u in asg_ids}
         watcher_notes = await self.notify_watchers(
             issue,
             actor_user_id=actor_user_id,
@@ -600,10 +631,17 @@ class NotificationService:
         )
         return [str(uid) for uid in q.scalars().all()]
 
-    def _recipients_for_issue(self, issue: Issue, watcher_ids: list[str]) -> list[str]:
+    def _recipients_for_issue(
+        self,
+        issue: Issue,
+        watcher_ids: list[str],
+        assignee_ids: list[str] | None = None,
+    ) -> list[str]:
         ids: set[str] = set()
         if issue.assignee_id:
             ids.add(str(issue.assignee_id))
+        for uid in assignee_ids or []:
+            ids.add(str(uid))
         for uid in watcher_ids:
             ids.add(str(uid))
         return sorted(ids)
@@ -730,7 +768,10 @@ class NotificationService:
                 continue
             processed += 1
             watchers = await self._watcher_ids(issue.id)
-            recipients = self._recipients_for_issue(issue, watchers)
+            from opentask.services.issue_assignee.service import list_assignee_ids
+
+            asg = await list_assignee_ids(self.db, issue.id)
+            recipients = self._recipients_for_issue(issue, watchers, assignee_ids=asg)
             if not recipients:
                 skipped += 1
                 continue

@@ -5,7 +5,6 @@ from datetime import datetime
 from typing import Iterable, Optional
 from uuid import uuid4
 
-from fastapi import HTTPException, status
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -51,10 +50,7 @@ async def validate_assignee_members(
     if not user_ids:
         return
     if not workspace_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="workspace required for assignees",
-        )
+        raise ValueError("workspace required for assignees")
     q = await db.execute(
         select(WorkspaceMember.user_id).where(
             WorkspaceMember.workspace_id == workspace_id,
@@ -64,10 +60,7 @@ async def validate_assignee_members(
     found = {str(uid) for uid in q.scalars().all()}
     missing = [uid for uid in user_ids if uid not in found]
     if missing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="assignee must be workspace member",
-        )
+        raise ValueError("assignee must be workspace member")
 
 
 async def replace_issue_assignees(
@@ -78,12 +71,7 @@ async def replace_issue_assignees(
     validate: bool = True,
 ) -> list[str]:
     """Replace junction rows; mirror issue.assignee_id = first or None. Caller commits."""
-    try:
-        ids = normalize_assignee_ids(user_ids)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        ) from e
+    ids = normalize_assignee_ids(user_ids)
 
     if validate:
         await validate_assignee_members(db, issue.workspace_id, ids)
