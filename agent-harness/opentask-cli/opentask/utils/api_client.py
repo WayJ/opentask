@@ -1764,6 +1764,28 @@ class OpenTaskClient:
         await self.delete(f"/api/projects/{project_id}/repos/{repo_id}")
         return True
 
+    # ========================================================================
+    # Access Tokens (E96)
+    # ========================================================================
+
+    async def list_access_tokens(self) -> list | dict:
+        """E96: GET /api/access-tokens (metadata only; never raw token)."""
+        return await self.get("/api/access-tokens")
+
+    async def create_access_token(
+        self, name: str, description: str | None = None
+    ) -> dict:
+        """E96: POST /api/access-tokens body {name, description?}."""
+        body: dict = {"name": name}
+        if description is not None:
+            body["description"] = description
+        return await self.post("/api/access-tokens", data=body)
+
+    async def delete_access_token(self, token_id: str) -> bool:
+        """E96: DELETE /api/access-tokens/{token_id}."""
+        await self.delete(f"/api/access-tokens/{token_id}")
+        return True
+
 
     async def add_project_member(self, project_id: str, user_id: str) -> dict:
         """E79: add project roster member."""
