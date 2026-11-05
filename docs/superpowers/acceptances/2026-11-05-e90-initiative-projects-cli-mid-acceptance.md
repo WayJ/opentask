@@ -19,8 +19,8 @@ Plan：`docs/superpowers/plans/2026-11-05-e90-initiative-projects-cli-mid-plan.m
 ## Tip
 
 - 分支：`sprint/E90-S1`
-- tip short：e84fa3b（acceptance 提交后以 `git rev-parse HEAD` 为准，见 commit tip）
-- tip full：_见最终 tip_
+- tip short：3632d7e
+- tip full：3632d7e1a9ea46b04e70c63ae06cbe677702a7d2
 - **未 push / 未开 PR / 未开 E91**
 
 ## Gates（verification-before-completion）
