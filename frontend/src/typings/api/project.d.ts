@@ -28,6 +28,21 @@ declare namespace Api {
       health_note?: string | null;
       health_updated_at?: string | null;
       health_updated_by?: string | null;
+      /** E79 roster-only */
+      lead_id?: string | null;
+      lead?: {
+        id: string;
+        name?: string | null;
+        sso_name?: string | null;
+        sso_account?: string | null;
+      } | null;
+      members?: Array<{
+        id: string;
+        name?: string | null;
+        sso_name?: string | null;
+        sso_account?: string | null;
+      }>;
+      member_count?: number;
     }
 
     /** Create project params */
@@ -45,6 +60,15 @@ declare namespace Api {
       description?: string;
       starts_at?: string | null;
       target_date?: string | null;
+      /** E79: null clears lead */
+      lead_id?: string | null;
+    }
+
+    interface ProjectMemberUser {
+      id: string;
+      name?: string | null;
+      sso_name?: string | null;
+      sso_account?: string | null;
     }
 
     /** Milestone (E8-S1) */

@@ -6,6 +6,7 @@ import type { DataTableColumns } from 'naive-ui';
 import { useProjectStore } from '@/store/modules/project';
 import { fetchProjectTemplates, type ProjectTemplateRow } from '@/service/api/project-templates';
 import { previewMilestones } from '@/utils/projectTemplate';
+import { formatMemberCount } from '@/utils/projectLeadMembers';
 
 defineOptions({
   name: 'Projects'
@@ -167,6 +168,23 @@ const columns: DataTableColumns<Api.Project.Project> = [
         NTag,
         { type: row.is_active ? 'success' : 'default', size: 'small' },
         { default: () => (row.is_active ? '活跃' : '已归档') }
+      )
+  },
+  {
+    title: '负责人',
+    key: 'lead_id',
+    width: 140,
+    ellipsis: { tooltip: true },
+    render: row =>
+      h(
+        NText,
+        { depth: row.lead_id ? 1 : 3, style: { fontSize: '12px' } },
+        {
+          default: () =>
+            row.lead_id
+              ? `${(row.lead_id as string).slice(0, 8)} · ${formatMemberCount(row.member_count)}`
+              : '—'
+        }
       )
   },
   {

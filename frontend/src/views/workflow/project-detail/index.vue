@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { NButton, NInput, NModal, NPopconfirm, NSpace, NTag, NText } from 'naive-ui';
+import { NButton, NInput, NModal, NPopconfirm, NSelect, NSpace, NSpin, NTag, NText } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
 import {
+  addProjectMember,
   createProjectMilestone,
   createRepoConfig,
   deleteProjectMilestone,
@@ -11,17 +12,22 @@ import {
   fetchAddFavorite,
   fetchFavorites,
   fetchProjectHealth,
+  fetchProjectMembers,
   fetchProjectMilestones,
   fetchProjectRepos,
   fetchProjectTimeline,
   fetchProjectWatchers,
   fetchRemoveFavorite,
   postProjectHealth,
+  removeProjectMember,
   unwatchProject,
   updateProjectMilestone,
   updateRepoConfig,
   watchProject
 } from '@/service/api';
+import { fetchWorkspaceMembers } from '@/service/api/workspace';
+import { localStg } from '@/utils/storage';
+import { formatMemberCount, leadLabel } from '@/utils/projectLeadMembers';
 import { useAuthStore } from '@/store/modules/auth';
 import { useProjectStore } from '@/store/modules/project';
 import {
@@ -67,6 +73,14 @@ const projectFormData = reactive({
   starts_at: null as string | null,
   target_date: null as string | null
 });
+
+/** E79: lead + members roster */
+const rosterMembers = ref<Api.Project.ProjectMemberUser[]>([]);
+const wsUserOptions = ref<Array<{ label: string; value: string }>>([]);
+const leadSelect = ref<string | null>(null);
+const memberToAdd = ref<string | null>(null);
+const rosterLoading = ref(false);
+const rosterSaving = ref(false);
 
 const showMilestoneModal = ref(false);
 const milestoneModalMode = ref<'create' | 'edit'>('create');
@@ -228,6 +242,97 @@ async function loadWatchers() {
     watching.value = false;
   }
 }
+
+async function loadRoster() {
+  if (!projectId) return;
+  rosterLoading.value = true;
+  try {
+    const memRes = await fetchProjectMembers(projectId);
+    rosterMembers.value = memRes.data || [];
+    leadSelect.value = project.value?.lead_id || null;
+  } catch {
+    rosterMembers.value = project.value?.members || [];
+    leadSelect.value = project.value?.lead_id || null;
+  } finally {
+    rosterLoading.value = false;
+  }
+}
+
+async function loadWsUsers() {
+  try {
+    const wsId = localStg.get('workspaceId') as string | null;
+    if (!wsId) return;
+    const mRes = await fetchWorkspaceMembers(wsId);
+    const rows = (mRes.data || []) as Array<{
+      userId?: string;
+      user_id?: string;
+      name?: string;
+      username?: string;
+    }>;
+    wsUserOptions.value = rows
+      .map(m => ({
+        label: m.name || m.username || m.userId || m.user_id || 'user',
+        value: String(m.userId || m.user_id || '')
+      }))
+      .filter(u => u.value);
+  } catch {
+    wsUserOptions.value = [];
+  }
+}
+
+async function saveLead() {
+  if (!projectId) return;
+  rosterSaving.value = true;
+  try {
+    await projectStore.editProject(projectId, { lead_id: leadSelect.value });
+    project.value = projectStore.currentProject || project.value;
+    await loadRoster();
+    window.$message?.success('负责人已更新');
+  } catch {
+    window.$message?.error('更新负责人失败');
+  } finally {
+    rosterSaving.value = false;
+  }
+}
+
+async function clearLead() {
+  leadSelect.value = null;
+  await saveLead();
+}
+
+async function addMember() {
+  if (!projectId || !memberToAdd.value) return;
+  rosterSaving.value = true;
+  try {
+    await addProjectMember(projectId, memberToAdd.value);
+    memberToAdd.value = null;
+    const refreshed = await projectStore.getProject(projectId);
+    project.value = refreshed || project.value;
+    await loadRoster();
+    window.$message?.success('已添加成员');
+  } catch {
+    window.$message?.error('添加成员失败');
+  } finally {
+    rosterSaving.value = false;
+  }
+}
+
+async function removeMember(userId: string) {
+  if (!projectId) return;
+  rosterSaving.value = true;
+  try {
+    await removeProjectMember(projectId, userId);
+    const refreshed = await projectStore.getProject(projectId);
+    project.value = refreshed || project.value;
+    await loadRoster();
+    window.$message?.success('已移除成员');
+  } catch {
+    window.$message?.error('移除成员失败');
+  } finally {
+    rosterSaving.value = false;
+  }
+}
+
 
 async function loadPinState() {
   if (!projectId) {
@@ -619,6 +724,8 @@ onMounted(() => {
   loadMilestones();
   loadHealth();
   loadWatchers();
+  loadRoster();
+  loadWsUsers();
   loadPinState();
   loadTimeline();
 });
@@ -669,6 +776,55 @@ onMounted(() => {
         <NCard title="项目描述" :bordered="false" class="mt-4">
           <NText v-if="project.description">{{ project.description }}</NText>
           <NText v-else depth="3">暂无描述</NText>
+        </NCard>
+
+        <!-- E79: Lead + Members (roster-only) -->
+        <NCard title="负责人与成员" :bordered="false" class="mt-4">
+          <NSpin :show="rosterLoading">
+            <NSpace vertical style="width: 100%">
+              <NSpace align="center">
+                <NText depth="3">负责人</NText>
+                <NText>{{ leadLabel(project.lead) }}</NText>
+                <NTag v-if="project.member_count != null" size="small">{{ formatMemberCount(project.member_count) }}</NTag>
+              </NSpace>
+              <NSpace align="center">
+                <NSelect
+                  v-model:value="leadSelect"
+                  :options="wsUserOptions"
+                  clearable
+                  filterable
+                  placeholder="选择负责人"
+                  style="min-width: 220px"
+                />
+                <NButton type="primary" size="small" :loading="rosterSaving" @click="saveLead">保存负责人</NButton>
+                <NButton size="small" :disabled="!project.lead_id" :loading="rosterSaving" @click="clearLead">清除</NButton>
+              </NSpace>
+              <NSpace align="center">
+                <NSelect
+                  v-model:value="memberToAdd"
+                  :options="wsUserOptions"
+                  clearable
+                  filterable
+                  placeholder="添加成员"
+                  style="min-width: 220px"
+                />
+                <NButton size="small" type="primary" :loading="rosterSaving" :disabled="!memberToAdd" @click="addMember">
+                  添加
+                </NButton>
+              </NSpace>
+              <NSpace>
+                <NTag
+                  v-for="m in rosterMembers"
+                  :key="m.id"
+                  closable
+                  @close="removeMember(m.id)"
+                >
+                  {{ leadLabel(m) }}
+                </NTag>
+                <NText v-if="!rosterMembers.length" depth="3">暂无成员</NText>
+              </NSpace>
+            </NSpace>
+          </NSpin>
         </NCard>
 
         <div v-if="projectId" class="mt-4">
