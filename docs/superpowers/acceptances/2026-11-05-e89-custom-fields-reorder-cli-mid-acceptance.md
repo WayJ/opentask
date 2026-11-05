@@ -19,8 +19,8 @@ Plan：`docs/superpowers/plans/2026-11-05-e89-custom-fields-reorder-cli-mid-plan
 ## Tip
 
 - 分支：`sprint/E89-S1`
-- tip short：a95b0c4
-- tip full：a95b0c4621a30479e9efa73ee675a5338cb66550
+- tip short：535be6c
+- tip full：535be6ca6d5ed485efd429fd33f110b06c82919c
 - **未 push / 未开 PR / 未开 E90**
 
 ## Gates（verification-before-completion）
