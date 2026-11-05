@@ -151,6 +151,7 @@ def serialize_form(row: IssueForm, *, include_token: bool = True) -> dict:
         "enabled": bool(row.enabled),
         "fields": list(row.fields_json or []),
         "createCustomerRequest": bool(row.create_customer_request),
+        "enqueueTriage": bool(row.enqueue_triage),
         "createdBy": row.created_by,
         "createdAt": row.created_at.isoformat() if row.created_at else None,
         "updatedAt": row.updated_at.isoformat() if row.updated_at else None,
@@ -225,6 +226,7 @@ class IssueFormService:
         slug: str | None = None,
         enabled: bool = True,
         create_customer_request: bool = False,
+        enqueue_triage: bool = False,
     ) -> IssueForm:
         name = (name or "").strip()
         if not name:
@@ -241,6 +243,7 @@ class IssueFormService:
             enabled=enabled,
             fields_json=fields_clean,
             create_customer_request=bool(create_customer_request),
+            enqueue_triage=bool(enqueue_triage),
             created_by=user_id,
         )
         self.db.add(row)
@@ -261,6 +264,7 @@ class IssueFormService:
         enabled: bool | None = None,
         fields: list[Any] | None = None,
         create_customer_request: bool | None = None,
+        enqueue_triage: bool | None = None,
     ) -> IssueForm:
         row = await self.get(workspace_id=workspace_id, form_id=form_id)
         if name is not None:
@@ -282,6 +286,8 @@ class IssueFormService:
             row.fields_json = validate_fields_schema(fields)
         if create_customer_request is not None:
             row.create_customer_request = bool(create_customer_request)
+        if enqueue_triage is not None:
+            row.enqueue_triage = bool(enqueue_triage)
         row.updated_at = datetime.utcnow()
         await self.db.commit()
         await self.db.refresh(row)

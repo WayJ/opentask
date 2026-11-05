@@ -52,6 +52,9 @@ class IssueForm(DBModel):
     create_customer_request: Mapped[bool] = mapped_column(
         Boolean, nullable=False, insert_default=False
     )
+    enqueue_triage: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, insert_default=False
+    )
     created_by: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, insert_default=datetime.utcnow

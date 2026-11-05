@@ -29,6 +29,7 @@ class FormCreate(BaseModel):
     slug: Optional[str] = Field(None, max_length=80)
     enabled: bool = True
     createCustomerRequest: bool = False
+    enqueueTriage: bool = False
 
 
 class FormUpdate(BaseModel):
@@ -40,6 +41,7 @@ class FormUpdate(BaseModel):
     setSlug: bool = False
     enabled: Optional[bool] = None
     createCustomerRequest: Optional[bool] = None
+    enqueueTriage: Optional[bool] = None
 
 
 @router.get("")
@@ -71,6 +73,7 @@ async def create_form(
         slug=body.slug,
         enabled=body.enabled,
         create_customer_request=body.createCustomerRequest,
+        enqueue_triage=body.enqueueTriage,
     )
     return success_response(data=serialize_form(row), message="已创建")
 
@@ -107,6 +110,7 @@ async def update_form(
         enabled=body.enabled,
         fields=body.fields,
         create_customer_request=body.createCustomerRequest,
+        enqueue_triage=body.enqueueTriage,
     )
     return success_response(data=serialize_form(row), message="已更新")
 
