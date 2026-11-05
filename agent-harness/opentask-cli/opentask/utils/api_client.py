@@ -1466,15 +1466,35 @@ class OpenTaskClient:
         self,
         project_id: str,
         name: str | None = None,
-        description: str | None = None
+        description: str | None = None,
+        lead_id: str | None | object = ...,
     ) -> dict:
-        """Update project."""
+        """Update project (E79: lead_id; pass None to clear)."""
         data = {}
         if name is not None:
             data["name"] = name
         if description is not None:
             data["description"] = description
+        if lead_id is not ...:
+            data["lead_id"] = lead_id
+        # Prefer PATCH when lead_id present (E79); PUT remains compatible
+        if "lead_id" in data and name is None and description is None:
+            return await self.patch(f"/api/projects/{project_id}", data=data)
         return await self.put(f"/api/projects/{project_id}", data=data)
+
+    async def list_project_members(self, project_id: str) -> list | dict:
+        """E79: list project roster members."""
+        return await self.get(f"/api/projects/{project_id}/members")
+
+    async def add_project_member(self, project_id: str, user_id: str) -> dict:
+        """E79: add project roster member."""
+        return await self.post(
+            f"/api/projects/{project_id}/members", data={"user_id": user_id}
+        )
+
+    async def remove_project_member(self, project_id: str, user_id: str) -> dict | bool:
+        """E79: remove project roster member."""
+        return await self.delete(f"/api/projects/{project_id}/members/{user_id}")
 
     async def delete_project(self, project_id: str) -> bool:
         """Delete project."""

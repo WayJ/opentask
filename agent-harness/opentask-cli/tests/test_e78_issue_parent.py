@@ -1,4 +1,4 @@
-"""E78 CLI: issue parent set|clear + version 1.62.0."""
+"""E78 CLI: issue parent set|clear + version 1.63.0."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -13,20 +13,20 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_version_pins_1_62_0():
-    assert __version__ == "1.62.0"
-    assert VERSION == "1.62.0"
-    assert (ROOT / "VERSION").read_text().strip() == "1.62.0"
+    assert __version__ == "1.63.0"
+    assert VERSION == "1.63.0"
+    assert (ROOT / "VERSION").read_text().strip() == "1.63.0"
     pyproject = (ROOT / "pyproject.toml").read_text()
-    assert 'version = "1.62.0"' in pyproject
+    assert 'version = "1.63.0"' in pyproject
     setup = (ROOT / "setup.py").read_text()
-    assert "1.62.0" in setup
+    assert "1.63.0" in setup
 
 
 def test_version_flag():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.62.0" in result.output
+    assert "1.63.0" in result.output
 
 
 def test_issue_parent_group_help():

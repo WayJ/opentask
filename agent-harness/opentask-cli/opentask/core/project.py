@@ -36,6 +36,18 @@ def project_cli():
     pass
 
 
+@project_cli.group(name="lead")
+def lead_cli():
+    """E79: set or clear project lead (roster-only)."""
+    pass
+
+
+@project_cli.group(name="member")
+def member_cli():
+    """E79: add/remove/list project members (roster-only)."""
+    pass
+
+
 @project_cli.command(name="list")
 @click.option("--active-only", is_flag=True, default=True, help="Show only active projects")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
@@ -305,3 +317,152 @@ def delete_project(obj: "Context", project_id: str, force: bool, as_json: bool):
 
     # 返回错误码
     raise SystemExit(1)
+
+
+@lead_cli.command(name="set")
+@click.argument("project_id")
+@click.argument("user_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def project_lead_set(obj: "Context", project_id: str, user_id: str, as_json: bool):
+    """E79: Set project lead (upserts into members).
+
+    Examples:
+        opentask project lead set <project> <user>
+        opentask project lead set <project> <user> --json
+    """
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    try:
+        result = asyncio.run(client.update_project(project_id, lead_id=user_id))
+        if json_mode:
+            echo_json(True, data=result if isinstance(result, dict) else {"result": result})
+            return
+        lead = (result or {}).get("lead") if isinstance(result, dict) else None
+        lead_id = (result or {}).get("lead_id") if isinstance(result, dict) else user_id
+        label = (lead or {}).get("sso_name") or (lead or {}).get("name") or lead_id
+        skin.success(f"[OK] Lead set: {label}")
+    except APIError as e:
+        handle_api_error(e, json_mode, "Failed to set lead")
+
+
+@lead_cli.command(name="clear")
+@click.argument("project_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def project_lead_clear(obj: "Context", project_id: str, as_json: bool):
+    """E79: Clear project lead (keeps member row).
+
+    Examples:
+        opentask project lead clear <project>
+        opentask project lead clear <project> --json
+    """
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    try:
+        result = asyncio.run(client.update_project(project_id, lead_id=None))
+        if json_mode:
+            echo_json(True, data=result if isinstance(result, dict) else {"result": result})
+            return
+        skin.success("[OK] Lead cleared")
+    except APIError as e:
+        handle_api_error(e, json_mode, "Failed to clear lead")
+
+
+@member_cli.command(name="add")
+@click.argument("project_id")
+@click.argument("user_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def project_member_add(obj: "Context", project_id: str, user_id: str, as_json: bool):
+    """E79: Add project roster member."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    try:
+        result = asyncio.run(client.add_project_member(project_id, user_id))
+        if json_mode:
+            echo_json(True, data=result if isinstance(result, dict) else {"result": result})
+            return
+        skin.success(f"[OK] Member added: {user_id[:8]}")
+    except APIError as e:
+        handle_api_error(e, json_mode, "Failed to add member")
+
+
+@member_cli.command(name="remove")
+@click.argument("project_id")
+@click.argument("user_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def project_member_remove(obj: "Context", project_id: str, user_id: str, as_json: bool):
+    """E79: Remove project roster member."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    try:
+        result = asyncio.run(client.remove_project_member(project_id, user_id))
+        if json_mode:
+            echo_json(True, data=result if isinstance(result, dict) else {"ok": True})
+            return
+        skin.success(f"[OK] Member removed: {user_id[:8]}")
+    except APIError as e:
+        handle_api_error(e, json_mode, "Failed to remove member")
+
+
+@member_cli.command(name="list")
+@click.argument("project_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def project_member_list(obj: "Context", project_id: str, as_json: bool):
+    """E79: List project roster members."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    try:
+        result = asyncio.run(client.list_project_members(project_id))
+        if isinstance(result, dict):
+            rows = result.get("rows") or result.get("data") or result.get("members") or []
+            if not isinstance(rows, list):
+                rows = []
+        elif isinstance(result, list):
+            rows = result
+        else:
+            rows = []
+        project = asyncio.run(client.get_project(project_id)) or {}
+        if json_mode:
+            echo_json(
+                True,
+                data={
+                    "lead_id": project.get("lead_id"),
+                    "lead": project.get("lead"),
+                    "members": rows,
+                    "member_count": project.get("member_count", len(rows)),
+                },
+            )
+            return
+        skin.section("Project members")
+        lead = project.get("lead") or {}
+        lead_id = project.get("lead_id")
+        if lead_id:
+            label = lead.get("sso_name") or lead.get("name") or lead_id
+            skin.hint(f"lead: {label}")
+        if not rows:
+            skin.info("No members")
+            return
+        headers = ["ID", "Name"]
+        table_rows = []
+        for m in rows:
+            table_rows.append([
+                str(m.get("id", ""))[:8],
+                m.get("sso_name") or m.get("name") or m.get("sso_account") or "",
+            ])
+        skin.table(headers, table_rows, max_col_width=40)
+    except APIError as e:
+        handle_api_error(e, json_mode, "Failed to list members")
