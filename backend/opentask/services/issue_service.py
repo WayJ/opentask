@@ -61,6 +61,10 @@ from opentask.services.workspace_realtime import (
 from opentask.models.workspace.model import Workspace
 
 from opentask.services.issue_duplicate import build_duplicate_title
+from opentask.services.issue_project_move import (
+    apply_project_move_integrity,
+    milestone_for_duplicate,
+)
 
 
 class IssueService:
@@ -813,7 +817,11 @@ class IssueService:
             "priority": _enum(source.priority),
             "project_id": project_id,
             "cycle_id": cycle_id,
-            "milestone_id": source.milestone_id,
+            "milestone_id": milestone_for_duplicate(
+                source_project_id=source.project_id,
+                target_project_id=project_id,
+                source_milestone_id=source.milestone_id,
+            ),
             "estimate_points": source.estimate_points,
             "estimated_hours": source.estimated_hours,
             "start_date": source.start_date,
@@ -892,6 +900,17 @@ class IssueService:
         update_data = data.model_dump(exclude_unset=True)
         if not update_data:
             return await self.get_issue(issue_id)
+
+        project_move_meta = None  # E80: ProjectMoveIntegrityResult | None
+        if "project_id" in update_data:
+            existing_for_move = await self.get_issue(issue_id)
+            if not existing_for_move:
+                return None
+            project_move_meta = apply_project_move_integrity(
+                update_data,
+                existing_project_id=existing_for_move.project_id,
+                existing_milestone_id=existing_for_move.milestone_id,
+            )
 
         parent_changed_pair = None  # E78: (from, to)
         if "parent_issue_id" in update_data:
@@ -1149,11 +1168,15 @@ class IssueService:
             new_proj = update_data.get("project_id")
             if old_proj != new_proj:
                 project_changed_pair = (old_proj, new_proj)
+                action_data = {"from": old_proj, "to": new_proj}
+                if project_move_meta is not None and project_move_meta.milestone_cleared:
+                    action_data["milestone_cleared"] = True
+                    action_data["milestone_from"] = project_move_meta.milestone_from
                 await self._add_timeline(
                     issue_id=issue_id,
                     action_type=TimelineAction.PROJECT_CHANGED,
                     user_id=user_id,
-                    action_data={"from": old_proj, "to": new_proj},
+                    action_data=action_data,
                 )
 
         # E78: parent_issue_id change → timeline parent_changed (no new webhook name)

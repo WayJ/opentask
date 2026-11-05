@@ -1282,11 +1282,12 @@ async def update_issue(
     service: IssueService = Depends(get_issue_service),
     current_user: UserModel = Depends(authenticate),
 ):
-    """更新 Issue（E15：成员校验；E78：改 parent_issue_id 需 member+）"""
+    """更新 Issue（E15：成员校验；E78 parent / E80 project|milestone 需 member+）"""
     issue_row = await _require_issue_access(issue_id, service=service, user=current_user)
 
-    # E78 Q: viewer 不可改父子关系（复用 PUT，仅对 parent 字段加严）
-    if "parent_issue_id" in data.model_fields_set:
+    # E78/E80: viewer 不可改 parent / project / milestone（复用 PUT，字段级加严）
+    _member_plus_fields = {"parent_issue_id", "project_id", "milestone_id"}
+    if _member_plus_fields & set(data.model_fields_set):
         from opentask.services.workspace.service import WorkspaceService
 
         ws_id = getattr(issue_row, "workspace_id", None)
@@ -1296,7 +1297,8 @@ async def update_issue(
             )
             if getattr(member, "role", None) not in ("owner", "member"):
                 raise HTTPException(
-                    status_code=403, detail="仅 member/owner 可修改父子关系"
+                    status_code=403,
+                    detail="仅 member/owner 可修改父子关系或项目/里程碑",
                 )
 
     try:
