@@ -1,4 +1,4 @@
-"""E87 CLI: label group list|create|update|delete + list/create --group-id + update str + version 1.72.0."""
+"""E87 CLI: label group list|create|update|delete + list/create --group-id + update str + version 1.73.0."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -14,20 +14,20 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_version_pins_1_71_0():
-    assert __version__ == "1.72.0"
-    assert VERSION == "1.72.0"
-    assert (ROOT / "VERSION").read_text().strip() == "1.72.0"
+    assert __version__ == "1.73.0"
+    assert VERSION == "1.73.0"
+    assert (ROOT / "VERSION").read_text().strip() == "1.73.0"
     pyproject = (ROOT / "pyproject.toml").read_text()
-    assert 'version = "1.72.0"' in pyproject
+    assert 'version = "1.73.0"' in pyproject
     setup = (ROOT / "setup.py").read_text()
-    assert "1.72.0" in setup
+    assert "1.73.0" in setup
 
 
 def test_version_flag():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.72.0" in result.output
+    assert "1.73.0" in result.output
 
 
 def test_api_client_tag_group_methods_exist():

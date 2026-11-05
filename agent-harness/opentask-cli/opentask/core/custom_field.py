@@ -1,4 +1,4 @@
-"""Custom field commands (E25 + E40 formula)."""
+"""Custom field commands (E25 + E40 formula + E89 reorder)."""
 from __future__ import annotations
 
 import asyncio
@@ -26,6 +26,18 @@ _RESULT_TYPES = ["number", "boolean", "text", "date"]
 def custom_field_cli():
     """Workspace Issue 自定义字段。"""
     pass
+
+
+
+def _parse_ordered_ids(ids_csv: str | None, positional: tuple[str, ...] | None) -> list[str]:
+    ids: list[str] = []
+    if ids_csv is not None and str(ids_csv).strip() != "":
+        ids.extend([p.strip() for p in str(ids_csv).split(",") if p.strip()])
+    for p in positional or ():
+        s = str(p).strip()
+        if s:
+            ids.append(s)
+    return ids
 
 
 @custom_field_cli.command(name="list")
@@ -212,5 +224,30 @@ def custom_field_validate_formula(obj, expr, result_type, as_json):
         else:
             obj.skin.error((data or {}).get("error") or "invalid")
             raise SystemExit(1)
+    except APIError as e:
+        handle_api_error(e, json_mode)
+
+
+@custom_field_cli.command(name="reorder")
+@click.option("--ids", "ids_csv", default=None, help="Comma-separated custom-field ids in new order")
+@click.argument("positional_ids", nargs=-1)
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_obj
+def custom_field_reorder(obj, ids_csv, positional_ids, as_json):
+    """E89: 按 orderedIds 重排工作区自定义字段（软更新；未知 id 忽略）。"""
+    config: Config = obj.config
+    json_mode = as_json or obj.json_mode
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    ordered_ids = _parse_ordered_ids(ids_csv, positional_ids)
+    if not ordered_ids:
+        raise click.ClickException("Specify --ids ID1,ID2,... or positional custom-field ids")
+    client = make_client(config)
+    try:
+        data = asyncio.run(client.reorder_custom_fields(ordered_ids))
+        if json_mode:
+            echo_json(True, data=data, message="reordered")
+            return
+        obj.skin.success("顺序已更新")
     except APIError as e:
         handle_api_error(e, json_mode)

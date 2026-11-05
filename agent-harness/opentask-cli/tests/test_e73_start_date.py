@@ -1,4 +1,4 @@
-"""E73: CLI 1.72.0 pins + start-date options."""
+"""E73: CLI 1.73.0 pins + start-date options."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -13,13 +13,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_version_pins_1_58_0():
-    assert __version__ == "1.72.0"
-    assert VERSION == "1.72.0"
-    assert (ROOT / "VERSION").read_text().strip() == "1.72.0"
+    assert __version__ == "1.73.0"
+    assert VERSION == "1.73.0"
+    assert (ROOT / "VERSION").read_text().strip() == "1.73.0"
     pyproject = (ROOT / "pyproject.toml").read_text()
-    assert 'version = "1.72.0"' in pyproject
+    assert 'version = "1.73.0"' in pyproject
     setup = (ROOT / "setup.py").read_text()
-    assert "1.72.0" in setup
+    assert "1.73.0" in setup
 
 
 def test_create_help_has_start_date():

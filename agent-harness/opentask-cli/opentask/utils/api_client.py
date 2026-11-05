@@ -1018,6 +1018,13 @@ class OpenTaskClient:
             data["formulaResultType"] = result_type
         return await self.post("/api/custom-fields/validate-formula", data=data)
 
+    async def reorder_custom_fields(self, ordered_ids: list[str]) -> dict:
+        """E89: POST /api/custom-fields/reorder — soft update positions by orderedIds (unknown ids ignored)."""
+        return await self.post(
+            "/api/custom-fields/reorder",
+            data={"orderedIds": list(ordered_ids)},
+        )
+
     async def set_issue_custom_fields(self, issue_id: str, values: list[dict]) -> dict:
         return await self.patch(
             f"/api/issues/{issue_id}/custom-fields",

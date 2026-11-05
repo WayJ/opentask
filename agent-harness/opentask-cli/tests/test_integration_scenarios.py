@@ -287,7 +287,7 @@ class TestCLIIntegration:
 
         assert result.exit_code == 0
         assert 'opentask' in result.output.lower()
-        assert '1.72.0' in result.output
+        assert '1.73.0' in result.output
 
 
 # ============================================================================
