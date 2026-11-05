@@ -297,7 +297,7 @@ async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
                 (
                     "issues",
                     "to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(issue_code,'') || ' ' || "
-                    "coalesce(legacy_issue_code,'') || ' ' || left(coalesce(description,''), 16000))",
+                    "left(coalesce(description,''), 16000))",
                     "ix_issues_search_tsv",
                 ),
                 (

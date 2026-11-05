@@ -178,7 +178,6 @@ class IssueService:
                     Issue.title.ilike(search_pattern),
                     Issue.description.ilike(search_pattern),
                     Issue.issue_code.ilike(search_pattern),
-                    Issue.legacy_issue_code.ilike(search_pattern),
                 )
             )
 
@@ -460,7 +459,7 @@ class IssueService:
     ) -> Optional[Issue]:
         """获取单个 Issue。
 
-        by_code: 按 issue_code 或 legacy_issue_code 查询。
+        by_code: 按 issue_code（KEY-N）查询。
         workspace_id: 若提供则限制租户（跨 WS by_code → 找不到）。
         include_deleted: E77 — True 时不排除软删（回收站详情 / restore）。
         """
@@ -480,12 +479,7 @@ class IssueService:
             query = query.where(Issue.is_deleted == False)
 
         if by_code:
-            query = query.where(
-                or_(
-                    Issue.issue_code == issue_id,
-                    Issue.legacy_issue_code == issue_id,
-                )
-            )
+            query = query.where(Issue.issue_code == issue_id)
             if workspace_id is not None:
                 query = query.where(Issue.workspace_id == workspace_id)
         else:

@@ -228,7 +228,6 @@ class IssueCsvService:
                     Issue.title.ilike(pattern),
                     Issue.description.ilike(pattern),
                     Issue.issue_code.ilike(pattern),
-                    Issue.legacy_issue_code.ilike(pattern),
                 )
             )
 

@@ -218,7 +218,7 @@ class IssueVcsService:
     async def find_issue_by_code(self, issue_code: str) -> Issue | None:
         result = await self.db.execute(
             select(Issue).where(
-                (Issue.issue_code == issue_code) | (Issue.legacy_issue_code == issue_code)
+                Issue.issue_code == issue_code
             )
         )
         return result.scalar_one_or_none()

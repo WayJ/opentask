@@ -198,30 +198,15 @@ async def test_resolve_helper_sole_and_errors(test_engine: AsyncEngine):
 
 
 @pytest.mark.asyncio
-async def test_legacy_by_code_still_works(
-    test_client: AsyncClient, test_engine: AsyncEngine
-):
+async def test_year_code_by_code_404_no_legacy_resolve(test_client: AsyncClient):
+    """E99: year codes no longer resolve via legacy_issue_code dual-read."""
     user = await _register(test_client, "e98leg")
-    created = await test_client.post(
-        "/api/issues",
-        headers=_auth(user["token"], user["workspaceId"]),
-        json={"title": "E98 legacy read", "type": "bug"},
-    )
-    assert created.status_code == 200, created.text
-    issue_id = created.json()["data"]["id"]
-    legacy = f"ISSUE2026-{uuid.uuid4().int % 100000 + 1}"
-    async with test_engine.begin() as conn:
-        await conn.execute(
-            text("UPDATE issues SET legacy_issue_code = :legacy WHERE id = :id"),
-            {"legacy": legacy, "id": issue_id},
-        )
     resp = await test_client.get(
-        f"/api/issues/{legacy}",
+        "/api/issues/ISSUE2026-777",
         params={"by_code": "true"},
         headers=_auth(user["token"], user["workspaceId"]),
     )
-    assert resp.status_code == 200, resp.text
-    assert resp.json()["data"]["id"] == issue_id
+    assert resp.status_code == 404
 
 
 @pytest.mark.asyncio

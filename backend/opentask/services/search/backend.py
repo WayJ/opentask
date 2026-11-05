@@ -16,7 +16,7 @@ INDEX_BODY_MAX = 16000
 SNIPPET_MAX = 120
 
 ISSUE_CODE_RE = re.compile(
-    r"^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$", re.IGNORECASE
+    r"^[A-Za-z][A-Za-z0-9]{1,5}-\d+$", re.IGNORECASE
 )
 
 
@@ -142,7 +142,6 @@ class ILikeSearchBackend:
                 or_(
                     Issue.title.ilike(pattern),
                     Issue.issue_code.ilike(pattern),
-                    Issue.legacy_issue_code.ilike(pattern),
                     Issue.description.ilike(pattern),
                 ),
             )

@@ -1225,14 +1225,14 @@ async def get_issue(
 
     Args:
         issue_id: Issue ID 或 Issue Code
-        by_code: 设为 true 时，通过 issue_code / legacy_issue_code 查询；默认通过 ID 查询
+        by_code: 设为 true 时，通过 issue_code（KEY-N）查询；默认通过 ID 查询
         include_deleted: E77 回收站深链；默认仍 404 软删
 
     Examples:
         GET /api/issues/5ee3420e-2d69-4509-9ae7-524e8c40d6d1  # 通过 ID 查询
         GET /api/issues/OT-1?by_code=true                  # 通过 KEY-N 查询
         GET /api/issues/OT-32?by_code=true                 # KEY-N
-        GET /api/issues/ISSUE2026-32?by_code=true          # legacy 仍可解析
+        GET /api/issues/OT-32?by_code=true                 # 通过 KEY-N 查询
     """
     workspace, _member, user = ws_ctx
     # by_code 仍用 header WS 精确过滤（不回退）；按 UUID 不靠 header，靠实体 membership

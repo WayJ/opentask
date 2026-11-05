@@ -51,10 +51,7 @@ class SearchService:
                 select(Issue)
                 .where(
                     Issue.workspace_id == workspace_id,
-                    or_(
-                        Issue.issue_code.ilike(query),
-                        Issue.legacy_issue_code.ilike(query),
-                    ),
+                    Issue.issue_code.ilike(query),
                 )
                 .limit(limit)
             )
