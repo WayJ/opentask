@@ -19,8 +19,8 @@ Plan：`docs/superpowers/plans/2026-11-05-e85-project-health-cli-mid-plan.md`
 ## Tip
 
 - 分支：`sprint/E85-S1`
-- tip short：`083c7aa`
-- tip full：`083c7aa10f52d6e5bcf2e1ed82a55b22e958fdbc`
+- tip short：`f122faa`
+- tip full：`f122faa801610b8d41c1e520bc1f4ebbface3f79`
 - **未 push / 未开 PR / 未开 E86**
 
 ## Gates（verification-before-completion）
