@@ -55,6 +55,7 @@ import AttachmentList from '@/components/common/AttachmentList.vue';
 import { commentAttachmentToDocument } from '@/utils/attachmentUrls';
 import EntityDocsPanel from '@/components/entity-docs/EntityDocsPanel.vue';
 import IssuePrPanel from '@/components/issue-vcs/IssuePrPanel.vue';
+import IssueLinksPanel from '@/components/issue-links/IssueLinksPanel.vue';
 import EditableField from '@/components/EditableField.vue';
 import { formatTimelineAction } from '@/utils/formatTimelineAction';
 import type { Api } from '@/typings/api';
@@ -1407,6 +1408,10 @@ onUnmounted(() => {
               <AttachmentList :issue-id="issueId" :attachments="attachments" @refresh="loadAttachments" />
             </NSpin>
           </NCard>
+
+          <div v-if="issueId" class="mt-12px">
+            <IssueLinksPanel :issue-id="issueId" />
+          </div>
 
           <div v-if="issueId" class="mt-12px">
             <EntityDocsPanel parent-type="issue" :parent-id="issueId" />
