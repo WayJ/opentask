@@ -1,4 +1,4 @@
-"""E44 CLI: webhook deliveries|retry|run-due + version 1.80.0."""
+"""E44 CLI: webhook deliveries|retry|run-due + version 1.81.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli
@@ -8,7 +8,7 @@ def test_version_1_28_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.80.0" in result.output
+    assert "1.81.0" in result.output
 
 
 def test_webhook_help_includes_e44():

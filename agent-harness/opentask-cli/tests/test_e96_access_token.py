@@ -1,4 +1,4 @@
-"""E96 CLI: access-token list|create|revoke(+rm) + version 1.80.0.
+"""E96 CLI: access-token list|create|revoke(+rm) + version 1.81.0.
 
 Security: tests use ONLY the obvious fake token below. Never call real
 create endpoints or touch the user's real ~/.opentask config.
@@ -24,20 +24,20 @@ TOKEN_ID = "deadbeef-0000-0000-0000-0000000000aa"
 
 
 def test_version_pins_1_80_0():
-    assert __version__ == "1.80.0"
-    assert VERSION == "1.80.0"
-    assert (ROOT / "VERSION").read_text().strip() == "1.80.0"
+    assert __version__ == "1.81.0"
+    assert VERSION == "1.81.0"
+    assert (ROOT / "VERSION").read_text().strip() == "1.81.0"
     pyproject = (ROOT / "pyproject.toml").read_text()
-    assert 'version = "1.80.0"' in pyproject
+    assert 'version = "1.81.0"' in pyproject
     setup = (ROOT / "setup.py").read_text()
-    assert "1.80.0" in setup
+    assert "1.81.0" in setup
 
 
 def test_version_flag():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.80.0" in result.output
+    assert "1.81.0" in result.output
 
 
 def test_api_client_list_access_tokens():

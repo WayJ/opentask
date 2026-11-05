@@ -2004,6 +2004,13 @@ class OpenTaskClient:
     async def delete_issue_vcs_link(self, issue_id: str, link_id: str) -> dict:
         return await self.delete(f"/api/issues/{issue_id}/vcs/links/{link_id}")
 
+    async def update_issue_vcs_link(self, issue_id: str, link_id: str, **kwargs) -> dict:
+        """E97: PATCH /api/issues/{id}/vcs/links/{link_id}; kwargs camelCase
+        (branchName, prUrl, provider, externalId, status, title)."""
+        return await self.patch(
+            f"/api/issues/{issue_id}/vcs/links/{link_id}", data=kwargs
+        )
+
 
     async def list_issue_templates(self) -> dict:
         """E82: GET /api/issue-templates"""

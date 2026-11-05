@@ -60,7 +60,7 @@ from .core.access_token import access_token_cli
 
 
 # Global version
-VERSION = "1.80.0"
+VERSION = "1.81.0"
 
 # Context object passed to commands
 class Context:

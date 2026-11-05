@@ -3489,6 +3489,133 @@ def issue_vcs_links(obj: "Context", issue_id: str, as_json: bool):
         sys.exit(1)
 
 
+@issue_cli.command(name="unlink-vcs")
+@click.argument("issue_id")
+@click.argument("link_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def issue_unlink_vcs(obj: "Context", issue_id: str, link_id: str, as_json: bool):
+    """E97: Unlink a VCS link from an Issue (DELETE …/vcs/links/{link_id}).
+
+    Examples:
+        issue unlink-vcs WAY-42 <link-id>
+        issue vcs-unlink WAY-42 <link-id> --json
+    """
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+
+    try:
+        real_id, _issue = asyncio.run(_resolve_issue_id(client, issue_id))
+        data = asyncio.run(client.delete_issue_vcs_link(real_id, link_id))
+        if isinstance(data, dict) and "data" in data and isinstance(data["data"], dict):
+            if "id" not in data:
+                data = data["data"]
+        row = data if isinstance(data, dict) else {"id": link_id}
+        if json_mode:
+            click.echo(_format_json_response(success=True, data=row, message="unlinked vcs"))
+            return
+        kind = row.get("kind") or ""
+        status = row.get("status") or ""
+        ref = row.get("prUrl") or row.get("branchName") or ""
+        extra = " ".join(p for p in (kind, status, ref) if p)
+        if extra:
+            skin.success(f"Unlinked VCS link {row.get('id', link_id)} [{extra}]")
+        else:
+            skin.success(f"Unlinked VCS link {row.get('id', link_id)}")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to unlink VCS link", json_mode)
+        sys.exit(1)
+
+
+issue_cli.add_command(issue_unlink_vcs, name="vcs-unlink")
+
+
+@issue_cli.command(name="update-vcs")
+@click.argument("issue_id")
+@click.argument("link_id")
+@click.option("--status", default=None, help="PR/link status: open|draft|merged|closed|unknown")
+@click.option("--title", default=None, help="Cached title")
+@click.option("--pr-url", "pr_url", default=None, help="Pull request URL")
+@click.option("--branch-name", "branch_name", default=None, help="Branch name")
+@click.option("--provider", default=None, help="Provider: github|gitlab|gitea|manual")
+@click.option("--external-id", "external_id", default=None, help="External id on provider")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def issue_update_vcs(
+    obj: "Context",
+    issue_id: str,
+    link_id: str,
+    status: str | None,
+    title: str | None,
+    pr_url: str | None,
+    branch_name: str | None,
+    provider: str | None,
+    external_id: str | None,
+    as_json: bool,
+):
+    """E97: Update a VCS link on an Issue (PATCH …/vcs/links/{link_id}).
+
+    At least one field flag is required (empty PATCH rejected locally).
+
+    Examples:
+        issue update-vcs WAY-42 <link-id> --status merged
+        issue update-vcs WAY-42 <link-id> --status closed --title "Ship" --pr-url https://…
+    """
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+
+    fields: dict = {}
+    if status is not None:
+        fields["status"] = status
+    if title is not None:
+        fields["title"] = title
+    if pr_url is not None:
+        fields["prUrl"] = pr_url
+    if branch_name is not None:
+        fields["branchName"] = branch_name
+    if provider is not None:
+        fields["provider"] = provider
+    if external_id is not None:
+        fields["externalId"] = external_id
+
+    if not fields:
+        msg = (
+            "Provide at least one of "
+            "--status/--title/--pr-url/--branch-name/--provider/--external-id"
+        )
+        if json_mode:
+            click.echo(_format_json_response(success=False, error=msg, message=msg))
+            sys.exit(1)
+        skin.error(msg)
+        sys.exit(1)
+
+    try:
+        real_id, _issue = asyncio.run(_resolve_issue_id(client, issue_id))
+        row = asyncio.run(client.update_issue_vcs_link(real_id, link_id, **fields))
+        if isinstance(row, dict) and "data" in row and isinstance(row["data"], dict):
+            if "id" not in row:
+                row = row["data"]
+        if json_mode:
+            click.echo(_format_json_response(success=True, data=row, message="updated vcs"))
+            return
+        rid = (row or {}).get("id", link_id)
+        kind = (row or {}).get("kind") or ""
+        st = (row or {}).get("status") or ""
+        ref = (row or {}).get("prUrl") or (row or {}).get("branchName") or ""
+        bits = [b for b in (kind, st, ref) if b]
+        if bits:
+            skin.success(f"Updated VCS link {rid} [{' '.join(bits)}]")
+        else:
+            skin.success(f"Updated VCS link {rid}")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to update VCS link", json_mode)
+        sys.exit(1)
+
+
 @issue_cli.command(name="children")
 @click.argument("issue_id")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
