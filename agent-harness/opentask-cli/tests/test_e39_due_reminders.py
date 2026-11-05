@@ -1,4 +1,4 @@
-"""E39 CLI: notif run-due-reminders + prefs due_reminder keys + version 1.74.0."""
+"""E39 CLI: notif run-due-reminders + prefs due_reminder keys + version 1.75.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli

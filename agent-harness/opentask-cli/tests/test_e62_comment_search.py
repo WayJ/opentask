@@ -1,4 +1,4 @@
-"""E62 CLI: comments search output + version 1.74.0."""
+"""E62 CLI: comments search output + version 1.75.0."""
 from click.testing import CliRunner
 
 from opentask import __version__

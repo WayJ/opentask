@@ -1,4 +1,4 @@
-"""E74: CLI 1.74.0 pins + comment --parent-id."""
+"""E74: CLI 1.75.0 pins + comment --parent-id."""
 from __future__ import annotations
 
 from pathlib import Path

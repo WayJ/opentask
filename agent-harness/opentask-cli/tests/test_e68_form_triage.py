@@ -1,4 +1,4 @@
-"""E68 CLI: form --enqueue-triage + version 1.74.0."""
+"""E68 CLI: form --enqueue-triage + version 1.75.0."""
 from click.testing import CliRunner
 
 from opentask import __version__

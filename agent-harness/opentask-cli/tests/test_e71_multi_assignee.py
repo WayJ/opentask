@@ -1,4 +1,4 @@
-"""E71 CLI: issue --assignees + show Assignees + version 1.74.0."""
+"""E71 CLI: issue --assignees + show Assignees + version 1.75.0."""
 from pathlib import Path
 
 from click.testing import CliRunner

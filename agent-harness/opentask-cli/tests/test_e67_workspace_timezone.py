@@ -1,4 +1,4 @@
-"""E67 CLI: version 1.74.0 + due/recurrence TZ help."""
+"""E67 CLI: version 1.75.0 + due/recurrence TZ help."""
 from click.testing import CliRunner
 
 from opentask import __version__

@@ -1,4 +1,4 @@
-"""E85 CLI: project health get|set + timeline + show health + version 1.74.0."""
+"""E85 CLI: project health get|set + timeline + show health + version 1.75.0."""
 from __future__ import annotations
 
 import json

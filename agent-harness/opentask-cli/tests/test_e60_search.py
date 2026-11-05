@@ -1,4 +1,4 @@
-"""E60 CLI: top-level search + version 1.74.0."""
+"""E60 CLI: top-level search + version 1.75.0."""
 from click.testing import CliRunner
 
 from opentask import __version__

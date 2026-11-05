@@ -1,4 +1,4 @@
-"""E37 CLI: issue list --group-by cf:<key> + version 1.74.0."""
+"""E37 CLI: issue list --group-by cf:<key> + version 1.75.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli

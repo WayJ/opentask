@@ -1,4 +1,4 @@
-"""E59 CLI: insights reports/digest + label-ids + version 1.74.0."""
+"""E59 CLI: insights reports/digest + label-ids + version 1.75.0."""
 from click.testing import CliRunner
 
 from opentask import __version__

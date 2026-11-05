@@ -1,4 +1,4 @@
-"""E80 CLI: issue update --project|--milestone|--clear-milestone + version 1.74.0."""
+"""E80 CLI: issue update --project|--milestone|--clear-milestone + version 1.75.0."""
 from __future__ import annotations
 
 import json

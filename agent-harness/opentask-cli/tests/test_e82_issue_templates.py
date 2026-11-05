@@ -1,4 +1,4 @@
-"""E82 CLI: issue-template CRUD+seed + issue create --template-id + version 1.74.0."""
+"""E82 CLI: issue-template CRUD+seed + issue create --template-id + version 1.75.0."""
 from __future__ import annotations
 
 import json

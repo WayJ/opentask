@@ -1,4 +1,4 @@
-"""E88 CLI: favorite reorder + list position + version 1.74.0."""
+"""E88 CLI: favorite reorder + list position + version 1.75.0."""
 from __future__ import annotations
 
 import inspect

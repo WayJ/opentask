@@ -1,4 +1,4 @@
-"""E45 CLI: sla --pause + automation issue.sla_breached + version 1.74.0."""
+"""E45 CLI: sla --pause + automation issue.sla_breached + version 1.75.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli

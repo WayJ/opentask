@@ -1,4 +1,4 @@
-"""E90 CLI: initiative projects set + project attach|detach + version 1.74.0."""
+"""E90 CLI: initiative projects set + project attach|detach + version 1.75.0."""
 from __future__ import annotations
 
 import inspect

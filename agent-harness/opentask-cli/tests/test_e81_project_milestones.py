@@ -1,4 +1,4 @@
-"""E81 CLI: project milestone CRUD + issue create/list --milestone + version 1.74.0."""
+"""E81 CLI: project milestone CRUD + issue create/list --milestone + version 1.75.0."""
 from __future__ import annotations
 
 import json

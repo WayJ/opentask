@@ -1,4 +1,4 @@
-"""E51 CLI: webhook events + pack enums + version 1.74.0."""
+"""E51 CLI: webhook events + pack enums + version 1.75.0."""
 from click.testing import CliRunner
 
 from opentask.core.webhook import EVENTS

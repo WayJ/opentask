@@ -1,4 +1,4 @@
-"""E22 CLI: customer / request surface + version 1.74.0."""
+"""E22 CLI: customer / request surface + version 1.75.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli

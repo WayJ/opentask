@@ -1,4 +1,4 @@
-"""E73: CLI 1.74.0 pins + start-date options."""
+"""E73: CLI 1.75.0 pins + start-date options."""
 from __future__ import annotations
 
 from pathlib import Path

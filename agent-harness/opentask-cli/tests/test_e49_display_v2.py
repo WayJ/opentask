@@ -1,4 +1,4 @@
-"""E49 CLI: Display color scale/icon sets surface + version 1.74.0."""
+"""E49 CLI: Display color scale/icon sets surface + version 1.75.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli

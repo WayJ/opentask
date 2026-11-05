@@ -1,4 +1,4 @@
-"""E50 CLI: workspace/sla business-hours + version 1.74.0."""
+"""E50 CLI: workspace/sla business-hours + version 1.75.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli

@@ -1,4 +1,4 @@
-"""E66 CLI: issue attachment download|signed-url + version 1.74.0."""
+"""E66 CLI: issue attachment download|signed-url + version 1.75.0."""
 from click.testing import CliRunner
 
 from opentask import __version__

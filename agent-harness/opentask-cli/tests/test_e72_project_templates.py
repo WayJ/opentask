@@ -1,4 +1,4 @@
-"""E72 CLI: project-template + project create --template-id + version 1.74.0."""
+"""E72 CLI: project-template + project create --template-id + version 1.75.0."""
 from pathlib import Path
 
 from click.testing import CliRunner

@@ -1,4 +1,4 @@
-"""E87 CLI: label group list|create|update|delete + list/create --group-id + update str + version 1.74.0."""
+"""E87 CLI: label group list|create|update|delete + list/create --group-id + update str + version 1.75.0."""
 from __future__ import annotations
 
 from pathlib import Path

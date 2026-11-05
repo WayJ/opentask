@@ -1,4 +1,4 @@
-"""E54 CLI: webhook stats|dead-letter + version 1.74.0."""
+"""E54 CLI: webhook stats|dead-letter + version 1.75.0."""
 from click.testing import CliRunner
 
 from opentask import __version__

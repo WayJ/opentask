@@ -1,4 +1,4 @@
-"""E35 CLI: recurrence list|create|update|delete|run-due + version 1.74.0."""
+"""E35 CLI: recurrence list|create|update|delete|run-due + version 1.75.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli

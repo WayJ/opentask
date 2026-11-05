@@ -1,4 +1,4 @@
-"""E70 CLI: childProgress on issue show + version 1.74.0."""
+"""E70 CLI: childProgress on issue show + version 1.75.0."""
 from click.testing import CliRunner
 
 from opentask import __version__

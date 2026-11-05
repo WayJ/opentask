@@ -1,4 +1,4 @@
-"""E89 CLI: custom-field reorder + version 1.74.0."""
+"""E89 CLI: custom-field reorder + version 1.75.0."""
 from __future__ import annotations
 
 import inspect

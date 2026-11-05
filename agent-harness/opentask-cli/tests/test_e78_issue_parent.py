@@ -1,4 +1,4 @@
-"""E78 CLI: issue parent set|clear + version 1.74.0."""
+"""E78 CLI: issue parent set|clear + version 1.75.0."""
 from __future__ import annotations
 
 from pathlib import Path

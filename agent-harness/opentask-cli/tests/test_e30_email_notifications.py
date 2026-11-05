@@ -1,4 +1,4 @@
-"""E30 CLI: notif prefs email_enabled + email-test + version 1.74.0."""
+"""E30 CLI: notif prefs email_enabled + email-test + version 1.75.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli

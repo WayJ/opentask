@@ -1,4 +1,4 @@
-"""E83 CLI: project watch|unwatch|watchers + show watching_count + version 1.74.0."""
+"""E83 CLI: project watch|unwatch|watchers + show watching_count + version 1.75.0."""
 from __future__ import annotations
 
 import json

@@ -1,4 +1,4 @@
-"""E63 CLI: request status-link + public-status + version 1.74.0."""
+"""E63 CLI: request status-link + public-status + version 1.75.0."""
 from click.testing import CliRunner
 
 from opentask import __version__

@@ -1,4 +1,4 @@
-"""E56 CLI: sla policy --calendar-json|--clear-calendar + version 1.74.0."""
+"""E56 CLI: sla policy --calendar-json|--clear-calendar + version 1.75.0."""
 from click.testing import CliRunner
 from opentask.opentask_cli import cli, VERSION
 
