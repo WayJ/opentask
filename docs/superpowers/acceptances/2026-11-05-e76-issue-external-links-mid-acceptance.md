@@ -34,7 +34,7 @@ D1–D6 / Q1a–Q6a 按 design 落地。Reorder 端点后置（Q2a PATCH positio
 ## Tip
 
 - 分支：`sprint/E76-S1`
-- tip：`d5edff8`（全文 `d5edff8f2fdf451e97054d2f6361ee795a5cda59`）
+- tip：`1e2230c`（全文 `1e2230cafa107e935f5ad49c4cb6eabc0fe79785`）
 - **未 push / 未开 PR / 未开 E77**
 
 ## Receipt
