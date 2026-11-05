@@ -1,4 +1,4 @@
-"""E59 CLI: insights reports/digest + label-ids + version 1.68.0."""
+"""E59 CLI: insights reports/digest + label-ids + version 1.69.0."""
 from click.testing import CliRunner
 
 from opentask import __version__
@@ -9,9 +9,9 @@ def test_version_pin_143():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.68.0" in result.output
-    assert VERSION == "1.68.0"
-    assert __version__ == "1.68.0"
+    assert "1.69.0" in result.output
+    assert VERSION == "1.69.0"
+    assert __version__ == "1.69.0"
 
 
 def test_insights_summary_label_ids_help():

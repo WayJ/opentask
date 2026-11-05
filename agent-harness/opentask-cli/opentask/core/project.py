@@ -54,6 +54,12 @@ def milestone_cli():
     pass
 
 
+@project_cli.group(name="health")
+def health_cli():
+    """E85: project health get|set."""
+    pass
+
+
 @project_cli.command(name="list")
 @click.option("--active-only", is_flag=True, default=True, help="Show only active projects")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
@@ -135,11 +141,34 @@ def show_project(obj: "Context", project_id: str, as_json: bool):
             watchers = []
             watching_count = 0
 
+        health = None
+        health_status = None
+        try:
+            h = asyncio.run(
+                client.get_project_health(project.get("id") or project_id, history=False)
+            )
+            latest = None
+            if isinstance(h, dict):
+                if isinstance(h.get("data"), dict) and "latest" in h["data"]:
+                    latest = h["data"]["latest"]
+                elif "latest" in h:
+                    latest = h.get("latest")
+                else:
+                    latest = h
+            health = latest
+            if isinstance(latest, dict):
+                health_status = latest.get("status")
+        except (APIError, TypeError, ValueError):
+            health = None
+            health_status = None
+
         if json_mode:
             import json
             output = dict(project) if isinstance(project, dict) else {"project": project}
             output["watchers"] = watchers if isinstance(watchers, list) else []
             output["watching_count"] = watching_count
+            output["health"] = health
+            output["health_status"] = health_status
             click.echo(json.dumps(output, indent=2, ensure_ascii=False, default=str))
             return
 
@@ -151,6 +180,7 @@ def show_project(obj: "Context", project_id: str, as_json: bool):
             "Description": project.get("description", "") or "N/A",
             "Active": "Yes" if project.get("is_active") else "No",
             "Watching": str(watching_count),
+            "Health": health_status or "N/A",
             "Created": project.get("created_at", "")[:19] if project.get("created_at") else "N/A",
             "Updated": project.get("updated_at", "")[:19] if project.get("updated_at") else "N/A"
         })
@@ -773,3 +803,145 @@ def project_milestone_delete(
         skin.success(f"[OK] Milestone deleted: {milestone_id[:8]}")
     except APIError as e:
         handle_api_error(e, json_mode, "Failed to delete milestone")
+
+
+@health_cli.command(name="get")
+@click.argument("project_id")
+@click.option("--history", is_flag=True, help="Include health history")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def project_health_get(obj: "Context", project_id: str, history: bool, as_json: bool):
+    """E85: Get project health (latest; optional history)."""
+    config: Config = obj.config
+    json_mode = as_json or getattr(obj, "json_mode", False)
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    try:
+        data = asyncio.run(client.get_project_health(project_id, history=history))
+        if json_mode:
+            echo_json(True, data=data)
+            return
+        latest = None
+        hist = []
+        if isinstance(data, dict):
+            latest = data.get("latest")
+            hist = data.get("history") or []
+        skin.section("Project Health")
+        if isinstance(latest, dict):
+            skin.status_block({
+                "Status": latest.get("status") or "N/A",
+                "Note": latest.get("note") or "N/A",
+                "Updated": str(latest.get("created_at") or "")[:19] or "N/A",
+            })
+        else:
+            skin.info("No health update yet")
+        if history and hist:
+            skin.table(
+                ["Status", "Note", "At"],
+                [
+                    [
+                        r.get("status") or "",
+                        (r.get("note") or "")[:40],
+                        str(r.get("created_at") or "")[:19],
+                    ]
+                    for r in hist
+                    if isinstance(r, dict)
+                ],
+            )
+    except APIError as e:
+        handle_api_error(e, json_mode, "Failed to get project health")
+
+
+@health_cli.command(name="set")
+@click.argument("project_id")
+@click.option(
+    "--status",
+    type=click.Choice(["on_track", "at_risk", "off_track"], case_sensitive=False),
+    required=True,
+    help="Health status",
+)
+@click.option("--note", default=None, help="Optional note")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def project_health_set(
+    obj: "Context", project_id: str, status: str, note: str | None, as_json: bool
+):
+    """E85: Set project health status (+ optional note)."""
+    config: Config = obj.config
+    json_mode = as_json or getattr(obj, "json_mode", False)
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    try:
+        data = asyncio.run(
+            client.post_project_health(project_id, status=status, note=note)
+        )
+        if json_mode:
+            echo_json(True, data=data, message="health updated")
+            return
+        skin.success(f"[OK] Health set: {status}")
+    except APIError as e:
+        handle_api_error(e, json_mode, "Failed to set project health")
+
+
+@project_cli.command(name="timeline")
+@click.argument("project_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def project_timeline(obj: "Context", project_id: str, as_json: bool):
+    """E85: Project timeline (milestones + dated issues + health)."""
+    config: Config = obj.config
+    json_mode = as_json or getattr(obj, "json_mode", False)
+    if not require_workspace_id(config, json_mode):
+        raise SystemExit(1)
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    try:
+        data = asyncio.run(client.get_project_timeline(project_id))
+        if json_mode:
+            echo_json(True, data=data)
+            return
+        proj = (data or {}).get("project") if isinstance(data, dict) else {}
+        milestones = (data or {}).get("milestones") or [] if isinstance(data, dict) else []
+        issues = (data or {}).get("issues") or [] if isinstance(data, dict) else []
+        skin.section("Project Timeline")
+        if isinstance(proj, dict):
+            skin.status_block({
+                "Project": proj.get("name") or project_id,
+                "Health": proj.get("health_status") or "N/A",
+                "Starts": str(proj.get("starts_at") or "")[:19] or "N/A",
+                "Target": str(proj.get("target_date") or "")[:19] or "N/A",
+            })
+        if milestones:
+            skin.table(
+                ["Milestone", "Status", "Target"],
+                [
+                    [
+                        m.get("name") or str(m.get("id", ""))[:8],
+                        m.get("status") or "",
+                        str(m.get("target_date") or "")[:19],
+                    ]
+                    for m in milestones
+                    if isinstance(m, dict)
+                ],
+            )
+        if issues:
+            skin.table(
+                ["Issue", "Status", "Due"],
+                [
+                    [
+                        i.get("issue_code") or i.get("title") or str(i.get("id", ""))[:8],
+                        i.get("status") or "",
+                        str(i.get("due_date") or "")[:19],
+                    ]
+                    for i in issues
+                    if isinstance(i, dict)
+                ],
+            )
+        if not milestones and not issues:
+            skin.info("No timeline items")
+    except APIError as e:
+        handle_api_error(e, json_mode, "Failed to get project timeline")

@@ -797,6 +797,28 @@ class OpenTaskClient:
         return await self.delete(f"/api/projects/{project_id}/watchers")
 
     # ============================================================================
+    # Project Health / Timeline API (E85)
+    # ============================================================================
+
+    async def get_project_health(self, project_id: str, *, history: bool = False) -> dict:
+        """E85: GET project health (optional history)."""
+        params = {"history": "true" if history else "false"}
+        return await self.get(f"/api/projects/{project_id}/health", params=params)
+
+    async def post_project_health(
+        self, project_id: str, *, status: str, note: str | None = None
+    ) -> dict:
+        """E85: POST project health update."""
+        body: dict = {"status": status}
+        if note is not None:
+            body["note"] = note
+        return await self.post(f"/api/projects/{project_id}/health", data=body)
+
+    async def get_project_timeline(self, project_id: str) -> dict:
+        """E85: GET project timeline."""
+        return await self.get(f"/api/projects/{project_id}/timeline")
+
+    # ============================================================================
     # Saved Views API
     # ============================================================================
 
