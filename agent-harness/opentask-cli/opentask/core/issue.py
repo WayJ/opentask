@@ -2848,6 +2848,103 @@ def bulk_update_issues(obj: "Context", ids: str, status, priority, assignee, cyc
 
 
 
+@issue_cli.command(name="trash")
+@click.option("--limit", "-n", default=20, show_default=True, help="Max rows to show")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def issue_trash_cmd(obj: "Context", limit: int, as_json: bool):
+    """E77: List soft-deleted Issues in the current workspace.
+
+    Soft-delete happens via Web UI / API; use `issue restore` to undelete.
+    CLI `issue delete` remains disabled for safety.
+
+    Examples:
+        opentask issue trash
+        opentask issue trash --limit 50 --json
+    """
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+
+    try:
+        page_size = max(1, min(100, int(limit or 20)))
+        data = asyncio.run(client.list_issue_trash(page=1, page_size=page_size))
+        if isinstance(data, dict) and "data" in data and isinstance(data["data"], dict):
+            if "rows" not in data:
+                data = data["data"]
+        rows = data.get("rows") if isinstance(data, dict) else data
+        rows = rows or []
+        total = data.get("total", len(rows)) if isinstance(data, dict) else len(rows)
+        if json_mode:
+            click.echo(_format_json_response(
+                success=True,
+                data={"rows": rows, "total": total},
+                message=f"trash: {total}",
+            ))
+            return
+        if not rows:
+            skin.info("Trash is empty")
+            return
+        skin.info(f"Trash ({total}):")
+        for r in rows:
+            code = r.get("issue_code") or r.get("issueCode") or ""
+            title = r.get("title") or ""
+            rid = r.get("id") or ""
+            skin.info(f"  {code or rid}  {title}")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to list trash", json_mode)
+        sys.exit(1)
+
+
+@issue_cli.command(name="restore")
+@click.argument("issue_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def issue_restore_cmd(obj: "Context", issue_id: str, as_json: bool):
+    """E77: Restore a soft-deleted Issue (member+). Idempotent if already live.
+
+    Examples:
+        opentask issue restore WAY-12
+        opentask issue restore <uuid> --json
+    """
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+
+    try:
+        real_id = issue_id
+        if _looks_like_issue_code(issue_id):
+            issue = asyncio.run(
+                client.get_issue(issue_id, by_code=True, include_deleted=True)
+            )
+            if isinstance(issue, dict) and "data" in issue and isinstance(issue["data"], dict):
+                if "id" not in issue:
+                    issue = issue["data"]
+            real_id = issue.get("id", issue_id)
+        result = asyncio.run(client.restore_issue(real_id))
+        if isinstance(result, dict) and "data" in result and isinstance(result["data"], dict):
+            if "id" not in result and "issue_code" not in result:
+                result = result["data"]
+        code = result.get("issue_code") or result.get("issueCode") or ""
+        rid = result.get("id") or real_id
+        if json_mode:
+            click.echo(_format_json_response(
+                success=True,
+                data=result,
+                message=f"Issue restored: {code or rid}",
+            ))
+            return
+        skin.success(f"[OK] Issue restored: {code or rid}")
+        if code:
+            skin.info(f"  code: {code}")
+        skin.info(f"  id: {rid}")
+    except APIError as e:
+        _handle_error(skin, e, "Failed to restore issue", json_mode)
+        sys.exit(1)
+
+
 @issue_cli.command(name="delete")
 @click.argument("issue_id")
 @click.option("--force", "-f", is_flag=True, help="Skip confirmation")
@@ -2856,8 +2953,8 @@ def bulk_update_issues(obj: "Context", ids: str, status, priority, assignee, cyc
 def delete_issue(obj: "Context", issue_id: str, force: bool, as_json: bool):
     """Delete an issue (SECURITY: Not allowed via CLI).
 
-    For security reasons, deletion operations are not allowed through CLI.
-    This protects against accidental deletions by AI assistants.
+    Soft-delete via Web UI / API; recover with `opentask issue restore`.
+    CLI delete stays disabled to protect against accidental AI deletions.
 
     Examples:
         issue delete ISSUE-ID
@@ -2876,10 +2973,9 @@ def delete_issue(obj: "Context", issue_id: str, force: bool, as_json: bool):
         "",
         "For security reasons, deletion operations are not allowed through CLI.",
         "",
-        "Please use the Web UI to delete this issue:",
-        f"  1. Open: {obj.config.api_url.rstrip('/')}/issues/{issue_id}",
-        "  2. Click the delete button",
-        "  3. Confirm the deletion",
+        "Please use the Web UI / API to soft-delete, then `opentask issue restore` to undelete.",
+        f"  Web: {obj.config.api_url.rstrip('/')}/issues/{issue_id}",
+        "  Or: opentask issue trash  /  opentask issue restore <id|code>",
         "",
         "This protects against accidental deletions by AI assistants.",
     ]

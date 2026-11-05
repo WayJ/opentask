@@ -1649,14 +1649,21 @@ class OpenTaskClient:
             return await self.get("/api/issues", params=items)
         return await self.get("/api/issues", params=params)
 
-    async def get_issue(self, issue_id: str, by_code: bool = False) -> dict:
+    async def get_issue(
+        self, issue_id: str, by_code: bool = False, include_deleted: bool = False
+    ) -> dict:
         """Get issue details.
 
         Args:
             issue_id: Issue ID or issue code
             by_code: If True, query by issue_code; otherwise by ID (default)
+            include_deleted: E77 — include soft-deleted (trash detail / restore by code)
         """
-        params = {"by_code": "true"} if by_code else {}
+        params: dict = {}
+        if by_code:
+            params["by_code"] = "true"
+        if include_deleted:
+            params["include_deleted"] = "true"
         return await self.get(f"/api/issues/{issue_id}", params=params)
 
     async def get_issue_branch_name(self, issue_id: str) -> dict:
@@ -1740,6 +1747,17 @@ class OpenTaskClient:
         if assignee_ids is not None:
             data["assignee_ids"] = assignee_ids
         return await self.post(f"/api/issues/{issue_id}/duplicate", data=data)
+
+    async def list_issue_trash(self, *, page: int = 1, page_size: int = 20) -> dict:
+        """E77: GET /api/issues/trash"""
+        return await self.get(
+            "/api/issues/trash",
+            params={"page": page, "page_size": page_size},
+        )
+
+    async def restore_issue(self, issue_id: str) -> dict:
+        """E77: POST /api/issues/{id}/restore"""
+        return await self.post(f"/api/issues/{issue_id}/restore", data={})
 
 
     async def list_issue_links(self, issue_id: str) -> dict:

@@ -1,4 +1,4 @@
-"""E58 CLI: sla holiday-packs + version 1.60.0."""
+"""E58 CLI: sla holiday-packs + version 1.61.0."""
 from click.testing import CliRunner
 
 from opentask import __version__
@@ -9,9 +9,9 @@ def test_version_1_42_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.60.0" in result.output
-    assert VERSION == "1.60.0"
-    assert __version__ == "1.60.0"
+    assert "1.61.0" in result.output
+    assert VERSION == "1.61.0"
+    assert __version__ == "1.61.0"
 
 
 def test_holiday_packs_group_help():
