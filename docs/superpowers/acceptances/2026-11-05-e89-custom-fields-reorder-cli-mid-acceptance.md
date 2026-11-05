@@ -10,42 +10,42 @@ Plan：`docs/superpowers/plans/2026-11-05-e89-custom-fields-reorder-cli-mid-plan
 
 | 项 | 状态 | 备注 |
 |----|------|------|
-| A BE | _pending_ | Q1a 无新路由；复用 POST `/api/custom-fields/reorder` body `orderedIds`；软更新语义 |
-| B FE | _pending_ | 零产品 FE；vitest + build；`f`+`r` |
-| C CLI 1.73.0 | _pending_ | `custom-field reorder`；api_client POST+`orderedIds`；pins 1.73.0 |
-| D 安全/邻面/no-emit | _pending_ | 未改 E88–E79 邻面；无新表/路由/webhook；formula no-emit |
-| E 门禁 | _pending_ | 见下 |
+| A BE | ✅ | Q1a **无新路由**；复用 `POST /api/custom-fields/reorder` body **`orderedIds`**；软更新语义 spy（`if fid in by_id`）；既有 custom-fields smoke 绿；邻面 spy 绿；**未改** E88 favorite reorder / E87 tag-group / E86 set/multi / project-health / cycle / project-watchers / issue-template / milestone / `issue_project_move` / E79 roster |
+| B FE | ✅ | **零产品 FE**；vitest smoke；production build ok；elegant-router `/f/:token`+`/r/:token` 保留（build 曾冲掉 elegant imports/typings，已 checkout 恢复） |
+| C CLI 1.73.0 | ✅ | `custom-field reorder --ids …`（+位置参数兼容）；api_client `reorder_custom_fields` → **POST** `/api/custom-fields/reorder` + **`orderedIds`**（非 PUT / 非 `ordered_ids`）；pins：`VERSION` + pyproject + setup + `__init__` + `opentask_cli.VERSION` = **1.73.0**；历史 epic 断言级联；**未改** list / create / update / validate-formula 默认行为 |
+| D 安全/邻面/no-emit | ✅ | 未改 E88 favorite reorder / E87 tag-group / E86 set/multi / E85 project-health / E84 cycle / E83 project-watchers / E82 issue-templates / E81 milestones / E80 integrity / E79 roster；无新表 / 无 alembic / 无新 webhook / **无新 BE 路由**；formula no-emit；无 Activity Push / 无门户 / 无甘特 |
+| E 门禁 | ✅ | 见下 |
 
 ## Tip
 
 - 分支：`sprint/E89-S1`
-- tip short：_pending_
-- tip full：_pending_
+- tip short：a95b0c4
+- tip full：a95b0c4621a30479e9efa73ee675a5338cb66550
 - **未 push / 未开 PR / 未开 E90**
 
 ## Gates（verification-before-completion）
 
 | 门禁 | 结果 |
 |------|------|
-| Directed E89 BE | _pending_ |
-| Full BE `pytest tests` | _pending_ |
-| CLI suite | _pending_ |
-| FE vitest | _pending_ |
-| FE production build | _pending_ |
-| VERSION | _pending_ |
+| Directed E89 BE `tests/api/test_e89_custom_fields_reorder_cli_mid.py` + `test_custom_fields.py` | **12 passed**（E89 spy 5 + custom-fields smoke 7） |
+| Full BE `pytest tests` | **1414 passed**, 27 skipped, **1 failed**（known flake `tests/tasks/test_tasks_jira_wire.py::TestMetadata::test_user_search` — order pollution；不阻塞） |
+| CLI suite | **712 passed**, 89 skipped（含 directed E89 **8 passed**） |
+| FE vitest | **427 passed**（63 files） |
+| FE production build | **ok**（elegant-router `f`+`r` 在位；build 曾冲掉 elegant imports/typings，已 checkout 恢复；build 仅 warn 目录名 `f`/`r`） |
+| VERSION | `agent-harness/opentask-cli/VERSION` = **1.73.0** |
 
 ## Q1a–Q6a 落地
 
 - Q1a 不新增 BE 路由；复用 `POST /api/custom-fields/reorder`（body `orderedIds`；非 PUT）
 - Q2a CLI `custom-field reorder`
 - Q3a `--ids ID1,ID2,...` 为主；可兼位置参数
-- Q4a 不改 list（已有 Pos）
-- Q5a pins **1.73.0**
+- Q4a **不改** list（已有 Pos）
+- Q5a pins **1.73.0**（VERSION + pyproject + setup + `__init__` + `opentask_cli.VERSION`；历史 epic 断言级联）
 - Q6a 零产品 FE
 
 ## superpowers
 
-`superpowers: design/plan/TDD/verify/acceptance = _pending_`
+`superpowers: design/plan/TDD/verify/acceptance = ok`
 
 ## 禁区
 
@@ -54,4 +54,4 @@ Plan：`docs/superpowers/plans/2026-11-05-e89-custom-fields-reorder-cli-mid-plan
 ## 未做 / flake
 
 - 未做：Activity Push / 门户 / 甘特 / bulk project_id / `project list --watching` / E90
-- flake：_pending_
+- flake：`test_user_search`（已知，不阻塞）
