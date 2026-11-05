@@ -38,9 +38,13 @@ function cleanParams(params: Record<string, any>): Record<string, any> {
 }
 
 /** Build query params for issue detail; used by getIssue and unit-tested. */
-export function buildIssueDetailParams(opts?: { byCode?: boolean }): { by_code: true } | undefined {
-  if (opts?.byCode) return { by_code: true };
-  return undefined;
+export function buildIssueDetailParams(
+  opts?: { byCode?: boolean; includeDeleted?: boolean }
+): Record<string, true> | undefined {
+  const params: Record<string, true> = {};
+  if (opts?.byCode) params.by_code = true;
+  if (opts?.includeDeleted) params.include_deleted = true;
+  return Object.keys(params).length ? params : undefined;
 }
 
 export const issueApi = {
@@ -92,11 +96,29 @@ export const issueApi = {
    * 获取 Issue 详情
    * @param opts.byCode 为 true 时按 issue_code 查询（?by_code=true）
    */
-  getIssue: (id: string, opts?: { byCode?: boolean }) => {
+  getIssue: (id: string, opts?: { byCode?: boolean; includeDeleted?: boolean }) => {
     return request<Api.Issue.Issue>({
       url: `/api/issues/${id}`,
       method: 'GET',
       params: buildIssueDetailParams(opts)
+    });
+  },
+
+  /** E77: list soft-deleted Issues */
+  listTrash: (params?: { page?: number; page_size?: number }) => {
+    const cleanedParams = params ? cleanParams(params) : undefined;
+    return request<Api.Issue.IssueListResponse['data']>({
+      url: '/api/issues/trash',
+      method: 'GET',
+      params: cleanedParams
+    });
+  },
+
+  /** E77: restore soft-deleted Issue */
+  restoreIssue: (id: string) => {
+    return request<Api.Issue.Issue>({
+      url: `/api/issues/${id}/restore`,
+      method: 'POST'
     });
   },
 

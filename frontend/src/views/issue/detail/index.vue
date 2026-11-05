@@ -58,6 +58,7 @@ import IssuePrPanel from '@/components/issue-vcs/IssuePrPanel.vue';
 import IssueLinksPanel from '@/components/issue-links/IssueLinksPanel.vue';
 import EditableField from '@/components/EditableField.vue';
 import { formatTimelineAction } from '@/utils/formatTimelineAction';
+import { deletedReadonlyBanner, restoreSuccessMessage } from '@/utils/issueTrashMeta';
 import type { Api } from '@/typings/api';
 
 defineOptions({
@@ -237,12 +238,36 @@ const estimateOptions = [
 ];
 
 // Load issue detail
+const restoreLoading = ref(false);
+async function handleRestoreFromTrash() {
+  if (!issue.value) return;
+  restoreLoading.value = true;
+  try {
+    const restored = await issueApi.restoreIssue(issue.value.id);
+    const payload = (restored as any)?.data ?? restored;
+    issue.value = payload;
+    window.$message?.success(restoreSuccessMessage(payload?.issue_code || issue.value?.issue_code || ''));
+    router.replace({ path: '/issue/detail', query: { id: payload.id || issue.value.id } });
+  } catch {
+    window.$message?.error('恢复失败（需要 member 权限）');
+  } finally {
+    restoreLoading.value = false;
+  }
+}
+
 async function loadIssue() {
   if (!issueId.value) return;
 
   loading.value = true;
   try {
-    const data = await issueStore.getIssue(issueId.value);
+    const fromTrash = route.query.trash === '1';
+    let data: Api.Issue.Issue | null = null;
+    if (fromTrash) {
+      const res = await issueApi.getIssue(issueId.value, { includeDeleted: true });
+      data = ((res as any)?.data ?? res) as Api.Issue.Issue;
+    } else {
+      data = await issueStore.getIssue(issueId.value);
+    }
     issue.value = data;
     customFields.value = ((data as any)?.customFields as IssueCustomFieldValue[]) || [];
     try {
@@ -1340,8 +1365,17 @@ onUnmounted(() => {
               </div>
             </div>
 
+            <NAlert v-if="issue.is_deleted" type="warning" class="mb-3">
+              <div class="flex items-center justify-between gap-3">
+                <span>{{ deletedReadonlyBanner() }}</span>
+                <NButton size="small" type="primary" :loading="restoreLoading" @click="handleRestoreFromTrash">
+                  恢复
+                </NButton>
+              </div>
+            </NAlert>
+
             <!-- Quick Actions -->
-            <div class="issue-actions">
+            <div v-if="!issue.is_deleted" class="issue-actions">
               <NButtonGroup>
                 <NButton size="small" @click="router.push({ path: '/issue/edit', query: { id: issue.id } })">
                   <template #icon>

@@ -40,6 +40,7 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   issue_detail: () => import("@/views/issue/detail/index.vue"),
   issue_edit: () => import("@/views/issue/edit/index.vue"),
   issue_list: () => import("@/views/issue/list/index.vue"),
+  issue_trash: () => import("@/views/issue/trash/index.vue"),
   "knowledge-base_knowledge_detail": () => import("@/views/knowledge-base/knowledge/detail/[id].vue"),
   "knowledge-base_knowledge_edit_git": () => import("@/views/knowledge-base/knowledge/edit/git/index.vue"),
   "knowledge-base_knowledge_edit": () => import("@/views/knowledge-base/knowledge/edit/index.vue"),

@@ -1588,6 +1588,12 @@ onUnmounted(() => {
               </template>
               Import
             </NButton>
+            <NButton size="small" secondary @click="router.push('/issue/trash')">
+              <template #icon>
+                <icon-mdi-delete-restore />
+              </template>
+              回收站
+            </NButton>
             <NButton type="primary" @click="createIssue">
               <template #icon>
                 <icon-mdi-plus />

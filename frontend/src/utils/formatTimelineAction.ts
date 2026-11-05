@@ -50,6 +50,8 @@ export function formatTimelineAction(item: TimelineActionItem): string {
   switch (action_type) {
     case 'created':
       return '创建了此 Issue';
+    case 'restored':
+      return '从回收站恢复了此 Issue';
     case 'updated':
       return '更新了 Issue';
     case 'commented':

@@ -296,6 +296,7 @@ const local: App.I18n.Schema = {
     issue_detail: '问题详情',
     'issue_detail-new': '问题详情（新设计）',
     issue_list: '我的问题',
+    issue_trash: '回收站',
     issue_collection: '问题集',
     'issue_collection-list': '问题集列表',
     'issue_collection-create': '创建问题集',

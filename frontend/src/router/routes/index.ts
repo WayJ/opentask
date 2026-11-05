@@ -198,6 +198,15 @@ const customRoutes: CustomRoute[] = [
         }
       },
       {
+        name: 'issue_trash',
+        path: '/issue/trash',
+        component: 'view.issue_trash',
+        meta: {
+          title: 'issue_trash',
+          i18nKey: 'route.issue_trash'
+        }
+      },
+      {
         name: 'issue_detail',
         path: '/issue/detail',
         component: 'view.issue_detail',

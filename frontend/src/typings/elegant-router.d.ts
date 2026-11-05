@@ -44,6 +44,7 @@ declare module "@elegant-router/types" {
     "issue_detail": "/issue/detail";
     "issue_edit": "/issue/edit";
     "issue_list": "/issue/list";
+    "issue_trash": "/issue/trash";
     "knowledge-base": "/knowledge-base";
     "knowledge-base_knowledge": "/knowledge-base/knowledge";
     "knowledge-base_knowledge_detail": "/knowledge-base/knowledge/detail/:id";
@@ -208,6 +209,7 @@ declare module "@elegant-router/types" {
     | "issue_detail"
     | "issue_edit"
     | "issue_list"
+    | "issue_trash"
     | "knowledge-base_knowledge_detail"
     | "knowledge-base_knowledge_edit_git"
     | "knowledge-base_knowledge_edit"

@@ -259,6 +259,16 @@ export const generatedRoutes: GeneratedRoute[] = [
           i18nKey: 'route.issue_list',
           icon: 'mdi:format-list-bulleted'
         }
+      },
+      {
+        name: 'issue_trash',
+        path: '/issue/trash',
+        component: 'view.issue_trash',
+        meta: {
+          title: 'issue_trash',
+          i18nKey: 'route.issue_trash',
+          icon: 'mdi:delete-restore'
+        }
       }
     ]
   },

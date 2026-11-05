@@ -332,6 +332,7 @@ const local: App.I18n.Schema = {
     issue_detail: 'Issue Detail',
     'issue_detail-new': 'Issue Detail (New Design)',
     issue_list: 'My issues',
+    issue_trash: 'Trash',
     issue_collection: 'Issue Collection',
     'issue_collection-list': 'Collection List',
     'issue_collection-detail': 'Collection Detail',
