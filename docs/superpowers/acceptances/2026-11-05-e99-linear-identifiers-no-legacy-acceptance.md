@@ -22,8 +22,8 @@ Migrations：
 ## Tip
 
 - 分支：`sprint/E99-S1`
-- tip short：b694556
-- tip full：b6945563b4856c51a052cff015f001cd8c79fe2e
+- tip short：d96a917
+- tip full：d96a91715121a85b9d3e3b9cf7fd140421c69cdb
 - **未 push / 未开 PR / 未开下一 Epic**
 
 ## Gates（verification-before-completion）
