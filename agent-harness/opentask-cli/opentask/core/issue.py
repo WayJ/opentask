@@ -177,6 +177,16 @@ def _display_issue_details(skin: ReplSkin, client: OpenTaskClient, issue: dict, 
         "Attachment Count": issue.get("attachment_count", 0),
     })
 
+    # E70: ChildProgress (omit when total==0 / missing)
+    cp = issue.get("childProgress") or issue.get("child_progress")
+    if isinstance(cp, dict) and cp.get("total"):
+        pct = cp.get("percent")
+        label = f"{cp.get('done', 0)}/{cp.get('total', 0)}"
+        if pct is not None:
+            label = f"{label} ({pct}%)"
+        skin.info("ChildProgress")
+        skin.status_block({"ChildProgress": label})
+
     # Description
     if issue.get("description"):
         skin.info("Description")
@@ -319,9 +329,15 @@ def _resolve_user_id(skin: ReplSkin, client: OpenTaskClient, assignee_input: str
     default=None,
     help="E37: client group key — none|status|assignee|priority|type|label|cf:<key>",
 )
+@click.option(
+    "--include",
+    "include",
+    default=None,
+    help="E25/E70: comma extras — custom_fields,childProgress",
+)
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.pass_obj
-def list_issues(obj: "Context", status, issue_type, priority, project_id, assignee_id, mine, watching, due_soon, cycle_id, search, open_only, recent, updated_today, overdue, unassigned, page, page_size, sort_by, sort_order, cf, group_by, as_json):
+def list_issues(obj: "Context", status, issue_type, priority, project_id, assignee_id, mine, watching, due_soon, cycle_id, search, open_only, recent, updated_today, overdue, unassigned, page, page_size, sort_by, sort_order, cf, group_by, include, as_json):
     """List issues with filtering and pagination.
 
     Advanced filters:
@@ -392,6 +408,10 @@ def list_issues(obj: "Context", status, issue_type, priority, project_id, assign
         group_by = gb
 
     need_cf = bool(cf) or (isinstance(group_by, str) and group_by.startswith("cf:"))
+    include_parts = [p.strip() for p in (include or "").split(",") if p.strip()]
+    if need_cf and "custom_fields" not in include_parts:
+        include_parts.append("custom_fields")
+    include_arg = ",".join(include_parts) if include_parts else None
 
     try:
         result = asyncio.run(client.list_issues(
@@ -413,7 +433,7 @@ def list_issues(obj: "Context", status, issue_type, priority, project_id, assign
             due_soon=due_soon,
             cycle_id=cycle_id,
             cf=list(cf) if cf else None,
-            include="custom_fields" if need_cf else None,
+            include=include_arg,
         ))
 
         if json_mode:

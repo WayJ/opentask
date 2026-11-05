@@ -1,4 +1,4 @@
-"""E32 CLI: issue list --cf + version 1.53.0."""
+"""E32 CLI: issue list --cf + version 1.54.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli
@@ -8,7 +8,7 @@ def test_version_1_16_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.53.0" in result.output
+    assert "1.54.0" in result.output
 
 
 def test_issue_list_accepts_cf_option():
