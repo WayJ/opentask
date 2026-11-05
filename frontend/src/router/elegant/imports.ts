@@ -84,7 +84,7 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   "workspace_custom-fields": () => import("@/views/workspace/custom-fields/index.vue"),
   workspace_cycles: () => import("@/views/workspace/cycles/index.vue"),
   "workspace_issue-templates": () => import("@/views/workspace/issue-templates/index.vue"),
-  "workspace_project-templates": () => import("@/views/workspace/project-templates/index.vue"),
   workspace_labels: () => import("@/views/workspace/labels/index.vue"),
   workspace_members: () => import("@/views/workspace/members/index.vue"),
+  "workspace_project-templates": () => import("@/views/workspace/project-templates/index.vue"),
 };

@@ -847,15 +847,6 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       },
       {
-        name: 'workspace_project-templates',
-        path: '/workspace/project-templates',
-        component: 'view.workspace_project-templates',
-        meta: {
-          title: 'workspace_project-templates',
-          i18nKey: 'route.workspace_project-templates'
-        }
-      },
-      {
         name: 'workspace_labels',
         path: '/workspace/labels',
         component: 'view.workspace_labels',
@@ -871,6 +862,15 @@ export const generatedRoutes: GeneratedRoute[] = [
         meta: {
           title: 'workspace_members',
           i18nKey: 'route.workspace_members'
+        }
+      },
+      {
+        name: 'workspace_project-templates',
+        path: '/workspace/project-templates',
+        component: 'view.workspace_project-templates',
+        meta: {
+          title: 'workspace_project-templates',
+          i18nKey: 'route.workspace_project-templates'
         }
       }
     ]

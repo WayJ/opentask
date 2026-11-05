@@ -243,9 +243,9 @@ const routeMap: RouteMap = {
   "workspace_custom-fields": "/workspace/custom-fields",
   "workspace_cycles": "/workspace/cycles",
   "workspace_issue-templates": "/workspace/issue-templates",
-  "workspace_project-templates": "/workspace/project-templates",
   "workspace_labels": "/workspace/labels",
-  "workspace_members": "/workspace/members"
+  "workspace_members": "/workspace/members",
+  "workspace_project-templates": "/workspace/project-templates"
 };
 
 /**
