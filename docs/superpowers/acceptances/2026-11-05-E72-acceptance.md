@@ -30,7 +30,7 @@ D1–D7 / Q1a–Q6a 按 design 落地。
 ## Tip
 
 - 分支：`sprint/E72-S1`
-- tip：_pending_（本 commit 后回填）
+- tip：`371d703`（全文 `371d703c01ad076bc03562b1248ad627d2fcb6b0`） — superseded by tip-fill commit
 - **未 push / 未开 PR / 未开 E73**
 
 ## Receipt
