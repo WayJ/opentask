@@ -896,6 +896,51 @@ class OpenTaskClient:
     async def get_saved_view(self, view_id: str) -> dict:
         return await self.get(f"/api/saved-views/{view_id}")
 
+    async def create_saved_view(
+        self,
+        name: str,
+        filter: dict | None = None,
+        sort: dict | None = None,
+        display: dict | None = None,
+        is_favorite: bool | None = None,
+        is_shared: bool | None = None,
+    ) -> dict:
+        """E92: POST /api/saved-views — snake_case body (is_favorite/is_shared/filter)."""
+        body: dict = {"name": name, "filter": filter if filter is not None else {}}
+        if sort is not None:
+            body["sort"] = sort
+        if display is not None:
+            body["display"] = display
+        if is_favorite is not None:
+            body["is_favorite"] = bool(is_favorite)
+        if is_shared is not None:
+            body["is_shared"] = bool(is_shared)
+        return await self.post("/api/saved-views", data=body)
+
+    async def update_saved_view(self, view_id: str, **kwargs) -> dict:
+        """E92: PATCH /api/saved-views/{id} — snake_case optional fields."""
+        allowed = {"name", "filter", "sort", "display", "is_favorite", "is_shared"}
+        body = {k: v for k, v in kwargs.items() if k in allowed and v is not None}
+        return await self.patch(f"/api/saved-views/{view_id}", data=body)
+
+    async def delete_saved_view(self, view_id: str) -> dict:
+        """E92: DELETE /api/saved-views/{id}."""
+        return await self.delete(f"/api/saved-views/{view_id}")
+
+    async def set_saved_view_favorite(self, view_id: str, is_favorite: bool) -> dict:
+        """E92: POST /api/saved-views/{id}/favorite body {is_favorite}."""
+        return await self.post(
+            f"/api/saved-views/{view_id}/favorite",
+            data={"is_favorite": bool(is_favorite)},
+        )
+
+    async def save_as_saved_view(self, view_id: str, name: str | None = None) -> dict:
+        """E92: POST /api/saved-views/{id}/save-as body {name?}."""
+        body: dict = {}
+        if name is not None:
+            body["name"] = name
+        return await self.post(f"/api/saved-views/{view_id}/save-as", data=body)
+
     # ============================================================================
     # Initiatives API
     # ============================================================================

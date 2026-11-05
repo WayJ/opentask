@@ -1,4 +1,4 @@
-"""E42 CLI: sla policy|issue|run-due + version 1.75.0."""
+"""E42 CLI: sla policy|issue|run-due + version 1.76.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli
@@ -8,7 +8,7 @@ def test_version_1_26_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.75.0" in result.output
+    assert "1.76.0" in result.output
 
 
 def test_sla_run_due_help():

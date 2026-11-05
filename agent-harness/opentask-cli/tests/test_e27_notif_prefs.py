@@ -1,4 +1,4 @@
-"""E27 CLI: notif prefs get|set + version 1.75.0."""
+"""E27 CLI: notif prefs get|set + version 1.76.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli
@@ -8,7 +8,7 @@ def test_version_1_11_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.75.0" in result.output
+    assert "1.76.0" in result.output
 
 
 def test_notif_prefs_help():
