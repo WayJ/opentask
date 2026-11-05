@@ -19,8 +19,8 @@ Plan：`docs/superpowers/plans/2026-11-05-e82-issue-templates-cli-mid-plan.md`
 ## Tip
 
 - 分支：`sprint/E82-S1`
-- tip short：`9609249`
-- tip full：`9609249bb80aa429c556a476a531c9f55a4dff7d`
+- tip short：`dea2234`
+- tip full：`dea223450b5e2c14763a31563fb8d10d9272826e`
 - **未 push / 未开 PR / 未开 E83**
 
 ## Gates（verification-before-completion）
@@ -31,7 +31,7 @@ Plan：`docs/superpowers/plans/2026-11-05-e82-issue-templates-cli-mid-plan.md`
 | Full BE `pytest tests` | **1389 passed**, 24 skipped, **1 failed**（known flake `tests/tasks/test_tasks_jira_wire.py::TestMetadata::test_user_search` — order pollution；不阻塞） |
 | CLI suite | **637 passed**, 89 skipped（含 directed E82 **6 passed**） |
 | FE vitest | **427 passed**（63 files） |
-| FE production build | **ok**（elegant-router `f`+`r` 在位；build 仅 warn 目录名 `f`/`r`） |
+| FE production build | **ok**（elegant-router `f`+`r` 在位（build 曾冲掉 elegant imports，已 checkout 恢复）；build 仅 warn 目录名 `f`/`r`） |
 | VERSION | `agent-harness/opentask-cli/VERSION` = **1.66.0** |
 
 ## Q1a–Q6a 落地
