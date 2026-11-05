@@ -176,6 +176,8 @@ def _display_issue_details(skin: ReplSkin, client: OpenTaskClient, issue: dict, 
         dates["Resolved"] = issue["resolved_at"][:10]
     if issue.get("closed_at"):
         dates["Closed"] = issue["closed_at"][:10]
+    if issue.get("start_date"):
+        dates["Start"] = issue["start_date"][:10]
     if issue.get("due_date"):
         dates["Due"] = issue["due_date"][:10]
     skin.status_block(dates if dates else {"No dates": "available"})
@@ -322,6 +324,8 @@ def _resolve_user_id(skin: ReplSkin, client: OpenTaskClient, assignee_input: str
 @click.option("--mine", is_flag=True, help="E19: assigned to me (assignee=me)")
 @click.option("--watching", is_flag=True, help="E19: issues I watch")
 @click.option("--due-soon", "due_soon", is_flag=True, help="E19: due within 3 days (open)")
+@click.option("--start-before", default=None, help="E73: start_date <= YYYY-MM-DD")
+@click.option("--start-after", default=None, help="E73: start_date >= YYYY-MM-DD")
 @click.option("--cycle", "cycle_id", default=None, help="E21: filter by cycle ID (__none__ = no cycle)")
 @click.option("--search", help="Search keyword")
 @click.option("--open-only", is_flag=True, help="Show only open issues (shorthand for --status open)")
@@ -348,7 +352,7 @@ def _resolve_user_id(skin: ReplSkin, client: OpenTaskClient, assignee_input: str
 )
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.pass_obj
-def list_issues(obj: "Context", status, issue_type, priority, project_id, assignee_id, mine, watching, due_soon, cycle_id, search, open_only, recent, updated_today, overdue, unassigned, page, page_size, sort_by, sort_order, cf, group_by, include, as_json):
+def list_issues(obj: "Context", status, issue_type, priority, project_id, assignee_id, mine, watching, due_soon, start_before, start_after, cycle_id, search, open_only, recent, updated_today, overdue, unassigned, page, page_size, sort_by, sort_order, cf, group_by, include, as_json):
     """List issues with filtering and pagination.
 
     Advanced filters:
@@ -442,6 +446,8 @@ def list_issues(obj: "Context", status, issue_type, priority, project_id, assign
             unassigned=unassigned,
             watching=watching,
             due_soon=due_soon,
+            start_before=start_before,
+            start_after=start_after,
             cycle_id=cycle_id,
             cf=list(cf) if cf else None,
             include=include_arg,
@@ -754,10 +760,12 @@ def list_my_issues(obj: "Context", status, issue_type, priority, project_id, ope
               help="E71: comma-separated assignee IDs (first=primary)")
 @click.option("--estimate-points", type=float, default=None,
               help="Story points estimate (e.g. 1/2/3/5/8)")
+@click.option("--start-date", default=None, help="E73: planned start date YYYY-MM-DD")
+@click.option("--due-date", default=None, help="Due date YYYY-MM-DD")
 @click.option("--verbose", "-v", is_flag=True, help="Show detailed information")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.pass_obj
-def create_issue(obj: "Context", title: str, description: str, issue_type: str, status: str, priority: str, project_id: str, assignee_id: str, assignees, estimate_points, verbose: bool, as_json: bool):
+def create_issue(obj: "Context", title: str, description: str, issue_type: str, status: str, priority: str, project_id: str, assignee_id: str, assignees, estimate_points, start_date, due_date, verbose: bool, as_json: bool):
     """Create a new issue.
 
     Required fields:
@@ -805,6 +813,8 @@ def create_issue(obj: "Context", title: str, description: str, issue_type: str, 
             assignee_id=assignee_id,
             assignee_ids=assignee_ids,
             estimate_points=estimate_points,
+            start_date=start_date,
+            due_date=due_date,
         ))
 
         if json_mode:
@@ -873,10 +883,12 @@ def create_issue(obj: "Context", title: str, description: str, issue_type: str, 
 @click.option("--reporter", "-r", "reporter_id", help="New reporter user ID")
 @click.option("--estimate-points", type=float, default=None,
               help="Story points estimate (e.g. 1/2/3/5/8); omit to leave unchanged")
+@click.option("--start-date", default=None, help="E73: planned start date YYYY-MM-DD (empty string clears)")
+@click.option("--due-date", default=None, help="Due date YYYY-MM-DD (empty string clears)")
 @click.option("--verbose", "-v", is_flag=True, help="Show detailed information")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.pass_obj
-def update_issue(obj: "Context", issue_id: str, title, description, issue_type, status, priority, assignee_id, assignees, reporter_id, estimate_points, verbose: bool, as_json: bool):
+def update_issue(obj: "Context", issue_id: str, title, description, issue_type, status, priority, assignee_id, assignees, reporter_id, estimate_points, start_date, due_date, verbose: bool, as_json: bool):
     """Update an issue.
 
     Issue identifier format is auto-detected:
@@ -931,6 +943,10 @@ def update_issue(obj: "Context", issue_id: str, title, description, issue_type, 
         kwargs["reporter_id"] = reporter_id
     if estimate_points is not None:
         kwargs["estimate_points"] = estimate_points
+    if start_date is not None:
+        kwargs["start_date"] = start_date if start_date != "" else None
+    if due_date is not None:
+        kwargs["due_date"] = due_date if due_date != "" else None
 
     if not kwargs:
         skin.error("At least one field must be specified for update")

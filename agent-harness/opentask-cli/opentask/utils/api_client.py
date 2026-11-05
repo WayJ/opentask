@@ -1570,6 +1570,8 @@ class OpenTaskClient:
         watching: bool = False,
         due_soon: bool = False,
         due_before: str | None = None,
+        start_before: str | None = None,
+        start_after: str | None = None,
         cycle_id: str | None = None,
         cf: list[str] | None = None,
         include: str | None = None,
@@ -1626,6 +1628,10 @@ class OpenTaskClient:
             params["due_soon"] = "true"
         if due_before:
             params["due_before"] = due_before
+        if start_before:
+            params["start_before"] = start_before
+        if start_after:
+            params["start_after"] = start_after
         if cycle_id:
             params["cycle_id"] = cycle_id
         if include:
@@ -1679,6 +1685,8 @@ class OpenTaskClient:
         assignee_id: str | None = None,
         assignee_ids: list[str] | None = None,
         estimate_points: float | None = None,
+        start_date: str | None = None,
+        due_date: str | None = None,
     ) -> dict:
         """Create a new issue.
 
@@ -1702,6 +1710,10 @@ class OpenTaskClient:
             data["assignee_id"] = assignee_id
         if estimate_points is not None:
             data["estimate_points"] = estimate_points
+        if start_date:
+            data["start_date"] = start_date
+        if due_date:
+            data["due_date"] = due_date
 
         return await self.post("/api/issues", data=data)
 
