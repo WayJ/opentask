@@ -514,9 +514,22 @@ class IssueFormService:
         await self.db.commit()
         await self.db.refresh(issue)
 
+        triage_enqueued = False
+        if bool(form.enqueue_triage):
+            from opentask.services.triage.service import TriageService
+
+            await TriageService(self.db).enqueue(
+                workspace_id=form.workspace_id,
+                issue_id=str(issue.id),
+                actor_user_id=actor,
+            )
+            triage_enqueued = True
+            await self.db.refresh(issue)
+
         return {
             "issueId": str(issue.id),
             "issueCode": issue.issue_code,
             "requestId": request_id,
             "title": issue.title,
+            "triageEnqueued": triage_enqueued,
         }
