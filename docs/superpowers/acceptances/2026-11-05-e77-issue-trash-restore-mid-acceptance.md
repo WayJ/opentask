@@ -31,7 +31,7 @@ D1–D6 / Q1a–Q6a 按 design 落地。Bulk restore 本轮不做（Q4a）。
 ## Tip
 
 - 分支：`sprint/E77-S1`
-- tip：`1367a99`（全文 `1367a999410ce69f3d8a2ea985399e8577c5452f`）
+- tip：`c7a7b62`（全文 `c7a7b62036083a2599709cd4a28938e213b01aac`）
 - **未 push / 未开 PR / 未开 E78**
 
 ## Receipt
