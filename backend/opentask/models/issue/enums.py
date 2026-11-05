@@ -80,3 +80,4 @@ class TimelineAction(str, Enum):
     SLA_PAUSED = "sla_paused"                    # E48：SLA 暂停
     SLA_RESUMED = "sla_resumed"                  # E48：SLA 恢复
     RESTORED = "restored"                          # E77：从回收站恢复
+    PARENT_CHANGED = "parent_changed"                  # E78：父子关系变更

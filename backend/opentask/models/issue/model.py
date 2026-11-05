@@ -534,6 +534,7 @@ class IssueTimeline(DBModel):
              "start_date_changed",
              "link_added", "link_removed",
              "restored",
+             "parent_changed",
              name="timeline_action"),
         nullable=False,
         index=True,

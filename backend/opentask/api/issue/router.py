@@ -1282,8 +1282,22 @@ async def update_issue(
     service: IssueService = Depends(get_issue_service),
     current_user: UserModel = Depends(authenticate),
 ):
-    """更新 Issue（E15：成员校验）"""
-    await _require_issue_access(issue_id, service=service, user=current_user)
+    """更新 Issue（E15：成员校验；E78：改 parent_issue_id 需 member+）"""
+    issue_row = await _require_issue_access(issue_id, service=service, user=current_user)
+
+    # E78 Q: viewer 不可改父子关系（复用 PUT，仅对 parent 字段加严）
+    if "parent_issue_id" in data.model_fields_set:
+        from opentask.services.workspace.service import WorkspaceService
+
+        ws_id = getattr(issue_row, "workspace_id", None)
+        if ws_id:
+            member = await WorkspaceService(service.db).require_member(
+                ws_id, str(current_user.id)
+            )
+            if getattr(member, "role", None) not in ("owner", "member"):
+                raise HTTPException(
+                    status_code=403, detail="仅 member/owner 可修改父子关系"
+                )
 
     try:
         issue = await service.update_issue(issue_id, data, str(current_user.id))

@@ -566,6 +566,9 @@ class IssueService:
 
         parent = await self.get_issue(parent_issue_id)
         if not parent:
+            deleted = await self.get_issue(parent_issue_id, include_deleted=True)
+            if deleted is not None and getattr(deleted, "is_deleted", False):
+                raise ValueError("不能将已删除的 Issue 设为父")
             raise ValueError("父 Issue 不存在")
 
         if workspace_id is not None and parent.workspace_id != workspace_id:
@@ -890,6 +893,7 @@ class IssueService:
         if not update_data:
             return await self.get_issue(issue_id)
 
+        parent_changed_pair = None  # E78: (from, to)
         if "parent_issue_id" in update_data:
             existing = await self.get_issue(issue_id)
             if not existing:
@@ -899,6 +903,10 @@ class IssueService:
                 parent_issue_id=update_data.get("parent_issue_id"),
                 workspace_id=existing.workspace_id,
             )
+            old_parent = existing.parent_issue_id
+            new_parent = update_data.get("parent_issue_id")
+            if old_parent != new_parent:
+                parent_changed_pair = (old_parent, new_parent)
 
         if "cycle_id" in update_data:
             existing = await self.get_issue(issue_id)
@@ -1147,6 +1155,16 @@ class IssueService:
                     user_id=user_id,
                     action_data={"from": old_proj, "to": new_proj},
                 )
+
+        # E78: parent_issue_id change → timeline parent_changed (no new webhook name)
+        if parent_changed_pair is not None:
+            old_p, new_p = parent_changed_pair
+            await self._add_timeline(
+                issue_id=issue_id,
+                action_type=TimelineAction.PARENT_CHANGED,
+                user_id=user_id,
+                action_data={"from": old_p, "to": new_p},
+            )
 
         query = (
             update(Issue)
