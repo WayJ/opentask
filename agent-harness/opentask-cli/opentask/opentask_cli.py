@@ -55,10 +55,11 @@ from .core.sla import sla_cli
 from .core.request import request_cli
 from .core.doc import doc_cli
 from .core.search import search_cli
+from .core.display_prefs import display_prefs_cli
 
 
 # Global version
-VERSION = "1.76.0"
+VERSION = "1.77.0"
 
 # Context object passed to commands
 class Context:
@@ -422,6 +423,7 @@ cli.add_command(sla_cli)
 cli.add_command(request_cli)
 cli.add_command(doc_cli)
 cli.add_command(search_cli)
+cli.add_command(display_prefs_cli)
 cli.add_command(requirement_cli)
 cli.add_command(task_cli)
 cli.add_command(collection_cli)

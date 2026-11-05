@@ -886,6 +886,19 @@ class OpenTaskClient:
         """E85: GET project timeline."""
         return await self.get(f"/api/projects/{project_id}/timeline")
 
+    # ========================================================================
+    # Display Prefs API (E93)
+    # ========================================================================
+
+    async def get_issue_display_prefs(self) -> dict:
+        """E93: GET /api/display-prefs/issue → {display: null|object}."""
+        return await self.get("/api/display-prefs/issue")
+
+    async def put_issue_display_prefs(self, display: dict) -> dict:
+        """E93: PUT /api/display-prefs/issue body {display}; keep snake_case keys."""
+        return await self.put("/api/display-prefs/issue", data={"display": display})
+
+
     # ============================================================================
     # Saved Views API
     # ============================================================================

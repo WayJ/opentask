@@ -1,4 +1,4 @@
-"""E82 CLI: issue-template CRUD+seed + issue create --template-id + version 1.76.0."""
+"""E82 CLI: issue-template CRUD+seed + issue create --template-id + version 1.77.0."""
 from __future__ import annotations
 
 import json
@@ -14,20 +14,20 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_version_pins_1_66_0():
-    assert __version__ == "1.76.0"
-    assert VERSION == "1.76.0"
-    assert (ROOT / "VERSION").read_text().strip() == "1.76.0"
+    assert __version__ == "1.77.0"
+    assert VERSION == "1.77.0"
+    assert (ROOT / "VERSION").read_text().strip() == "1.77.0"
     pyproject = (ROOT / "pyproject.toml").read_text()
-    assert 'version = "1.76.0"' in pyproject
+    assert 'version = "1.77.0"' in pyproject
     setup = (ROOT / "setup.py").read_text()
-    assert "1.76.0" in setup
+    assert "1.77.0" in setup
 
 
 def test_version_flag():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.76.0" in result.output
+    assert "1.77.0" in result.output
 
 
 def test_issue_template_group_help():
