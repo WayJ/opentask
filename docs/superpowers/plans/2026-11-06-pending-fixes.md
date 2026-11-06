@@ -1,6 +1,6 @@
 # 待修批次 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 在 E99 已合并的 `main`（`c1d2424`）上隐藏 Requirement 界面、删除问题集专属代码、统一 OpenTask 品牌、把生产前端从 `/opentask` 改到站点根，并按 Yuri 选定的方式补上零成员用户的第一个工作区。
 
@@ -30,9 +30,9 @@
 - 只读：`docs/superpowers/specs/2026-11-06-pending-fixes-design.md`
 - 只读：本文件
 
-- [ ] **Step 1:** 把设计和本计划交给 Yuri。不改 `frontend/`、`backend/`、`deploy/`、`agent-harness/`。
-- [ ] **Step 2:** 工作区必须得到 A、B 或 C 的回复。未回复时跳过任务 5。推荐是 C。
-- [ ] **Step 3:** 根路径已在用户范围里。Yuri 若否决 notegit 的 `location /` 让位，停在任务 4，不要私自改回 `/opentask`。
+- [x] **Step 1:** Yuri 已批准，方案 C。按 spec 文首的修正实施。
+- [x] **Step 2:** 工作区做 5a 与 5b。
+- [x] **Step 3:** 根路径按独立 OpenTask 站点写。notegit 只在「宿主里确实另有 `location /`」时作为条件说明。不声称现网有 notegit。
 
 ### Task 1: 隐藏 Requirement 表面并标记废弃
 
@@ -47,7 +47,7 @@
 - Consumes: 路由名 `workflow_requirements`、`workflow_requirement-detail`、`issue_list`
 - Produces: 访问这两个路由名时 `next({ name: 'issue_list' })`，页面组件不挂载
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 在 `de-pge-nav.test.ts` 旁新增断言，或在同文件加一个纯函数测试。把重定向收成守卫可单测的函数，避免拉起整站：
 
@@ -76,11 +76,11 @@ it('redirects legacy requirement routes to the issue list', () => {
 });
 ```
 
-- [ ] **Step 2:** `cd frontend && pnpm exec vitest run src/router/__tests__/de-pge-nav.test.ts`  
+- [x] **Step 2:** `cd frontend && pnpm exec vitest run src/router/__tests__/de-pge-nav.test.ts`  
   Expected: FAIL，函数未定义。
-- [ ] **Step 3:** 把函数放进 `route.ts`，在 `beforeEach` 里于鉴权判断之前：若返回值非空则 `next(返回值)`。不要删 Vue 文件，不要改 `/api/requirements` 的处理函数。`APIRouter` 增加 `deprecated=True`。CLI help 加一行「已废弃，API 仍可用」。
-- [ ] **Step 4:** 同一 vitest 命令 Expected: PASS。既有「菜单 hideInMenu」断言保持。
-- [ ] **Step 5:** Commit `fix: hide legacy requirement screens behind the issue list`
+- [x] **Step 3:** 把函数放进 `route.ts`，在 `beforeEach` 里于鉴权判断之前：若返回值非空则 `next(返回值)`。不要删 Vue 文件，不要改 `/api/requirements` 的处理函数。`APIRouter` 增加 `deprecated=True`。CLI help 加一行「已废弃，API 仍可用」。
+- [x] **Step 4:** 同一 vitest 命令 Expected: PASS。既有「菜单 hideInMenu」断言保持。
+- [x] **Step 5:** Commit `fix: hide legacy requirement screens behind the issue list`
 
 ### Task 2: 删除问题集专属代码，保留表
 
@@ -98,7 +98,7 @@ it('redirects legacy requirement routes to the issue list', () => {
 - Consumes: 无
 - Produces: `GET /api/issues/collections` 为 404；`GET /api/issues` 与 `GET /api/saved-views` 仍按原语义
 
-- [ ] **Step 1: 写失败的 API 测试** `backend/tests/api/test_issue_collection_removed.py`
+- [x] **Step 1: 写失败的 API 测试** `backend/tests/api/test_issue_collection_removed.py`
 
 ```python
 import pytest
@@ -116,12 +116,12 @@ async def test_issue_list_still_listed(test_client, auth_headers):
 
 `auth_headers` 用仓库里现有注册夹具的名字（打开 `backend/tests/api/test_saved_views.py` 抄它的 header 构造）。不要新写一套登录。
 
-- [ ] **Step 2:** `cd backend && uv run pytest tests/api/test_issue_collection_removed.py -v`  
+- [x] **Step 2:** `cd backend && uv run pytest tests/api/test_issue_collection_removed.py -v`  
   Expected: FAIL，collections 仍是 200。
-- [ ] **Step 3:** 删除上面的专属文件与 router 块。`models/__init__.py` 去掉 `IssueCollection` 导入，并留下注释：表 `issue_collections` 由 baseline `003ccd38d5cd` 创建，本批不 drop、不删行。跑 `cd frontend && pnpm gen-route`。从 e98 测试的文件列表去掉 `services/issue_collection_service.py`，其余三个文件的 `resolve_workspace_for_issue_create` 断言保留。
-- [ ] **Step 4:** 重跑该 pytest Expected: PASS。再跑 `uv run pytest tests/api/test_e98_linear_issue_identifiers.py tests/api/test_saved_views.py -v` Expected: PASS。
-- [ ] **Step 5:** `cd backend && uv run python scripts/export_openapi.py`。确认 `openapi.json` 不再含 `/api/issues/collections`。
-- [ ] **Step 6:** Commit `fix: remove issue collection UI API and CLI`
+- [x] **Step 3:** 删除上面的专属文件与 router 块。`models/__init__.py` 去掉 `IssueCollection` 导入，并留下注释：表 `issue_collections` 由 baseline `003ccd38d5cd` 创建，本批不 drop、不删行。跑 `cd frontend && pnpm gen-route`。从 e98 测试的文件列表去掉 `services/issue_collection_service.py`，其余三个文件的 `resolve_workspace_for_issue_create` 断言保留。
+- [x] **Step 4:** 重跑该 pytest Expected: PASS。再跑 `uv run pytest tests/api/test_e98_linear_issue_identifiers.py tests/api/test_saved_views.py -v` Expected: PASS。
+- [x] **Step 5:** `cd backend && uv run python scripts/export_openapi.py`。确认 `openapi.json` 不再含 `/api/issues/collections`。
+- [x] **Step 6:** Commit `fix: remove issue collection UI API and CLI`
 
 ### Task 3: 活跃表面改用现有 OpenTask 标
 
@@ -134,7 +134,7 @@ async def test_issue_list_still_listed(test_client, auth_headers):
 - Modify: `frontend/src/views/home/modules/header-banner.vue`、`project-news.vue`、`frontend/src/layouts/modules/global-footer/index.vue`、对应 soybean 文案的 locale
 - 不改：`package.json` 的包名、`presetSoybeanAdmin`、`SystemLogo` 已引用的 `src/assets/imgs/opentask-logo.png`
 
-- [ ] **Step 1: 写失败测试** `frontend/src/router/guard/title.test.ts`
+- [x] **Step 1: 写失败测试** `frontend/src/router/guard/title.test.ts`
 
 ```ts
 import { formatDocumentTitle } from './title';
@@ -145,10 +145,10 @@ it('keeps OpenTask in the document title', () => {
 });
 ```
 
-- [ ] **Step 2:** vitest 该文件 Expected: FAIL。
-- [ ] **Step 3:** 抽出 `formatDocumentTitle`，两处 `useTitle` 改为 `useTitle(formatDocumentTitle(页面标题, $t('system.title')))`。其余品牌文件按列表改，不新画图。
-- [ ] **Step 4:** vitest Expected: PASS。
-- [ ] **Step 5:** Commit `fix: use the existing OpenTask mark on active surfaces`
+- [x] **Step 2:** vitest 该文件 Expected: FAIL。
+- [x] **Step 3:** 抽出 `formatDocumentTitle`，两处 `useTitle` 改为 `useTitle(formatDocumentTitle(页面标题, $t('system.title')))`。其余品牌文件按列表改，不新画图。
+- [x] **Step 4:** vitest Expected: PASS。
+- [x] **Step 5:** Commit `fix: use the existing OpenTask mark on active surfaces`
 
 ### Task 4: 生产改到站点根，登录仍是 `/login`
 
@@ -163,7 +163,7 @@ it('keeps OpenTask in the document title', () => {
 - Consumes: 路由名 `login`、`root`；`VITE_ROUTE_HOME=issue_list`
 - Produces: 生产 history base `/`；容器对 `/login` 回 index.html；宿主 `/api/`、`/ws/` 原样到 7377；`/oauth2/authorize` 到前端 8080
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `frontend/src/utils/attachmentUrls.test.ts` 增加：当 `apiBase` 为 `/` 时，`/api/attachments/signed/tok` 保持该路径，不以 `/opentask` 开头。把函数改成 `toBrowserAttachmentUrl(apiPath, apiBase)`，第二个参数默认取当前服务基址，测试显式传入。
 
@@ -191,8 +191,8 @@ it('matches /login with an optional module', () => {
 });
 ```
 
-- [ ] **Step 2:** vitest 这两个文件 Expected: 附件用例 FAIL（现实现总是加 `/opentask`）；登录用例 PASS（路由已经是 `/login`，用来锁住回归）。
-- [ ] **Step 3: 改构建与容器 nginx**
+- [x] **Step 2:** vitest 这两个文件 Expected: 附件用例 FAIL（现实现总是加 `/opentask`）；登录用例 PASS（路由已经是 `/login`，用来锁住回归）。
+- [x] **Step 3: 改构建与容器 nginx**
 
 `Dockerfile` 与 `Dockerfile.dist`：
 
@@ -252,7 +252,7 @@ server {
 
 不要加 `return 301 /opentask`。不要设置 `X-Workspace-Id`。
 
-- [ ] **Step 4: 宿主片段**
+- [x] **Step 4: 宿主片段**
 
 删除 `location = /opentask` 与 `location /opentask/`。保留 `/tasks/`、`/capabilities`、`/healthcheck`。增加：
 
@@ -291,7 +291,7 @@ location /oauth2/ {
 }
 ```
 
-片段头部写明：`sites-available/notegit` 里现有 `location /` 若仍 `proxy_pass` 到 `127.0.0.1:3000`，则 `/` 与 `/login` 仍是 notegit。要让 OpenTask 占据根，把该 `proxy_pass` 改为 `http://127.0.0.1:8080`。本文件不包含第二个 `location /`。回滚是指回 `3000` 并恢复旧片段。
+片段的主示例是独立站点：`location /` 指向 `127.0.0.1:8080`。文件末尾用一段条件注释说明：只有当操作者的 server 里已经有另一条 `location /` 时才需要先处理冲突。不写「该 IP 上正在跑 notegit」。
 
 `deploy/deploy.sh` 的检查改为：
 
@@ -301,10 +301,10 @@ for kv in "VITE_BASE_URL=/" "VITE_SERVICE_BASE_URL=/"; do
 
 产物自检：`index.html` 含 `/assets/`，且 `grep` 不到 `/opentask/assets/`。不要在本任务运行 `deploy.sh`。
 
-- [ ] **Step 5: 本地冒烟**  
-  用含新 `nginx.conf` 与一份最小 `index.html` 的 nginx 容器（不必等完整前端构建）请求 `/`、`/login`、`/issue/list`、`/f/sample-token`。Expected: 200，正文为 `index.html`，响应不是 301 到 `/opentask`。不要 curl `112.126.60.109`。
-- [ ] **Step 6:** vitest 附件与登录路径 Expected: PASS。
-- [ ] **Step 7:** Commit `fix: serve the SPA at the site root`
+- [x] **Step 5: 本地冒烟（真实构建产物）**  
+  `pnpm build` 产出 dist，打进使用新 `nginx.conf` 的容器。请求 `/`、`/login`、刷新 `/issue/list`、`/f/sample-token`、`/r/sample-token`，以及 `index.html` 引用的一个 `/assets/` 文件和 favicon。确认没有 301 到 `/opentask`。附件 URL 单测覆盖生产基址 `/`。配置上 `/api/`、`/ws/` 转到后端，`location = /oauth2/authorize` 走前端，`/oauth2/token` 走后端。不要 curl `112.126.60.109`。不新增原先未暴露的后端路径。
+- [x] **Step 6:** vitest 附件与登录路径 Expected: PASS。
+- [x] **Step 7:** Commit `fix: serve the SPA at the site root`
 
 ### Task 5: 零成员用户的第一个工作区（仅当 Yuri 选择包含的那一半）
 
@@ -324,7 +324,7 @@ for kv in "VITE_BASE_URL=/" "VITE_SERVICE_BASE_URL=/"; do
 - `ensure_owner_workspace(user_id: str, name: str) -> Workspace`：该用户已有任一 `WorkspaceMember` 时返回其中 `created_at` 最早的工作区且不插入；否则 `create_for_owner(name=name, owner_user_id=user_id)`。不读别的用户的工作区，不使用 `DEFAULT_WORKSPACE_ID`。
 - `resolveWorkspaceSelection(storedId: string | null, memberships: {id: string}[])`：空列表返回 `{ kind: 'onboarding' }`；`storedId` 在列表中返回 `{ kind: 'selected', id: storedId }`；否则 `{ kind: 'selected', id: memberships[0].id }`。
 
-- [ ] **Step 1: 后端失败测试**
+- [x] **Step 1: 后端失败测试**
 
 ```python
 @pytest.mark.asyncio
@@ -349,11 +349,11 @@ async def test_ensure_does_not_join_another_users_workspace(session, user_a, use
 
 CLI 单测：`build_parser().parse_args([]).workspace_name == "OpenTask"` 且 `skip_workspace is False`。`--reset-password` 默认仍为 False。
 
-- [ ] **Step 2:** pytest 该文件 Expected: FAIL，方法不存在。
-- [ ] **Step 3:** 实现方法。`create_admin` 在提交前调用它，除非 `--skip-workspace`。账号已存在且未 `--reset-password` 时仍不得改 `password_hash`，但零成员时要补工作区。不打印新口令，除非本次确实生成并写入了新口令（保持脚本现有分支）。
-- [ ] **Step 4:** pytest Expected: PASS。
+- [x] **Step 2:** pytest 该文件 Expected: FAIL，方法不存在。
+- [x] **Step 3:** 实现方法。`create_admin` 在提交前调用它，除非 `--skip-workspace`。账号已存在且未 `--reset-password` 时仍不得改 `password_hash`，但零成员时要补工作区。不打印新口令，除非本次确实生成并写入了新口令（保持脚本现有分支）。
+- [x] **Step 4:** pytest Expected: PASS。
 
-- [ ] **Step 5: 前端失败测试**（方案含引导时）
+- [x] **Step 5: 前端失败测试**（方案含引导时）
 
 ```ts
 import { resolveWorkspaceSelection } from './workspace-selection';
@@ -373,31 +373,31 @@ it('replaces a stale id with the first membership only', () => {
 });
 ```
 
-- [ ] **Step 6:** vitest Expected: FAIL。
-- [ ] **Step 7:** 实现纯函数。`ensureWorkspace` 改为：onboarding 时不写 `localStorage`，并让路由守卫把非常量、非公开 `/f` `/r` `/invite` 的页面送到引导页。引导页只调用现成 `POST /api/workspaces`，把响应 `id` 写入本地后进入 `issue_list`。预填名称 `OpenTask`，允许改。`initUserInfo` 在 token 有效时也走同一解析。
-- [ ] **Step 8:** 拦截器测试：`workspaceId` 为空时请求头没有 `X-Workspace-Id`；有值时才有。Expected: PASS。
-- [ ] **Step 9:** Commit `fix: create the first workspace for a memberless admin`
+- [x] **Step 6:** vitest Expected: FAIL。
+- [x] **Step 7:** 实现纯函数。`ensureWorkspace` 改为：onboarding 时不写 `localStorage`，并让路由守卫把非常量、非公开 `/f` `/r` `/invite` 的页面送到引导页。引导页只调用现成 `POST /api/workspaces`，把响应 `id` 写入本地后进入 `issue_list`。预填名称 `OpenTask`，允许改。`initUserInfo` 在 token 有效时也走同一解析。
+- [x] **Step 8:** 拦截器测试：`workspaceId` 为空时请求头没有 `X-Workspace-Id`；有值时才有。Expected: PASS。
+- [x] **Step 9:** Commit `fix: create the first workspace for a memberless admin`
 
 ### Task 6: README 按落地后的行为改
 
 **Files:**
 - Modify: `README.md`、`frontend/README.md`、`frontend/AGENTS.md`（webpack 改为 Vite，端口 9527）、`backend/README.md`、`deploy/README.md`、`agent-harness/opentask-cli/README.md`
 
-- [ ] **Step 1:** 对照当时代码改。根 README 的 CLI 写成 Python。Issue 示例用 `KEY-N`，删掉 `REQ-20260213-001` 这种主标识。Node 写成 `>=20.19.0`。PostgreSQL 写成 compose 里的 `postgres:15-alpine`，并注明后端 README 曾写 16、本批不改镜像。
-- [ ] **Step 2:** `frontend/README.md` 换成 OpenTask：`pnpm install`、`pnpm dev`（端口 9527）、`pnpm lint`、`pnpm build`、`pnpm test`。生产基址 `/`，API 为同源 `/api`。删掉 soybean 克隆地址。
-- [ ] **Step 3:** `deploy/README.md` 拓扑改为根路径；写明 notegit `location /` 必须改到 `8080` 后 `/login` 才生效；写明本仓库的发布没有自动执行。删掉「后端没有注册接口」。初始管理员一节按任务 5 的实际参数写；若 Yuri 没选脚本引导，就写引导页，不要两套都写成已经发生。
-- [ ] **Step 4:** CLI README 去掉 `collection`。`requirement` 标废弃仍可用。不要写未跑过的 pytest 计数。
-- [ ] **Step 5:** `backend/README.md` 去掉 `AUTH_USERNAME` / `AUTH_PASSWORD` 示例。启动命令保持 `uv run uvicorn opentask.main:app --port=7377 --host=0.0.0.0`。测试命令保持 `uv run pytest tests/ -v`。
-- [ ] **Step 6:** Commit `docs: align READMEs with root deploy and retired surfaces`
+- [x] **Step 1:** 对照当时代码改。根 README 的 CLI 写成 Python。Issue 示例用 `KEY-N`，删掉 `REQ-20260213-001` 这种主标识。Node 写成 `>=20.19.0`。PostgreSQL 只写当前部署镜像 `postgres:15-alpine`。历史对照放验收，不放 README。
+- [x] **Step 2:** `frontend/README.md` 换成 OpenTask：`pnpm install`、`pnpm dev`（端口 9527）、`pnpm lint`、`pnpm build`、`pnpm test`。生产基址 `/`，API 为同源 `/api`。删掉 soybean 克隆地址。
+- [x] **Step 3:** `deploy/README.md` 拓扑改为独立站点的根路径。只有操作者的 nginx 里已经另有 `location /` 时，才在条件说明里提到冲突。不写现网正在跑 notegit。写明本仓库的发布没有自动执行。删掉「后端没有注册接口」。初始管理员按方案 C：零可用成员关系时创建工作区，重复执行不重置口令。
+- [x] **Step 4:** CLI README 去掉 `collection`。`requirement` 标废弃仍可用。不要写未跑过的 pytest 计数。
+- [x] **Step 5:** `backend/README.md` 去掉 `AUTH_USERNAME` / `AUTH_PASSWORD` 示例。启动命令保持 `uv run uvicorn opentask.main:app --port=7377 --host=0.0.0.0`。测试命令保持 `uv run pytest tests/ -v`。
+- [x] **Step 6:** Commit `docs: align READMEs with root deploy and retired surfaces`
 
 ### Task 7: 验证、验收、发布说明，然后停止
 
-- [ ] **Step 1:** `cd backend && uv run pytest tests/ -v`。把真实计数写入验收，失败就先修再记。
-- [ ] **Step 2:** `cd frontend && pnpm lint && pnpm build && pnpm test`。lint 0 error。build 成功。`.env.prod` 若缺失，从 `.env.example` 复制到本地且不入库，但生产前缀断言以 Dockerfile ARG `/` 为准，不依赖那份被 gitignore 的文件把前缀改回去。
-- [ ] **Step 3:** CLI：`cd agent-harness/opentask-cli && uv run pytest -q`。`scripts/e14_cli_smoke.sh` 需要本机 7377 时，没起服务就记成未跑，不要写成通过。
-- [ ] **Step 4:** 浏览器走 Issue 列表、登录、客户页、确认没有问题集和需求菜单。根路径冒烟用本地 nginx，记录 URL 与状态码。这两类证据分开写。
-- [ ] **Step 5:** 写 `docs/superpowers/acceptances/2026-11-06-pending-fixes-acceptance.md`，含发布说明：改了哪些镜像与 nginx 片段、notegit `location /` 要人改成 `127.0.0.1:8080`、未对 `112.126.60.109` 执行 reload、旧 `/opentask` 书签不再可用。
-- [ ] **Step 6:** 停止。不打开下一 Epic，不合并，不部署。
+- [x] **Step 1:** `cd backend && uv run pytest tests/ -v`。把真实计数写入验收，失败就先修再记。
+- [x] **Step 2:** `cd frontend && pnpm lint && pnpm build && pnpm test`。lint 0 error。build 成功。`.env.prod` 若缺失，从 `.env.example` 复制到本地且不入库，但生产前缀断言以 Dockerfile ARG `/` 为准，不依赖那份被 gitignore 的文件把前缀改回去。
+- [x] **Step 3:** CLI：`cd agent-harness/opentask-cli && uv run pytest -q`。`scripts/e14_cli_smoke.sh` 需要本机 7377 时，没起服务就记成未跑，不要写成通过。
+- [x] **Step 4:** 浏览器走 Issue 列表、登录、客户页、确认没有问题集和需求菜单。根路径冒烟用本地 nginx，记录 URL 与状态码。这两类证据分开写。
+- [x] **Step 5:** 写 `docs/superpowers/acceptances/2026-11-06-pending-fixes-acceptance.md`。发布说明写明改了哪些镜像与 nginx 片段、主示例是独立站点、未检查也未 reload `112.126.60.109`、旧 `/opentask` 书签不再可用。若宿主上已经另有 `location /`，冲突只作为条件说明。
+- [x] **Step 6:** 停止。不打开下一 Epic，不合并，不部署。
 
 ## Self-review
 

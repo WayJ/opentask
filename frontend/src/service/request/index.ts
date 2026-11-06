@@ -3,6 +3,7 @@ import { BACKEND_ERROR_CODE, createFlatRequest, createRequest } from '@sa/axios'
 import { useAuthStore } from '@/store/modules/auth';
 import { localStg } from '@/utils/storage';
 import { getServiceBaseURL } from '@/utils/service';
+import { workspaceRequestHeader } from '@/utils/workspace-selection';
 import { $t } from '@/locales';
 import { getAuthorization, handleExpiredRequest, showErrorMsg } from './shared';
 import type { RequestInstanceState } from './type';
@@ -25,10 +26,7 @@ export const request = createFlatRequest(
     async onRequest(config) {
       const Authorization = getAuthorization();
       Object.assign(config.headers, { Authorization });
-      const workspaceId = localStg.get('workspaceId');
-      if (workspaceId) {
-        Object.assign(config.headers, { 'X-Workspace-Id': workspaceId });
-      }
+      Object.assign(config.headers, workspaceRequestHeader(localStg.get('workspaceId')));
 
       return config;
     },
@@ -203,10 +201,7 @@ export const downloadRequest = createRequest(
     async onRequest(config) {
       const Authorization = getAuthorization();
       Object.assign(config.headers, { Authorization });
-      const workspaceId = localStg.get('workspaceId');
-      if (workspaceId) {
-        Object.assign(config.headers, { 'X-Workspace-Id': workspaceId });
-      }
+      Object.assign(config.headers, workspaceRequestHeader(localStg.get('workspaceId')));
       return config;
     },
     isBackendSuccess(response) {

@@ -259,13 +259,14 @@ const local: App.I18n.Schema = {
     workspace_members: 'Members',
     invite: 'Invite',
     workspace_labels: 'Labels',
-    'settings': 'Settings',
-    'settings_webhooks': 'Webhooks',
-    'settings_recurrences': 'Recurrences',
-    'settings_forms': 'Public Forms',
+    settings: 'Settings',
+    settings_webhooks: 'Webhooks',
+    settings_recurrences: 'Recurrences',
+    settings_forms: 'Public Forms',
     'public-form': 'Public Form',
-    'settings_notifications': 'Notifications',
-    'workspace_automations': 'Automations',
+    'public-request-status': 'Request status',
+    settings_notifications: 'Notifications',
+    workspace_automations: 'Automations',
     'workspace_custom-fields': 'Custom Fields',
     'workspace_issue-templates': 'Issue Templates',
     'workspace_project-templates': 'Project Templates',
@@ -333,10 +334,7 @@ const local: App.I18n.Schema = {
     'issue_detail-new': 'Issue Detail (New Design)',
     issue_list: 'My issues',
     issue_trash: 'Trash',
-    issue_collection: 'Issue Collection',
-    'issue_collection-list': 'Collection List',
-    'issue_collection-detail': 'Collection Detail',
-    'issue_collection-create': 'Create Collection'
+    'workspace-onboarding': 'Create workspace'
   },
   page: {
     search: {
@@ -459,11 +457,11 @@ const local: App.I18n.Schema = {
       projectNews: {
         title: 'Project News',
         moreNews: 'More News',
-        desc1: 'Soybean created the open source project soybean-admin on May 28, 2021!',
-        desc2: 'Yanbowe submitted a bug to soybean-admin, the multi-tab bar will not adapt.',
-        desc3: 'Soybean is ready to do sufficient preparation for the release of soybean-admin!',
-        desc4: 'Soybean is busy writing project documentation for soybean-admin!',
-        desc5: 'Soybean just wrote some of the workbench pages casually, and it was enough to see!'
+        desc1: 'Open the issue list for the current workspace.',
+        desc2: 'Customers and customer requests stay on the customers page.',
+        desc3: 'Workspaces, projects, and saved views stay available.',
+        desc4: 'Public form /f and status /r open directly.',
+        desc5: 'An account with no workspace creates one after login.'
       },
       creativity: 'Creativity'
     }

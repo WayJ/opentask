@@ -105,6 +105,25 @@ class WorkspaceService:
             n += 1
         return f"OT{uuid.uuid4().hex[:4]}".upper()[:6]
 
+    async def ensure_owner_workspace(
+        self,
+        *,
+        owner_user_id: str,
+        name: str = "OpenTask",
+    ) -> tuple[Workspace, bool]:
+        """Return this user's earliest usable workspace, creating one if needed.
+
+        Usable matches ``list_for_user``: the legacy default workspace id is
+        invisible and is never returned. A user whose only membership is that
+        id gets a new workspace. An existing usable membership is kept; this
+        does not join another user's workspace or insert a second membership.
+        """
+        existing = await self.list_for_user(owner_user_id)
+        if existing:
+            return existing[0][0], False
+        created = await self.create_for_owner(name=name, owner_user_id=owner_user_id)
+        return created, True
+
     async def list_for_user(self, user_id: str) -> list[tuple[Workspace, str]]:
         result = await self.session.execute(
             select(Workspace, WorkspaceMember.role)

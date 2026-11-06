@@ -4,5 +4,3 @@ export * from './common';
 export * from './document';
 export * from './project';
 export * from './route';
-
-export * from './issue-collection';

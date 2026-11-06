@@ -63,33 +63,6 @@ class TestIssueListPagination:
             assert result.exit_code == 0
 
 
-class TestCollectionUpdateAllOptions:
-    """测试 Collection 更新所有选项"""
-
-    def test_collection_update_all_options(self):
-        """测试所有更新选项"""
-        runner = CliRunner()
-
-        with mock.patch('opentask.core.collection.OpenTaskClient') as mock_client_class:
-            mock_client = mock.Mock()
-            mock_client.update_collection = async_mock({
-                "id": "1",
-                "title": "Updated",
-                "description": "Updated",
-                "status": "active"
-            })
-            mock_client_class.return_value = mock_client
-
-            result = runner.invoke(cli, [
-                'collection', 'update', '1',
-                '--title', 'Updated',
-                '--description', 'Updated',
-                '--status', 'active'
-            ])
-
-            assert result.exit_code == 0
-
-
 class TestProjectCommandsAdvanced:
     """测试 Project 高级功能"""
 
@@ -227,27 +200,6 @@ class TestCLIContextWithActiveProject:
 
 class TestCLIGlobalOutputFormats:
     """测试全局输出格式"""
-
-    def test_global_json_with_collection(self):
-        """测试全局 JSON 模式配合 collection"""
-        runner = CliRunner()
-
-        with mock.patch('opentask.core.collection.OpenTaskClient') as mock_client_class:
-            mock_client = mock.Mock()
-            mock_client.list_collections = async_mock({
-                "rows": [
-                    {"id": "1", "title": "Collection 1"}
-                ],
-                "total": 1
-            })
-            mock_client_class.return_value = mock_client
-
-            result = runner.invoke(cli, [
-                '--json',
-                'collection', 'list'
-            ])
-
-            assert result.exit_code == 0
 
     def test_global_verbose_with_requirement(self):
         """测试全局详细模式配合 requirement"""

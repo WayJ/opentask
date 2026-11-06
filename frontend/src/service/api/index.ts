@@ -11,7 +11,6 @@ export * from './knowledge-category';
 export * from './knowledge-base';
 export * from './document';
 export * from './issue';
-export * from './issue-collection';
 export * from './workspace';
 export * from './inbox';
 export * from './triage';

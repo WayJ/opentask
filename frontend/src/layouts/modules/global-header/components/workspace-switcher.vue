@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue';
 import { type WorkspaceItem, fetchCreateWorkspace, fetchWorkspaceList } from '@/service/api';
 import { localStg } from '@/utils/storage';
+import { resolveWorkspaceSelection, usableWorkspaces } from '@/utils/workspace-selection';
 
 defineOptions({ name: 'WorkspaceSwitcher' });
 
@@ -17,10 +18,15 @@ async function load() {
   try {
     const { data, error } = await fetchWorkspaceList();
     if (error || !data) return;
-    options.value = data.map((w: WorkspaceItem) => ({ label: w.name, value: w.id }));
-    if (!current.value && data.length) {
-      current.value = data[0].id;
-      localStg.set('workspaceId', data[0].id);
+    const usable = usableWorkspaces(data);
+    options.value = usable.map((w: WorkspaceItem) => ({ label: w.name, value: w.id }));
+    const resolved = resolveWorkspaceSelection(localStg.get('workspaceId'), usable);
+    if (resolved.workspaceId) {
+      current.value = resolved.workspaceId;
+      localStg.set('workspaceId', resolved.workspaceId);
+    } else {
+      current.value = null;
+      localStg.remove('workspaceId');
     }
   } finally {
     loading.value = false;

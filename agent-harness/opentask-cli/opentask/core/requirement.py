@@ -9,7 +9,10 @@ from ..utils.repl_skin import ReplSkin
 
 @click.group(name="requirement")
 def requirement_cli():
-    """Requirement management commands."""
+    """Deprecated. The Requirement API still works; the product UI no longer opens it.
+
+    已废弃。需求接口仍可用，产品界面不再提供入口。
+    """
     pass
 
 

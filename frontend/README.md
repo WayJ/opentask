@@ -1,12 +1,12 @@
 ## 简介
 
-[`SoybeanAdmin`](https://github.com/soybeanjs/soybean-admin) 是一个清新优雅、高颜值且功能强大的后台管理模板，基于最新的前端技术栈，包括 Vue3, Vite7, TypeScript, Pinia 和 UnoCSS。它内置了丰富的主题配置和组件，代码规范严谨，实现了自动化的文件路由系统。此外，它还采用了基于 ApiFox 的在线Mock数据方案。`SoybeanAdmin` 为您提供了一站式的后台管理解决方案，无需额外配置，开箱即用。同样是一个快速学习前沿技术的最佳实践。
+OpenTask 前端是 Vue 3 + Vite + TypeScript 应用，使用 Pinia、Naive UI 和 elegant-router。开发服务器固定端口 9527。生产构建放在站点根，浏览器地址是 `/` 和 `/login`。
 
 ## 特性
 
 - **前沿技术应用**：采用 Vue3, Vite7, TypeScript, Pinia 和 UnoCSS 等最新流行的技术栈。
 - **清晰的项目架构**：采用 pnpm monorepo 架构，结构清晰，优雅易懂。
-- **严格的代码规范**：遵循 [SoybeanJS 规范](https://docs.soybeanjs.cn/zh/standard)，集成了eslint, prettier 和 simple-git-hooks，保证代码的规范性。
+- **代码检查**：`pnpm lint`、`pnpm build`、`pnpm test`。
 - **TypeScript**： 支持严格的类型检查，提高代码的可维护性。
 - **丰富的主题配置**：内置多样的主题配置，与 UnoCSS 完美结合。
 - **内置国际化方案**：轻松实现多语言支持。
@@ -17,19 +17,6 @@
 - **移动端适配**：完美支持移动端，实现自适应布局。
 
 
-## 版本
-
-- **NaiveUI 版本:**
-  - [预览地址](https://naive.soybeanjs.cn/)
-  - [Github 仓库](https://github.com/soybeanjs/soybean-admin)
-  - [Gitee 仓库](https://gitee.com/honghuangdc/soybean-admin)
-  - [Gitcode 仓库](https://gitcode.com/soybeanjs/soybean-admin)
-
-
-## 文档
-
-- [地址](https://docs.soybeanjs.cn)
-
 ## 使用
 
 **环境准备**
@@ -39,17 +26,6 @@
 - **git**: 你需要git来克隆和管理项目版本。
 - **NodeJS**: >=20.19.0，推荐 20.19.0 或更高。
 - **pnpm**: >= 10.5.0，推荐 10.5.0 或更高。
-
-**克隆项目**
-
-```bash
-# github
-git clone https://github.com/soybeanjs/soybean-admin.git
-# gitee
-git clone https://gitee.com/honghuangdc/soybean-admin.git
-# gitcode
-git clone https://gitcode.com/soybeanjs/soybean-admin.git
-```
 
 **安装依赖**
 
@@ -70,10 +46,6 @@ pnpm dev
 pnpm build
 ```
 
-**代码同步**
-
-参考 [代码同步](https://docs.soybeanjs.cn/zh/guide/sync) 文档。
-
 ## 容器化部署
 
 前端提供自己的镜像（构建期 pnpm/vite → 运行期 nginx 托管静态资源）：
@@ -88,27 +60,16 @@ cd .. && AUTH_SECRET_KEY=$(openssl rand -hex 32) docker compose up -d
 
 ### 路径前缀拓扑
 
-生产把整个应用挂在 `/opentask/` 前缀下（见 `.env.prod`）：
+生产构建使用站点根：
 
 | 变量 | 值 | 作用 |
 |---|---|---|
-| `VITE_BASE_URL` | `/opentask/` | vite base（产物资源引用 `/opentask/assets/*`）+ router base（history 模式路由基址） |
-| `VITE_SERVICE_BASE_URL` | `/opentask/` | axios baseURL → 后端调用落在 `/opentask/api/*` |
+| `VITE_BASE_URL` | `/` | vite base 与 history 路由基址。产物引用 `/assets/*` |
+| `VITE_SERVICE_BASE_URL` | `/` | 浏览器请求 `/api/*` |
 
-后端路由**不带** `/opentask` 前缀（见 `backend/opentask/app.py`），前缀由 nginx 剥离：
+容器内 `frontend/nginx.conf` 把 `/assets/` 当静态文件，把 `/api/` 和 `/ws/` 原样转到后端 7377，其余路径回退 `index.html`。宿主示例是 `deploy/nginx/opentask-site.conf`。不设置 `X-Workspace-Id`。
 
-```
-/opentask/assets/*  → 静态资源（带 hash，长期缓存）
-/opentask/api/*     → 后端 7377 的 /api/*
-/opentask/<路由>    → index.html（SPA history fallback）
-```
-
-前端容器内的参考配置见 `frontend/nginx.conf`；宿主 nginx（生产部署侧）需要做同样的分流，
-仓内参考配置在 `deploy/nginx/opentask-locations.conf`，完整发布说明见 `deploy/README.md`。
-**运维侧的 nginx 漏掉前缀分流，前端请求就会 404。**
-
-> 本地开发不受影响：开发走 `.env.test`（`VITE_BASE_URL=/`，
-> `VITE_SERVICE_BASE_URL=http://localhost:7377`），由 vite dev server 代理。
+本地 `pnpm dev` 使用 `VITE_BASE_URL=/`，Vite 只在开发时把 `/opentask` 代理到 `http://localhost:7377`。
 
 ### 低内存机器上的发布
 

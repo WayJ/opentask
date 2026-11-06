@@ -1,3 +1,4 @@
+import { browserServiceUrl } from '@/utils/attachmentUrls';
 import { request } from '../request';
 
 export const FORM_FIELD_TYPES = [
@@ -97,8 +98,9 @@ export function fetchRegenerateFormToken(id: string) {
 
 /** Public (no auth) — use bare fetch to avoid injecting workspace headers requirements. */
 export async function fetchPublicFormSchema(token: string): Promise<PublicFormSchema> {
-  const base = import.meta.env.VITE_SERVICE_BASE_URL || '';
-  const resp = await fetch(`${base}/api/public/forms/${encodeURIComponent(token)}`);
+  const resp = await fetch(
+    browserServiceUrl(`/api/public/forms/${encodeURIComponent(token)}`, import.meta.env.VITE_SERVICE_BASE_URL)
+  );
   const json = await resp.json();
   if (!resp.ok) {
     throw new Error(json?.detail || json?.message || '表单不可用');
@@ -110,19 +112,18 @@ export async function submitPublicForm(
   token: string,
   values: Record<string, unknown>
 ): Promise<{ issueId: string; issueCode: string; title: string; requestId?: string | null; triageEnqueued?: boolean }> {
-  const base = import.meta.env.VITE_SERVICE_BASE_URL || '';
-  const resp = await fetch(`${base}/api/public/forms/${encodeURIComponent(token)}/submit`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ values })
-  });
+  const resp = await fetch(
+    browserServiceUrl(`/api/public/forms/${encodeURIComponent(token)}/submit`, import.meta.env.VITE_SERVICE_BASE_URL),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values })
+    }
+  );
   const json = await resp.json();
   if (!resp.ok) {
     const detail = json?.detail;
-    const msg =
-      typeof detail === 'object' && detail?.message
-        ? detail.message
-        : detail || json?.message || '提交失败';
+    const msg = typeof detail === 'object' && detail?.message ? detail.message : detail || json?.message || '提交失败';
     const err = new Error(String(msg)) as Error & { errors?: unknown };
     if (typeof detail === 'object') err.errors = detail.errors;
     throw err;
@@ -140,13 +141,13 @@ export async function submitPublicForm(
 export function ensureTitleField(fields: FormFieldDef[]): FormFieldDef[] {
   const hasTitle = fields.some(f => f.type === 'title');
   if (hasTitle) return fields;
-  return [
-    { key: 'title', type: 'title', label: 'Title', required: true },
-    ...fields
-  ];
+  return [{ key: 'title', type: 'title', label: 'Title', required: true }, ...fields];
 }
 
-export function buildPublicUrl(tokenOrPath: string, origin = typeof window !== 'undefined' ? window.location.origin : ''): string {
+export function buildPublicUrl(
+  tokenOrPath: string,
+  origin = typeof window !== 'undefined' ? window.location.origin : ''
+): string {
   const path = tokenOrPath.startsWith('/f/') ? tokenOrPath : `/f/${tokenOrPath}`;
   return `${origin}${path}`;
 }

@@ -121,17 +121,6 @@ def sample_requirement_data():
     }
 
 
-@pytest.fixture
-def sample_collection_data():
-    """示例 Collection 数据"""
-    return {
-        "id": "coll-101",
-        "title": "Test Collection",
-        "description": "Test collection description",
-        "issue_ids": ["issue-456", "issue-789"],
-        "created_at": "2026-03-23T12:00:00"
-    }
-
 
 # ============================================================================
 # Pytest 配置

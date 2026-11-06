@@ -49,7 +49,7 @@ from opentask.utils.response import success_response, error_response, StatusCode
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/requirements", tags=["Requirements"])
+router = APIRouter(prefix="/api/requirements", tags=["Requirements"], deprecated=True)
 
 
 async def get_requirement_service(

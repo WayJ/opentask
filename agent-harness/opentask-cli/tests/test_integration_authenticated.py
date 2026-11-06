@@ -321,33 +321,6 @@ class TestRequirementAPIFull:
 
 
 # ============================================================================
-# Collection API 测试
-# ============================================================================
-
-@pytest.mark.integration
-class TestCollectionAPIFull:
-    """测试 Collection API"""
-
-    @pytest.mark.asyncio
-    async def test_list_collections(self):
-        """测试列出 collections"""
-        client = await get_authenticated_client()
-
-        try:
-            result = await client.list_collections()
-            assert isinstance(result, dict)
-            assert "rows" in result
-        except APIError as e:
-            # Collection API 可能不存在
-            if e.status_code == 404:
-                pytest.skip("Collection API 不存在")
-            else:
-                raise
-        except Exception as e:
-            pytest.skip(f"列出 collections 失败: {e}")
-
-
-# ============================================================================
 # 批量操作测试
 # ============================================================================
 

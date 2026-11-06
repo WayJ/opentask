@@ -1,12 +1,39 @@
 /** E66: browser URL helpers for authenticated / signed attachment access. */
 
-/** Prefix relative API paths with the vite proxy pattern `/opentask`. */
-export function toBrowserAttachmentUrl(apiPath: string): string {
+interface AttachmentEnv {
+  DEV?: boolean;
+  VITE_HTTP_PROXY?: string;
+  VITE_SERVICE_BASE_URL?: string;
+}
+
+/** Dev vite proxy keeps `/opentask`. A production base of `/` adds nothing. */
+export function attachmentPrefixFromEnv(env: AttachmentEnv = import.meta.env): string {
+  if (env.DEV && env.VITE_HTTP_PROXY === 'Y') return '/opentask';
+  const service = env.VITE_SERVICE_BASE_URL || '';
+  if (service.startsWith('/') && service !== '/') return service.replace(/\/$/, '');
+  return '';
+}
+
+/**
+ * Join a service base with an absolute API path.
+ * A production base of `/` must stay a same-origin path. Concatenating `/` + `/api`
+ * would become a protocol-relative URL (`//api`).
+ */
+export function browserServiceUrl(path: string, base = ''): string {
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  if (!base || base === '/') return normalized;
+  return `${base.replace(/\/$/, '')}${normalized}`;
+}
+
+/** Prefix relative API paths using the active service base. */
+export function toBrowserAttachmentUrl(apiPath: string, env: AttachmentEnv = import.meta.env): string {
   if (!apiPath) return apiPath;
   if (/^https?:\/\//i.test(apiPath)) return apiPath;
   const path = apiPath.startsWith('/') ? apiPath : `/${apiPath}`;
-  if (path.startsWith('/opentask/')) return path;
-  return `/opentask${path}`;
+  const prefix = attachmentPrefixFromEnv(env);
+  if (!prefix) return path;
+  if (path === prefix || path.startsWith(`${prefix}/`)) return path;
+  return `${prefix}${path}`;
 }
 
 /** Friendly copy for attachment 401/404 surfaces. */

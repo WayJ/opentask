@@ -3,10 +3,19 @@
 日期：2026-11-06  
 基线：`main` @ `c1d2424`（`c1d2424ca87bb3dae5e2a730b86a90f14abf34ad`，Merge pull request #3，E99）  
 `git fetch origin main` 后 `origin/main` 与该提交一致。  
-状态：**设计检查点，待 Yuri 复核。本文件入库时不改业务代码、不合并、不部署、不开启下一 Epic。**  
-计划：`docs/superpowers/plans/2026-11-06-pending-fixes.md`（与本设计同批交出；实施仍等 Yuri 回复）
+状态：**Yuri 已复核并批准（方案 C）。** 按下列修正实施。不合并、不部署、不连接 `112.126.60.109`。
 
-本批是 E99 已合并之后的修复批次，不新编号 Epic。验收文档留到实施完成之后再写。
+批准记录（2026-11-06）：
+
+- 工作区采用方案 C：部署脚本在该管理员零个可用成员关系时创建工作区，前端在空成员关系时做引导。
+- 仓库文档里的 notegit 共用 vhost 只是条件说明。未检查过现网机器，不声称 `112.126.60.109` 上正在跑 notegit，也不声称这次会把它挤掉。根路径的主示例是独立的 OpenTask 站点。
+- 登录和刷新都要在受保护页面发请求之前完成工作区解析；先清掉过期或别人的 `localStorage` 选择，再访问租户接口。已属于当前用户的选择保留。引导不拦截 `/f`、`/r`、`/invite`，也不挡住退出和登录。重复执行管理员脚本不重置口令、不重复成员。遗留默认工作区与 `list_for_user` 一样排除，引导不能把它当成可用工作区返回。
+- 问题集删除专属代码与导入；表、数据和历史迁移保留。同时断言路由表和 OpenAPI 里没有这些路径。
+- README 只写当前支持的 Postgres 镜像，不写「以前文档写成 16」这类考古。
+- 根路径冒烟使用真正构建出的前端。  
+计划：`docs/superpowers/plans/2026-11-06-pending-fixes.md`。已按批准在同一分支实施。验收：`docs/superpowers/acceptances/2026-11-06-pending-fixes-acceptance.md`。
+
+本批是 E99 已合并之后的修复批次，不新编号 Epic。不合并、不部署。
 
 ## 0. 已批准范围与硬约束
 
@@ -25,8 +34,8 @@
 - 不在代理里写死 workspace id，不挑其他租户的工作区当默认，不关闭工作区校验，不泄漏数据。
 - 已有账号和已有数据保持可用。
 - 测试要覆盖主页面业务请求，健康检查或登录 200 不够。单元/API 与浏览器验证分开记录。
-- **首个工作区由部署引导创建，还是由前端引导创建，本设计给出推荐，等 Yuri 拍板后再写这部分业务代码。**
-- 根路径会占掉该 IP 上 notegit 的 `location /`。这是用户要求 `/login` 与 `/` 可用的直接后果，写在第 2.6 节。实施仍不连活服务器。
+- 首个工作区按 Yuri 批准的方案 C 实施：部署引导和前端空成员引导一起做。
+- 根路径的主示例是独立 OpenTask 站点。仓库不声称现网正在跑 notegit。实施不连活服务器。
 
 ## 1. 调查结论
 
@@ -218,7 +227,7 @@ Issue CRUD、保存的视图、`generic_status_to_issue_set` 不改语义。删�
 
 不改 npm 包名，不改 Uno 预设函数名。
 
-### 2.4 空工作区（待 Yuri 选）
+### 2.4 空工作区（Yuri 已选方案 C）
 
 三条都能保住隔离：选择只来自**当前用户的成员关系**；不读其他用户的工作区；不使用固定 UUID；不改 `require_workspace_context` 的 400。
 
@@ -230,7 +239,7 @@ Issue CRUD、保存的视图、`generic_status_to_issue_set` 不改语义。删�
 
 推荐 C 的理由：生产故障就是官方脚本没建工作区，所以脚本要补上，并与已执行过的 `POST /api/workspaces`（名 OpenTask、owner=管理员）同一服务。只补脚本留不下「零成员用户打开主页面」的产品行为，刷新路径今天也不重新解析。引导页使用现成创建接口，不在前端伪造 id。
 
-**在 Yuri 回复 A、B 或 C 之前，不实现第 5 节的工作区代码。** 计划里的工作区任务按 C 写好；若选 A 或 B，只做对应任务。
+Yuri 已选 C。第 3 节的脚本引导和前端引导都已实现。A、B 留在表里，只说明当时的取舍。
 
 ### 2.5 README
 
@@ -264,7 +273,7 @@ Issue CRUD、保存的视图、`generic_status_to_issue_set` 不改语义。删�
 - `/tasks/`、`/capabilities`、`/healthcheck` 维持现状
 - 片段里**不写**第二个 `location /`
 
-notegit：`deploy/README.md` 写明该 vhost 的 `location /` 现在转到 `127.0.0.1:3000`。只要它还在，`/login` 仍然进 notegit。要让 OpenTask 占据 `/` 与 `/login`，应用片段时必须把这份 `location /` 的 `proxy_pass` 改到 `127.0.0.1:8080`（前端容器）。这会让该 IP 根路径不再打开 notegit。回滚是把 `proxy_pass` 指回 `3000`，并恢复旧的 `/opentask/` 片段。仓库只提供片段和说明；`deploy.sh` 继续禁止由本代理执行。实施者也不要 SSH 到 `112.126.60.109`。
+主示例是独立的 OpenTask 站点：宿主 `server` 的 `location /` 指向前端容器 `127.0.0.1:8080`，`/api/`、`/ws/` 与协议端点指向 `127.0.0.1:7377`。仓库里的旧说明曾把同一 IP 写成与 notegit 共用 vhost。那是文档里的拓扑假设。本检查点没有登录那台机器，不能说 notegit 正在上面运行，也不能说这次会把它挤掉。只有当操作者的 nginx 里确实另有一个 `location /` 转到别的服务时，才需要先改那一条，否则 `/login` 到不了 OpenTask。这个冲突写成条件说明，不写进默认步骤。仓库只提供片段。不 SSH，不 reload。
 
 不增加「从 `/opentask` 301 回根」的规则，除非 Yuri 另要。用户要求的是不要再进 `/opentask`。旧书签会失效，写进发布说明。
 
@@ -324,14 +333,14 @@ create_admin_user.py
 - `GET /api/issues` 缺头时的可选过滤是既有行为。本批不把它改成强制头，也不放宽强制头的接口。
 - 生产管理员已经有 OpenTask 工作区。脚本补跑看到成员关系后不得再插入第二个，也不得重置口令。
 - README 若在代码前改，会先写下尚未存在的行为。计划把 README 放在对应任务之后。
-- 根路径占掉 notegit 的 `location /`。仓库改片段不会自动生效；若有人以后运行 `deploy.sh` 且只更新片段、不改那条 `location /`，`/login` 仍然进 notegit。发布说明要把这一步写清。本代理与本批实施都不 SSH、不 reload。
+- 根路径文档以独立 OpenTask 站点为主。未检查现网，不把 notegit 写成那台机器上的事实。本批不 SSH、不 reload。
 - `location /oauth2/` 若不去掉对 `/oauth2/authorize` 的覆盖，同意页会打到后端而不是 SPA。用精确匹配避免。
 - 本地开发代理仍可能出现 `/opentask`。那只存在于 Vite dev。生产 `index.html` 与浏览器地址不得再带这个前缀。
 
 ## 6. 自检
 
 - 无未定字段：工作区默认名 OpenTask；跳过开关名 `--skip-workspace`；Requirement 重定向目标 `issue_list`；问题集删除清单在计划里按路径列出。
-- 方案 C 未写成已经开工。实施门在计划任务 0。根路径已授权，仍只入库设计，不连服务器。
+- 方案 C 已在本分支实施。根路径只改仓库里的构建和 nginx 片段，没有连接服务器。
 - Requirement 与客户需求已分开。问题集与 `generic_status_to_issue_set`、保存的视图已分开。
 - 登录路径以生成路由为准：`/login` 可省略模块。不假设需要新路径。
 - 本批不包含下一 Epic 的范围。

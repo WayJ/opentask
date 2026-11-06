@@ -179,9 +179,6 @@ const routeMap: RouteMap = {
   "insights": "/insights",
   "invite": "/invite/:token",
   "issue": "/issue",
-  "issue_collection": "/issue/collection/:id",
-  "issue_collection-create": "/issue/collection-create",
-  "issue_collection-list": "/issue/collection-list",
   "issue_create": "/issue/create",
   "issue_detail": "/issue/detail",
   "issue_edit": "/issue/edit",
@@ -246,7 +243,8 @@ const routeMap: RouteMap = {
   "workspace_issue-templates": "/workspace/issue-templates",
   "workspace_labels": "/workspace/labels",
   "workspace_members": "/workspace/members",
-  "workspace_project-templates": "/workspace/project-templates"
+  "workspace_project-templates": "/workspace/project-templates",
+  "workspace-onboarding": "/workspace-onboarding"
 };
 
 /**

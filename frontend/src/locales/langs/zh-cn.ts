@@ -117,7 +117,7 @@ const local: App.I18n.Schema = {
         applySuccess: '预设应用成功',
         default: {
           name: '默认预设',
-          desc: 'Soybean 默认主题预设'
+          desc: 'OpenTask 默认主题预设'
         },
         dark: {
           name: '暗色预设',
@@ -257,13 +257,14 @@ const local: App.I18n.Schema = {
     workspace_members: '成员 Members',
     invite: '邀请',
     workspace_labels: '标签 Labels',
-    'settings': '设置',
-    'settings_webhooks': '出站 Webhooks',
-    'settings_recurrences': '周期建单',
-    'settings_forms': '公开表单',
+    settings: '设置',
+    settings_webhooks: '出站 Webhooks',
+    settings_recurrences: '周期建单',
+    settings_forms: '公开表单',
     'public-form': '公开表单',
-    'settings_notifications': '通知偏好',
-    'workspace_automations': '自动化',
+    'public-request-status': '请求状态',
+    settings_notifications: '通知偏好',
+    workspace_automations: '自动化',
     'workspace_custom-fields': '自定义字段',
     'workspace_issue-templates': 'Issue 模板',
     'workspace_project-templates': 'Project 模板',
@@ -297,9 +298,7 @@ const local: App.I18n.Schema = {
     'issue_detail-new': '问题详情（新设计）',
     issue_list: '我的问题',
     issue_trash: '回收站',
-    issue_collection: '问题集',
-    'issue_collection-list': '问题集列表',
-    'issue_collection-create': '创建问题集',
+    'workspace-onboarding': '创建工作区',
     'knowledge-category': '知识分类',
     'knowledge-category_manage': '分类管理',
     'knowledge-base_manage': '知识库管理',
@@ -452,11 +451,11 @@ const local: App.I18n.Schema = {
       projectNews: {
         title: '项目动态',
         moreNews: '更多动态',
-        desc1: 'Soybean 在2021年5月28日创建了开源项目 soybean-admin!',
-        desc2: 'Yanbowe 向 soybean-admin 提交了一个bug，多标签栏不会自适应。',
-        desc3: 'Soybean 准备为 soybean-admin 的发布做充分的准备工作!',
-        desc4: 'Soybean 正在忙于为soybean-admin写项目说明文档！',
-        desc5: 'Soybean 刚才把工作台页面随便写了一些，凑合能看了！'
+        desc1: '从问题列表查看当前工作区的问题。',
+        desc2: '客户和客户反馈仍从客户页面进入。',
+        desc3: '工作区、项目和保存的视图保持可用。',
+        desc4: '公开表单 /f 和状态页 /r 可以直接打开。',
+        desc5: '还没有工作区时，登录后会先完成创建。'
       },
       creativity: '创意'
     },

@@ -43,6 +43,7 @@ export function setupElegantRouter() {
 
       // 详情页路由应该隐藏在菜单中
       const hideInMenuRoutes: RouteKey[] = [
+        'workspace-onboarding',
         'knowledge-base',
         'knowledge-base_knowledge_detail',
         'knowledge-base_knowledge_edit',

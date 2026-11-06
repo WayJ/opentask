@@ -11,6 +11,7 @@ import { useRouteStore } from '@/store/modules/route';
 import { isMenuPermissionRoute } from '@/store/modules/route/shared';
 import { localStg } from '@/utils/storage';
 import { getRouteName } from '@/router/elegant/transform';
+import { requirementSurfaceRedirect, workspaceGateRedirect } from './surface';
 
 /**
  * create route guard
@@ -23,6 +24,12 @@ export function createRouteGuard(router: Router) {
 
     if (location) {
       next(location);
+      return;
+    }
+
+    const requirementRedirect = requirementSurfaceRedirect(to.name);
+    if (requirementRedirect) {
+      next(requirementRedirect);
       return;
     }
 
@@ -55,7 +62,7 @@ export function createRouteGuard(router: Router) {
       return;
     }
 
-    // if the route does not need login, then it is allowed to access directly
+    // Constant routes (login, public f/r, invite) are not sent to onboarding.
     if (!needLogin) {
       handleRouteSwitch(to, from, next);
       return;
@@ -63,7 +70,19 @@ export function createRouteGuard(router: Router) {
 
     // the route need login but the user is not logged in, then switch to the login page
     if (!isLogin) {
+      const loggedOutGate = workspaceGateRedirect(to, { isLogin: false, gate: authStore.workspaceGate });
+      if (loggedOutGate) {
+        next(loggedOutGate);
+        return;
+      }
       next({ name: loginRoute, query: { redirect: to.fullPath } });
+      return;
+    }
+
+    await authStore.ensureWorkspaceResolved();
+    const gateRedirect = workspaceGateRedirect(to, { isLogin: true, gate: authStore.workspaceGate });
+    if (gateRedirect) {
+      next(gateRedirect);
       return;
     }
 
