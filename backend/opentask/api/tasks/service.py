@@ -54,17 +54,18 @@ class ContractIssueService(IssueService):
         data: IssueCreate,
         user_id: str,
         dept_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> Issue:
-        """创建 Issue（并发 max+1 撞 issue_code 唯一索引时重算重试）
+        """创建 Issue（转发 workspace_id；保留 IntegrityError 重试作为兜底）。
 
-        _generate_issue_code 取"当年最大序号 + 1"，两个并发 POST 可能算出
-        同一编号，flush 撞 issues.issue_code 唯一索引抛 IntegrityError。
-        重试会重跑编号生成并看到对方已提交的行，编号前进后即可成功；
-        重试耗尽按原样抛出（说明冲突另有成因，不为绿而绿）。
+        E98：编号仅 KEY-N（行锁 counter）；不再依赖年号 max+1 算法。
+        workspace_id 必由调用方可靠解析后传入。
         """
         for attempt in range(1, CREATE_RETRY_ATTEMPTS + 1):
             try:
-                return await super().create_issue(data, user_id, dept_id=dept_id)
+                return await super().create_issue(
+                    data, user_id, dept_id=dept_id, workspace_id=workspace_id
+                )
             except IntegrityError as e:
                 await self.db.rollback()
                 if attempt == CREATE_RETRY_ATTEMPTS:

@@ -114,15 +114,44 @@ async def _create_test_user(db: AsyncSession, base_name: str) -> UserModel:
 
 @pytest_asyncio.fixture
 async def test_user(db: AsyncSession) -> AsyncGenerator[UserModel, None]:
-    """契约 API 的操作者（authenticate 覆盖返回它；reporter 默认落它）"""
+    """契约 API 的操作者（authenticate 覆盖返回它；reporter 默认落它）
+
+    E98：创建个人默认可写 Workspace，使无头 create 可可靠绑定 KEY-N。
+    """
+    from opentask.services.workspace.service import WorkspaceService
+
     user = await _create_test_user(db, "tester")
+    await WorkspaceService(db).create_for_owner(
+        name=f"{user.username}-ws",
+        owner_user_id=str(user.id),
+    )
+    await db.commit()
     yield user
 
 
 @pytest_asyncio.fixture
-async def assignee_user(db: AsyncSession) -> AsyncGenerator[UserModel, None]:
-    """被分配人（验证 assignee 字符串 ID + metadata.username）"""
+async def assignee_user(
+    db: AsyncSession, test_user: UserModel
+) -> AsyncGenerator[UserModel, None]:
+    """被分配人（验证 assignee 字符串 ID + metadata.username）
+
+    E98：Issue 创建必带 workspace_id，assignee 必须是该 WS 成员（E71）。
+    将 assignee 加入 test_user 的唯一可写 Workspace，避免邻面契约测回归。
+    """
+    from opentask.models.workspace.model import WorkspaceMember
+    from opentask.services.workspace.issue_create_ws import list_writable_workspace_ids
+
     user = await _create_test_user(db, "assignee")
+    wids = await list_writable_workspace_ids(db, str(test_user.id))
+    assert len(wids) == 1, "test_user must have exactly one writable workspace"
+    db.add(
+        WorkspaceMember(
+            workspace_id=wids[0],
+            user_id=str(user.id),
+            role="member",
+        )
+    )
+    await db.commit()
     yield user
 
 
@@ -245,15 +274,16 @@ def mapping_config(monkeypatch: pytest.MonkeyPatch) -> Callable[[Optional[dict]]
 # Seeding 辅助：直接落 Issue 行，精确控制 updated_at（游标边界测试需要）
 # ============================================================================
 
-_CT_SEED_SEQ = 900_000_000  # 远离业务序号段，避免与 _generate_issue_code 冲突
+_CT_SEED_SEQ = 800_000  # 高段但 < KEY_N_SEQ_CAP(1e6)，避免与业务 counter 撞
 
 
 def next_seed_issue_code() -> str:
-    """种子行的 issue_code：数字后缀（_generate_issue_code 按 CAST INT 取 max，
-    非数字后缀会让后续 POST 的 CAST 报错，因此必须用数字）"""
+    """种子行的 issue_code：E99 仅 KEY-N（前缀 CT，序号远离业务 counter）。"""
     global _CT_SEED_SEQ
     _CT_SEED_SEQ += 1
-    return f"ISSUE{datetime.now().year}-{_CT_SEED_SEQ}"
+    if _CT_SEED_SEQ >= 1_000_000:
+        raise RuntimeError("contract seed issue_code sequence overflow")
+    return f"CT-{_CT_SEED_SEQ}"
 
 
 async def seed_issue(

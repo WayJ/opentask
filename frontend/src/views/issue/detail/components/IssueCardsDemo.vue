@@ -8,7 +8,7 @@ import CommentsCard from './CommentsCard.vue';
 
 const demoIssue = ref({
   id: 'demo-issue-1',
-  issue_code: 'ISSUE2026-001',
+  issue_code: 'OT-1',
   title: '示例 Issue：展示新的卡片式设计',
   status: 'open',
   priority: 'high',

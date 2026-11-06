@@ -1723,6 +1723,69 @@ class OpenTaskClient:
         await self.delete(f"/api/projects/{project_id}/milestones/{milestone_id}")
         return True
 
+    async def list_project_repos(self, project_id: str) -> list | dict:
+        """E95: GET /api/projects/{id}/repos"""
+        return await self.get(f"/api/projects/{project_id}/repos")
+
+    async def get_project_repo(self, project_id: str, repo_id: str | int) -> dict:
+        """E95: GET /api/projects/{id}/repos/{repo_id}"""
+        return await self.get(f"/api/projects/{project_id}/repos/{repo_id}")
+
+    async def create_project_repo(
+        self,
+        project_id: str,
+        *,
+        name: str,
+        url: str,
+        main_branch: str = "main",
+    ) -> dict:
+        """E95: POST /api/projects/{id}/repos body {name,url,main_branch,project_id}"""
+        return await self.post(
+            f"/api/projects/{project_id}/repos",
+            data={
+                "name": name,
+                "url": url,
+                "main_branch": main_branch,
+                "project_id": project_id,
+            },
+        )
+
+    async def update_project_repo(
+        self, project_id: str, repo_id: str | int, **fields
+    ) -> dict:
+        """E95: PUT /api/projects/{id}/repos/{repo_id} body 仅提供字段"""
+        return await self.put(
+            f"/api/projects/{project_id}/repos/{repo_id}",
+            data=fields,
+        )
+
+    async def delete_project_repo(self, project_id: str, repo_id: str | int) -> bool:
+        """E95: DELETE /api/projects/{id}/repos/{repo_id}"""
+        await self.delete(f"/api/projects/{project_id}/repos/{repo_id}")
+        return True
+
+    # ========================================================================
+    # Access Tokens (E96)
+    # ========================================================================
+
+    async def list_access_tokens(self) -> list | dict:
+        """E96: GET /api/access-tokens (metadata only; never raw token)."""
+        return await self.get("/api/access-tokens")
+
+    async def create_access_token(
+        self, name: str, description: str | None = None
+    ) -> dict:
+        """E96: POST /api/access-tokens body {name, description?}."""
+        body: dict = {"name": name}
+        if description is not None:
+            body["description"] = description
+        return await self.post("/api/access-tokens", data=body)
+
+    async def delete_access_token(self, token_id: str) -> bool:
+        """E96: DELETE /api/access-tokens/{token_id}."""
+        await self.delete(f"/api/access-tokens/{token_id}")
+        return True
+
 
     async def add_project_member(self, project_id: str, user_id: str) -> dict:
         """E79: add project roster member."""
@@ -1940,6 +2003,13 @@ class OpenTaskClient:
 
     async def delete_issue_vcs_link(self, issue_id: str, link_id: str) -> dict:
         return await self.delete(f"/api/issues/{issue_id}/vcs/links/{link_id}")
+
+    async def update_issue_vcs_link(self, issue_id: str, link_id: str, **kwargs) -> dict:
+        """E97: PATCH /api/issues/{id}/vcs/links/{link_id}; kwargs camelCase
+        (branchName, prUrl, provider, externalId, status, title)."""
+        return await self.patch(
+            f"/api/issues/{issue_id}/vcs/links/{link_id}", data=kwargs
+        )
 
 
     async def list_issue_templates(self) -> dict:
@@ -2212,6 +2282,52 @@ class OpenTaskClient:
         """Delete a comment."""
         await self.delete(f"/api/issues/comments/{comment_id}")
         return True
+
+    # ============================================================================
+    # Issue / Comment Reactions API (E94)
+    # ============================================================================
+
+    async def list_issue_reactions(self, issue_id: str) -> dict:
+        """E94: GET /api/issues/{id}/reactions → {rows,total}."""
+        return await self.get(f"/api/issues/{issue_id}/reactions")
+
+    async def add_issue_reaction(self, issue_id: str, emoji: str) -> dict:
+        """E94: POST /api/issues/{id}/reactions body {emoji}."""
+        return await self.post(
+            f"/api/issues/{issue_id}/reactions",
+            data={"emoji": emoji},
+        )
+
+    async def remove_issue_reaction(self, issue_id: str, emoji: str) -> dict:
+        """E94: DELETE /api/issues/{id}/reactions?emoji=."""
+        return await self.delete(
+            f"/api/issues/{issue_id}/reactions",
+            params={"emoji": emoji},
+        )
+
+    async def list_comment_reactions(self, issue_id: str, comment_id: str) -> dict:
+        """E94: GET /api/issues/{id}/comments/{cid}/reactions → {reactions}."""
+        return await self.get(
+            f"/api/issues/{issue_id}/comments/{comment_id}/reactions"
+        )
+
+    async def add_comment_reaction(
+        self, issue_id: str, comment_id: str, emoji: str
+    ) -> dict:
+        """E94: POST …/comments/{cid}/reactions body {emoji}."""
+        return await self.post(
+            f"/api/issues/{issue_id}/comments/{comment_id}/reactions",
+            data={"emoji": emoji},
+        )
+
+    async def remove_comment_reaction(
+        self, issue_id: str, comment_id: str, emoji: str
+    ) -> dict:
+        """E94: DELETE …/comments/{cid}/reactions?emoji=."""
+        return await self.delete(
+            f"/api/issues/{issue_id}/comments/{comment_id}/reactions",
+            params={"emoji": emoji},
+        )
 
     # ============================================================================
     # Issue Document API

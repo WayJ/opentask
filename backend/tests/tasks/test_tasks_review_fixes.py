@@ -253,29 +253,20 @@ class TestIssueCodeCollisionRetry:
 
         monkeypatch.setattr(IssueService, "_generate_issue_code", collide_once)
 
+        ws_id = occupied.workspace_id
+        assert ws_id, "seed_issue must attach a workspace for E98 KEY-N"
         created = await service.create_issue(
             IssueCreate(title=f"{TITLE_PREFIX}撞号重试", type="feature", status="open"),
             str(test_user.id),
             dept_id=None,
+            workspace_id=ws_id,
         )
         assert calls["n"] == 2, "撞号后应重算重试一次"
         assert created.id is not None
         assert created.issue_code != occupied_code
 
-    async def test_generate_code_tolerates_non_numeric_suffix(self, db):
-        """历史脏数据（非数字后缀）不再让编号生成报错"""
-        row = await seed_issue(
-            db, title=f"{TITLE_PREFIX}非数字后缀", updated_at=datetime(2026, 2, 3, 9, 30, 0)
-        )
-        year = datetime.now().year
-        await db.execute(
-            update(Issue)
-            .where(Issue.id == row.id)
-            .values(issue_code=f"ISSUE{year}-MANUAL")
-        )
-        await db.commit()
-
-        code = await ContractIssueService(db)._generate_issue_code()
-        suffix = code[len(f"ISSUE{year}-"):]
-        assert code.startswith(f"ISSUE{year}-")
-        assert suffix.isdigit(), f"应给出数字序号而非报错（当前: {code!r}）"
+    async def test_generate_code_none_raises_after_e98(self, db):
+        """E98: _generate_issue_code(None) 必须 ValueError（年号分配已删）"""
+        import pytest
+        with pytest.raises(ValueError, match="workspace"):
+            await ContractIssueService(db)._generate_issue_code(None)

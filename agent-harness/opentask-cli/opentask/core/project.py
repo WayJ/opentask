@@ -60,6 +60,12 @@ def health_cli():
     pass
 
 
+@project_cli.group(name="repo")
+def repo_cli():
+    """E95: project repo list|show|add|update|remove."""
+    pass
+
+
 @project_cli.command(name="list")
 @click.option("--active-only", is_flag=True, default=True, help="Show only active projects")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
@@ -945,3 +951,183 @@ def project_timeline(obj: "Context", project_id: str, as_json: bool):
             skin.info("No timeline items")
     except APIError as e:
         handle_api_error(e, json_mode, "Failed to get project timeline")
+
+
+# ============================================================================
+# E95: project repo list|show|add|update|remove
+# ============================================================================
+
+
+@repo_cli.command(name="list")
+@click.argument("project_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def project_repo_list(obj: "Context", project_id: str, as_json: bool):
+    """E95: List project repo configs."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    try:
+        result = asyncio.run(client.list_project_repos(project_id))
+        if isinstance(result, dict):
+            rows = result.get("rows") or result.get("data") or result.get("repos") or []
+            if not isinstance(rows, list):
+                rows = []
+        elif isinstance(result, list):
+            rows = result
+        else:
+            rows = []
+        if json_mode:
+            echo_json(True, data={"rows": rows, "total": len(rows)})
+            return
+        if not rows:
+            skin.info("No repos")
+            return
+        headers = ["ID", "Name", "URL", "Main Branch"]
+        table_rows = []
+        for r in rows:
+            table_rows.append([
+                str(r.get("id", "")),
+                r.get("name") or "",
+                r.get("url") or "",
+                r.get("main_branch") or "",
+            ])
+        skin.table(headers, table_rows, max_col_width=48)
+    except APIError as e:
+        handle_api_error(e, json_mode, "Failed to list project repos")
+
+
+@repo_cli.command(name="show")
+@click.argument("project_id")
+@click.argument("repo_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def project_repo_show(obj: "Context", project_id: str, repo_id: str, as_json: bool):
+    """E95: Show a project repo config."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    try:
+        result = asyncio.run(client.get_project_repo(project_id, repo_id))
+        if json_mode:
+            echo_json(True, data=result if isinstance(result, dict) else {"result": result})
+            return
+        skin.section("Repo")
+        skin.status_block({
+            "ID": (result or {}).get("id", ""),
+            "Name": (result or {}).get("name", ""),
+            "URL": (result or {}).get("url", ""),
+            "Main Branch": (result or {}).get("main_branch", ""),
+        })
+    except APIError as e:
+        handle_api_error(e, json_mode, "Failed to show project repo")
+
+
+@repo_cli.command(name="add")
+@click.argument("project_id")
+@click.option("--name", required=True, help="Repo display name")
+@click.option("--url", required=True, help="Git remote URL")
+@click.option(
+    "--main-branch",
+    "main_branch",
+    default="main",
+    show_default=True,
+    help="Main branch",
+)
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def project_repo_add(
+    obj: "Context",
+    project_id: str,
+    name: str,
+    url: str,
+    main_branch: str,
+    as_json: bool,
+):
+    """E95: Add a project repo config."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    try:
+        result = asyncio.run(
+            client.create_project_repo(
+                project_id, name=name, url=url, main_branch=main_branch or "main"
+            )
+        )
+        if json_mode:
+            echo_json(True, data=result if isinstance(result, dict) else {"result": result})
+            return
+        skin.success(f"[OK] Repo added: {(result or {}).get('name') or name}")
+    except APIError as e:
+        handle_api_error(e, json_mode, "Failed to add project repo")
+
+
+@repo_cli.command(name="update")
+@click.argument("project_id")
+@click.argument("repo_id")
+@click.option("--name", default=None, help="Repo display name")
+@click.option("--url", default=None, help="Git remote URL")
+@click.option("--main-branch", "main_branch", default=None, help="Main branch")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def project_repo_update(
+    obj: "Context",
+    project_id: str,
+    repo_id: str,
+    name: str | None,
+    url: str | None,
+    main_branch: str | None,
+    as_json: bool,
+):
+    """E95: Update a project repo config (partial fields)."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    fields = {}
+    if name is not None:
+        fields["name"] = name
+    if url is not None:
+        fields["url"] = url
+    if main_branch is not None:
+        fields["main_branch"] = main_branch
+    if not fields:
+        if json_mode:
+            echo_json(False, message="Provide at least one of --name/--url/--main-branch")
+            raise SystemExit(1)
+        raise click.UsageError("Provide at least one of --name/--url/--main-branch")
+    try:
+        result = asyncio.run(client.update_project_repo(project_id, repo_id, **fields))
+        if json_mode:
+            echo_json(True, data=result if isinstance(result, dict) else {"result": result})
+            return
+        skin.success(f"[OK] Repo updated: {(result or {}).get('name') or repo_id}")
+    except APIError as e:
+        handle_api_error(e, json_mode, "Failed to update project repo")
+
+
+@repo_cli.command(name="remove")
+@click.argument("project_id")
+@click.argument("repo_id")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_obj
+def project_repo_remove(obj: "Context", project_id: str, repo_id: str, as_json: bool):
+    """E95: Remove a project repo config."""
+    config: Config = obj.config
+    client = OpenTaskClient(base_url=config.api_url, token=config.token, config=config)
+    skin: ReplSkin = obj.skin
+    json_mode = as_json or obj.json_mode
+    try:
+        asyncio.run(client.delete_project_repo(project_id, repo_id))
+        if json_mode:
+            echo_json(True, data={"ok": True, "id": repo_id})
+            return
+        skin.success(f"[OK] Repo removed: {repo_id}")
+    except APIError as e:
+        handle_api_error(e, json_mode, "Failed to remove project repo")
+
+
+repo_cli.add_command(project_repo_remove, name="rm")

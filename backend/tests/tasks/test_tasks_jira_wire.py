@@ -103,12 +103,23 @@ def _basic_header(username: str, token: str) -> str:
 
 
 class TestKeyCodec:
-    def test_roundtrip(self):
-        assert issue_code_to_key("ISSUE2026-3") == "OPENTASK-2026000000003"
-        assert key_to_issue_code("OPENTASK-2026000000003") == "ISSUE2026-3"
+    def test_key_n_roundtrip(self):
+        key = issue_code_to_key("OT-1")
+        assert key.startswith("OPENTASK-")
+        assert key_to_issue_code(key) == "OT-1"
+        key2 = issue_code_to_key("WAY-42")
+        assert key_to_issue_code(key2) == "WAY-42"
 
     def test_key_case_insensitive_prefix(self):
-        assert key_to_issue_code("opentask-2026000000003") == "ISSUE2026-3"
+        key = issue_code_to_key("OT-1")
+        lower = "opentask-" + key.split("-", 1)[1]
+        assert key_to_issue_code(lower) == "OT-1"
+
+    def test_year_legacy_rejected(self):
+        with pytest.raises(ValueError):
+            issue_code_to_key("ISSUE2026-3")
+        with pytest.raises(ValueError):
+            key_to_issue_code("OPENTASK-2026000000003")
 
     def test_bad_shapes_rejected(self):
         with pytest.raises(ValueError):
@@ -120,7 +131,7 @@ class TestKeyCodec:
 
     def test_seq_overflow_rejected(self):
         with pytest.raises(ValueError):
-            issue_code_to_key("ISSUE2026-1000000000")
+            issue_code_to_key("OT-1000000")
 
 
 # ============================================================================

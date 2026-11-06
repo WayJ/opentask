@@ -1,4 +1,4 @@
-"""E51 CLI: webhook events + pack enums + version 1.77.0."""
+"""E51 CLI: webhook events + pack enums + version 1.81.0."""
 from click.testing import CliRunner
 
 from opentask.core.webhook import EVENTS
@@ -9,7 +9,7 @@ def test_version_1_35_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.77.0" in result.output
+    assert "1.81.0" in result.output
 
 
 def test_events_include_e51_pack():

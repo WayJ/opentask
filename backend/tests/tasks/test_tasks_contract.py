@@ -79,7 +79,7 @@ class TestFieldMapping:
         与 Issue 双向转换无丢失；labels↔tags、assignee+metadata.username 正确"""
         issue = Issue(
             id=str(uuid.uuid4()),
-            issue_code="ISSUE2026-77",
+            issue_code="OT-77",
             title="映射往返",
             description="描述内容",
             type="feature",
@@ -107,7 +107,7 @@ class TestFieldMapping:
         assert task.created_at == datetime(2026, 1, 1, 8, 0, 0)
         assert task.updated_at == datetime(2026, 1, 2, 9, 30, 0)
         assert task.labels == ["alpha", "beta"]
-        assert task.metadata["issue_code"] == "ISSUE2026-77"
+        assert task.metadata["issue_code"] == "OT-77"
         assert task.metadata["type"] == "feature"
         assert task.metadata["priority"] == "high"
         assert task.metadata["reporter_id"] == "user-reporter"
@@ -146,7 +146,8 @@ class TestContractCrud:
         assert task["created_at"] and task["updated_at"]
         # D12：assignee 字符串 ID + metadata.username
         assert task["metadata"]["username"] == assignee_user.username
-        assert task["metadata"]["issue_code"].startswith("ISSUE")
+        import re as _re
+        assert _re.match(r"^[A-Z0-9]{2,6}-\d+$", task["metadata"]["issue_code"]), task["metadata"]["issue_code"]
 
         # 落库断言（Issue 行 + 标签关联 + created timeline）
         issue_row = (

@@ -41,8 +41,9 @@ def test_parse_key_n():
     assert parse_issue_code_from_branch("WAY-42-fix-login-redirect") == "WAY-42"
 
 
-def test_parse_legacy():
-    assert parse_issue_code_from_branch("ISSUE2026-3-something") == "ISSUE2026-3"
+def test_parse_year_legacy_ignored():
+    # E99: year codes are not product identifiers; prefix ISSUE2026 is >6 chars
+    assert parse_issue_code_from_branch("ISSUE2026-3-something") is None
 
 
 def test_parse_none():

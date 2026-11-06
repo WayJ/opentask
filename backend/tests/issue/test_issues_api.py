@@ -439,12 +439,8 @@ class TestIssueCodeGeneration:
             issue_code = data["issue_code"]
             created_codes.append(issue_code)
 
-            # 验证格式：ISSUE{YEAR}-{NUMBER}
-            assert re.match(r'^ISSUE\d{4}-\d+$', issue_code), f"Invalid format: {issue_code}"
-
-            # 验证年份是当前年份
-            current_year = datetime.now().year
-            assert str(current_year) in issue_code, f"Year mismatch in {issue_code}"
+            # E98: KEY-N only
+            assert re.match(r'^[A-Z0-9]{2,6}-\d+$', issue_code), f"Invalid format: {issue_code}"
 
     @pytest.mark.asyncio
     async def test_issue_code_uniqueness(
@@ -506,16 +502,12 @@ class TestIssueCodeGeneration:
             issue_code = response.json()["data"]["issue_code"]
             created_codes.append(issue_code)
 
-        # 提取序号并验证递增
-        current_year = datetime.now().year
+        # E98: extract KEY-N sequence and verify contiguous
         numbers = []
-
         for code in created_codes:
-            # 提取序号部分
-            match = re.match(rf'^ISSUE{current_year}-(\d+)$', code)
-            assert match, f"Code format doesn't match expected pattern: {code}"
-            number = int(match.group(1))
-            numbers.append(number)
+            match = re.match(r'^[A-Z0-9]{2,6}-(\d+)$', code)
+            assert match, f"Code format doesn't match KEY-N: {code}"
+            numbers.append(int(match.group(1)))
 
         # 验证序号连续递增（基于已有数量，所以不一定是1,2,3，但应该是连续的）
         sorted_numbers = sorted(numbers)
@@ -524,20 +516,18 @@ class TestIssueCodeGeneration:
                 f"Numbers not sequential: {sorted_numbers}"
 
     @pytest.mark.asyncio
-    async def test_issue_code_year_isolation(
+    async def test_issue_code_key_n_format(
         self, test_client: AsyncClient, test_token: str, test_project_id: str
     ):
-        """测试 Issue Code 年份隔离（验证 code 包含正确的年份）"""
+        """E98: 新建 Issue code 必须是 KEY-N，不再是 ISSUE{year}-N"""
         import re
-        from datetime import datetime
 
-        # 创建 Issue
         response = await test_client.post(
             "/api/issues",
             headers={"Authorization": f"Bearer {test_token}"},
             json={
-                "title": "年份验证测试",
-                "description": "验证 code 中的年份",
+                "title": "KEY-N 验证测试",
+                "description": "验证 Linear 式编号",
                 "type": "feature",
                 "status": "open",
                 "priority": "medium",
@@ -548,17 +538,8 @@ class TestIssueCodeGeneration:
 
         assert response.status_code == 200
         issue_code = response.json()["data"]["issue_code"]
-
-        # 提取年份
-        match = re.match(r'^ISSUE(\d{4})-\d+$', issue_code)
-        assert match, f"Invalid code format: {issue_code}"
-
-        code_year = int(match.group(1))
-        current_year = datetime.now().year
-
-        # 验证 code 中的年份是当前年份
-        assert code_year == current_year, \
-            f"Code year {code_year} doesn't match current year {current_year}"
+        assert re.match(r'^[A-Z0-9]{2,6}-\d+$', issue_code), issue_code
+        assert not re.match(r'^ISSUE\d{4}-\d+$', issue_code), issue_code
 
     @pytest.mark.asyncio
     async def test_issue_code_persistence(

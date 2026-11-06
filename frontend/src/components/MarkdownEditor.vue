@@ -184,7 +184,7 @@ function insertTask() {
               - 提及用户
             </li>
             <li>
-              <code>#ISSUE2026-1</code>
+              <code>#OT-1</code>
               - 引用 Issue
             </li>
           </ul>

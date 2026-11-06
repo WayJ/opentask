@@ -1,12 +1,12 @@
-"""E56 CLI: sla policy --calendar-json|--clear-calendar + version 1.77.0."""
+"""E56 CLI: sla policy --calendar-json|--clear-calendar + version 1.81.0."""
 from click.testing import CliRunner
 from opentask.opentask_cli import cli, VERSION
 
 
 def test_version_pin():
-    assert VERSION == "1.77.0"
+    assert VERSION == "1.81.0"
     r = CliRunner().invoke(cli, ["--version"])
-    assert "1.77.0" in r.output
+    assert "1.81.0" in r.output
 
 
 def test_policy_create_help_shows_calendar_json():

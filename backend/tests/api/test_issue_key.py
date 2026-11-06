@@ -146,32 +146,15 @@ async def test_by_code_cross_workspace_404(test_client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_by_code_matches_legacy_issue_code(
-    test_client: AsyncClient, test_engine: AsyncEngine
-):
+async def test_year_code_by_code_404(test_client: AsyncClient):
+    """E99: ISSUE{year}-N is not a resolvable issue code (no fixture insert)."""
     user = await _register(test_client, "ik_lg")
-    created = await test_client.post(
-        "/api/issues",
-        headers=_auth(user["token"], user["workspaceId"]),
-        json={"title": "Legacy", "type": "bug"},
-    )
-    assert created.status_code == 200, created.text
-    issue_id = created.json()["data"]["id"]
-    legacy = f"ISSUE2026-{uuid.uuid4().int % 100000 + 1}"
-    async with test_engine.begin() as conn:
-        await conn.execute(
-            text(
-                "UPDATE issues SET legacy_issue_code = :legacy WHERE id = :id"
-            ),
-            {"legacy": legacy, "id": issue_id},
-        )
     resp = await test_client.get(
-        f"/api/issues/{legacy}",
+        "/api/issues/ISSUE2026-42",
         params={"by_code": "true"},
         headers=_auth(user["token"], user["workspaceId"]),
     )
-    assert resp.status_code == 200, resp.text
-    assert resp.json()["data"]["id"] == issue_id
+    assert resp.status_code == 404
 
 
 @pytest.mark.asyncio
@@ -186,7 +169,7 @@ async def test_invalid_issue_key_rejected(test_client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_missing_legacy_by_code_404(test_client: AsyncClient):
+async def test_missing_year_by_code_404(test_client: AsyncClient):
     user = await _register(test_client, "ik_miss")
     resp = await test_client.get(
         "/api/issues/ISSUE2099-999999",

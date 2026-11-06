@@ -367,7 +367,7 @@ AUTH_SECRET_KEY=<密钥> uv run python -m opentask.api.tasks.openapi_export
 |---|---|
 | `GET /rest/api/2/myself` | 连接验证 + 当前用户（Orca 连接向导的第一跳） |
 | `POST /rest/api/2/search` | JQL 子集搜索（`assignee/reporter = currentUser()`、`status( = / != / in )`、`statusCategory`、`key = / in`、`project`、`summary/description/text ~`、`ORDER BY updated`；子集外 400） |
-| `GET/POST /rest/api/2/issue[/{key}]` | 读取/创建/更新（key 形状 `OPENTASK-{年*10^9+序号}`，如 `ISSUE2026-1 → OPENTASK-2026000000001`；写成功 204） |
+| `GET/POST /rest/api/2/issue[/{key}]` | 读取/创建/更新（key 形状 `OPENTASK-{n}`，由 KEY-N 投影，如 `OT-1 → OPENTASK-{KEY_N_BASE+…}`；写成功 204） |
 | `GET/POST /rest/api/2/issue/{key}/transitions` | 可流转列表 / 执行流转（transition.id = 通用状态 token） |
 | `GET/POST /rest/api/2/issue/{key}/comment` | 评论（`startAt`/`maxResults`/`total` 翻页） |
 | `PUT /rest/api/2/issue/{key}/assignee` | 分配/取消（server 形状 `{name}`，兼容 `{accountId}`） |

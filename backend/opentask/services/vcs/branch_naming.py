@@ -4,8 +4,7 @@ from __future__ import annotations
 import re
 import unicodedata
 
-_LEGACY_CODE = re.compile(r"(ISSUE\d{4}-\d+)", re.IGNORECASE)
-# KEY-N: 2–6 alphanumeric prefix; exclude strings that are legacy ISSUE{year}
+# KEY-N only (E99): 2–6 alphanumeric prefix
 _KEY_N = re.compile(r"\b([A-Za-z][A-Za-z0-9]{1,5}-\d+)\b")
 _NON_SLUG = re.compile(r"[^a-z0-9]+")
 
@@ -30,21 +29,12 @@ def suggest_branch_name(issue_code: str, title: str | None) -> str:
 
 
 def parse_issue_code_from_branch(branch: str) -> str | None:
+    """Extract KEY-N from a branch name. Year legacy ISSUE{year}-N is ignored."""
     if not branch:
         return None
-    legacy = _LEGACY_CODE.search(branch)
-    if legacy:
-        raw = legacy.group(1)
-        # Canonical ISSUE{year}-{n}
-        m = re.match(r"issue(\d{4})-(\d+)$", raw, re.IGNORECASE)
-        if m:
-            return f"ISSUE{m.group(1)}-{m.group(2)}"
-        return raw
-
     for m in _KEY_N.finditer(branch):
         code = m.group(1)
-        if re.match(r"ISSUE\d{4}-\d+$", code, re.IGNORECASE):
-            continue
+        # Prefix longer than 6 (e.g. ISSUE2026) cannot be KEY-N; _KEY_N already caps at 6
         prefix, num = code.rsplit("-", 1)
         return f"{prefix.upper()}-{num}"
     return None

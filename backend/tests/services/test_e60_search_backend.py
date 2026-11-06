@@ -52,8 +52,7 @@ def test_sqlite_fts5_trigger_sync_and_match():
               workspace_id TEXT NOT NULL,
               title TEXT NOT NULL,
               issue_code TEXT NOT NULL,
-              legacy_issue_code TEXT,
-              description TEXT,
+                            description TEXT,
               status TEXT,
               priority TEXT,
               updated_at TEXT
@@ -64,7 +63,7 @@ def test_sqlite_fts5_trigger_sync_and_match():
             """
             CREATE VIRTUAL TABLE issues_fts USING fts5(
               id UNINDEXED, workspace_id UNINDEXED,
-              title, issue_code, legacy_issue_code, description,
+              title, issue_code, description,
               tokenize='unicode61'
             );
             """
@@ -72,9 +71,9 @@ def test_sqlite_fts5_trigger_sync_and_match():
         conn.execute(text(
             """
             CREATE TRIGGER issues_ai AFTER INSERT ON issues BEGIN
-              INSERT INTO issues_fts(id, workspace_id, title, issue_code, legacy_issue_code, description)
+              INSERT INTO issues_fts(id, workspace_id, title, issue_code, description)
               VALUES (new.id, new.workspace_id, new.title, new.issue_code,
-                      coalesce(new.legacy_issue_code,''), substr(coalesce(new.description,''),1,16000));
+                      substr(coalesce(new.description,''),1,16000));
             END;
             """
         ))
@@ -89,9 +88,9 @@ def test_sqlite_fts5_trigger_sync_and_match():
             """
             CREATE TRIGGER issues_au AFTER UPDATE ON issues BEGIN
               DELETE FROM issues_fts WHERE id = old.id;
-              INSERT INTO issues_fts(id, workspace_id, title, issue_code, legacy_issue_code, description)
+              INSERT INTO issues_fts(id, workspace_id, title, issue_code, description)
               VALUES (new.id, new.workspace_id, new.title, new.issue_code,
-                      coalesce(new.legacy_issue_code,''), substr(coalesce(new.description,''),1,16000));
+                      substr(coalesce(new.description,''),1,16000));
             END;
             """
         ))

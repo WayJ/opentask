@@ -11,13 +11,14 @@ import {
 } from './command-palette-entities';
 
 describe('looksLikeIssueCode', () => {
-  it('matches CODE-123 and ISSUE2026-32', () => {
+  it('matches KEY-N (prefix 2–6)', () => {
     expect(looksLikeIssueCode('ABC-1')).toBe(true);
-    expect(looksLikeIssueCode('ISSUE2026-32')).toBe(true);
     expect(looksLikeIssueCode('  ot-99  ')).toBe(true);
+    expect(looksLikeIssueCode('WAY-42')).toBe(true);
   });
 
-  it('rejects free text', () => {
+  it('rejects year legacy and free text', () => {
+    expect(looksLikeIssueCode('ISSUE2026-32')).toBe(false);
     expect(looksLikeIssueCode('fix')).toBe(false);
     expect(looksLikeIssueCode('ABC')).toBe(false);
     expect(looksLikeIssueCode('')).toBe(false);

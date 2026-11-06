@@ -25,6 +25,10 @@ from opentask.api.tasks.service import ContractIssueService, sync_issue_labels
 from opentask.models.issue.enums import IssuePriority, IssueType
 from opentask.models.issue.model import Issue, IssueComment
 from opentask.models.issue.schema import IssueCreate, IssueUpdate
+from opentask.services.workspace.issue_create_ws import (
+    WorkspaceRequiredError,
+    resolve_workspace_for_issue_create,
+)
 from opentask.models.tag.model import Tag
 from opentask.models.user.model import UserModel
 from opentask.services.issue_service import IssueService
@@ -405,6 +409,13 @@ async def create_issue(
     if description is not None and not isinstance(description, str):
         raise jira_bad_request("description 必须是字符串（server 模式纯文本）", field="description")
 
+    try:
+        workspace_id = await resolve_workspace_for_issue_create(
+            service.db, str(current_user.id)
+        )
+    except WorkspaceRequiredError as e:
+        raise jira_bad_request(e.detail) from e
+
     issue = await service.create_issue(
         IssueCreate(
             title=summary,
@@ -416,6 +427,7 @@ async def create_issue(
         ),
         str(current_user.id),
         dept_id=None,
+        workspace_id=workspace_id,
     )
 
     labels = fields.get("labels")

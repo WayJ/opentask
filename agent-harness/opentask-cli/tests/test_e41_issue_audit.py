@@ -1,4 +1,4 @@
-"""E41 CLI: issue timeline|timeline-export|timeline-export-workspace + version 1.77.0."""
+"""E41 CLI: issue timeline|timeline-export|timeline-export-workspace + version 1.81.0."""
 from click.testing import CliRunner
 
 from opentask.opentask_cli import cli
@@ -9,7 +9,7 @@ def test_version_1_25_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.77.0" in result.output
+    assert "1.81.0" in result.output
 
 
 def test_issue_timeline_help():

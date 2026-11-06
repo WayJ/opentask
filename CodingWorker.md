@@ -11,7 +11,7 @@
 
 ### 第一步：获取待处理列表
 
-1. [opentask-works](./opentask-works.txt) 可包含多个 WorkCode（优先 `KEY-N`；历史也可能是 `ISSUE2026-xxx` / `需求2026-xxx`）。
+1. [opentask-works](./opentask-works.txt) 可包含多个 WorkCode（Issue 仅 `KEY-N`；Requirement 仍可为 `需求{year}-N`）。
 2. 拉取未完成的 WorkCode 列表；若无待办，输出 `没有待处理work` 并结束。
 
 ### 第二步：循环处理每个 WorkCode
@@ -20,7 +20,7 @@
 
 1. 使用 OpenTask CLI：
    - 优先：`opentask issue show WAY-42`（或当前工作区 KEY-N）
-   - 兼容：`opentask issue show ISSUE2026-15` / `opentask requirement show 需求2026-127`
+   - 示例：`opentask issue show OT-15` / `opentask requirement show 需求2026-127`
 2. 从 `main` 切到开发分支 `feat/{WorkCode}`。
 3. 工作目录：`.opentask-workflow/{WorkCode}/`（progress.md、临时 md/图片）。
 

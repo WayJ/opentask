@@ -1,18 +1,14 @@
-"""Jira issue key 编解码（OPENTASK-{数字} ↔ issue_code）
+"""Jira issue key 编解码（OPENTASK-{数字} ↔ KEY-N issue_code）
 
 Orca 侧 key 是不可解析的 opaque 字符串（仅要求 [前缀]-[数字] 形状、稳定、
 可回查），见 docs/superpowers/sprints/2026-11-01-S7-orca-jira-probe.md §5。
 
-编码方案：
+编码方案（E99）：仅 **KEY-N** ``{KEY}-{N}``（KEY 为 2–6 位 [A-Z0-9]）：
+落在 ``KEY_N_BASE`` 以上的独立号段，前缀用 radix-37（含 pad）打包，
+序号容量 ``KEY_N_SEQ_CAP``。
 
-1. **Legacy** ``ISSUE{年}-{序号}``：数字 = 年份 × 1_000_000_000 + 年内序号::
-
-       ISSUE2026-3  →  OPENTASK-2026000000003
-       OPENTASK-2026000000003  →  ISSUE2026-3
-
-2. **E12 KEY-N** ``{KEY}-{N}``（KEY 为 2–6 位 [A-Z0-9]）：落在
-   ``KEY_N_BASE`` 以上的独立号段，前缀用 radix-37（含 pad）打包，
-   序号容量 ``KEY_N_SEQ_CAP``（不改写 legacy 年号公式）。
+年号 legacy ``ISSUE{year}-N`` 与 ``number < KEY_N_BASE`` 的解码路径已删除；
+此类输入一律 ``ValueError``。
 
 序号越界 / 无法识别形状 → ValueError。key 前缀大小写不敏感；编码恒为大写。
 """
@@ -23,20 +19,16 @@ import re
 from typing import Final
 
 KEY_PREFIX: Final = "OPENTASK"
-# issue_code 形状：ISSUE2026-3
-_ISSUE_CODE_RE = re.compile(r"^ISSUE(\d{4})-(\d+)$")
-# KEY-N（E12）：OT-1 / WAY-42；排除已被 legacy 吃掉的 ISSUE{year}-N
+# KEY-N（E12/E99）：OT-1 / WAY-42
 _KEY_N_RE = re.compile(r"^([A-Z][A-Z0-9]{1,5})-(\d+)$", re.IGNORECASE)
-# Jira key 形状（前缀大小写不敏感）：opentask-2026000000003
+# Jira key 形状（前缀大小写不敏感）
 _KEY_RE = re.compile(rf"^{KEY_PREFIX}-(\d+)$", re.IGNORECASE)
 
-# 单年序号容量（数字编码 = year * SEQ_CAPACITY + seq）
-SEQ_CAPACITY: Final = 1_000_000_000
-_MIN_YEAR: Final = 2000
-_MAX_YEAR: Final = 9999
+# 历史 year 公式容量常数：仅用于 KEY_N_BASE 定位（高于任何旧 year*1e9）
+_SEQ_CAPACITY_LEGACY_FLOOR: Final = 1_000_000_000
 
-# KEY-N 号段：高于任何合法 year*SEQ_CAPACITY，且整体 < JS Number.MAX_SAFE_INTEGER
-KEY_N_BASE: Final = 10_000 * SEQ_CAPACITY  # 1e13
+# KEY-N 号段：高于任何旧 year*SEQ 编码，且整体 < JS Number.MAX_SAFE_INTEGER
+KEY_N_BASE: Final = 10_000 * _SEQ_CAPACITY_LEGACY_FLOOR  # 1e13
 KEY_N_SEQ_CAP: Final = 1_000_000
 _ALPH37: Final = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"  # 0..35；pad=36
 
@@ -70,22 +62,12 @@ def _int_to_prefix(n: int) -> str:
 
 
 def issue_code_to_key(issue_code: str) -> str:
-    """issue_code → Jira key（legacy ISSUE{year}-N 或 E12 KEY-N）
+    """KEY-N issue_code → Jira key ``OPENTASK-{n}``.
 
     Raises:
-        ValueError: issue_code 非法或序号超出投影容量。
+        ValueError: 非 KEY-N、年号 legacy、或序号超出投影容量。
     """
     code = issue_code or ""
-    m = _ISSUE_CODE_RE.match(code)
-    if m:
-        year, seq = int(m.group(1)), int(m.group(2))
-        if seq >= SEQ_CAPACITY:
-            raise ValueError(
-                f"issue_code {issue_code!r} 序号超出 Jira key 投影容量"
-                f"（{SEQ_CAPACITY}）"
-            )
-        return f"{KEY_PREFIX}-{year * SEQ_CAPACITY + seq}"
-
     m2 = _KEY_N_RE.match(code)
     if m2:
         prefix, seq_s = m2.group(1), m2.group(2)
@@ -103,18 +85,19 @@ def issue_code_to_key(issue_code: str) -> str:
 
 
 def key_to_issue_code(key: str) -> str:
-    """Jira key → issue_code（解码失败抛 ValueError，调用方转 400/404）"""
+    """Jira key → KEY-N issue_code（失败抛 ValueError，调用方转 400/404）。
+
+    ``number < KEY_N_BASE``（旧年号投影）一律拒绝。
+    """
     m = _KEY_RE.match((key or "").strip())
     if not m:
         raise ValueError(f"无法识别的 Jira key: {key!r}")
     number = int(m.group(1))
-    if number >= KEY_N_BASE:
-        rem = number - KEY_N_BASE
-        packed, seq = divmod(rem, KEY_N_SEQ_CAP)
-        prefix = _int_to_prefix(packed)
-        return f"{prefix}-{seq}"
-
-    year, seq = divmod(number, SEQ_CAPACITY)
-    if not (_MIN_YEAR <= year <= _MAX_YEAR):
-        raise ValueError(f"Jira key {key!r} 解出的年份超出范围: {year}")
-    return f"ISSUE{year}-{seq}"
+    if number < KEY_N_BASE:
+        raise ValueError(
+            f"Jira key {key!r} 低于 KEY-N 号段（年号 legacy 投影已移除）"
+        )
+    rem = number - KEY_N_BASE
+    packed, seq = divmod(rem, KEY_N_SEQ_CAP)
+    prefix = _int_to_prefix(packed)
+    return f"{prefix}-{seq}"

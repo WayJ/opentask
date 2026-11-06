@@ -12,10 +12,10 @@ from opentask.utils.api_client import OpenTaskClient
 
 
 def test_key_n_pattern_examples():
-    pat = re.compile(r'^(?:ISSUE\d+|[A-Za-z][A-Za-z0-9]{0,5})-\d+$', re.I)
+    pat = re.compile(r'^[A-Za-z][A-Za-z0-9]{1,5}-\d+$', re.I)
     assert pat.match("OT-1")
     assert pat.match("SMOKE2-12")
-    assert pat.match("ISSUE2026-32")
+    assert not pat.match("ISSUE2026-32")  # E99: year legacy rejected
     assert not pat.match("not-a-key")
 
 

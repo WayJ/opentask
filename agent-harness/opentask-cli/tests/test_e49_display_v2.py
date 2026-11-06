@@ -1,4 +1,4 @@
-"""E49 CLI: Display color scale/icon sets surface + version 1.77.0 (E93 adds display-prefs)."""
+"""E49 CLI: Display color scale/icon sets surface + version 1.81.0 (E93 adds display-prefs)."""
 from click.testing import CliRunner
 
 from opentask import __version__
@@ -9,7 +9,7 @@ def test_version_is_1_33_0():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "1.77.0" in result.output
+    assert "1.81.0" in result.output
 
 
 def test_help_mentions_display_prefs_group():
@@ -25,4 +25,4 @@ def test_help_mentions_display_prefs_group():
 
 
 def test_init_version_pin():
-    assert __version__ == "1.77.0"
+    assert __version__ == "1.81.0"
