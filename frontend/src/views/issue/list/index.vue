@@ -88,6 +88,7 @@ import type { Api } from '@/typings/api';
 import IssueBulkBar from '@/components/IssueBulkBar.vue';
 import IssueBoard from './modules/IssueBoard.vue';
 import IssueListGrouped from './modules/IssueListGrouped.vue';
+import { issueListColumnLayout } from './column-layout';
 import DisplayOptionsPanel from './modules/DisplayOptionsPanel.vue';
 
 defineOptions({
@@ -1436,8 +1437,28 @@ const baseColumns: DataTableColumns<Api.Issue.Issue> = [
   }
 ];
 
+const issueListEl = ref<HTMLElement | null>(null);
+const tableWidth = ref(typeof window === 'undefined' ? 1280 : window.innerWidth);
+let tableObserver: ResizeObserver | undefined;
+
+function readTableWidth() {
+  const root = issueListEl.value;
+  if (!root) return;
+  const table = root.querySelector('.n-data-table');
+  const width = table instanceof HTMLElement ? table.clientWidth : root.clientWidth;
+  if (width > 0) tableWidth.value = width;
+}
+
 const columns = computed<DataTableColumns<Api.Issue.Issue>>(() => {
-  const cols = [...baseColumns];
+  const { pinActions, titleWidth } = issueListColumnLayout(tableWidth.value);
+  const cols = baseColumns.map(col => {
+    if (col.key === 'title') return { ...col, width: titleWidth };
+    if (col.key === 'actions' && !pinActions) {
+      const { fixed: _fixed, ...rest } = col;
+      return rest;
+    }
+    return col;
+  });
   const defsByKey = Object.fromEntries(customFieldDefs.value.map(d => [d.key, d]));
   for (const key of customFieldKeys.value) {
     const def = defsByKey[key];
@@ -1498,6 +1519,11 @@ watch(
 );
 
 onMounted(async () => {
+  if (typeof ResizeObserver !== 'undefined' && issueListEl.value) {
+    tableObserver = new ResizeObserver(() => readTableWidth());
+    tableObserver.observe(issueListEl.value);
+    readTableWidth();
+  }
   unsubRealtime = subscribeWorkspaceRealtime(ev => {
     if (typeof ev.type === 'string' && ev.type.startsWith('issue.')) {
       debouncedRealtimeReload();
@@ -1540,13 +1566,14 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+  tableObserver?.disconnect();
   unsubRealtime?.();
   unsubRealtime = null;
 });
 </script>
 
 <template>
-  <div class="issue-list-container">
+  <div ref="issueListEl" class="issue-list-container">
     <NCard :bordered="false">
       <NAlert v-if="scopeTitle" type="info" :bordered="false" class="mb-12px" closable @close="clearScope">
         当前视图：{{ scopeTitle }}

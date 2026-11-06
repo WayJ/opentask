@@ -636,6 +636,27 @@ git add frontend/src/styles/css/global.css frontend/src/styles/__tests__/respons
 git commit -m "feat: keep public pages and narrow layouts on the same surface"
 ```
 
+### Task 7b: 窄屏标题不被操作列盖住
+
+只动问题列表的列布局。不改删除确认，不改接口，不把表格换成卡片。
+
+- [x] **Step 1: Write the failing test**
+
+`issueListColumnLayout`：表格宽 349 和 522 时不固定操作列，且编号列加标题列不超过该宽度；宽 1034 时固定操作列，标题列仍是 300。
+
+- [x] **Step 2: Run test to verify it fails**
+
+Run: `npx vitest run src/views/issue/list/column-layout.test.ts`  
+Expected: FAIL，函数尚不存在。
+
+- [x] **Step 3: Write minimal implementation**
+
+用表格容器的宽度计算列。窄表取消 `fixed: 'right'`，标题列按 3.5 节收缩。宽表保持现状。
+
+- [x] **Step 4: Run test to verify it passes**
+
+单测通过后，用本机夹具库的编译页面在 375、768、1280 的亮色和暗色量标题盒和操作按钮盒。
+
 ### Task 8: 验收记录
 
 **Files:**
