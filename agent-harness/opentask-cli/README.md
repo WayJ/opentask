@@ -8,7 +8,7 @@
 
 1. `login` → 2. `workspace use`（请求头带 `X-Workspace-Id`）→ 3. `project` / `issue` → 4. `cycle` / `label` / `triage` 等 Linear 常用面。
 
-遗留：`requirement` / `task` / `collection` 仍可用（后端保留），但不再作为默认主路径（E12 去 PGE）。
+`requirement` 命令已废弃，对应 API 仍可用。`collection` 命令已删除。`task` 仍可用。主路径是 Issue（KEY-N）。
 
 > **E24**：`opentask insights summary [--cycle ID]` 对齐 `/api/insights/summary`；版本 **1.8.0**。
 >
@@ -68,7 +68,8 @@ opentask triage list --json
 | `customer` | list / create |
 | `request` | list / create / link-issue |
 | `doc` | list / show / create / update / delete |
-| `requirement` / `task` / `collection` | 遗留 PGE 面（仍可用） |
+| `requirement` | 已废弃，API 仍可用 |
+| `task` | 仍可用 |
 
 ## 测试
 

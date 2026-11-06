@@ -71,6 +71,27 @@ async def create_workspace(
     return success_response(data=_ws_out(ws, role), message="工作区创建成功")
 
 
+@router.post("/ensure-owner")
+async def ensure_owner_workspace(
+    dto: WorkspaceCreate,
+    current_user: UserModel = Depends(authenticate),
+    session: AsyncSession = Depends(get_session),
+):
+    """Idempotent first workspace for bootstrap and empty-membership onboarding.
+
+    A later POST /api/workspaces still creates another workspace.
+    """
+    svc = WorkspaceService(session)
+    ws, _created = await svc.ensure_owner_workspace(
+        owner_user_id=str(current_user.id),
+        name=dto.name,
+    )
+    await session.commit()
+    await session.refresh(ws)
+    member = await svc.get_membership(ws.id, str(current_user.id))
+    return success_response(data=_ws_out(ws, member.role if member else "owner"))
+
+
 @router.get("/{workspace_id}")
 async def get_workspace(
     workspace_id: str,

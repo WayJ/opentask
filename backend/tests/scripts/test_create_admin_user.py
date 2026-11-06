@@ -59,8 +59,11 @@ def test_script_is_idempotent_by_default(module):
 
 
 def test_cli_defaults(module):
-    """不传参时的默认契约：用户名 admin、口令由脚本生成、显示名留空"""
+    """不传参时的默认契约：用户名 admin、口令由脚本生成、显示名留空、不跳过工作区"""
     args = module.build_parser().parse_args([])
     assert args.username is None          # main() 里回落到 "admin"
     assert args.password is None          # main() 里生成随机口令
     assert args.name is None
+    assert args.workspace_name == "OpenTask"
+    assert args.skip_workspace is False
+    assert args.reset_password is False

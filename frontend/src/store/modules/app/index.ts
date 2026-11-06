@@ -4,6 +4,7 @@ import { defineStore } from 'pinia';
 import { useBoolean } from '@sa/hooks';
 import { router } from '@/router';
 import { localStg } from '@/utils/storage';
+import { formatDocumentTitle } from '@/utils/document-title';
 import { SetupStoreId } from '@/enum';
 import { $t, setLocale } from '@/locales';
 import { setDayjsLocale } from '@/locales/dayjs';
@@ -72,9 +73,9 @@ export const useAppStore = defineStore(SetupStoreId.App, () => {
   function updateDocumentTitleByLocale() {
     const { i18nKey, title } = router.currentRoute.value.meta;
 
-    const documentTitle = i18nKey ? $t(i18nKey) : title;
+    const pageTitle = i18nKey ? $t(i18nKey) : title;
 
-    useTitle(documentTitle);
+    useTitle(formatDocumentTitle(pageTitle));
   }
 
   function init() {

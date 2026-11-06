@@ -30,7 +30,6 @@ from .core.project_template import project_template_cli
 from .core.issue_template import issue_template_cli
 from .core.issue import issue_cli
 from .core.requirement import requirement_cli
-from .core.collection import collection_cli
 from .core.update import update_cli
 from .core.task import task_cli
 from .core.workspace import workspace_cli
@@ -428,7 +427,6 @@ cli.add_command(display_prefs_cli)
 cli.add_command(access_token_cli)
 cli.add_command(requirement_cli)
 cli.add_command(task_cli)
-cli.add_command(collection_cli)
 cli.add_command(config_cli)
 cli.add_command(auth_cli)
 cli.add_command(update_cli)

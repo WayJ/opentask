@@ -190,37 +190,6 @@ export const generatedRoutes: GeneratedRoute[] = [
     },
     children: [
       {
-        name: 'issue_collection',
-        path: '/issue/collection/:id',
-        component: 'view.issue_collection',
-        meta: {
-          title: 'issue_collection',
-          i18nKey: 'route.issue_collection',
-          hideInMenu: true,
-          activeMenu: 'issue_collection-list'
-        }
-      },
-      {
-        name: 'issue_collection-create',
-        path: '/issue/collection-create',
-        component: 'view.issue_collection-create',
-        meta: {
-          title: 'issue_collection-create',
-          i18nKey: 'route.issue_collection-create',
-          hideInMenu: true,
-          activeMenu: 'issue_collection-list'
-        }
-      },
-      {
-        name: 'issue_collection-list',
-        path: '/issue/collection-list',
-        component: 'view.issue_collection-list',
-        meta: {
-          title: 'issue_collection-list',
-          i18nKey: 'route.issue_collection-list'
-        }
-      },
-      {
         name: 'issue_create',
         path: '/issue/create',
         component: 'view.issue_create',
@@ -884,5 +853,15 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       }
     ]
+  },
+  {
+    name: 'workspace-onboarding',
+    path: '/workspace-onboarding',
+    component: 'layout.blank$view.workspace-onboarding',
+    meta: {
+      title: 'workspace-onboarding',
+      i18nKey: 'route.workspace-onboarding',
+      hideInMenu: true
+    }
   }
 ];

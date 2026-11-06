@@ -44,7 +44,8 @@ from opentask.models.issue import (
     CommentReaction,
 )
 from opentask.models.notification_preference import NotificationPreference
-from opentask.models.issue_collection import IssueCollection
+# 表 issue_collections 仍由 baseline 003ccd38d5cd 创建，历史迁移保留。
+# 本批去掉 ORM 映射。不要把 autogenerate 提议的 drop 提交进来。
 from opentask.models.workspace import Workspace, WorkspaceMember, WorkspaceInvite
 from opentask.models.notification import Notification
 from opentask.models.issue_template import IssueTemplate
@@ -130,7 +131,6 @@ __all__ = [
     "IssueTimeline",
     "IssueTag",
     "IssueReaction",
-    "IssueCollection",
     "Workspace",
     "WorkspaceMember",
     "WorkspaceInvite",

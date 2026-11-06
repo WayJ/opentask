@@ -1,7 +1,17 @@
 import type { CustomRoute, ElegantConstRoute, ElegantRoute } from '@elegant-router/types';
 import { generatedRoutes } from '../elegant/routes';
-import { layouts, views } from '../elegant/imports';
+import { views as generatedViews, layouts } from '../elegant/imports';
 import { transformElegantRoutesToVueRoutes } from '../elegant/transform';
+
+// elegant-router rejects one-letter directories. Attach the pages when routes are
+// transformed, not at module init, so a cycle cannot read the generated map early.
+function viewsWithPublicPages() {
+  return {
+    ...generatedViews,
+    f: () => import('@/views/f/[token].vue'),
+    r: () => import('@/views/r/[token].vue')
+  };
+}
 
 /**
  * custom routes
@@ -235,35 +245,6 @@ const customRoutes: CustomRoute[] = [
           i18nKey: 'route.issue_edit',
           hideInMenu: true
         }
-      },
-      {
-        name: 'issue_collection',
-        path: '/issue/collection',
-        component: 'view.issue_collection',
-        meta: {
-          title: 'issue_collection',
-          i18nKey: 'route.issue_collection'
-        }
-      },
-      {
-        name: 'issue_collection_detail',
-        path: '/issue/collection/:id',
-        component: 'view.issue_collection_detail',
-        meta: {
-          title: 'issue_collection_detail',
-          i18nKey: 'route.issue_collection_detail',
-          hideInMenu: true
-        }
-      },
-      {
-        name: 'issue_collection_create',
-        path: '/issue/collection/create',
-        component: 'view.issue_collection_create',
-        meta: {
-          title: 'issue_collection_create',
-          i18nKey: 'route.issue_collection_create',
-          hideInMenu: true
-        }
       }
     ]
   },
@@ -422,8 +403,7 @@ const customRoutes: CustomRoute[] = [
           i18nKey: 'route.settings_sla',
           keepAlive: true
         }
-      },
-
+      }
     ]
   },
   {
@@ -483,5 +463,5 @@ export function createStaticRoutes() {
  * @param routes Elegant routes
  */
 export function getAuthVueRoutes(routes: ElegantConstRoute[]) {
-  return transformElegantRoutesToVueRoutes(routes, layouts, views);
+  return transformElegantRoutesToVueRoutes(routes, layouts, viewsWithPublicPages());
 }

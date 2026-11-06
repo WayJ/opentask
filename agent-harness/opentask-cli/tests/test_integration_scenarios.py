@@ -272,7 +272,6 @@ class TestCLIIntegration:
             ['project', '--help'],
             ['issue', '--help'],
             ['requirement', '--help'],
-            ['collection', '--help'],
         ]
 
         for cmd in commands_to_test:

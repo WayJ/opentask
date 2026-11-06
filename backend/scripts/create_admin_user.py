@@ -1,8 +1,8 @@
 """创建（或重置）OpenTask 初始管理员账号。
 
-用途：全新部署的库是空的（``alembic upgrade head`` 只建表，不播种任何账号），
-而后端**没有注册接口**——只有登录。因此发布后必须显式建出第一个管理员，
-否则无人能登录。
+用途：全新部署的库是空的（``alembic upgrade head`` 只建表，不播种任何账号）。
+发布脚本用本文件创建第一个管理员。该用户还没有可用工作区时，再创建一个。
+重复执行不重置口令，也不重复成员。
 
 用法::
 
@@ -46,6 +46,7 @@ from opentask.models import UserModel
 from opentask.models.user_center import Role, UserRole
 from opentask.repositories.base import SessionCreator
 from opentask.services.user_center.seed import seed_user_center
+from opentask.services.workspace.service import WorkspaceService
 
 # 加载 app 的真实导入图，确保 SQLAlchemy mapper 能解析全部关系。
 #
@@ -67,66 +68,108 @@ def generate_password() -> str:
     return "".join(secrets.choice(alphabet) for _ in range(20))
 
 
+async def provision_admin(
+    session,
+    username: str,
+    password: str,
+    display_name: str | None = None,
+    reset_password: bool = False,
+    workspace_name: str = "OpenTask",
+    skip_workspace: bool = False,
+) -> tuple[int, bool, bool]:
+    """在给定会话里准备管理员。
+
+    返回 (退出码, 是否写过口令, 是否新建了工作区)。
+
+    账号已存在且未加 ``--reset-password`` 时不改 ``password_hash``。
+    该用户没有可用成员关系时才创建工作区；已有成员不重复插入。
+    遗留默认工作区对 ``list_for_user`` 不可见，因此不会被当成已有工作区。
+    """
+    stats = await seed_user_center(session)
+
+    result = await session.execute(select(UserModel).where(UserModel.username == username))
+    user = result.scalar_one_or_none()
+    password_applied = False
+
+    if user is not None:
+        if reset_password:
+            user.password_hash = _pwd_context.hash(password)
+            user.status = 1
+            user.failed_attempts = 0
+            user.locked_until = None
+            password_applied = True
+            print(f"已重置口令：{username}")
+        else:
+            print(f"账号已存在，未改口令：{username}（要重置口令加 --reset-password）")
+    else:
+        user = UserModel(
+            name=display_name or username,
+            username=username,
+            password_hash=_pwd_context.hash(password),
+            role="admin",
+            status=1,
+            token_version=0,
+        )
+        session.add(user)
+        await session.flush()
+        password_applied = True
+        print(f"已创建管理员：{username}")
+
+    role_result = await session.execute(select(Role).where(Role.code == "admin"))
+    role = role_result.scalar_one_or_none()
+    if role is None:
+        print("警告：role 表里没有 admin 系统角色（播种异常），仅依赖 user.role 桥接", file=sys.stderr)
+    else:
+        link_result = await session.execute(
+            select(UserRole).where(
+                UserRole.user_id == str(user.id),
+                UserRole.role_id == str(role.id),
+            )
+        )
+        if link_result.scalar_one_or_none() is None:
+            session.add(UserRole(user_id=str(user.id), role_id=str(role.id)))
+            await session.flush()
+            print(f"已关联角色：admin（权限点 {stats['permissions']} 项）")
+
+    workspace_created = False
+    if not skip_workspace:
+        _ws, workspace_created = await WorkspaceService(session).ensure_owner_workspace(
+            owner_user_id=str(user.id),
+            name=workspace_name,
+        )
+        if workspace_created:
+            print(f"已创建工作区：{workspace_name}")
+        else:
+            print(f"已有可用工作区，未新建：{username}")
+
+    await session.commit()
+    return 0, password_applied, workspace_created
+
+
 async def create_admin(
     username: str,
     password: str,
     display_name: str | None = None,
     reset_password: bool = False,
+    workspace_name: str = "OpenTask",
+    skip_workspace: bool = False,
 ) -> tuple[int, bool]:
     """返回 (退出码, 是否真的动过口令)。
 
-    第二个返回值很重要：**账号已存在且未加 --reset-password 时，脚本会跳过**，
-    此时调用方不能把随机生成的口令当作"已设置的密码"打印出去——那是个根本没生效
-    的口令，打印出来只会误导运维。
+    第二个返回值很重要：**账号已存在且未加 --reset-password 时不改口令**，
+    此时调用方不能把随机生成的口令当作已设置的密码打印出去。
     """
     async with SessionCreator() as session:
-        # 用户中心播种（幂等）：确保 role 表里有 admin 系统角色
-        stats = await seed_user_center(session)
-
-        result = await session.execute(select(UserModel).where(UserModel.username == username))
-        user = result.scalar_one_or_none()
-
-        if user is not None:
-            if not reset_password:
-                print(f"账号已存在，未做任何改动：{username}（要重置口令加 --reset-password）")
-                return 0, False
-            user.password_hash = _pwd_context.hash(password)
-            user.status = 1
-            user.failed_attempts = 0
-            user.locked_until = None
-            print(f"已重置口令：{username}")
-        else:
-            user = UserModel(
-                name=display_name or username,
-                username=username,
-                password_hash=_pwd_context.hash(password),
-                role="admin",
-                status=1,
-                token_version=0,
-            )
-            session.add(user)
-            await session.flush()  # 生成 user id
-            print(f"已创建管理员：{username}")
-
-        # 显式挂到 admin 角色（不依赖 user.role 字符串桥接这条过渡路径）
-        role_result = await session.execute(select(Role).where(Role.code == "admin"))
-        role = role_result.scalar_one_or_none()
-        if role is None:
-            print("警告：role 表里没有 admin 系统角色（播种异常），仅依赖 user.role 桥接", file=sys.stderr)
-        else:
-            link_result = await session.execute(
-                select(UserRole).where(
-                    UserRole.user_id == str(user.id),
-                    UserRole.role_id == str(role.id),
-                )
-            )
-            if link_result.scalar_one_or_none() is None:
-                session.add(UserRole(user_id=str(user.id), role_id=str(role.id)))
-                await session.flush()
-                print(f"已关联角色：admin（权限点 {stats['permissions']} 项）")
-
-        await session.commit()
-    return 0, True
+        rc, applied, _created = await provision_admin(
+            session,
+            username,
+            password,
+            display_name,
+            reset_password,
+            workspace_name,
+            skip_workspace,
+        )
+    return rc, applied
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -139,6 +182,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--reset-password",
         action="store_true",
         help="账号已存在时重置口令（默认只跳过，不覆盖）",
+    )
+    parser.add_argument(
+        "--workspace-name",
+        default="OpenTask",
+        help="该管理员还没有可用工作区时使用的名称（默认 OpenTask）",
+    )
+    parser.add_argument(
+        "--skip-workspace",
+        action="store_true",
+        help="不创建工作区（默认会在零个可用成员关系时创建）",
     )
     return parser
 
@@ -154,7 +207,16 @@ def main(argv: list[str] | None = None) -> int:
         generated = True
 
     try:
-        rc, applied = asyncio.run(create_admin(username, password, args.name, args.reset_password))
+        rc, applied = asyncio.run(
+            create_admin(
+                username,
+                password,
+                args.name,
+                args.reset_password,
+                args.workspace_name,
+                args.skip_workspace,
+            )
+        )
     except Exception as exc:  # noqa: BLE001 - 脚本入口需要把异常转成退出码
         print(f"失败：{exc}", file=sys.stderr)
         return 1

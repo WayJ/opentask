@@ -1,3 +1,4 @@
+import { browserServiceUrl } from '@/utils/attachmentUrls';
 import { request } from '../request';
 
 export type CustomerRequestStatus = 'open' | 'completed' | 'canceled';
@@ -123,10 +124,7 @@ export function fetchUnlinkRequestIssue(requestId: string, issueId: string) {
   });
 }
 
-export function fetchEnableRequestStatusLink(
-  id: string,
-  body?: { publicRepliesEnabled?: boolean }
-) {
+export function fetchEnableRequestStatusLink(id: string, body?: { publicRepliesEnabled?: boolean }) {
   return request<CustomerRequestRow>({
     url: `/api/customer-requests/${id}/status-link/enable`,
     method: 'post',
@@ -170,8 +168,12 @@ export function isPublicStatusCardRedacted(card: Record<string, unknown>): boole
 
 /** Public (no auth). */
 export async function fetchPublicRequestStatus(token: string): Promise<PublicRequestStatusCard> {
-  const base = import.meta.env.VITE_SERVICE_BASE_URL || '';
-  const resp = await fetch(`${base}/api/public/customer-requests/${encodeURIComponent(token)}`);
+  const resp = await fetch(
+    browserServiceUrl(
+      `/api/public/customer-requests/${encodeURIComponent(token)}`,
+      import.meta.env.VITE_SERVICE_BASE_URL
+    )
+  );
   const json = await resp.json();
   if (!resp.ok) {
     throw new Error(json?.detail || json?.message || '状态页不可用');
@@ -183,9 +185,11 @@ export async function submitPublicRequestReply(
   token: string,
   body: string
 ): Promise<{ ok: boolean; landedAs?: string }> {
-  const base = import.meta.env.VITE_SERVICE_BASE_URL || '';
   const resp = await fetch(
-    `${base}/api/public/customer-requests/${encodeURIComponent(token)}/replies`,
+    browserServiceUrl(
+      `/api/public/customer-requests/${encodeURIComponent(token)}/replies`,
+      import.meta.env.VITE_SERVICE_BASE_URL
+    ),
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

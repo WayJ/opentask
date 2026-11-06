@@ -4,6 +4,7 @@ import { defineStore } from 'pinia';
 import { useLoading } from '@sa/hooks';
 import { fetchGetUserInfo, fetchLogin, fetchWorkspaceList } from '@/service/api';
 import { useRouterPush } from '@/hooks/common/router';
+import { resolveWorkspaceSelection } from '@/utils/workspace-selection';
 import { localStg } from '@/utils/storage';
 import { SetupStoreId } from '@/enum';
 import { $t } from '@/locales';
@@ -20,6 +21,20 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
   const { loading: loginLoading, startLoading, endLoading } = useLoading();
 
   const token = ref('');
+  const workspaceGate = ref<'pending' | 'ready' | 'onboarding' | 'error'>('pending');
+  let workspaceReady: Promise<void> | null = null;
+  let pendingSelection: string | null = null;
+  let selectionStashed = false;
+
+  function clearWorkspaceSelectionForSession() {
+    if (!selectionStashed) {
+      pendingSelection = localStg.get('workspaceId') || null;
+      selectionStashed = true;
+    }
+    localStg.remove('workspaceId');
+    workspaceReady = null;
+    if (workspaceGate.value === 'ready') workspaceGate.value = 'pending';
+  }
 
   const userInfo: Api.Auth.UserInfo = reactive({
     userId: '',
@@ -50,6 +65,10 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
     recordUserId();
 
     clearAuthStorage();
+    pendingSelection = null;
+    selectionStashed = false;
+    workspaceReady = null;
+    workspaceGate.value = 'pending';
 
     authStore.$reset();
 
@@ -113,6 +132,7 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
    */
   async function login(userName: string, password: string, redirect = true): Promise<{ mustChangePassword: boolean }> {
     startLoading();
+    clearWorkspaceSelectionForSession();
 
     const { data: loginToken, error } = await fetchLogin(userName, password);
 
@@ -156,26 +176,47 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
     return { mustChangePassword: false };
   }
 
-  async function ensureWorkspace() {
-    if (localStg.get('workspaceId')) return;
+  async function resolveWorkspaceForSession() {
+    const stored = pendingSelection;
     const { data, error } = await fetchWorkspaceList();
-    if (!error && data?.length) {
-      localStg.set('workspaceId', data[0].id);
+    if (error) {
+      localStg.remove('workspaceId');
+      workspaceGate.value = 'error';
+      return;
     }
+    selectionStashed = false;
+    pendingSelection = null;
+    const resolved = resolveWorkspaceSelection(stored, data ?? []);
+    if (resolved.workspaceId) localStg.set('workspaceId', resolved.workspaceId);
+    else localStg.remove('workspaceId');
+    workspaceGate.value = resolved.gate;
+  }
+
+  async function ensureWorkspaceResolved(force = false) {
+    if (force) workspaceReady = null;
+    if (!workspaceReady) workspaceReady = resolveWorkspaceForSession();
+    await workspaceReady;
+  }
+
+  function markWorkspaceReady(workspaceId: string) {
+    localStg.set('workspaceId', workspaceId);
+    workspaceGate.value = 'ready';
+    workspaceReady = Promise.resolve();
+    selectionStashed = false;
+    pendingSelection = null;
   }
 
   async function loginByToken(loginToken: Api.Auth.LoginToken) {
-    // 1. stored in the localStorage, the later requests need it in headers
+    // Drop any previous account's workspace before the first authenticated call.
+    clearWorkspaceSelectionForSession();
     localStg.set('token', loginToken.token);
     localStg.set('refreshToken', loginToken.refreshToken);
+    token.value = loginToken.token;
+    await ensureWorkspaceResolved();
 
-    // 2. get user info
     const pass = await getUserInfo();
 
     if (pass) {
-      token.value = loginToken.token;
-      await ensureWorkspace();
-
       return true;
     }
 
@@ -200,6 +241,8 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
 
     if (maybeToken) {
       token.value = maybeToken;
+      clearWorkspaceSelectionForSession();
+      await ensureWorkspaceResolved();
       const pass = await getUserInfo();
 
       if (!pass) {
@@ -218,6 +261,9 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
     resetStore,
     login,
     loginByToken,
-    initUserInfo
+    initUserInfo,
+    workspaceGate,
+    ensureWorkspaceResolved,
+    markWorkspaceReady
   };
 });

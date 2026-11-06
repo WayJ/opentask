@@ -32,14 +32,7 @@ declare module "@elegant-router/types" {
     "initiatives_detail": "/initiatives/detail";
     "insights": "/insights";
     "invite": "/invite/:token";
-    "f": "/f/:token";
-    "r": "/r/:token";
-    "public-form": "/f/:token";
-    "public-request-status": "/r/:token";
     "issue": "/issue";
-    "issue_collection": "/issue/collection/:id";
-    "issue_collection-create": "/issue/collection-create";
-    "issue_collection-list": "/issue/collection-list";
     "issue_create": "/issue/create";
     "issue_detail": "/issue/detail";
     "issue_edit": "/issue/edit";
@@ -105,6 +98,7 @@ declare module "@elegant-router/types" {
     "workspace_labels": "/workspace/labels";
     "workspace_members": "/workspace/members";
     "workspace_project-templates": "/workspace/project-templates";
+    "workspace-onboarding": "/workspace-onboarding";
   };
 
   /**
@@ -149,10 +143,6 @@ declare module "@elegant-router/types" {
     | "initiatives"
     | "insights"
     | "invite"
-    | "f"
-    | "r"
-    | "public-form"
-    | "public-request-status"
     | "issue"
     | "knowledge-base"
     | "login"
@@ -166,6 +156,7 @@ declare module "@elegant-router/types" {
     | "work-management"
     | "workflow"
     | "workspace"
+    | "workspace-onboarding"
   >;
 
   /**
@@ -187,6 +178,7 @@ declare module "@elegant-router/types" {
     | "500"
     | "iframe-page"
     | "login"
+    | "workspace-onboarding"
     | "activity"
     | "agents"
     | "customers_detail"
@@ -198,13 +190,6 @@ declare module "@elegant-router/types" {
     | "initiatives"
     | "insights"
     | "invite"
-    | "f"
-    | "r"
-    | "public-form"
-    | "public-request-status"
-    | "issue_collection-create"
-    | "issue_collection-list"
-    | "issue_collection"
     | "issue_create"
     | "issue_detail"
     | "issue_edit"

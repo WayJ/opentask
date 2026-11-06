@@ -28,16 +28,7 @@ uv sync
 
 
 
-### 2. 配置认证（可选）
-
-在 `.env` 文件中设置基础认证：
-
-```bash
-AUTH_USERNAME=admin
-AUTH_PASSWORD=admin
-```
-
-### 5. 运行数据库迁移
+### 运行数据库迁移
 
 ```bash
 # 使用虚拟环境
@@ -74,21 +65,18 @@ Issue 支持项目、主负责人、报告人、父子问题与阻塞/依赖/重
 
 ## 数据库（PostgreSQL）
 
-OpenTask 统一使用 PostgreSQL 16（ADR D11：dev/test/prod 统一 PG）。
+部署镜像是 `postgres:15-alpine`，见仓库根 `docker-compose.yml` 与 `docker-compose.prod.yml`。本地开发使用同一主版本即可。
 
 ### 1. 启动 PG 容器
 
 ```bash
-# 直连 Docker Hub 超时时，可先经镜像站拉取再改 tag：
-#   docker pull docker.m.daocloud.io/library/postgres:16
-#   docker tag docker.m.daocloud.io/library/postgres:16 postgres:16
 docker run -d --name opentask-pg \
   -e POSTGRES_USER=opentask \
   -e POSTGRES_PASSWORD=opentask \
   -e POSTGRES_DB=opentask_test \
   -p 5432:5432 \
   -v opentask-pgdata:/var/lib/postgresql/data \
-  postgres:16
+  postgres:15-alpine
 
 # 容器初始化只创建测试库 opentask_test，开发库需补建一次：
 docker exec opentask-pg psql -U opentask -d opentask_test -c "CREATE DATABASE opentask;"

@@ -1,19 +1,41 @@
 import { describe, expect, it } from 'vitest';
-import { attachmentAccessDeniedMessage, toBrowserAttachmentUrl } from './attachmentUrls';
+import {
+  attachmentAccessDeniedMessage,
+  browserServiceUrl,
+  commentAttachmentToDocument,
+  flattenCommentAttachments,
+  toBrowserAttachmentUrl
+} from './attachmentUrls';
+
+const devProxy = { DEV: true, VITE_HTTP_PROXY: 'Y', VITE_SERVICE_BASE_URL: 'http://localhost:7377' };
+const prodRoot = { DEV: false, VITE_HTTP_PROXY: 'N', VITE_SERVICE_BASE_URL: '/' };
 
 describe('attachmentUrls', () => {
-  it('prefixes /opentask for relative API paths', () => {
-    expect(toBrowserAttachmentUrl('/api/attachments/signed/tok')).toBe(
+  it('prefixes /opentask for the local vite proxy', () => {
+    expect(toBrowserAttachmentUrl('/api/attachments/signed/tok', devProxy)).toBe(
       '/opentask/api/attachments/signed/tok'
     );
   });
 
+  it('keeps /api when the production service base is /', () => {
+    expect(toBrowserAttachmentUrl('/api/attachments/signed/tok', prodRoot)).toBe('/api/attachments/signed/tok');
+  });
+
+  it('does not turn a root service base into a protocol-relative public URL', () => {
+    expect(browserServiceUrl('/api/public/forms/tok', '/')).toBe('/api/public/forms/tok');
+    expect(browserServiceUrl('/api/public/forms/tok', '')).toBe('/api/public/forms/tok');
+    expect(browserServiceUrl('/api/public/forms/tok', '/opentask/')).toBe('/opentask/api/public/forms/tok');
+    expect(browserServiceUrl('/api/public/forms/tok', 'http://localhost:7377')).toBe(
+      'http://localhost:7377/api/public/forms/tok'
+    );
+  });
+
   it('passes through absolute URLs', () => {
-    expect(toBrowserAttachmentUrl('https://cdn.example/x')).toBe('https://cdn.example/x');
+    expect(toBrowserAttachmentUrl('https://cdn.example/x', prodRoot)).toBe('https://cdn.example/x');
   });
 
   it('does not double-prefix /opentask', () => {
-    expect(toBrowserAttachmentUrl('/opentask/api/attachments/signed/t')).toBe(
+    expect(toBrowserAttachmentUrl('/opentask/api/attachments/signed/t', devProxy)).toBe(
       '/opentask/api/attachments/signed/t'
     );
   });
@@ -23,8 +45,6 @@ describe('attachmentUrls', () => {
     expect(attachmentAccessDeniedMessage(404)).toMatch(/不存在|无权限|找不到/);
   });
 });
-
-import { flattenCommentAttachments, commentAttachmentToDocument } from './attachmentUrls';
 
 describe('flattenCommentAttachments (E69)', () => {
   it('flattens nested comment attachment summaries', () => {

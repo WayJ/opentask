@@ -12,25 +12,24 @@
 
 ## 1. 拓扑
 
-```
-浏览器 ──http──▶ 宿主 nginx :80  (server_name 112.126.60.109)
-                   │
-                   ├─ /opentask/*        ─▶ 127.0.0.1:8080  前端容器（nginx 静态托管）
-                   │                        └─ 容器内再分流：
-                   │                             /opentask/assets/* → 静态（长期缓存）
-                   │                             /opentask/api/*    → 后端 7377
-                   │                             /opentask/<路由>   → index.html
-                   ├─ /oauth2/*          ─▶ 127.0.0.1:7377  OAuth2 Provider 端点
-                   ├─ /tasks/*           ─▶ 127.0.0.1:7377  任务源契约
-                   ├─ /capabilities      ─▶ 127.0.0.1:7377  任务源契约
-                   ├─ /healthcheck       ─▶ 127.0.0.1:7377  探活
-                   └─ /                  ─▶ 127.0.0.1:3000  notegit（本机既有站点，保留）
+主示例是独立的 OpenTask 站点（`deploy/nginx/opentask-site.conf`）。仓库没有登录过目标机器，下面不是对某台现网机器的检查结果。
 
-docker compose（项目名 opentask，目录 /opt/opentask）
-  ├─ opentask-postgres   postgres:15-alpine   内部网络，不映射端口
-  ├─ opentask-backend    python:3.11 + uv    127.0.0.1:7377
-  └─ opentask-frontend   nginx:1.27-alpine   127.0.0.1:8080
 ```
+浏览器 ──http──▶ 宿主 nginx :80（独立 OpenTask server）
+                   ├─ /                     ─▶ 127.0.0.1:8080  前端容器
+                   │     容器内：/assets/* 静态，/api/ 与 /ws/workspace 原样转 7377，其余 index.html
+                   ├─ /api/  /ws/workspace  ─▶ 127.0.0.1:7377
+                   ├─ /oauth2/authorize     ─▶ 127.0.0.1:8080  SPA 同意页
+                   ├─ /oauth2/              ─▶ 127.0.0.1:7377  token / userinfo / revoke
+                   ├─ /tasks/ /capabilities /healthcheck ─▶ 127.0.0.1:7377
+
+docker compose（目录 /opt/opentask）
+  ├─ postgres    postgres:15-alpine
+  ├─ backend     127.0.0.1:7377
+  └─ frontend    127.0.0.1:8080
+```
+
+若操作者的 nginx 里已经有别的 `location /`，要先处理那一条，否则 `/login` 到不了 OpenTask。这只是条件说明，不表示某台机器上正在跑其它服务。
 
 **为什么容器端口只绑回环**：公网机上数据库与后端绝不能裸奔在全网卡。仓库根的
 `docker-compose.yml`（本地开发编排）用的是 `7377:7377`（即 0.0.0.0 绑定），生产编排
@@ -40,11 +39,11 @@ docker compose（项目名 opentask，目录 /opt/opentask）
 
 | 路径 | 归属 | 说明 |
 |---|---|---|
-| `/opentask/` | 前端 SPA | history 模式，路由基址 `/opentask/` |
-| `/opentask/api/*` | 后端 | 前端全部 167 个业务调用都在 `/api/` 下，与 SPA 路由无歧义 |
-| `/oauth2/*` | 后端 | OAuth2 Provider 端点（第三方客户端用） |
-| `/tasks/*`、`/capabilities` | 后端 | 任务源契约（外部 agent / Orca 接入，API Key 鉴权） |
-| `/` | notegit | 本机既有站点，本次部署不改动其行为 |
+| `/`、`/login`、`/issue/list`、`/f/:token`、`/r/:token` | 前端 SPA | history 基址 `/`，刷新回 index.html |
+| `/api/*`、`/ws/workspace` | 后端 | 不剥前缀，不设置 `X-Workspace-Id`。`/ws/hub*` 不转发 |
+| `=/oauth2/authorize` | 前端 SPA | 授权同意页 |
+| `/oauth2/*` | 后端 | token、userinfo、revoke |
+| `/tasks/*`、`/capabilities`、`/healthcheck` | 后端 | 原先已暴露的协议与探活 |
 
 **刻意不外露**的后端顶层路径：`/test/*`（后端自测端点，公开机无需暴露）、
 `/openapi.json`、`/docs`（OpenAPI 文档）。它们只能从服务器本机
@@ -55,13 +54,7 @@ docker compose（项目名 opentask，目录 /opt/opentask）
 `/oauth2`（授权同意页）等 17 个——**只有 `oauth2` 重名**，所以授权服务器的端点
 必须与 SPA 的路径前缀分离。其余顶层段无冲突。
 
-**OAuth2 端点为何挂在站点根而不是 `/opentask/` 下**：前端授权同意页是 **SPA 路由**
-`/opentask/oauth2/authorize`，而授权服务器的端点是 `/oauth2/token`、`/oauth2/userinfo`、
-`/oauth2/revoke`。两者同名段一旦共用前缀就会撞车（同意页与 token 端点无法区分）。
-故刻意分离：
-
-- SPA → `http://112.126.60.109/opentask/`
-- 授权服务器 issuer → `http://112.126.60.109/`（token 端点 `/oauth2/token`）
+授权同意页是 SPA 路由 `/oauth2/authorize`，token 端点是 `/oauth2/token`。宿主用精确匹配把同意页送到前端容器，其余 `/oauth2/` 送到后端。不新增 `/rest`、`/mcp`、`/docs`、`/test`。
 
 ---
 
@@ -76,7 +69,7 @@ docker compose（项目名 opentask，目录 /opt/opentask）
 脚本会依次完成：
 
 1. **构建前端产物**——走仓内 `frontend/Dockerfile` 的 builder 阶段（node:22 + pnpm 9.15.9，
-   与 `pnpm-lock.yaml` 严格一致），产物自检 `index.html` 里必须出现 `/opentask/assets/`；
+   与 `pnpm-lock.yaml` 严格一致），产物自检 `index.html` 含 `/assets/` 且不含 `/opentask/assets/`；
 2. **送达**——后端源码（排除 `.venv`）+ `docker-compose.prod.yml` + `Dockerfile` + `.dockerignore`
    + 前端产物 tarball；
 3. **服务器侧**——开 2G swap（构建期内存缓冲）→ 用 `frontend/Dockerfile.dist` 把 dist 打包成
@@ -142,7 +135,7 @@ docker compose -f docker-compose.prod.yml exec backend     python scripts/genera
 
 ### 初始管理员
 
-后端**没有注册接口**（只有登录），全新库是空的，所以发布后必须显式建第一个账号：
+全新库没有账号。发布脚本会创建第一个管理员；该用户还没有可用工作区时再创建一个，默认名 OpenTask。重复执行不重置口令，也不重复成员。产品注册接口 `POST /api/auth/register` 会给新用户创建工作区。部署脚本示例：
 
 ```bash
 cd /opt/opentask
@@ -206,7 +199,7 @@ docker exec opentask-postgres pg_dump -U opentask opentask | gzip > /opt/opentas
 | **无 TLS** | 全程明文 HTTP，JWT 与口令在链路上裸奔 | 当前是路径前缀形态的过渡部署。切域名时：加 A 记录 `opentask.recluse.fun → 112.126.60.109`，然后 `certbot --nginx -d opentask.recluse.fun` |
 | **DNS 未生效** | `opentag.recluse.fun` 在公网已是 NXDOMAIN，`recluse.fun` 托管在阿里云 DNS，但机器上无 DNS 凭据，无法代加记录 | 需人工在阿里云 DNS 加 A 记录 |
 | **内存 1.6GB** | 服务器跑不动 vite 构建 | 前端产物在开发机构建；服务器只做 COPY 打包 |
-| **与 notegit 共存** | 两者共用 `server_name 112.126.60.109` 的 80 站点块 | OpenTask 只加 `location`，不改 notegit 的 `location /`。若将来 notegit 要服务名为 `tasks`/`oauth2`/`api` 的仓库，会与根级路径撞车——需把那些前缀挪走 |
+| **已有别的 location /** | 根路径会被那条规则接走 | 主示例是独立站点。只有操作者的配置里确实已有 `location /` 时才需要先改。本文没有检查过现网机器 |
 | **AI 能力未接** | `OPENAI_API_KEY` 未配置，AI 相关功能不可用 | 有 key 后写进 `.env` 再 `docker compose up -d backend` |
 | **SSO 单点登录关闭** | `AUTH_SSO_ENABLED=false`：上游用户中心在内网，公网机不可达 | 生产走本地账号登录。将来若要启用：把上游地址写进 `.env` 的 `SSO_BASE_URL`（仓内配置只留 `${SSO_BASE_URL:}` 占位，具体地址不进版本库），并置 `AUTH_SSO_ENABLED=true` |
 
@@ -231,16 +224,9 @@ docker exec opentask-postgres pg_dump -U opentask opentask | gzip > /opt/opentas
 ## 6. 验收清单
 
 ```bash
-# SPA 首页
-curl -sI http://112.126.60.109/opentask/                # 200
-# 静态资源（带 hash）
-curl -s  http://112.126.60.109/opentask/ | grep -o '/opentask/assets/[^\"]*' | head -3
-# API 登录（口令见交付说明）
-curl -s -X POST http://112.126.60.109/opentask/api/auth/login-local \
-     -H 'Content-Type: application/json' \
-     -d '{"userName":"admin","password":"<口令>"}'
-# OAuth2 Provider
-curl -sI http://112.126.60.109/oauth2/token              # 405（缺参数）即端点存活
-# 后端直连
-curl -s  http://127.0.0.1:7377/openapi.json | head -c 80
+# 对已部署的独立站点。不要把口令写进仓库或命令历史。
+curl -sI http://<host>/login
+curl -s  http://<host>/ | grep -o '/assets/[^\"]*' | head -3
+curl -sI http://<host>/issue/list
+curl -sI http://<host>/oauth2/token
 ```

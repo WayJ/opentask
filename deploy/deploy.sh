@@ -171,9 +171,9 @@ if [ "$SKIP_BUILD" -eq 0 ]; then
     # 别等构建出一个前缀错误、线上 404 的产物。
     ENV_FILE="$ROOT/frontend/.env.prod"
     [ -f "$ENV_FILE" ] || die "缺 $ENV_FILE —— 该文件不入库，需先由 frontend/.env.example 复制并填写"
-    for kv in "VITE_BASE_URL=/opentask/" "VITE_SERVICE_BASE_URL=/opentask/"; do
+    for kv in "VITE_BASE_URL=/" "VITE_SERVICE_BASE_URL=/"; do
         grep -qx "$kv" "$ENV_FILE" \
-            || die "$ENV_FILE 里没有 '$kv' —— 路径前缀拓扑要求这两个值（见 deploy/README.md）"
+            || die "$ENV_FILE 里没有 '$kv' —— 根路径部署要求这两个值（见 deploy/README.md）"
     done
 
     docker build --target builder \
@@ -183,11 +183,14 @@ if [ "$SKIP_BUILD" -eq 0 ]; then
     docker cp "$CID:/app/dist" "$BUILD_CTX/dist"
     docker rm "$CID" >/dev/null
 
-    # 产物自检：资源引用必须带 /opentask 前缀（与 .env.prod 的 VITE_BASE_URL 对齐）
-    if ! grep -q '/opentask/assets/' "$BUILD_CTX/dist/index.html"; then
-        die "dist/index.html 里没有 /opentask/assets/ 引用——VITE_BASE_URL 改动没生效？"
+    # 产物自检：资源在站点根，不能再带 /opentask/assets/
+    if ! grep -q '/assets/' "$BUILD_CTX/dist/index.html"; then
+        die "dist/index.html 里没有 /assets/ 引用——前端构建没有产出可运行的页面"
     fi
-    say "     产物自检通过（/opentask/assets/ 前缀）"
+    if grep -q '/opentask/assets/' "$BUILD_CTX/dist/index.html"; then
+        die "dist/index.html 仍引用 /opentask/assets/ —— VITE_BASE_URL 应是 /"
+    fi
+    say "     产物自检通过（/assets/，无 /opentask 前缀）"
 
     cp "$ROOT/frontend/nginx.conf" "$BUILD_CTX/nginx.conf"
     cp "$ROOT/frontend/Dockerfile.dist" "$BUILD_CTX/Dockerfile"
@@ -253,7 +256,7 @@ REMOTE_SCRIPT
 say "5/6 创建初始管理员"
 if [ -n "$ADMIN_PASSWORD" ]; then
     ssh "$HOST" "cd '$REMOTE_DIR' && docker compose -f docker-compose.prod.yml exec -T \
-        backend python scripts/create_admin_user.py --username '$ADMIN_USER' --password '$ADMIN_PASSWORD' --reset-password"
+        backend python scripts/create_admin_user.py --username '$ADMIN_USER' --password '$ADMIN_PASSWORD'"
 else
     ssh "$HOST" "cd '$REMOTE_DIR' && docker compose -f docker-compose.prod.yml exec -T \
         backend python scripts/create_admin_user.py --username '$ADMIN_USER'"
@@ -261,30 +264,20 @@ fi
 
 # ---------------------------------------------------------------- 宿主 nginx
 if [ "$SKIP_NGINX" -eq 0 ]; then
-    say "6/6 宿主 nginx：安装片段 → include → 校验 → reload"
-    # 先把片段送过去——远端脚本里的路径是远端的，不能直接用本地路径 cp
+    say "6/6 宿主 nginx：安装独立 OpenTask 站点 → 校验 → reload"
+    # 不改写其它 vhost。若目标机上已有 server 占用 location /，nginx -t 或实际访问会失败，需要操作者先处理。
     scp -q "$ROOT/deploy/nginx/opentask-locations.conf" "$HOST:/tmp/opentask-locations.conf"
+    scp -q "$ROOT/deploy/nginx/opentask-site.conf" "$HOST:/tmp/opentask-site.conf"
     ssh "$HOST" "bash -s" <<'REMOTE_SCRIPT'
 set -euo pipefail
-mkdir -p /etc/nginx/snippets
+mkdir -p /etc/nginx/snippets /etc/nginx/sites-available /etc/nginx/sites-enabled
 cp /tmp/opentask-locations.conf /etc/nginx/snippets/opentask-locations.conf
-rm -f /tmp/opentask-locations.conf
-
-SITE=/etc/nginx/sites-available/notegit
-if ! grep -q "snippets/opentask-locations.conf" "$SITE"; then
-    # 插到 server_name 行之后（该行在本文件内唯一）
-    sed -i '/server_name 112\.126\.60\.109;/a\
-\
-    # OpenTask（路径前缀 /opentask/）——见 deploy/nginx/opentask-locations.conf\
-    include /etc/nginx/snippets/opentask-locations.conf;' "$SITE"
-    echo "已把 include 插入 $SITE"
-else
-    echo "include 已存在，跳过"
-fi
-
+cp /tmp/opentask-site.conf /etc/nginx/sites-available/opentask
+rm -f /tmp/opentask-locations.conf /tmp/opentask-site.conf
+ln -sfn /etc/nginx/sites-available/opentask /etc/nginx/sites-enabled/opentask
 nginx -t
 systemctl reload nginx
-echo "nginx 已 reload"
+echo "nginx 已 reload（独立站点 sites-available/opentask）"
 REMOTE_SCRIPT
 fi
 
@@ -292,9 +285,10 @@ say "部署完成"
 cat <<EOF
 
 访问入口：
-  SPA        http://112.126.60.109/opentask/
-  后端 API   http://112.126.60.109/opentask/api/
-  OAuth2     http://112.126.60.109/oauth2/token
-  CLI        opentask --api-url http://112.126.60.109/opentask
+  SPA        http://<host>/
+  登录       http://<host>/login
+  后端 API   http://<host>/api/
+  OAuth2     http://<host>/oauth2/token
+  CLI        opentask --api-url http://<host>
 
 EOF

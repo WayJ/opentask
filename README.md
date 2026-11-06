@@ -57,8 +57,8 @@ An AI-powered R&D management platform designed for autonomous agent collaboratio
 ┌──────────────────────────────────────────────────────────┐
 │                   AI Agent (Claude Code)                  │
 │  ┌────────────────────────────────────────────────────┐  │
-│  │  Vibe CLI - 命令行工具 (TypeScript)                │  │
-│  │  - 项目/需求/任务 CRUD                             │  │
+│  │  OpenTask CLI - 命令行工具 (Python)                │  │
+│  │  - 项目 / Issue（KEY-N）/ 任务                     │  │
 │  │  - 状态查询、事件回放                              │  │
 │  │  - Git 操作集成                                    │  │
 │  └────────────────────────────────────────────────────┘  │
@@ -102,9 +102,9 @@ An AI-powered R&D management platform designed for autonomous agent collaboratio
 ### 环境要求
 
 - Python 3.11+
-- Node.js 18+
-- PostgreSQL 14+
-- pnpm 8+
+- Node.js 20.19+
+- PostgreSQL 15（部署镜像 `postgres:15-alpine`）
+- pnpm 9+
 
 ### 后端开发
 
@@ -156,13 +156,13 @@ docker compose down          # 停止并移除容器（数据卷保留）
 
 | 服务 | 地址 | 说明 |
 |---|---|---|
-| 前端 | http://localhost:8080 | nginx 托管静态资源 + 反代 `/opentask/` → 后端 |
+| 前端 | http://localhost:8080 | nginx 在站点根托管 SPA，并把 `/api/`、`/ws/` 转到后端 |
 | 后端 | http://localhost:7377 | 启动前自动 `alembic upgrade head` |
 | 数据库 | localhost:5432 | `opentask` / `opentask`（可用 `POSTGRES_PASSWORD` 覆盖） |
 
-> **API 前缀由反向代理剥离**：生产构建的 `VITE_SERVICE_BASE_URL=/opentask/`，而后端路由不带该前缀——
-> 前缀由 nginx 负责剥离。容器内参考配置见 `frontend/nginx.conf`；**部署到生产时，运维侧的 nginx
-> 必须做同样的事**，否则前端请求 404。
+生产与本地编排都把 SPA 放在站点根：`VITE_BASE_URL=/`，`VITE_SERVICE_BASE_URL=/`。浏览器打开 `/` 和 `/login`。`/api/` 与 `/ws/` 由 nginx 原样转到后端，不注入 `X-Workspace-Id`。本地 `pnpm dev` 仍用 Vite 把 `/opentask` 代理到 7377，这个前缀只存在于开发服务器。
+
+Issue 单号是 `KEY-N`。需求接口还在，产品界面不再提供入口。问题集的页面和专属接口已移除，数据表 `issue_collections` 仍保留。没有可用工作区的账号会先进入创建页；部署脚本只在该管理员还没有可用成员关系时创建名为 OpenTask 的工作区，重复执行不重置口令。
 
 ### CLI 工具 (为 AI Agent 设计)
 
@@ -181,8 +181,11 @@ opentask login
 # 查看项目
 opentask project list
 
-# 查看需求
-opentask requirement list -l 10
+# 查看问题（KEY-N）
+opentask issue list
+
+# requirement 命令已废弃，接口仍可用
+opentask requirement --help
 ```
 
 ### 测试账号
@@ -202,9 +205,9 @@ admin 123456
 
 ```bash
 # CLI 示例
-vibe requirement create -t "用户登录功能" -d "实现 JWT 登录"
-vibe requirement update <id> --status clarifying
-vibe requirement show <id>  # 查看事件历史
+opentask issue list
+# 需求命令已废弃，仍可调用既有接口
+opentask requirement --help
 ```
 
 ### 2. 任务 (Task) - NEW!
@@ -220,9 +223,7 @@ vibe requirement show <id>  # 查看事件历史
 
 ```bash
 # CLI 示例 (即将支持)
-vibe task create <requirement_id> -t "设计数据库表" --type design
-vibe task list <requirement_id>
-vibe task run <task_id>  # AI 执行任务
+opentask issue list
 ```
 
 ### 3. 事件 (Event)
@@ -232,7 +233,7 @@ vibe task run <task_id>  # AI 执行任务
 ```json
 {
   "event_id": "uuid",
-  "requirement_id": "REQ-20260213-001",
+  "issue_code": "OT-1",
   "type": "REQUIREMENT_CREATED",
   "data": {...},
   "actor": "user:admin",
