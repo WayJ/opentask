@@ -350,7 +350,7 @@ onMounted(async () => {
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-8px">
-        <span class="text-12px ot-muted">{{ $t('route.workflow_projects') }}</span>
+        <span class="ot-muted text-12px">{{ $t('route.workflow_projects') }}</span>
         <NSelect
           v-model:value="selectedProjectId"
           clearable
@@ -360,7 +360,7 @@ onMounted(async () => {
           size="small"
           @update:value="onFilterChange"
         />
-        <span class="text-12px ot-muted">{{ $t('page.shell.labelsOr') }}</span>
+        <span class="ot-muted text-12px">{{ $t('page.shell.labelsOr') }}</span>
         <NSelect
           v-model:value="selectedLabelIds"
           multiple
@@ -372,7 +372,7 @@ onMounted(async () => {
           size="small"
           @update:value="onFilterChange"
         />
-        <span class="text-12px ot-muted">{{ $t('route.workspace_cycles') }}</span>
+        <span class="ot-muted text-12px">{{ $t('route.workspace_cycles') }}</span>
         <NSelect
           v-model:value="selectedCycleId"
           clearable
@@ -454,13 +454,13 @@ onMounted(async () => {
         <NGrid :x-gap="16" :y-gap="16" cols="1 s:2 m:5" responsive="screen">
           <NGi>
             <NCard size="small">
-              <div class="text-12px ot-muted">{{ $t('page.shell.openIssues') }}</div>
+              <div class="ot-muted text-12px">{{ $t('page.shell.openIssues') }}</div>
               <div class="mt-4px text-26px font-medium">{{ openCount }}</div>
             </NCard>
           </NGi>
           <NGi>
             <NCard size="small">
-              <div class="text-12px ot-muted">{{ $t('page.shell.cycleIssues') }}</div>
+              <div class="ot-muted text-12px">{{ $t('page.shell.cycleIssues') }}</div>
               <div class="mt-4px text-26px font-medium">
                 {{ summary.cycleSnapshot?.issueCount ?? '—' }}
               </div>
@@ -471,7 +471,7 @@ onMounted(async () => {
           </NGi>
           <NGi>
             <NCard size="small">
-              <div class="text-12px ot-muted">{{ $t('page.shell.cycleCompleted') }}</div>
+              <div class="ot-muted text-12px">{{ $t('page.shell.cycleCompleted') }}</div>
               <div class="mt-4px text-26px font-medium">
                 {{ summary.cycleSnapshot?.completedCount ?? '—' }}
               </div>

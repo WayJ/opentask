@@ -380,6 +380,7 @@ declare namespace App {
           navInbox: string;
           navTriage: string;
           navLabels: string;
+          navInitiatives: string;
           actionAddLabel: string;
         };
       };

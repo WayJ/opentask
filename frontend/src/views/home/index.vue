@@ -165,14 +165,14 @@ onMounted(load);
         </NGi>
         <NGi>
           <NCard size="small" hoverable class="cursor-pointer" @click="goInbox">
-            <div class="text-12px ot-muted">{{ $t('route.inbox') }}</div>
+            <div class="ot-muted text-12px">{{ $t('route.inbox') }}</div>
             <div class="mt-4px text-28px font-medium">{{ inboxUnread }}</div>
             <div class="mt-8px text-12px text-primary">查看收件箱 →</div>
           </NCard>
         </NGi>
         <NGi>
           <NCard size="small" hoverable class="cursor-pointer" @click="goCycles">
-            <div class="text-12px ot-muted">{{ $t('route.workspace_cycles') }}</div>
+            <div class="ot-muted text-12px">{{ $t('route.workspace_cycles') }}</div>
             <div class="mt-8px truncate text-18px font-medium">
               {{
                 activeCycleName ||
@@ -218,15 +218,15 @@ onMounted(load);
         <div class="flex flex-wrap items-center justify-between gap-12px">
           <div>
             <div class="text-13px font-medium">{{ $t('route.insights') }}</div>
-            <div class="mt-2px text-12px ot-muted">{{ $t('page.shell.weekDoneOpen') }}</div>
+            <div class="ot-muted mt-2px text-12px">{{ $t('page.shell.weekDoneOpen') }}</div>
           </div>
           <div class="flex gap-24px">
             <div>
-              <div class="text-11px ot-muted">{{ $t('page.shell.weekDone') }}</div>
+              <div class="ot-muted text-11px">{{ $t('page.shell.weekDone') }}</div>
               <div class="text-20px font-medium">{{ weekCompleted }}</div>
             </div>
             <div>
-              <div class="text-11px ot-muted">{{ $t('page.shell.openShort') }}</div>
+              <div class="ot-muted text-11px">{{ $t('page.shell.openShort') }}</div>
               <div class="text-20px font-medium">{{ insightsOpen }}</div>
             </div>
           </div>

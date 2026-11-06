@@ -333,11 +333,13 @@ const HIDDEN_MANAGEMENT = /^(manage|work-management)(_|$)|^workflow_requirements
 
 export function resolveMenuSelectedKey(route: {
   name?: string | symbol | null;
-  meta?: { hideInMenu?: boolean; activeMenu?: string | null };
+  meta?: { hideInMenu?: unknown; activeMenu?: unknown };
 }) {
   const name = String(route.name ?? '');
-  const { hideInMenu, activeMenu } = route.meta ?? {};
-  return (hideInMenu ? activeMenu : name) || name;
+  const hideInMenu = Boolean(route.meta?.hideInMenu);
+  const activeMenu = route.meta?.activeMenu;
+  const active = typeof activeMenu === 'string' ? activeMenu : '';
+  return (hideInMenu ? active : name) || name;
 }
 
 function presentBreadcrumbs(items: App.Global.Breadcrumb[]) {

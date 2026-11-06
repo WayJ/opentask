@@ -14,7 +14,7 @@ const labels: Record<string, string> = {
 const labelOf = (key: string) => labels[key] ?? null;
 
 function routeOf(partial: Record<string, unknown>) {
-  return partial as RouteLocationNormalizedLoaded;
+  return partial as unknown as RouteLocationNormalizedLoaded;
 }
 
 describe('breadcrumb fallback', () => {

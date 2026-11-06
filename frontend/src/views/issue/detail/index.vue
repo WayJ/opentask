@@ -2303,7 +2303,13 @@ onUnmounted(() => {
     </NModal>
 
     <!-- Agent Prompt Modal -->
-    <NModal v-model:show="showAddSubIssue" preset="card" :title="$t('page.shell.addSubIssue')" class="ot-modal" style="width: 480px">
+    <NModal
+      v-model:show="showAddSubIssue"
+      preset="card"
+      :title="$t('page.shell.addSubIssue')"
+      class="ot-modal"
+      style="width: 480px"
+    >
       <NSpace vertical>
         <NText depth="3">将创建挂在当前问题下的子项（parent_issue_id）。</NText>
         <NInput v-model:value="newSubIssueTitle" placeholder="子问题标题" @keyup.enter="createSubIssue" />
