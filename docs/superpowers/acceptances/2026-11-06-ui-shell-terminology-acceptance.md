@@ -117,7 +117,17 @@
 
 ### 截图
 
-代表画面在 `/opt/cursor/artifacts/`，PR 正文引用后会变成附件地址。本轮实际打开并截了登录、登录后的壳、问题列表、客户/举措/需求的列表和详情、公开表单、公开需求、邀请、无工作区。亮色和暗色、375/768/1280 的问题列表都量过。没有逐页打开仪表盘、周期、自动化、Webhook、成员、分诊和项目模板。中文界面仍有英文：类型值 `Bug`、产品名 OpenTask、夹具里的 Wrap，洞察说明里的 digest / OR 也还在。没有把整站文案说成已经全部中文化。
+代表画面的地址（PR #5 正文同一组）：
+
+- 登录亮色基线 / 当前：https://cursor.com/agents/bc-d58428f4-7424-5247-8694-cec10a2b658f/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fbefore-login-light-1280.png 和 https://cursor.com/agents/bc-d58428f4-7424-5247-8694-cec10a2b658f/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fafter-login-light-1280.png
+- 登录暗色当前：https://cursor.com/agents/bc-d58428f4-7424-5247-8694-cec10a2b658f/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fafter-login-dark-1280.png
+- 壳层亮色当前：https://cursor.com/agents/bc-d58428f4-7424-5247-8694-cec10a2b658f/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fafter-shell-light-1280.png
+- 问题列表 375 基线 / 当前：https://cursor.com/agents/bc-d58428f4-7424-5247-8694-cec10a2b658f/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fbefore-issues-light-375.png 和 https://cursor.com/agents/bc-d58428f4-7424-5247-8694-cec10a2b658f/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fafter-issues-light-375.png
+- 375 滚到状态：https://cursor.com/agents/bc-d58428f4-7424-5247-8694-cec10a2b658f/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fafter-issues-light-375-scrolled.png
+- 问题列表 768 / 1280 / 暗色 1280：https://cursor.com/agents/bc-d58428f4-7424-5247-8694-cec10a2b658f/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fafter-issues-light-768.png 、https://cursor.com/agents/bc-d58428f4-7424-5247-8694-cec10a2b658f/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fafter-issues-light-1280.png 、https://cursor.com/agents/bc-d58428f4-7424-5247-8694-cec10a2b658f/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fafter-issues-dark-1280.png
+- 公开表单、邀请、无工作区：https://cursor.com/agents/bc-d58428f4-7424-5247-8694-cec10a2b658f/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fafter-public-form.png 、https://cursor.com/agents/bc-d58428f4-7424-5247-8694-cec10a2b658f/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fafter-invite.png 、https://cursor.com/agents/bc-d58428f4-7424-5247-8694-cec10a2b658f/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fafter-no-workspace.png
+
+本轮实际打开并截了登录、登录后的壳、问题列表、客户/举措/需求的列表和详情、公开表单、公开需求、邀请、无工作区。亮色和暗色、375/768/1280 的问题列表都量过。没有逐页打开仪表盘、周期、自动化、Webhook、成员、分诊和项目模板。中文界面仍有英文：类型值 `Bug`、产品名 OpenTask、夹具里的 Wrap，洞察说明里的 digest / OR 也还在。没有把整站文案说成已经全部中文化。
 
 ## 限制
 
