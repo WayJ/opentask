@@ -31,6 +31,33 @@ def _auth(token: str, workspace_id: str | None = None) -> dict:
 
 
 @pytest.mark.asyncio
+async def test_ensure_owner_keeps_existing_and_create_still_adds(test_client: AsyncClient):
+    user = await _register(test_client, "ens")
+    before = await test_client.get("/api/workspaces", headers=_auth(user["token"]))
+    assert before.status_code == 200
+    before_ids = [row["id"] for row in before.json()["data"]]
+
+    ensured = await test_client.post(
+        "/api/workspaces/ensure-owner",
+        headers=_auth(user["token"]),
+        json={"name": "OpenTask"},
+    )
+    assert ensured.status_code == 200, ensured.text
+    assert ensured.json()["data"]["id"] == user["workspaceId"]
+
+    again = await test_client.get("/api/workspaces", headers=_auth(user["token"]))
+    assert [row["id"] for row in again.json()["data"]] == before_ids
+
+    created = await test_client.post(
+        "/api/workspaces",
+        headers=_auth(user["token"]),
+        json={"name": "Another", "slug": f"another-{uuid.uuid4().hex[:6]}"},
+    )
+    assert created.status_code == 200, created.text
+    assert created.json()["data"]["id"] not in before_ids
+
+
+@pytest.mark.asyncio
 async def test_list_workspaces_includes_default(test_client: AsyncClient):
     user = await _register(test_client, "ws")
     resp = await test_client.get("/api/workspaces", headers=_auth(user["token"]))

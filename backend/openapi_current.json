@@ -1049,6 +1049,51 @@
         ]
       }
     },
+    "/api/workspaces/ensure-owner": {
+      "post": {
+        "tags": [
+          "Workspaces"
+        ],
+        "summary": "Ensure Owner Workspace",
+        "description": "Idempotent first workspace for bootstrap and empty-membership onboarding.\n\nA later POST /api/workspaces still creates another workspace.",
+        "operationId": "ensure_owner_workspace_api_workspaces_ensure_owner_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/workspaces/{workspace_id}": {
       "get": {
         "tags": [

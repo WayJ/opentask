@@ -17,8 +17,8 @@
 ```
 浏览器 ──http──▶ 宿主 nginx :80（独立 OpenTask server）
                    ├─ /                     ─▶ 127.0.0.1:8080  前端容器
-                   │     容器内：/assets/* 静态，/api/ 与 /ws/ 原样转 7377，其余 index.html
-                   ├─ /api/  /ws/           ─▶ 127.0.0.1:7377
+                   │     容器内：/assets/* 静态，/api/ 与 /ws/workspace 原样转 7377，其余 index.html
+                   ├─ /api/  /ws/workspace  ─▶ 127.0.0.1:7377
                    ├─ /oauth2/authorize     ─▶ 127.0.0.1:8080  SPA 同意页
                    ├─ /oauth2/              ─▶ 127.0.0.1:7377  token / userinfo / revoke
                    ├─ /tasks/ /capabilities /healthcheck ─▶ 127.0.0.1:7377
@@ -40,7 +40,7 @@ docker compose（目录 /opt/opentask）
 | 路径 | 归属 | 说明 |
 |---|---|---|
 | `/`、`/login`、`/issue/list`、`/f/:token`、`/r/:token` | 前端 SPA | history 基址 `/`，刷新回 index.html |
-| `/api/*`、`/ws/*` | 后端 | 不剥前缀，不设置 `X-Workspace-Id` |
+| `/api/*`、`/ws/workspace` | 后端 | 不剥前缀，不设置 `X-Workspace-Id`。`/ws/hub*` 不转发 |
 | `=/oauth2/authorize` | 前端 SPA | 授权同意页 |
 | `/oauth2/*` | 后端 | token、userinfo、revoke |
 | `/tasks/*`、`/capabilities`、`/healthcheck` | 后端 | 原先已暴露的协议与探活 |

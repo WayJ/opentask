@@ -1,12 +1,13 @@
 """Workspace 领域服务（E3-S1）"""
 from __future__ import annotations
 
+import hashlib
 import re
 import uuid
 from datetime import datetime
 
 from fastapi import HTTPException, status
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opentask.models.workspace.model import Workspace, WorkspaceMember
@@ -31,6 +32,12 @@ def slugify(name: str) -> str:
     base = name.strip().lower().replace(" ", "-")
     base = _SLUG_RE.sub("-", base).strip("-") or "workspace"
     return base[:60]
+
+
+def _first_workspace_lock_key(user_id: str) -> int:
+    """Stable signed int8 for pg_advisory_xact_lock. Not a workspace id."""
+    digest = hashlib.sha256(f"opentask-first-workspace:{user_id}".encode()).digest()
+    return int.from_bytes(digest[:8], "big", signed=True)
 
 
 class WorkspaceService:
@@ -117,7 +124,15 @@ class WorkspaceService:
         invisible and is never returned. A user whose only membership is that
         id gets a new workspace. An existing usable membership is kept; this
         does not join another user's workspace or insert a second membership.
+
+        Concurrent callers for the same user take a transaction advisory lock
+        and re-read memberships, so bootstrap and onboarding share one first
+        workspace. ``create`` does not take this lock and can still add more.
         """
+        await self.session.execute(
+            text("SELECT pg_advisory_xact_lock(:key)"),
+            {"key": _first_workspace_lock_key(owner_user_id)},
+        )
         existing = await self.list_for_user(owner_user_id)
         if existing:
             return existing[0][0], False

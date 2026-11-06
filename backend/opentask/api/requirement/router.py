@@ -1,4 +1,4 @@
-"""需求模块 API 路由"""
+"""需求模块 API 路由。已废弃：产品界面不再进入，接口仍保留。"""
 import logging
 import json
 import os

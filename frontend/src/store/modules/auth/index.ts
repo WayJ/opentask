@@ -178,14 +178,14 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
 
   async function resolveWorkspaceForSession() {
     const stored = pendingSelection;
-    selectionStashed = false;
-    pendingSelection = null;
     const { data, error } = await fetchWorkspaceList();
     if (error) {
       localStg.remove('workspaceId');
       workspaceGate.value = 'error';
       return;
     }
+    selectionStashed = false;
+    pendingSelection = null;
     const resolved = resolveWorkspaceSelection(stored, data ?? []);
     if (resolved.workspaceId) localStg.set('workspaceId', resolved.workspaceId);
     else localStg.remove('workspaceId');
@@ -211,13 +211,12 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
     clearWorkspaceSelectionForSession();
     localStg.set('token', loginToken.token);
     localStg.set('refreshToken', loginToken.refreshToken);
+    token.value = loginToken.token;
+    await ensureWorkspaceResolved();
 
     const pass = await getUserInfo();
 
     if (pass) {
-      token.value = loginToken.token;
-      await ensureWorkspaceResolved();
-
       return true;
     }
 
@@ -243,13 +242,12 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
     if (maybeToken) {
       token.value = maybeToken;
       clearWorkspaceSelectionForSession();
+      await ensureWorkspaceResolved();
       const pass = await getUserInfo();
 
       if (!pass) {
         resetStore();
-        return;
       }
-      await ensureWorkspaceResolved();
     }
   }
 

@@ -235,7 +235,7 @@ Issue CRUD、保存的视图、`generic_status_to_issue_set` 不改语义。删�
 |---|---|---|
 | A. 只做部署引导 | `create_admin_user.py` 在该用户零成员关系时调用 `WorkspaceService.create_for_owner`。已有成员则不动。默认名 `OpenTask`，可用 `--workspace-name` 覆盖。`--skip-workspace` 才跳过。不改口令。 | 修好官方首次部署和「账号已存在但零成员」的补跑。SSO 或后台建号且零成员的用户登录后仍 400。 |
 | B. 只做前端引导 | 登录和 `initUserInfo` 都解析成员列表。空列表进入引导页，用户确认名称后 `POST /api/workspaces`，只把**响应里的 id** 写入本地。列表非空时：本地 id 在列表中则保留，否则用该用户 `created_at` 最早的一项。 | 任何零成员用户都能在 UI 恢复。不跑 UI 的全新部署在第一次打开浏览器之前，API/CLI 仍无工作区。 |
-| **C. 两者都做（推荐）** | A 的脚本引导 + B 的解析和引导页。脚本已提交工作区后，列表非空，引导页不出现。 | 范围比单侧大。若脚本与引导页并发且都看到空列表，可能建出两个工作区；见风险。 |
+| **C. 两者都做（推荐）** | A 的脚本引导 + B 的解析和引导页。脚本已提交工作区后，列表非空，引导页不出现。引导页调用 `POST /api/workspaces/ensure-owner`，与脚本共用 `ensure_owner_workspace`。 | 范围比单侧大。同一用户的并发首次创建用事务咨询锁收成一个；普通 `POST /api/workspaces` 仍可再建。见风险。 |
 
 推荐 C 的理由：生产故障就是官方脚本没建工作区，所以脚本要补上，并与已执行过的 `POST /api/workspaces`（名 OpenTask、owner=管理员）同一服务。只补脚本留不下「零成员用户打开主页面」的产品行为，刷新路径今天也不重新解析。引导页使用现成创建接口，不在前端伪造 id。
 
@@ -320,14 +320,14 @@ create_admin_user.py
 - **单元：** 纯函数 `resolveWorkspaceSelection`；脚本 CLI 默认值（`--workspace-name` 默认 OpenTask，`--skip-workspace` 默认关，`--reset-password` 默认关）。不连接生产库。
 - **API：** 测试库里零成员用户调用 `ensure_owner_workspace` 得到 owner 成员；第二次调用不增加工作区；不使用 `DEFAULT_WORKSPACE_ID`；不加入其他用户的工作区。缺头时 `GET /api/saved-views` 为 400 且 detail 为 `缺少 X-Workspace-Id 请求头`。带该用户自己的头时 200。用户 A 的头不能读到用户 B 的 Issue。`GET /api/issues/collections` 为 404。`GET /api/issues` 与客户接口仍 200。Requirement `POST/GET /api/requirements` 行为与现测试一致。
 - **前端单测：** 空列表不写 `workspaceId`；两个工作区且本地为空时写入第一个；本地 id 属于列表则不变；本地 id 不属于列表则换成第一个，且结果 id 必须来自列表。拦截器无 id 时请求头没有 `X-Workspace-Id`。菜单不含问题集。Requirement 路由名会被守卫改到 `issue_list`。文档标题包含 OpenTask。登录路由路径匹配 `/login`（模块可空）；生产基址 `/` 时附件 URL 不再以 `/opentask` 开头；守卫跳转目标是路由名 `login` / `root`，不包含字符串 `/opentask`。
-- **部署冒烟（本地，实施阶段，与浏览器分开记）：** 用新的 `frontend/nginx.conf` 起容器或等价 nginx，`GET /`、`GET /login`、`GET /issue/list`、`GET /f/sample-token` 都回 `index.html`（200，不是 301 到 `/opentask`）。`/assets/` 命中静态文件。不请求 `112.126.60.109`。探活仍是宿主上的 `location = /healthcheck` 转到后端，不新造 `/api/healthcheck`。容器配置要写明 `/api/` 与 `/ws/` 原样转到 `backend:7377`。只有本地后端真的在听时才记录一次真实 API 状态码。
+- **部署冒烟（本地，实施阶段，与浏览器分开记）：** 用新的 `frontend/nginx.conf` 起容器或等价 nginx，`GET /`、`GET /login`、`GET /issue/list`、`GET /f/sample-token` 都回 `index.html`（200，不是 301 到 `/opentask`）。`/assets/` 命中静态文件。不请求 `112.126.60.109`。探活仍是宿主上的 `location = /healthcheck` 转到后端，不新造 `/api/healthcheck`。容器配置要写明 `/api/` 与精确路径 `/ws/workspace` 原样转到 `backend:7377`。`/ws/hub`、`/ws/hub/backend`、`/ws/hub/agent` 不转发。只有本地后端真的在听时才记录一次真实 API 状态码。
 - **浏览器（实施阶段，与单测分开记）：** 零成员账号登录后看到引导而不是主列表的 400；提交名称后进入 Issue 列表，保存的视图请求带上刚创建的工作区 id 且不是 400。切换到第二个自有工作区后列表不出现前一个工作区的 Issue。侧栏没有「问题集」「需求（遗留）」。标签页标题含 OpenTask，图标是现有 OT 标。客户页仍能打开。`/f/:token` 不把未登录用户送进引导页。
 
 主页面指 `VITE_ROUTE_HOME=issue_list` 的 Issue 列表及其保存的视图请求，不是 `/health` 或登录 200。
 
 ## 5. 风险
 
-- 方案 C 的并发双建：脚本与引导页同时看到空列表会建两个工作区，都属该用户，不跨租户。正式部署先跑脚本并提交，用户再打开 UI，正常路径只建一个。可接受。
+- 方案 C 的并发双建：脚本和引导页都走 `ensure_owner_workspace`。它先取该用户的事务咨询锁 `pg_advisory_xact_lock`（键是 `sha256("opentask-first-workspace:{user_id}")` 的前 8 字节），再读成员列表，仍为空才插入。锁在提交时释放，不设全局默认工作区，不删除已有工作区。普通 `WorkspaceService.create` / `POST /api/workspaces` 不加这把锁，已有成员的用户仍可再建工作区。
 - 去掉 ORM 后，将来的 `alembic revision --autogenerate` 可能提议 drop `issue_collections`。本批不跑 autogenerate 作为提交内容；注释和本设计写明表保留。
 - custom `issue` 整棵盖住生成路由。删问题集时只删 collection 子项，不重写 Issue 列表/详情/回收站子项，避免把现行 Issue 菜单收窄或放宽。
 - `GET /api/issues` 缺头时的可选过滤是既有行为。本批不把它改成强制头，也不放宽强制头的接口。

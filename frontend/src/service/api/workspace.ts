@@ -34,6 +34,11 @@ export function fetchCreateWorkspace(data: { name: string; slug?: string; descri
   return request<WorkspaceItem>({ url: '/api/workspaces', method: 'post', data });
 }
 
+/** First workspace only. A user who already has one gets that workspace back. */
+export function fetchEnsureOwnerWorkspace(data: { name: string }) {
+  return request<WorkspaceItem>({ url: '/api/workspaces/ensure-owner', method: 'post', data });
+}
+
 export function fetchUpdateWorkspace(
   id: string,
   data: {

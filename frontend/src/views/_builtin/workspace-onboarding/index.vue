@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { fetchCreateWorkspace } from '@/service/api';
+import { fetchEnsureOwnerWorkspace } from '@/service/api';
 import { useAuthStore } from '@/store/modules/auth';
 import { $t } from '@/locales';
 
@@ -18,7 +18,7 @@ async function createWorkspace() {
   const workspaceName = name.value.trim() || 'OpenTask';
   submitting.value = true;
   errorText.value = '';
-  const { data, error } = await fetchCreateWorkspace({ name: workspaceName });
+  const { data, error } = await fetchEnsureOwnerWorkspace({ name: workspaceName });
   submitting.value = false;
   if (error || !data?.id) {
     errorText.value = '创建工作区失败，请重试';
@@ -34,6 +34,10 @@ async function retry() {
   if (authStore.workspaceGate === 'ready') {
     await router.replace({ name: 'root' });
   }
+}
+
+async function logout() {
+  await authStore.resetStore();
 }
 </script>
 
@@ -56,6 +60,7 @@ async function retry() {
           创建工作区
         </NButton>
       </template>
+      <NButton class="mt-16px" quaternary block @click="logout">退出登录</NButton>
     </div>
   </div>
 </template>

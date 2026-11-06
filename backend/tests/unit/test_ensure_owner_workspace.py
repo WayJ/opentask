@@ -1,13 +1,16 @@
 """方案 C：管理员零可用成员关系时才创建工作区。"""
 from __future__ import annotations
 
+import asyncio
 import uuid
 
 import pytest
 from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from opentask.models.user.model import UserModel
 from opentask.models.workspace.model import Workspace, WorkspaceMember
+from opentask.schemas.workspace import WorkspaceCreate
 from opentask.services.workspace.service import DEFAULT_WORKSPACE_ID, WorkspaceService
 
 
@@ -134,3 +137,61 @@ async def test_provision_admin_rerun_does_not_reset_password_or_duplicate(test_s
     await test_session.refresh(user)
     assert user.password_hash == original_hash
     assert await _member_count(test_session, str(user.id)) == 1
+
+
+@pytest.mark.asyncio
+async def test_create_still_adds_another_workspace_after_the_first(test_session):
+    user = _user(f"ws2_{uuid.uuid4().hex[:8]}")
+    test_session.add(user)
+    await test_session.flush()
+    service = WorkspaceService(test_session)
+    first, _ = await service.ensure_owner_workspace(owner_user_id=str(user.id), name="OpenTask")
+    second, role = await service.create(WorkspaceCreate(name="Second"), str(user.id))
+    assert role == "owner"
+    assert second.id != first.id
+    assert await _member_count(test_session, str(user.id)) == 2
+
+
+@pytest.mark.asyncio
+async def test_concurrent_ensure_collapses_to_one_workspace(test_engine, monkeypatch):
+    """Bootstrap and onboarding can both call ensure before either commits."""
+    maker = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
+    async with maker() as session:
+        user = _user(f"wsc_{uuid.uuid4().hex[:8]}")
+        session.add(user)
+        await session.commit()
+        user_id = str(user.id)
+
+    release = asyncio.Event()
+    entered = asyncio.Event()
+    original = WorkspaceService.create_for_owner
+
+    async def slow_create(self, **kwargs):
+        entered.set()
+        await release.wait()
+        return await original(self, **kwargs)
+
+    monkeypatch.setattr(WorkspaceService, "create_for_owner", slow_create)
+
+    async def once():
+        async with maker() as session:
+            ws, created = await WorkspaceService(session).ensure_owner_workspace(
+                owner_user_id=user_id,
+                name="OpenTask",
+            )
+            await session.commit()
+            return ws.id, created
+
+    first = asyncio.create_task(once())
+    await asyncio.wait_for(entered.wait(), timeout=5)
+    second = asyncio.create_task(once())
+    await asyncio.sleep(0.3)
+    release.set()
+    results = await asyncio.gather(first, second)
+
+    ids = {workspace_id for workspace_id, _created in results}
+    created_flags = [created for _workspace_id, created in results]
+    assert len(ids) == 1
+    assert created_flags.count(True) == 1
+    async with maker() as session:
+        assert await _member_count(session, user_id) == 1

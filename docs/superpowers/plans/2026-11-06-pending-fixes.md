@@ -161,7 +161,7 @@ it('keeps OpenTask in the document title', () => {
 
 **Interfaces:**
 - Consumes: 路由名 `login`、`root`；`VITE_ROUTE_HOME=issue_list`
-- Produces: 生产 history base `/`；容器对 `/login` 回 index.html；宿主 `/api/`、`/ws/` 原样到 7377；`/oauth2/authorize` 到前端 8080
+- Produces: 生产 history base `/`；容器对 `/login` 回 index.html；宿主 `/api/` 与精确 `/ws/workspace` 原样到 7377；`/oauth2/authorize` 到前端 8080。`/ws/hub*` 不转发。
 
 - [x] **Step 1: 写失败测试**
 
@@ -234,7 +234,7 @@ server {
         proxy_read_timeout 300s;
     }
 
-    location /ws/ {
+    location = /ws/workspace {
         proxy_pass http://$backend_host:7377;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -269,7 +269,7 @@ location /api/ {
     proxy_read_timeout 300s;
 }
 
-location /ws/ {
+location = /ws/workspace {
     proxy_pass http://127.0.0.1:7377;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
@@ -302,7 +302,7 @@ for kv in "VITE_BASE_URL=/" "VITE_SERVICE_BASE_URL=/"; do
 产物自检：`index.html` 含 `/assets/`，且 `grep` 不到 `/opentask/assets/`。不要在本任务运行 `deploy.sh`。
 
 - [x] **Step 5: 本地冒烟（真实构建产物）**  
-  `pnpm build` 产出 dist，打进使用新 `nginx.conf` 的容器。请求 `/`、`/login`、刷新 `/issue/list`、`/f/sample-token`、`/r/sample-token`，以及 `index.html` 引用的一个 `/assets/` 文件和 favicon。确认没有 301 到 `/opentask`。附件 URL 单测覆盖生产基址 `/`。配置上 `/api/`、`/ws/` 转到后端，`location = /oauth2/authorize` 走前端，`/oauth2/token` 走后端。不要 curl `112.126.60.109`。不新增原先未暴露的后端路径。
+  `pnpm build` 产出 dist，打进使用新 `nginx.conf` 的容器。请求 `/`、`/login`、刷新 `/issue/list`、`/f/sample-token`、`/r/sample-token`，以及 `index.html` 引用的一个 `/assets/` 文件和 favicon。确认没有 301 到 `/opentask`。附件 URL 单测覆盖生产基址 `/`。配置上 `/api/`、精确 `/ws/workspace` 转到后端，`location = /oauth2/authorize` 走前端，`/oauth2/token` 走后端。`/ws/hub*` 不转发。不要 curl `112.126.60.109`。不新增原先未暴露的后端路径。
 - [x] **Step 6:** vitest 附件与登录路径 Expected: PASS。
 - [x] **Step 7:** Commit `fix: serve the SPA at the site root`
 
