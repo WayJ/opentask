@@ -2,10 +2,10 @@
 
 日期：2026-11-06  
 基线：`main` @ `f2f81c51fda85bf48221d7f84a2f56d071e7704e`（远端 `main` 没有新提交）  
-最终代码：`d47da33aa8762013d22baafa263b9658196a443e`  
-前一代码：`683d50f7bfad0db089cf76c11d368b4198dfa76d`  
+最终代码：`268856a78a766008752c0aa683bd162d36a43a11`  
+前一代码：`d47da33aa8762013d22baafa263b9658196a443e`  
 不合并、不部署、不连接现网。  
-下面「补证」一节覆盖更早的空表探针和类型门禁说法。
+下面「补证」一节覆盖更早的空表探针和类型门禁说法。「窄表」一节覆盖「操作列盖住标题」那条限制。
 
 ## 独立审查
 
@@ -129,11 +129,37 @@
 
 本轮实际打开并截了登录、登录后的壳、问题列表、客户/举措/需求的列表和详情、公开表单、公开需求、邀请、无工作区。亮色和暗色、375/768/1280 的问题列表都量过。没有逐页打开仪表盘、周期、自动化、Webhook、成员、分诊和项目模板。中文界面仍有英文：类型值 `Bug`、产品名 OpenTask、夹具里的 Wrap，洞察说明里的 digest / OR 也还在。没有把整站文案说成已经全部中文化。
 
+## 窄表
+
+`d47da33` 之后只改问题列表的列宽。表格可视宽度小于 900 时取消 `fixed: 'right'`，标题列收成编号列旁边还能放进视口的宽度。达到 900（1280 的内容区约 1034）时操作列继续固定，标题列仍是 300。删除确认、行数据和 `scroll-x` 没改。
+
+独立审查看的是这个 diff，结论是可以收口。被审查的代码就是 `268856a`。其后只有这份验收说明。
+
+单测 `column-layout.test.ts` 覆盖 349、522、1034。整份 Vitest 是 74 个文件、474 个测试通过。`vite build --mode prod` 再次通过。路由、公开页和文案测试仍在这 474 里。官方 `vue-tsc` 仍被基线语法错误挡住，没有去改那两个生成文件。后端和 CLI 仍未跑，相对 `f2f81c5` 依然没有它们的 diff。
+
+同一套本机夹具库和编译后的 `dist`。`scrollLeft = 0` 时长短标题的盒子都在滚动视口内，文字没有溢出单元格，标题上取点没有点到按钮。Tab 到「详情」和「删除」后，按钮在视口内，`elementFromPoint` 命中按钮本身。亮色和暗色都是这样。
+
+| 宽度 | 主题 | 长标题行高 | 短标题行高 | 标题被盖住 | 操作列固定 | 详情/删除 |
+|---|---|---|---|---|---|---|
+| 375 | 亮、暗 | 120 | 20 | 否 | 否 | 滚到 `scrollLeft` 约 1047 后在视口内，48×28，可命中 |
+| 768 | 亮、暗 | 80 | 20 | 否 | 否 | 滚到约 880 后在视口内，可命中 |
+| 1280 | 亮、暗 | 80 | 20 | 否 | 是 | `scrollLeft` 0 就在视口内，可命中 |
+
+画面：
+
+- 375 亮色，标题完整：https://cursor.com/agents/bc-d58428f4-7424-5247-8694-cec10a2b658f/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Frows-light-375.png
+- 375 亮色，滚到操作：https://cursor.com/agents/bc-d58428f4-7424-5247-8694-cec10a2b658f/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Frows-light-375-actions.png
+- 768 亮色：https://cursor.com/agents/bc-d58428f4-7424-5247-8694-cec10a2b658f/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Frows-light-768.png
+- 1280 暗色，操作列仍固定：https://cursor.com/agents/bc-d58428f4-7424-5247-8694-cec10a2b658f/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Frows-dark-1280.png
+- 375 暗色标题 / 操作：https://cursor.com/agents/bc-d58428f4-7424-5247-8694-cec10a2b658f/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Frows-dark-375.png 和 https://cursor.com/agents/bc-d58428f4-7424-5247-8694-cec10a2b658f/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Frows-dark-375-actions.png
+
+标题列不会窄于 160。比 280 还窄的表仍可能让编号加标题超出视口，375 和 768 的实测宽度不在这个范围。
+
 ## 限制
 
 - 官方 `vue-tsc` 仍被基线语法错误挡住，不能标成通过。
 - 大 Vue 文件的既有 eslint error 还在；本批没有新增 error。
-- 375 下固定的「操作」列会盖住标题右半，基线同样如此。状态和类型要在表格横向滚动后才进入视口。
+- 375 和 768 不再用固定操作列盖住标题。状态、类型仍靠表格横向滚动，操作按钮滚到视口内可以点到。见「窄表」。
 - 375 下四个状态标签要在标签条里横滑才能看全。
 - 没有 id 的问题详情仍停在 `/issue/detail`，两边都是。
 - 洞察页说明里仍有 digest、OR。类型枚举仍显示 Bug。
