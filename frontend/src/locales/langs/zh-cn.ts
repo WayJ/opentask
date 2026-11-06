@@ -243,6 +243,7 @@ const local: App.I18n.Schema = {
   },
   route: {
     oauth2: 'OAuth2 授权',
+    oauth2_install: '安装确认',
     profile: '个人信息',
     profile_userinfo: '个人信息',
     'profile_ssh-keys': 'SSH 密钥',
@@ -312,6 +313,7 @@ const local: App.I18n.Schema = {
     'knowledge-base_knowledge_edit_git': 'Git 编辑器',
     manage: '系统管理',
     manage_user: '用户管理',
+    manage_oauth2: 'OAuth 客户端',
     manage_dept: '部门管理',
     'manage_user-detail': '用户详情',
     manage_role: '角色管理',

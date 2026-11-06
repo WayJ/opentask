@@ -52,6 +52,7 @@ from opentask.api.knowledge_category.router import router as knowledge_category_
 from opentask.api.issue.router import router as issue_router
 from opentask.api.tasks import router as tasks_contract_router
 from opentask.api.oauth2 import router as oauth2_router
+from opentask.api.oauth2.install_router import router as oauth2_install_router
 from opentask.api.oauth2 import read_router as oauth2_read_router
 from opentask.api.oauth2.mcp import router as oauth2_mcp_router
 from opentask.api.attachment.router import router as attachment_router
@@ -192,6 +193,8 @@ class App(fastapi.FastAPI):
         # - **不叠全局 common_dependencies**：OAuth 层有自己的鉴权语义，
         #   叠加会让缺头时的错误体与 OAuth2 协议形状冲突。
         self.include_router(oauth2_router)
+        # OAuth 自动接入（Install Flow）：小蓝发起安装 → 管理员确认 → 一次性安装码 → 服务端兑换
+        self.include_router(oauth2_install_router)
         # OAuth2 只读数据面（scope 守卫：read:tasks / read:projects /
         # read:requirements / profile）
         self.include_router(oauth2_read_router)

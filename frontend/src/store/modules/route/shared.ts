@@ -10,7 +10,13 @@ import { $t } from '@/locales';
  * 新增带 route_key 的菜单页时需同步登记（后端字典 + 此清单）。
  * 未登记的业务路由（home/issue 等）默认放行，不受 menus 过滤影响。
  */
-const MENU_PERMISSION_ROUTE_KEYS: readonly string[] = ['manage_user', 'manage_dept', 'manage_role', 'manage_perm'];
+const MENU_PERMISSION_ROUTE_KEYS: readonly string[] = [
+  'manage_user',
+  'manage_dept',
+  'manage_role',
+  'manage_perm',
+  'manage_oauth2'
+];
 
 /**
  * 是否为受菜单权限控制的路由

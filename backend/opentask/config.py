@@ -108,6 +108,12 @@ def get_env_value(key: str, default: Optional[str] = None) -> str:
         'AUTH_OAUTH_CODE_EXPIRE_SECONDS': ['auth', 'oauth_code_expire_seconds'],
         'AUTH_OAUTH_REFRESH_EXPIRE_DAYS': ['auth', 'oauth_refresh_expire_days'],
         'AUTH_OAUTH_CLIENT_SECRET_BYTES': ['auth', 'oauth_client_secret_bytes'],
+        'AUTH_OAUTH_INSTALL_REQUEST_TTL_SECONDS': ['auth', 'oauth_install_request_ttl_seconds'],
+        'AUTH_OAUTH_INSTALL_CODE_TTL_SECONDS': ['auth', 'oauth_install_code_ttl_seconds'],
+        'AUTH_OAUTH_INSTALL_RECOVERY_WINDOW_SECONDS': ['auth', 'oauth_install_recovery_window_seconds'],
+        'AUTH_OAUTH_INSTALL_MAX_PENDING_GLOBAL': ['auth', 'oauth_install_max_pending_global'],
+        'AUTH_OAUTH_INSTALL_MAX_PENDING_PER_IP': ['auth', 'oauth_install_max_pending_per_ip'],
+        'AUTH_OAUTH_INSTALL_RATE_LIMIT_PER_MINUTE': ['auth', 'oauth_install_rate_limit_per_minute'],
         'DINGTALK_APP_KEY': ['dingtalk', 'app_key'],
         'DINGTALK_APP_SECRET': ['dingtalk', 'app_secret'],
         'AUTH_DINGTALK_AUTO_REGISTER': ['auth', 'dingtalk_auto_register'],
@@ -315,6 +321,38 @@ class Config(BaseSettings):
     def oauth_client_secret_bytes(self) -> int:
         """OAuth client secret 随机字节数——默认 32"""
         return int(self._get_value("AUTH_OAUTH_CLIENT_SECRET_BYTES", "32"))
+
+    # ===== OAuth 自动接入（Install Flow）配置 =====
+
+    @property
+    def oauth_install_request_ttl_seconds(self) -> int:
+        """安装申请有效期（秒）——默认 15 分钟"""
+        return int(self._get_value("AUTH_OAUTH_INSTALL_REQUEST_TTL_SECONDS", "900"))
+
+    @property
+    def oauth_install_code_ttl_seconds(self) -> int:
+        """安装码有效期（秒）——默认 10 分钟"""
+        return int(self._get_value("AUTH_OAUTH_INSTALL_CODE_TTL_SECONDS", "600"))
+
+    @property
+    def oauth_install_recovery_window_seconds(self) -> int:
+        """兑换响应丢失后的恢复窗口（秒）——默认 10 分钟"""
+        return int(self._get_value("AUTH_OAUTH_INSTALL_RECOVERY_WINDOW_SECONDS", "600"))
+
+    @property
+    def oauth_install_max_pending_global(self) -> int:
+        """全局 pending 安装申请上限——默认 100"""
+        return int(self._get_value("AUTH_OAUTH_INSTALL_MAX_PENDING_GLOBAL", "100"))
+
+    @property
+    def oauth_install_max_pending_per_ip(self) -> int:
+        """单源 IP 的 pending 安装申请上限——默认 5"""
+        return int(self._get_value("AUTH_OAUTH_INSTALL_MAX_PENDING_PER_IP", "5"))
+
+    @property
+    def oauth_install_rate_limit_per_minute(self) -> int:
+        """单源 IP 每分钟创建安装申请次数上限——默认 10"""
+        return int(self._get_value("AUTH_OAUTH_INSTALL_RATE_LIMIT_PER_MINUTE", "10"))
 
     # 钉钉开放平台配置（企业内部应用）
     @property

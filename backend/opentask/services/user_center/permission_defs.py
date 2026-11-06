@@ -13,6 +13,7 @@ PERMISSIONS: list[dict] = [
     {"code": "menu:manage_dept",   "name": "部门管理", "type": "menu", "route_key": "manage_dept"},
     {"code": "menu:manage_role",   "name": "角色管理", "type": "menu", "route_key": "manage_role"},
     {"code": "menu:manage_perm",   "name": "权限点管理", "type": "menu", "route_key": "manage_perm"},
+    {"code": "menu:manage_oauth2", "name": "OAuth 客户端", "type": "menu", "route_key": "manage_oauth2"},
     # ---- 管理端按钮 ----
     {"code": "manage:user:create", "name": "创建用户", "type": "button", "route_key": None},
     {"code": "manage:user:update", "name": "编辑用户", "type": "button", "route_key": None},

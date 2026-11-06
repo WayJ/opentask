@@ -28,11 +28,21 @@ describe('E13 Linear sidebar IA', () => {
     expect(inbox.meta?.hideInMenu).toBeFalsy();
     expect(Number(inbox.meta?.order)).toBeLessThan(3);
 
-    for (const name of ['work-management', 'manage', 'dashboard', 'home']) {
+    for (const name of ['work-management', 'dashboard', 'home']) {
       const r = findRoute(authRoutes as any[], name);
       expect(r, name).toBeTruthy();
       expect(r.meta?.hideInMenu, name).toBe(true);
     }
+
+    // E101：OAuth 客户端等管理页需要从侧边栏可达（此前 manage 分组整体隐藏，只能 URL 直达），
+    // 因此 manage 分组改为可见；其子页仍受菜单权限 route_key 过滤（非管理员看不到）。
+    const manage = findRoute(authRoutes as any[], 'manage');
+    expect(manage).toBeTruthy();
+    expect(manage.meta?.hideInMenu).toBeFalsy();
+
+    const oauth2Manage = findRoute(authRoutes as any[], 'manage_oauth2');
+    expect(oauth2Manage).toBeTruthy();
+    expect(oauth2Manage.meta?.hideInMenu).toBeFalsy();
   });
 
   it('puts Projects under Workspace and hides top-level workflow', () => {

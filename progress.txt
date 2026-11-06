@@ -3,3 +3,5 @@
 
 2026-11-05 E95: 新增 query_object_set / describe_action，MCP 网关测试通过；后端全量 1457 passed / 24 skipped，前端构建通过，只读 lint 存量 213 errors。工作台页面导航超时，隔离 headless 无企业模型适配器；待恢复工作台后完成模型实际调用验收。详情见 docs/superpowers/acceptances/2026-11-05-E95-acceptance.md。
 2026-11-05 E95 复验：工作台已恢复；模型实际查询对象集、分组并发现类型化 Action。专用测试 Issue ISSUE2026-8917718 由模型执行 open→resolved，changed=true；独立数据库核实状态及唯一状态变更时间线。详见 E95 验收记录。
+
+2026-11-06 E100/E101：新增 OAuth 客户端管理界面（系统管理 → OAuth 客户端：创建/查看/编辑/停用、回调地址与 scopes 管理、一次性密钥展示与复制、安装申请审计、接入说明面板），并落地跨系统自动接入（Install Flow）：小蓝用一次性 PKCE verifier 发起安装、管理员在 /oauth2/install/:id 确认后回跳一次性安装码、小蓝服务端兑换 client_secret（密钥零落库明文，consumed≠成功，恢复窗口内换发新密钥）。后端新增 oauth_install_requests 表与 /api/oauth2/install/* 端点、权限点 menu:manage_oauth2（admin 专属）。契约见 docs/superpowers/contracts/2026-11-06-e101-oauth2-install-contract.md，接入手册见 docs/oauth2-client-onboarding.md；验收证据见 docs/superpowers/acceptances/2026-11-06-e101-oauth2-install-flow-acceptance.md。

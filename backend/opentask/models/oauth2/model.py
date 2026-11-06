@@ -352,3 +352,204 @@ class OAuthRefreshToken(DBModel, UUIDMixin, kw_only=True):
         nullable=False,
         comment="创建时间",
     )
+
+
+class OAuthInstallRequest(DBModel, UUIDMixin, kw_only=True):
+    """自动接入安装申请（Install Request）
+
+    协议见 docs/superpowers/contracts/2026-11-06-e101-oauth2-install-contract.md。
+
+    安全口径：
+    - **无长期凭据**：本表不存任何接入方长期凭据；发起方用一次性高熵 verifier，
+      OpenTask 只存 ``code_challenge = BASE64URL(SHA256(verifier))``（PKCE S256）；
+    - **密钥零明文**：安装码只存 SHA-256 哈希；client_secret 由 client 表按既有口径存哈希；
+    - 状态机：PENDING → APPROVED → CONSUMED（另有 REJECTED / EXPIRED 终态）。
+    """
+
+    __tablename__ = "oauth_install_requests"
+
+    __table_args__ = (
+        Index(None, "status", "expires_at"),
+        Index(None, "client_id", "status"),
+        Index(None, "code_hash"),
+    )
+
+    client_id: Mapped[str] = mapped_column(
+        "client_id",
+        String(64),
+        nullable=False,
+        comment="客户端公开标识",
+    )
+
+    name: Mapped[str] = mapped_column(
+        "name",
+        String(255),
+        nullable=False,
+        comment="应用名称",
+    )
+
+    description: Mapped[str | None] = mapped_column(
+        "description",
+        Text,
+        nullable=True,
+        comment="应用描述",
+    )
+
+    redirect_uris: Mapped[str] = mapped_column(
+        "redirect_uris",
+        Text,
+        nullable=False,
+        comment="回调地址白名单（逗号分隔）",
+    )
+
+    scopes: Mapped[str] = mapped_column(
+        "scopes",
+        String(512),
+        nullable=False,
+        default="",
+        comment="允许的 scope 集合（空格分隔）",
+    )
+
+    grant_types: Mapped[str] = mapped_column(
+        "grant_types",
+        String(128),
+        nullable=False,
+        default="authorization_code refresh_token",
+        comment="允许的授权类型（空格分隔）",
+    )
+
+    callback_url: Mapped[str] = mapped_column(
+        "callback_url",
+        String(2048),
+        nullable=False,
+        comment="安装完成回跳地址",
+    )
+
+    state: Mapped[str | None] = mapped_column(
+        "state",
+        String(256),
+        nullable=True,
+        comment="申请方 state（原样回传）",
+    )
+
+    code_challenge: Mapped[str] = mapped_column(
+        "code_challenge",
+        String(128),
+        nullable=False,
+        comment="PKCE S256 challenge",
+    )
+
+    code_challenge_method: Mapped[str] = mapped_column(
+        "code_challenge_method",
+        String(16),
+        nullable=False,
+        default="S256",
+        comment="PKCE 方法（固定 S256）",
+    )
+
+    status: Mapped[str] = mapped_column(
+        "status",
+        String(16),
+        nullable=False,
+        default="PENDING",
+        comment="申请状态",
+    )
+
+    code_hash: Mapped[str | None] = mapped_column(
+        "code_hash",
+        String(64),
+        nullable=True,
+        comment="安装码 SHA-256 哈希",
+    )
+
+    code_expires_at: Mapped[datetime | None] = mapped_column(
+        "code_expires_at",
+        DateTime,
+        nullable=True,
+        comment="安装码过期时间",
+    )
+
+    expires_at: Mapped[datetime] = mapped_column(
+        "expires_at",
+        DateTime,
+        nullable=False,
+        comment="申请过期时间",
+    )
+
+    approved_by: Mapped[str | None] = mapped_column(
+        "approved_by",
+        String(36),
+        ForeignKey("user.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="批准人用户 ID",
+    )
+
+    approved_at: Mapped[datetime | None] = mapped_column(
+        "approved_at",
+        DateTime,
+        nullable=True,
+        comment="批准时间",
+    )
+
+    rejected_at: Mapped[datetime | None] = mapped_column(
+        "rejected_at",
+        DateTime,
+        nullable=True,
+        comment="拒绝时间",
+    )
+
+    first_exchange_at: Mapped[datetime | None] = mapped_column(
+        "first_exchange_at",
+        DateTime,
+        nullable=True,
+        comment="首次兑换时间",
+    )
+
+    consumed_at: Mapped[datetime | None] = mapped_column(
+        "consumed_at",
+        DateTime,
+        nullable=True,
+        comment="兑换时间",
+    )
+
+    recovery_count: Mapped[int] = mapped_column(
+        "recovery_count",
+        nullable=False,
+        default=0,
+        comment="恢复兑换次数",
+    )
+
+    recovery_used_at: Mapped[datetime | None] = mapped_column(
+        "recovery_used_at",
+        DateTime,
+        nullable=True,
+        comment="最近一次恢复兑换时间",
+    )
+
+    request_ip: Mapped[str | None] = mapped_column(
+        "request_ip",
+        String(64),
+        nullable=True,
+        comment="申请来源 IP",
+    )
+
+    user_agent: Mapped[str | None] = mapped_column(
+        "user_agent",
+        Text,
+        nullable=True,
+        comment="申请来源 User-Agent",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        "created_at",
+        DateTime,
+        nullable=False,
+        comment="创建时间",
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        "updated_at",
+        DateTime,
+        nullable=False,
+        comment="更新时间",
+    )

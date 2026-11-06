@@ -368,8 +368,7 @@ export const generatedRoutes: GeneratedRoute[] = [
       title: 'manage',
       i18nKey: 'route.manage',
       icon: 'carbon:cloud-service-management',
-      order: 9,
-      hideInMenu: true
+      order: 9
     },
     children: [
       {
@@ -379,6 +378,18 @@ export const generatedRoutes: GeneratedRoute[] = [
         meta: {
           title: 'manage_dept',
           i18nKey: 'route.manage_dept'
+        }
+      },
+      {
+        name: 'manage_oauth2',
+        path: '/manage/oauth2',
+        component: 'view.manage_oauth2',
+        meta: {
+          title: 'manage_oauth2',
+          i18nKey: 'route.manage_oauth2',
+          icon: 'mdi:key-chain-variant',
+          order: 5,
+          keepAlive: true
         }
       },
       {
@@ -430,12 +441,23 @@ export const generatedRoutes: GeneratedRoute[] = [
   {
     name: 'oauth2',
     path: '/oauth2/authorize',
-    component: 'layout.base$view.oauth2',
+    component: 'layout.base',
     meta: {
       title: 'oauth2',
       i18nKey: 'route.oauth2',
       hideInMenu: true
-    }
+    },
+    children: [
+      {
+        name: 'oauth2_install',
+        path: '/oauth2/install/:installId',
+        component: 'view.oauth2_install',
+        meta: {
+          title: 'oauth2_install',
+          i18nKey: 'route.oauth2_install'
+        }
+      }
+    ]
   },
   {
     name: 'profile',

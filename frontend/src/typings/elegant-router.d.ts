@@ -51,11 +51,13 @@ declare module "@elegant-router/types" {
     "login": "/login/:module(pwd-login|code-login|register|reset-pwd|bind-wechat|change-password|dingtalk-callback)?";
     "manage": "/manage";
     "manage_dept": "/manage/dept";
+    "manage_oauth2": "/manage/oauth2";
     "manage_perm": "/manage/perm";
     "manage_role": "/manage/role";
     "manage_user": "/manage/user";
     "manage_user-detail": "/manage/user-detail/:id";
     "oauth2": "/oauth2/authorize";
+    "oauth2_install": "/oauth2/install/:installId";
     "profile": "/profile";
     "profile_access-tokens": "/profile/access-tokens";
     "profile_userinfo": "/profile/userinfo";
@@ -203,11 +205,13 @@ declare module "@elegant-router/types" {
     | "knowledge-base_list"
     | "knowledge-base_manage_category"
     | "manage_dept"
+    | "manage_oauth2"
     | "manage_perm"
     | "manage_role"
     | "manage_user-detail"
     | "manage_user"
     | "oauth2"
+    | "oauth2_install"
     | "profile_access-tokens"
     | "profile_userinfo"
     | "requests_detail"

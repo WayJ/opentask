@@ -117,3 +117,23 @@ async def test_seed_removes_stale_role_permissions(session_maker, monkeypatch):
             select(Permission).where(Permission.code == "task:delete")
         )
         assert result.scalar_one_or_none() is not None
+
+
+async def test_oauth2_client_menu_permission_granted_to_admin_only(session_maker):
+    """OAuth 客户端菜单权限：admin 获得，maintainer/developer/viewer 均不获得（默认最小权限）"""
+    async with session_maker() as session:
+        await seed_user_center(session)
+
+        result = await session.execute(select(Permission))
+        perms = {p.code: p for p in result.scalars().all()}
+        assert "menu:manage_oauth2" in perms
+
+        perm = perms["menu:manage_oauth2"]
+        assert perm.type == "menu"
+        assert perm.route_key == "manage_oauth2"
+
+        admin_codes = await _role_perm_codes(session, "admin")
+        assert "menu:manage_oauth2" in admin_codes
+        for role in ("maintainer", "developer", "viewer"):
+            role_codes = await _role_perm_codes(session, role)
+            assert "menu:manage_oauth2" not in role_codes

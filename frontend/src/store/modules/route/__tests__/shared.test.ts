@@ -47,6 +47,12 @@ function createMockAuthRoutes(): ElegantConstRoute[] {
           meta: { title: 'manage_user', i18nKey: 'route.manage_user' }
         },
         {
+          name: 'manage_oauth2',
+          path: '/manage/oauth2',
+          component: 'view.manage_oauth2',
+          meta: { title: 'manage_oauth2', i18nKey: 'route.manage_oauth2' }
+        },
+        {
           name: 'manage_user-detail',
           path: '/manage/user-detail/:id',
           component: 'view.manage_user-detail',
@@ -90,11 +96,12 @@ describe('filterAuthRoutesByMenus', () => {
   it('admin 全量 menus：四个管理页 + 用户详情页全保留', () => {
     const result = filterAuthRoutesByMenus(
       createMockAuthRoutes(),
-      ['manage_user', 'manage_dept', 'manage_role', 'manage_perm'],
+      ['manage_user', 'manage_dept', 'manage_role', 'manage_perm', 'manage_oauth2'],
       false
     );
     const names = collectRouteNames(result);
     expect(names).toContain('manage');
+    expect(names).toContain('manage_oauth2');
     expect(names).toContain('manage_user');
     expect(names).toContain('manage_dept');
     expect(names).toContain('manage_role');
@@ -107,6 +114,7 @@ describe('filterAuthRoutesByMenus', () => {
     const names = collectRouteNames(result);
     expect(names).not.toContain('manage');
     expect(names).not.toContain('manage_user');
+    expect(names).not.toContain('manage_oauth2');
     expect(names).not.toContain('manage_user-detail');
     expect(names).toContain('home');
     expect(names).toContain('issue');

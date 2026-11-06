@@ -81,6 +81,7 @@ from opentask.models.oauth2 import (
     OAuthAccessToken,
     OAuthAuthorizationCode,
     OAuthClient,
+    OAuthInstallRequest,
     OAuthRefreshToken,
 )
 from opentask.models.work_management import (
@@ -171,6 +172,7 @@ __all__ = [
     "NotificationPreference",
     "AccessToken",
     "OAuthClient",
+    "OAuthInstallRequest",
     "OAuthAuthorizationCode",
     "OAuthAccessToken",
     "OAuthRefreshToken",

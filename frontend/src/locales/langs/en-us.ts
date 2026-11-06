@@ -247,6 +247,7 @@ const local: App.I18n.Schema = {
   },
   route: {
     oauth2: 'OAuth2 Authorization',
+    oauth2_install: 'Install Consent',
     profile: 'Profile',
     profile_userinfo: 'User Profile',
     login: 'Login',
@@ -304,6 +305,7 @@ const local: App.I18n.Schema = {
     'knowledge-base_knowledge_edit_git': 'Git Editor',
     manage: 'System Manage',
     manage_user: 'User Manage',
+    manage_oauth2: 'OAuth Clients',
     manage_dept: 'Department Manage',
     'manage_user-detail': 'User Detail',
     manage_role: 'Role Manage',
