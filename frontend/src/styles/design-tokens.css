@@ -46,7 +46,10 @@
   --vk-font-caption: 12px;
   --vk-font-button: 14px;
   --vk-font-dense: 12px;
+  --vk-font-ui: 13px;
   --vk-font-body: 14px;
+  --vk-control-height: 32px;
+  --vk-row-min: 32px;
   --vk-font-title: 16px;
   --vk-font-display: 20px;
   --vk-font-stat: 24px;

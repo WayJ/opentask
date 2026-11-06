@@ -58,8 +58,8 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="min-h-screen flex-center p-24px bg-gray-50 dark:bg-gray-900">
-    <NCard title="请求状态" style="width: 560px; max-width: 95vw" :bordered="false" class="card-wrapper">
+  <div class="ot-public-page min-h-screen">
+    <NCard title="请求状态" :bordered="false" class="ot-public-card card-wrapper">
       <NSpin :show="loading">
         <div v-if="errorMsg" class="py-6 text-center text-red-500">{{ errorMsg }}</div>
         <div v-else-if="card">
@@ -71,7 +71,7 @@ onMounted(load);
           <NText depth="3" class="block mb-2">客户：{{ card.customerName || '—' }}</NText>
           <NText depth="3" class="block mb-2">更新：{{ card.updatedAt || '—' }}</NText>
           <NText depth="3" class="block mb-4">
-            关联 Issue：
+            关联问题：
             <span v-if="card.linkedIssueCodes?.length">{{ card.linkedIssueCodes.join(', ') }}</span>
             <span v-else>{{ card.linkedIssueCount || 0 }}</span>
           </NText>

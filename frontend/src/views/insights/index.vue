@@ -25,6 +25,7 @@ import {
   type TagItem
 } from '@/service/api';
 import { useAuthStore } from '@/store/modules/auth';
+import { $t } from '@/locales';
 
 defineOptions({ name: 'InsightsPage' });
 
@@ -447,19 +448,19 @@ onMounted(async () => {
     </div>
 
     <NSpin :show="loading">
-      <NEmpty v-if="empty" description="暂无 Issue。创建几条后回来看分布与趋势。" class="py-48px" />
+      <NEmpty v-if="empty" :description="$t('page.shell.insightsEmpty')" class="py-48px" />
 
       <template v-else-if="summary">
         <NGrid :x-gap="16" :y-gap="16" cols="1 s:2 m:5" responsive="screen">
           <NGi>
             <NCard size="small">
-              <div class="text-12px opacity-60">开放 Issue</div>
+              <div class="text-12px opacity-60">开放问题</div>
               <div class="mt-4px text-26px font-medium">{{ openCount }}</div>
             </NCard>
           </NGi>
           <NGi>
             <NCard size="small">
-              <div class="text-12px opacity-60">Cycle Issues</div>
+              <div class="text-12px opacity-60">冲刺问题</div>
               <div class="mt-4px text-26px font-medium">
                 {{ summary.cycleSnapshot?.issueCount ?? '—' }}
               </div>
@@ -470,7 +471,7 @@ onMounted(async () => {
           </NGi>
           <NGi>
             <NCard size="small">
-              <div class="text-12px opacity-60">Cycle 已完成</div>
+              <div class="text-12px opacity-60">冲刺已完成</div>
               <div class="mt-4px text-26px font-medium">
                 {{ summary.cycleSnapshot?.completedCount ?? '—' }}
               </div>

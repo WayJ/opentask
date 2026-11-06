@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { Component } from 'vue';
-import { getPaletteColorByNumber, mixColor } from '@sa/color';
+import { getPaletteColorByNumber } from '@sa/color';
 import { loginModuleRecord } from '@/constants/app';
 import { useAppStore } from '@/store/modules/app';
 import { useThemeStore } from '@/store/modules/theme';
@@ -44,24 +44,16 @@ const activeModule = computed(() => moduleMap[props.module || 'pwd-login']);
 const bgThemeColor = computed(() =>
   themeStore.darkMode ? getPaletteColorByNumber(themeStore.themeColor, 600) : themeStore.themeColor
 );
-
-const bgColor = computed(() => {
-  const COLOR_WHITE = '#ffffff';
-
-  const ratio = themeStore.darkMode ? 0.5 : 0.2;
-
-  return mixColor(COLOR_WHITE, themeStore.themeColor, ratio);
-});
 </script>
 
 <template>
-  <div class="relative size-full flex-center overflow-hidden" :style="{ backgroundColor: bgColor }">
+  <div class="ot-auth-page relative size-full flex-center overflow-hidden">
     <WaveBg :theme-color="bgThemeColor" />
-    <NCard :bordered="false" class="relative z-4 w-auto rd-12px">
-      <div class="w-400px lt-sm:w-300px">
+    <NCard :bordered="false" class="ot-auth-card relative z-4 w-auto">
+      <div class="ot-auth-form">
         <header class="flex-y-center justify-between">
           <SystemLogo class="size-64px lt-sm:size-48px" />
-          <h3 class="text-28px text-primary font-500 lt-sm:text-22px">{{ $t('system.title') }}</h3>
+          <h3 class="text-20px text-primary font-500">{{ $t('system.title') }}</h3>
           <div class="i-flex-col">
             <ThemeSchemaSwitch
               :theme-schema="themeStore.themeScheme"

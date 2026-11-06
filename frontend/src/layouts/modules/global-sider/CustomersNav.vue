@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAppStore } from '@/store/modules/app';
+import { $t } from '@/locales';
 
 defineOptions({ name: 'CustomersNav' });
 
@@ -31,13 +32,13 @@ function go() {
         <template #trigger>
           <button type="button" class="customers-nav__btn" @click="go">👥</button>
         </template>
-        客户
+        {{ $t('page.sider.customers') }}
       </NTooltip>
     </template>
     <button v-else type="button" class="customers-nav__row" @click="go">
       <span class="customers-nav__icon">👥</span>
-      <span class="customers-nav__label">客户</span>
-      <span class="customers-nav__hint">需求</span>
+      <span class="customers-nav__label">{{ $t('page.sider.customers') }}</span>
+      <span class="customers-nav__hint">{{ $t('page.sider.customersHint') }}</span>
     </button>
   </div>
 </template>
@@ -61,7 +62,7 @@ function go() {
 }
 .customers-nav__btn:hover,
 .customers-nav.active .customers-nav__btn {
-  background: rgba(94, 106, 210, 0.12);
+  background: var(--vk-accent-soft);
 }
 .customers-nav__row {
   width: 100%;
@@ -77,7 +78,7 @@ function go() {
 }
 .customers-nav__row:hover,
 .customers-nav.active .customers-nav__row {
-  background: rgba(94, 106, 210, 0.12);
+  background: var(--vk-accent-soft);
 }
 .customers-nav__icon {
   font-size: 14px;
@@ -89,6 +90,6 @@ function go() {
 .customers-nav__hint {
   margin-left: auto;
   font-size: 11px;
-  opacity: 0.55;
+  color: var(--vk-muted);
 }
 </style>

@@ -264,14 +264,14 @@ onMounted(() => {
       </template>
       <div class="unplanned-content">
         <NTabs type="line" animated>
-          <NTabPane name="resolved" tab="已解决 Issue">
+          <NTabPane name="resolved" tab="已解决问题">
             <NList>
               <NListItem v-for="item in unplanned.resolved_issues" :key="item.id">
                 <NThing>{{ item.title }}</NThing>
               </NListItem>
             </NList>
           </NTabPane>
-          <NTabPane name="created" tab="创建的 Issue">
+          <NTabPane name="created" tab="创建的问题">
             <NList>
               <NListItem v-for="item in unplanned.created_issues" :key="item.id">
                 <NThing>{{ item.title }}</NThing>

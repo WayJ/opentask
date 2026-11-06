@@ -9,6 +9,7 @@ import {
   formSubmitSuccessCopy,
   submitPublicForm
 } from '@/service/api/forms';
+import { $t } from '@/locales';
 
 defineOptions({ name: 'PublicIssueFormPage' });
 
@@ -122,8 +123,8 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="min-h-screen flex-center p-24px bg-gray-50 dark:bg-gray-900">
-    <NCard :title="schema?.name || 'Issue 表单'" style="width: 520px; max-width: 95vw" :bordered="false" class="card-wrapper">
+  <div class="ot-public-page min-h-screen">
+    <NCard :title="schema?.name || $t('page.shell.issueForm')" :bordered="false" class="ot-public-card card-wrapper">
       <NSpin :show="loading">
         <div v-if="errorMsg" class="py-6 text-center text-red-500">{{ errorMsg }}</div>
         <div v-else-if="success" class="py-6 text-center">

@@ -348,7 +348,7 @@ onMounted(load);
           <NInput v-model:value="form.name" placeholder="规则名称" style="width: 180px" />
           <NSelect v-model:value="form.triggerType" :options="triggerOptions" style="width: 200px" />
           <NText v-if="form.triggerType === 'issue.sla_breached'" depth="3" style="font-size:12px;display:block;margin-top:4px">
-            警告：动作使用 set_status 可能把 Issue 绕回 start 状态，造成 SLA 震荡；请谨慎配置。
+            警告：动作使用 set_status 可能把问题绕回 start 状态，造成 SLA 震荡；请谨慎配置。
           </NText>
           <template v-if="form.triggerType === 'custom_field_changed'">
             <NSelect
@@ -437,7 +437,7 @@ onMounted(load);
         </NSpace>
 
         <div v-if="!loading && !rows.length" class="text-gray-500 text-14px py-24px text-center">
-          暂无自动化规则。创建一条：例如 Issue 创建时自动设自定义字段或优先级。
+          暂无自动化规则。创建一条：例如问题创建时自动设自定义字段或优先级。
         </div>
         <NDataTable v-else :columns="columns" :data="rows" :loading="loading" :bordered="false" size="small" />
       </NSpace>

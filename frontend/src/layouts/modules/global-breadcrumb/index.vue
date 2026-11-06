@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useRouter } from 'vue-router';
 import { createReusableTemplate } from '@vueuse/core';
 import type { RouteKey } from '@elegant-router/types';
 import { useThemeStore } from '@/store/modules/theme';
@@ -11,6 +12,7 @@ defineOptions({
 
 const themeStore = useThemeStore();
 const routeStore = useRouteStore();
+const router = useRouter();
 const { routerPushByKey } = useRouterPush();
 
 interface BreadcrumbContentProps {
@@ -21,6 +23,10 @@ const [DefineBreadcrumbContent, BreadcrumbContent] = createReusableTemplate<Brea
 
 function handleClickMenu(key: RouteKey) {
   routerPushByKey(key);
+}
+
+function openCrumb(item: App.Global.Breadcrumb) {
+  router.push({ name: item.key });
 }
 </script>
 
@@ -35,13 +41,35 @@ function handleClickMenu(key: RouteKey) {
     </DefineBreadcrumbContent>
     <!-- define component end: BreadcrumbContent -->
 
-    <NBreadcrumbItem v-for="item in routeStore.breadcrumbs" :key="item.key">
+    <NBreadcrumbItem v-for="(item, index) in routeStore.breadcrumbs" :key="item.key">
       <NDropdown v-if="item.options?.length" :options="item.options" @select="handleClickMenu">
         <BreadcrumbContent :breadcrumb="item" />
       </NDropdown>
+      <button
+        v-else-if="index < routeStore.breadcrumbs.length - 1"
+        type="button"
+        class="ot-crumb"
+        @click="openCrumb(item)"
+      >
+        <BreadcrumbContent :breadcrumb="item" />
+      </button>
       <BreadcrumbContent v-else :breadcrumb="item" />
     </NBreadcrumbItem>
   </NBreadcrumb>
 </template>
 
-<style scoped></style>
+<style scoped>
+.ot-crumb {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ot-crumb:focus-visible {
+  outline: 2px solid var(--vk-accent);
+  outline-offset: 2px;
+}
+</style>

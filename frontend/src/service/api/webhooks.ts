@@ -18,16 +18,16 @@ export const WEBHOOK_EVENTS = [
 ] as const;
 
 export const WEBHOOK_EVENT_LABELS: Record<(typeof WEBHOOK_EVENTS)[number], string> = {
-  'issue.created': 'Issue 创建',
-  'issue.updated': 'Issue 更新',
-  'issue.status_changed': 'Issue 状态变更',
+  'issue.created': '问题创建',
+  'issue.updated': '问题更新',
+  'issue.status_changed': '问题状态变更',
   'comment.created': '评论创建',
   'issue.custom_field_changed': '自定义字段变更',
   'issue.sla_breached': 'SLA 违约',
   'issue.assignee_changed': '经办人变更',
   'issue.label_added': '添加标签',
   'issue.label_removed': '移除标签',
-  'issue.cycle_changed': 'Cycle 变更',
+  'issue.cycle_changed': '冲刺变更',
   'issue.estimate_changed': '估点变更',
   'issue.project_changed': '项目变更',
   'issue.sla_paused': 'SLA 暂停',

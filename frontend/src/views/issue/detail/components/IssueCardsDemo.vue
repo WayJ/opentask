@@ -9,10 +9,10 @@ import CommentsCard from './CommentsCard.vue';
 const demoIssue = ref({
   id: 'demo-issue-1',
   issue_code: 'OT-1',
-  title: '示例 Issue：展示新的卡片式设计',
+  title: '示例问题：展示新的卡片式设计',
   status: 'open',
   priority: 'high',
-  description: `这是一个示例 Issue，用于展示新的卡片式设计风格。
+  description: `这是一个示例问题，用于展示新的卡片式设计风格。
 
 ## 主要特点
 

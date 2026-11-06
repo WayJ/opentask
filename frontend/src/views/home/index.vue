@@ -12,6 +12,7 @@ import {
 import type { WorkspaceItem } from '@/service/api';
 import { issueApi } from '@/service/api/issue';
 import { localStg } from '@/utils/storage';
+import { $t } from '@/locales';
 
 defineOptions({ name: 'HomeWorkspaceSummary' });
 
@@ -157,7 +158,7 @@ onMounted(load);
       <NGrid :x-gap="16" :y-gap="16" cols="1 s:2 m:3" responsive="screen">
         <NGi>
           <NCard size="small" hoverable class="cursor-pointer" @click="goIssues()">
-            <div class="text-12px opacity-60">Issues</div>
+            <div class="ot-muted text-12px">{{ $t('page.shell.issueListTitle') }}</div>
             <div class="mt-4px text-28px font-medium">{{ issueTotal }}</div>
             <div class="mt-8px text-12px text-primary">打开列表 →</div>
           </NCard>
@@ -173,7 +174,7 @@ onMounted(load);
           <NCard size="small" hoverable class="cursor-pointer" @click="goCycles">
             <div class="text-12px opacity-60">Cycle</div>
             <div class="mt-8px truncate text-18px font-medium">
-              {{ activeCycleName || (workspace?.cyclesEnabled ? '无 Active Cycle' : '未启用 Cycles') }}
+              {{ activeCycleName || (workspace?.cyclesEnabled ? '无进行中的冲刺' : '未启用冲刺') }}
             </div>
             <div class="mt-8px text-12px text-primary">工作区设置 →</div>
           </NCard>
@@ -214,7 +215,7 @@ onMounted(load);
         <div class="flex flex-wrap items-center justify-between gap-12px">
           <div>
             <div class="text-13px font-medium">Insights</div>
-            <div class="mt-2px text-12px opacity-55">本周完成 / 开放 Issue</div>
+            <div class="mt-2px text-12px opacity-55">本周完成 / 开放问题</div>
           </div>
           <div class="flex gap-24px">
             <div>
@@ -232,11 +233,11 @@ onMounted(load);
 
       <NCard size="small" class="mt-16px" title="快速入口">
         <NSpace>
-          <NButton size="small" type="primary" @click="goIssues()">Issue 列表</NButton>
+          <NButton size="small" type="primary" @click="goIssues()">{{ $t('page.shell.issueListTitle') }}</NButton>
           <NButton size="small" @click="goIssues('assigned')">我的问题</NButton>
           <NButton size="small" @click="goInbox">Inbox</NButton>
           <NButton size="small" @click="router.push({ name: 'triage' })">Triage</NButton>
-          <NButton size="small" @click="goCycles">Cycles / Issue Key</NButton>
+          <NButton size="small" @click="goCycles">冲刺 / 问题单号</NButton>
         </NSpace>
       </NCard>
     </NSpin>

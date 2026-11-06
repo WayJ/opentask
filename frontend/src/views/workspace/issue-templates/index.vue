@@ -25,6 +25,7 @@ import {
   issueTemplateSeedConfirmText,
   issueTemplateSourceLabel
 } from '@/utils/issueTemplateSourceLabel';
+import { $t } from '@/locales';
 
 defineOptions({ name: 'WorkspaceIssueTemplatesPage' });
 
@@ -235,10 +236,10 @@ onMounted(load);
 
 <template>
   <div class="h-full flex-col-stretch gap-16px overflow-hidden lt-sm:overflow-auto">
-    <NCard title="Issue 模板" :bordered="false" class="card-wrapper sm:flex-1-hidden">
+    <NCard :title="$t('route.workspace_issue-templates')" :bordered="false" class="card-wrapper sm:flex-1-hidden">
       <NSpace vertical :size="16">
         <NSpace justify="space-between">
-          <NText depth="3">工作区 Issue 创建模板（与 PGE Prompt 无关）</NText>
+          <NText depth="3">工作区问题创建模板（与 PGE Prompt 无关）</NText>
           <NSpace>
             <NButton :loading="seeding" @click="seedBuiltin">恢复内置</NButton>
             <NButton type="primary" @click="openCreate">新建模板</NButton>

@@ -82,6 +82,7 @@ import {
   parsedQueryToFilters
 } from '@/utils/issueSearchParser';
 import { fetchCustomFields, type CustomFieldRow } from '@/service/api/custom-fields';
+import { $t } from '@/locales';
 import IssueSmartSearch from '@/components/IssueSmartSearch.vue';
 import type { Api } from '@/typings/api';
 import IssueBulkBar from '@/components/IssueBulkBar.vue';
@@ -612,14 +613,14 @@ const showSyntaxHelp = ref(false);
 
 // 语法说明示例
 const syntaxExamples = [
-  { text: 'assignee:@me', desc: '显示分配给我的 Issue' },
-  { text: 'is:open', desc: '只显示待办中的 Issue' },
-  { text: 'is:closed', desc: '只显示已完成的 Issue' },
-  { text: 'is:in_progress', desc: '只显示进行中的 Issue' },
-  { text: 'type:feature', desc: '只显示功能类型的 Issue' },
-  { text: 'type:bug', desc: '只显示缺陷类型的 Issue' },
-  { text: 'priority:urgent', desc: '只显示紧急优先级的 Issue' },
-  { text: 'priority:high', desc: '只显示高优先级的 Issue' },
+  { text: 'assignee:@me', desc: '显示分配给我的问题' },
+  { text: 'is:open', desc: '只显示待办中的问题' },
+  { text: 'is:closed', desc: '只显示已完成的问题' },
+  { text: 'is:in_progress', desc: '只显示进行中的问题' },
+  { text: 'type:feature', desc: '只显示功能类型的问题' },
+  { text: 'type:bug', desc: '只显示缺陷类型的问题' },
+  { text: 'priority:urgent', desc: '只显示紧急优先级的问题' },
+  { text: 'priority:high', desc: '只显示高优先级的问题' },
   { text: 'field:severity:s1', desc: '按自定义字段过滤（亦可用 cf:key:value）' }
 ];
 
@@ -887,16 +888,16 @@ const tabCounts = computed(() => {
 function handleDelete(issue: Api.Issue.Issue) {
   window.$dialog?.warning({
     title: '确认删除',
-    content: `确定要删除 Issue "${issue.title}" 吗？`,
+    content: `确定要删除问题 "${issue.title}" 吗？`,
     positiveText: '删除',
     negativeText: '取消',
     onPositiveClick: async () => {
       try {
         await issueStore.deleteIssue(issue.id);
         await loadIssues();
-        window.$message?.success('Issue 删除成功');
+        window.$message?.success('问题删除成功');
       } catch {
-        window.$message?.error('Issue 删除失败');
+        window.$message?.error('问题删除失败');
       }
     }
   });
@@ -1297,16 +1298,17 @@ const baseColumns: DataTableColumns<Api.Issue.Issue> = [
     title: '标题',
     key: 'title',
     width: 300,
-    ellipsis: { tooltip: true },
     render: (row: Api.Issue.Issue & { nestDepth?: number }) => {
       const depth = row.nestDepth || 0;
       return h(
         'span',
         {
+          class: 'issue-title-text',
           style: {
             display: 'inline-block',
             paddingLeft: `${depth * 16}px`,
-            maxWidth: '100%'
+            maxWidth: '100%',
+            whiteSpace: 'normal'
           }
         },
         [
@@ -1315,9 +1317,8 @@ const baseColumns: DataTableColumns<Api.Issue.Issue> = [
                 'span',
                 {
                   style: {
-                    opacity: 0.55,
                     marginRight: '4px',
-                    color: 'var(--color-text-tertiary, #9ca3af)'
+                    color: 'var(--vk-muted)'
                   }
                 },
                 '↳'
@@ -1551,9 +1552,9 @@ onUnmounted(() => {
         当前视图：{{ scopeTitle }}
       </NAlert>
       <template #header>
-        <NSpace align="center" justify="space-between" style="width: 100%">
-          <NText strong style="font-size: 16px">Issue 管理</NText>
-          <NSpace align="center">
+        <div class="issue-list-header">
+          <NText strong class="issue-list-title">{{ $t('page.shell.issueListTitle') }}</NText>
+          <div class="issue-list-actions">
             <NButton
               size="small"
               :type="viewMode === 'list' ? 'primary' : 'default'"
@@ -1563,7 +1564,7 @@ onUnmounted(() => {
               <template #icon>
                 <icon-mdi-view-list />
               </template>
-              列表
+              {{ $t('page.shell.list') }}
             </NButton>
             <NButton
               size="small"
@@ -1574,34 +1575,34 @@ onUnmounted(() => {
               <template #icon>
                 <icon-mdi-view-column />
               </template>
-              看板
+              {{ $t('page.shell.board') }}
             </NButton>
             <NButton size="small" secondary :loading="importLoading" @click="exportIssuesCsv">
               <template #icon>
                 <icon-mdi-download />
               </template>
-              Export
+              {{ $t('page.shell.export') }}
             </NButton>
             <NButton size="small" secondary @click="openImportModal">
               <template #icon>
                 <icon-mdi-upload />
               </template>
-              Import
+              {{ $t('page.shell.import') }}
             </NButton>
             <NButton size="small" secondary @click="router.push('/issue/trash')">
               <template #icon>
                 <icon-mdi-delete-restore />
               </template>
-              回收站
+              {{ $t('page.shell.trash') }}
             </NButton>
             <NButton type="primary" @click="createIssue">
               <template #icon>
                 <icon-mdi-plus />
               </template>
-              新建 Issue
+              {{ $t('page.shell.createIssue') }}
             </NButton>
-          </NSpace>
-        </NSpace>
+          </div>
+        </div>
       </template>
 
       <!-- Tabs and Filters -->
@@ -1662,7 +1663,7 @@ onUnmounted(() => {
             <icon-mdi-magnify class="search-icon" />
             <IssueSmartSearch
               v-model="smartSearchValue"
-              placeholder="搜索 Issue 编号、标题..."
+              :placeholder="$t('page.shell.searchIssues')"
               @search="handleSmartSearch"
             />
           </div>
@@ -1816,7 +1817,7 @@ onUnmounted(() => {
             <NSelect
               v-model:value="filters.cycle_id"
               :options="cycleFilterOptions"
-              placeholder="Cycle"
+              placeholder="冲刺"
               clearable
               :loading="cyclesLoading"
               size="small"
@@ -1955,7 +1956,7 @@ onUnmounted(() => {
           />
         </template>
         <template v-else>
-          <NEmpty v-if="!loading && issues.length === 0" description="暂无 Issue" size="large" />
+          <NEmpty v-if="!loading && issues.length === 0" :description="$t('page.shell.noIssues')" size="large" />
           <div v-else>
             <NDataTable
               :columns="columns"
@@ -1984,7 +1985,7 @@ onUnmounted(() => {
       <IssueBulkBar @done="loadIssues" />
     </NCard>
 
-    <NModal v-model:show="showImportModal" preset="card" title="导入 Issue CSV" style="width: 480px">
+    <NModal v-model:show="showImportModal" preset="card" :title="$t('page.shell.importIssueCsv')" class="ot-modal w-480px">
       <NSpace vertical>
         <NText depth="3">列需含 title；可选 issue_code（本工作区已存在则更新）。自定义字段用 <code>cf.&lt;key&gt;</code> 列（模板已含当前工作区字段；multi 逗号分隔，boolean 用 true/false）。未知 key 不阻断主字段写入。</NText>
         <NButton size="small" secondary @click="downloadImportTemplate">下载模板 CSV</NButton>
@@ -2011,10 +2012,38 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.issue-list-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.issue-list-title {
+  font-size: var(--vk-font-title);
+}
+
+.issue-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.issue-title-text {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 20px;
+}
+
 .issue-list-container {
   padding: 12px;
   background: var(--color-canvas);
   min-height: 100vh;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* Tabs and Filters 容器 */
@@ -2024,12 +2053,17 @@ onUnmounted(() => {
   box-shadow: none;
   overflow: hidden;
   margin-bottom: 0px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* Tabs 区域 */
 .tabs-section {
   padding: 0 16px;
   border-bottom: 1px solid var(--color-hairline);
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .tabs-section :deep(.n-tabs-nav) {
@@ -2089,6 +2123,7 @@ onUnmounted(() => {
 .search-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 16px;
   padding: 12px;
   border-bottom: 1px solid var(--color-bg-tertiary);
@@ -2098,8 +2133,8 @@ onUnmounted(() => {
 .search-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 4px;
-  flex-shrink: 0;
 }
 
 .action-btn {
@@ -2211,8 +2246,8 @@ onUnmounted(() => {
 
 /* 搜索区域优化 */
 .search-wrapper {
-  flex: 1 1 auto;
-  min-width: 200px;
+  flex: 1 1 12rem;
+  min-width: min(100%, 12rem);
   max-width: 100%;
   position: relative;
   display: flex;
@@ -2378,9 +2413,13 @@ onUnmounted(() => {
 }
 
 .issue-list-container :deep(.n-data-table-td) {
-  padding: 12px 16px;
+  padding: 6px 12px;
   border-bottom: 1px solid var(--color-bg-tertiary);
-  font-size: 13px;
+  font-size: var(--vk-font-ui, 13px);
+  line-height: 20px;
+  height: auto;
+  max-height: none;
+  vertical-align: middle;
 }
 
 .issue-list-container :deep(.n-data-table-tr:hover) {

@@ -56,7 +56,7 @@ const columns: DataTableColumns<RecurrenceRow> = [
     render: row => formatNextRun(row.nextRunAt)
   },
   {
-    title: '最近 Issue',
+    title: '最近问题',
     key: 'lastIssueId',
     render: row => (row.lastIssueId ? row.lastIssueId.slice(0, 8) + '…' : '—')
   },
@@ -163,7 +163,7 @@ async function runDue() {
       window.$message?.error?.(error.message || '执行失败');
       return;
     }
-    window.$message?.success?.(`已创建 ${data?.created ?? 0} 张 Issue`);
+    window.$message?.success?.(`已创建 ${data?.created ?? 0} 张问题`);
     await load();
   } finally {
     running.value = false;
@@ -207,7 +207,7 @@ onMounted(load);
 
       <NDataTable :columns="columns" :data="rows" :loading="loading" :bordered="false" size="small" />
       <div v-if="!loading && !rows.length" class="py-8 text-center opacity-60">
-        尚无周期规则。创建后由调度器或「立即 run-due」生成 Issue。
+        尚无周期规则。创建后由调度器或「立即 run-due」生成问题。
       </div>
     </NCard>
   </div>

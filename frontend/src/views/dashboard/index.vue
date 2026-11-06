@@ -45,7 +45,7 @@ onMounted(() => {
         </NCard>
       </NGi>
       <NGi span="24 s:24 m:12">
-        <NCard :bordered="false" class="card-wrapper" title="Issue 类型分布">
+        <NCard :bordered="false" class="card-wrapper" title="问题类型分布">
           <StatusCharts :data="dashboardData?.issue_by_type" :loading="loading" type="issue" />
         </NCard>
       </NGi>
@@ -60,7 +60,7 @@ onMounted(() => {
         </NCard>
       </NGi>
       <NGi span="24 s:24 m:12">
-        <NCard :bordered="false" class="card-wrapper" title="Issue 优先级分布">
+        <NCard :bordered="false" class="card-wrapper" title="问题优先级分布">
           <PriorityCharts :data="dashboardData?.issue_by_priority" :loading="loading" />
         </NCard>
       </NGi>

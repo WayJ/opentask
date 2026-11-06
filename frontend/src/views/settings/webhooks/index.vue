@@ -630,7 +630,7 @@ onMounted(load);
     <NCard title="出站 Webhooks" :bordered="false">
       <template #header-extra>
         <NSpace align="center">
-          <NText depth="3">订阅 Issue/评论事件，HMAC 签名投递到你的 URL</NText>
+          <NText depth="3">订阅问题/评论事件，HMAC 签名投递到你的 URL</NText>
           <NButton size="small" tertiary type="error" @click="openDeadLetter">死信箱</NButton>
         </NSpace>
       </template>

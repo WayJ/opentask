@@ -129,7 +129,7 @@ onMounted(load);
 
 <template>
   <div class="h-full flex-col-stretch gap-12px overflow-hidden lt-sm:overflow-auto">
-    <NCard title="标签 Labels" :bordered="false" class="card-wrapper sm:flex-1-hidden">
+    <NCard title="标签" :bordered="false" class="card-wrapper sm:flex-1-hidden">
       <NSpace vertical :size="16">
         <NSpace>
           <NInput v-model:value="form.name" placeholder="新标签名" style="width: 180px" />

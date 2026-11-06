@@ -132,7 +132,7 @@ async function loadProjects() {
 // 加载 Issue 数据
 async function loadIssueForEdit() {
   if (!issueId.value) {
-    window.$message?.error('缺少 Issue ID');
+    window.$message?.error('缺少问题 ID');
     router.push('/issue/list');
     return;
   }
@@ -157,7 +157,7 @@ async function loadIssueForEdit() {
     originalData.value = { ...formData.value };
     hasUnsavedChanges.value = false;
   } catch {
-    window.$message?.error('加载 Issue 数据失败');
+    window.$message?.error('加载问题数据失败');
     router.push('/issue/list');
   } finally {
     pageLoading.value = false;
@@ -167,7 +167,7 @@ async function loadIssueForEdit() {
 // 保存 Issue
 async function handleSave() {
   if (!formData.value.title.trim()) {
-    window.$message?.error('请输入 Issue 标题');
+    window.$message?.error('请输入问题标题');
     titleInputRef.value?.focus();
     return;
   }
@@ -185,14 +185,14 @@ async function handleSave() {
       assignee_id: formData.value.assignee_id
     });
 
-    window.$message?.success('Issue 更新成功');
+    window.$message?.success('问题更新成功');
     hasUnsavedChanges.value = false;
     router.push({
       path: '/issue/detail',
       query: { id: issueId.value }
     });
   } catch {
-    window.$message?.error('Issue 更新失败');
+    window.$message?.error('问题更新失败');
   } finally {
     saving.value = false;
   }
@@ -274,7 +274,7 @@ onBeforeRouteLeave((_to, _from, next) => {
             返回详情 (Esc)
           </NTooltip>
 
-          <NText strong style="font-size: 16px; margin-left: 12px">编辑 Issue</NText>
+          <NText strong style="font-size: 16px; margin-left: 12px">编辑问题</NText>
 
           <NTag v-if="hasUnsavedChanges" type="warning" size="small" style="margin-left: 12px">未保存</NTag>
         </div>
@@ -315,7 +315,7 @@ onBeforeRouteLeave((_to, _from, next) => {
               ref="titleInputRef"
               v-model="formData.title"
               class="title-input"
-              placeholder="输入 Issue 标题..."
+              placeholder="输入问题标题..."
               maxlength="200"
             />
             <div class="title-hint">
@@ -331,7 +331,7 @@ onBeforeRouteLeave((_to, _from, next) => {
             </div>
             <MarkdownEditor
               v-model="formData.description"
-              placeholder="详细描述这个 Issue..."
+              placeholder="详细描述这个问题..."
               :max-height="400"
               @submit="handleSave"
             />

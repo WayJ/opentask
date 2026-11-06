@@ -20,6 +20,7 @@ import {
   fetchUpdateProjectTemplate
 } from '@/service/api/project-templates';
 import { validateMilestonePayload } from '@/utils/projectTemplate';
+import { $t } from '@/locales';
 
 defineOptions({ name: 'WorkspaceProjectTemplatesPage' });
 
@@ -214,10 +215,10 @@ onMounted(load);
 
 <template>
   <div class="h-full flex-col-stretch gap-16px overflow-hidden lt-sm:overflow-auto">
-    <NCard title="Project 模板" :bordered="false" class="card-wrapper sm:flex-1-hidden">
+    <NCard :title="$t('route.workspace_project-templates')" :bordered="false" class="card-wrapper sm:flex-1-hidden">
       <NSpace vertical :size="16">
         <NSpace justify="space-between">
-          <NText depth="3">工作区 Project 创建模板（仅种子里程碑，不复制 Issues）</NText>
+          <NText depth="3">工作区项目创建模板（仅种子里程碑，不复制问题）</NText>
           <NButton type="primary" @click="openCreate">新建模板</NButton>
         </NSpace>
         <NDataTable :columns="columns" :data="rows" :loading="loading" :bordered="false" size="small" />
@@ -227,7 +228,7 @@ onMounted(load);
     <NModal
       v-model:show="showEditor"
       preset="card"
-      :title="isEdit ? '编辑 Project 模板' : '新建 Project 模板'"
+      :title="isEdit ? $t('page.shell.editProjectTemplate') : $t('page.shell.createProjectTemplate')"
       class="project-template-editor-modal"
       :mask-closable="false"
     >

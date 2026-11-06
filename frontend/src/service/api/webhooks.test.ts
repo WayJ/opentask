@@ -51,7 +51,7 @@ describe('webhooks helpers', () => {
     expect(WEBHOOK_EVENTS).toContain('issue.project_changed');
     expect(WEBHOOK_EVENTS).toContain('issue.sla_paused');
     expect(WEBHOOK_EVENTS).toContain('issue.sla_resumed');
-    expect(WEBHOOK_EVENT_LABELS['issue.cycle_changed']).toBe('Cycle 变更');
+    expect(WEBHOOK_EVENT_LABELS['issue.cycle_changed']).toBe('冲刺变更');
     expect(WEBHOOK_EVENT_LABELS['issue.estimate_changed']).toBe('估点变更');
     expect(WEBHOOK_EVENT_LABELS['issue.project_changed']).toBe('项目变更');
     expect(WEBHOOK_EVENT_LABELS['issue.sla_paused']).toBe('SLA 暂停');

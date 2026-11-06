@@ -40,8 +40,8 @@ export interface NotifPrefs {
 }
 
 export const NOTIF_PREF_LABELS: Record<NotifPrefKey, string> = {
-  issue_assigned: '被指派 Issue',
-  issue_comment: 'Issue 新评论',
+  issue_assigned: '被指派问题',
+  issue_comment: '问题新评论',
   issue_mention: '@提及',
   issue_status: '状态变更（关注）',
   due_date_changed: '截止日期变更',

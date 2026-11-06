@@ -34,14 +34,14 @@ const { connected: realtimeConnected } = useWorkspaceRealtime();
 </script>
 
 <template>
-  <DarkModeContainer class="h-full flex-y-center px-12px shadow-header">
+  <DarkModeContainer class="h-full min-w-0 w-full flex-y-center px-12px shadow-header">
     <GlobalLogo v-if="showLogo" class="h-full" :style="{ width: themeStore.sider.width + 'px' }" />
     <MenuToggler v-if="showMenuToggler" :collapsed="appStore.siderCollapse" @click="appStore.toggleSiderCollapse" />
     <div v-if="showMenu" :id="GLOBAL_HEADER_MENU_ID" class="h-full flex-y-center flex-1-hidden"></div>
     <div v-else class="h-full flex-y-center flex-1-hidden">
       <GlobalBreadcrumb v-if="!appStore.isMobile" class="ml-12px" />
     </div>
-    <div class="h-full flex-y-center justify-end">
+    <div class="ot-header-tools h-full min-w-0 flex-y-center justify-end">
       <WorkspaceSwitcher />
       <span
         class="mx-4px text-12px"
@@ -70,4 +70,9 @@ const { connected: realtimeConnected } = useWorkspaceRealtime();
   </DarkModeContainer>
 </template>
 
-<style scoped></style>
+<style scoped>
+.ot-header-tools {
+  overflow-x: auto;
+  max-width: 100%;
+}
+</style>

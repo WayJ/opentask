@@ -18,10 +18,23 @@
 - `/f`、`/r`、`/invite` 保持可直接打开。空工作区引导、退出和 `ensure-owner` 不改语义。
 - 不重置口令，不加删除数据的迁移，不放宽租户隔离。
 - nginx 继续只代理精确的 `/ws/workspace`，不要改回 `/ws/`。
-- 不跑 elegant-router 代码生成。
+- 不单独手跑 `gen-route` 再改生成文件。`pnpm build` 会重跑代码生成；构建后要再确认 `/f`、`/r` 和列表注入。不要把 `customers_list` 写进生成的 `RouteKey`。
 - 不新增主题包，不改 `themeColor` `#5e6ad2`，不生成新图。
 - 不改弹窗关闭方式、toast 行为，也不为了变窄藏起新建、导出、导入或保存。
-- 术语以设计文档第 4 节的表为准。
+- 术语以设计文档第 0 节和第 4 节为准。下文的示例如果和第 0 节冲突，以第 0 节为准。
+
+## Yuri 修正后的做法
+
+检查点 `5028d2c` 已批准。下面这些示例作废：
+
+- 路由测试只断言 `customRoute.children`。要创建真实路由器，断言默认重定向一次结束、父路由进入列表、带 id 的深链不变、无 id 详情只到列表一次、举措高亮是一个叶子。
+- 空路径如果被变换器丢掉或造成循环，就改成能停住的最短路径并写明原因。本次真实路由器接受 `path: ''`，采用它。注入点是 `createStaticRoutes`，不是手改 `elegant-router.d.ts`。`activeMenu` 用父路由名。
+- 无 id 详情如果等页面 `load` 再 `replace`，标签页已经记下详情。替换放在路由守卫里、路由确认之前，真实路由器的 `afterEach` 只看到列表。带 id 的详情不被替换。
+- `breadcrumbFallback` 只返回 `{ key, label }`。改为现有面包屑形状，非当前项可点击，文案随语言变，隐藏的管理路由不出现，未登记键名不出现。
+- 用 `min-height` 加 `max-height: 40` 卡单元格。单行靠内边距落到 32–40，不设会裁切的最大高度。换行标题允许更高。
+- 只断言样式文件里有媒体查询、没有某段注释。窄屏以编译后的 375 / 768 / 1280 为准，主要按钮不能被裁掉。
+- 给每个页面加 `ot-page`，或把 `bordered={false}` 写进 Vue 模板。对话框、抽屉和空状态用现有令牌做出可见表面。登录和引导只改外观。
+- UI-4 在范围内，但不新增客户或需求功能。
 
 ---
 
@@ -111,14 +124,14 @@ sider: {
   triageHint: '入站',
   customers: '客户',
   customersHint: '需求',
-  insights: 'Insights',
+  insights: '洞察',
   insightsHint: '效能',
   activity: '活动',
-  activityHint: 'Feed'
+  activityHint: '动态'
 }
 ```
 
-英文：`Triage` / `Incoming`，`Customers` / `Requests`，`Insights` / `Performance`，`Activity` / `Feed`。
+英文：`Triage` / `Incoming`，`Customers` / `Requests`，`Insights` / `Performance`，`Activity` / `Recent`。中文活动提示是「动态」，不再用 Feed。
 
 `App.I18n.Schema` 的 `page` 要加上 `sider` 这八个字段，否则 `const local: App.I18n.Schema` 不能通过。`route` 不用改类型；缺的键直接补进两个语言文件。
 
@@ -227,14 +240,14 @@ Expected: FAIL because the first child is `customers_detail` / `initiatives_deta
         title: 'customers_detail',
         i18nKey: 'route.customers_detail',
         hideInMenu: true,
-        activeMenu: 'customers_list'
+        activeMenu: 'customers'
       }
     }
   ]
 }
 ```
 
-`requests` 与 `initiatives` 按同样的形状写。`requests` 父级 `hideInMenu: true`，`order: 3.6`。`initiatives` 父级不设置 `hideInMenu`，`order: 4`，图标保持 `mdi:flag-variant`。详情 `activeMenu` 分别是 `requests_list` 和 `initiatives_list`。
+`requests` 与 `initiatives` 按同样的形状写，但实现放在 `createStaticRoutes` 的注入函数里，以便生成文件被生产构建覆盖后仍然生效。`requests` 父级保持 `hideInMenu: true`。`initiatives` 父级不设置 `hideInMenu`。详情 `activeMenu` 分别是 `requests` 和 `initiatives`。
 
 无 id 时替换到列表名，而不是父路由名：
 
@@ -248,7 +261,7 @@ if (!id.value) {
 
 客户详情和需求详情在没有 id 时同样 `router.replace` 到 `customers_list` 或 `requests_list`，不渲染空表单。已有 id 的加载、保存和「新建需求」不动。
 
-类型报错时，把三个新名字加到 `elegant-router.d.ts` 的路径表和 `RouteKey`。路径分别是 `/customers`、`/requests`、`/initiatives`。`App.I18n.Schema['route']` 是 `Record<I18nRouteKey, string>`，所以一旦新名字进入 `RouteKey`，两个语言文件都要有同名键。列表的 `i18nKey` 仍用 `route.customers`、`route.requests`、`route.initiatives`。新键的显示文字与这三个键相同，避免菜单再冒出键名。
+不要把三个新名字加进生成的 `RouteKey`。列表的 `i18nKey` 仍用 `route.customers`、`route.requests`、`route.initiatives`。生产构建之后再跑路由测试和公开路由测试。
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -475,17 +488,7 @@ Expected: FAIL
 
 - [ ] **Step 3: Write minimal implementation**
 
-问题行的单元格使用：
-
-```css
-.issue-list-container :deep(.n-data-table-td) {
-  min-height: var(--vk-row-min);
-  max-height: var(--vk-row-max);
-  font-size: var(--vk-font-body);
-}
-```
-
-工具栏按钮高度 `var(--vk-control-height)`。保留导出、导入、新建 Issue、筛选和保存视图的点击处理。可见的「Export」「Import」改成 `$t` 后的「导出」「导入」，英文仍是 Export / Import。不改请求参数。
+问题行不设置 `max-height`。单行靠内边距和行高落到大约 32–40，标题允许换行后变高。这个高度在编译后的页面上测量，不靠源码包含某段 CSS。保留导出、导入、新建、筛选和保存视图的点击处理。可见的「Export」「Import」「新建 Issue」改成当前语言的「导出」「导入」「新建问题」。不改请求参数。
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -520,7 +523,7 @@ git commit -m "feat: use the shared row height on the issue list"
 
 **Interfaces:**
 - Consumes: `--vk-line`、`--vk-paper`、`--space-lg`
-- Produces: 这些页面的根节点带 `ot-page`，相邻区块用分隔线而不是套两层有边框的卡片
+- Produces: 对话框、抽屉和空状态使用现有纸面、分隔线和次要文字色。不给列出的每个页面根节点加 `ot-page`，也不把卡片改成 JSX 的 `bordered={false}`。
 
 - [ ] **Step 1: Write the failing test**
 
@@ -568,7 +571,7 @@ Expected: FAIL
 }
 ```
 
-每个列出的页面根节点加上 `ot-page`。设置页里上下叠放的 `NCard` 改为 `bordered={false}`，区块之间用 `ot-section`。不删除表单项，不改变保存请求。空状态继续用现有 `NEmpty`，描述文字改用当前页的文案键。对话框仍是原来的 `NModal` `preset="card"`，不改 `mask-closable`。
+不给这些页面普遍加 `ot-page`，也不改它们的保存请求。空状态、对话框和抽屉沿用现有组件，只统一纸面、边框和次要文字色。Vue 模板里已有的 `:bordered="false"` 保持这种写法。登录页和空工作区引导改用同一套背景和纸面，不改提交、重试和退出。
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -619,15 +622,7 @@ Expected: FAIL because `frontend/src/styles/css/global.css` does not yet contain
 
 - [ ] **Step 3: Write minimal implementation**
 
-```css
-@media (max-width: 768px) {
-  .ot-page {
-    padding: var(--space-md);
-  }
-}
-```
-
-公开页根节点加 `ot-page`。不改 token 参数、不改接口地址、不把它们放进登录守卫。问题列表在窄屏允许横向滚动，导出、导入和新建仍渲染。
+公开页用现有令牌做背景和纸面，卡片宽度不超过视口，375 上提交按钮仍在卡片内。不改 token 参数、不改接口地址、不把它们放进登录守卫。问题列表工具栏允许换行，导出、导入和新建仍渲染。窄屏是否裁切以编译后的 375、768、1280 截图和测量为准，不靠样式文件里有没有一段媒体查询。
 
 - [ ] **Step 4: Run test to verify it passes**
 

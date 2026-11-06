@@ -12,6 +12,8 @@ import {
   fetchUnlinkRequestIssue,
   fetchUpdateCustomerRequest
 } from '@/service/api';
+import { replaceWithListWhenIdMissing } from '@/router/list-entry';
+import { $t } from '@/locales';
 
 defineOptions({ name: 'RequestDetailPage' });
 
@@ -33,7 +35,7 @@ const form = reactive({
 const requestId = computed(() => String(route.query.id || ''));
 
 async function load() {
-  if (!requestId.value) return;
+  if (replaceWithListWhenIdMissing(requestId.value, router, 'requests_list')) return;
   loading.value = true;
   try {
     const { data, error } = await fetchCustomerRequest(requestId.value);
@@ -197,7 +199,7 @@ onMounted(load);
   <div class="h-full flex-col gap-16px overflow-auto p-16px">
     <div class="flex items-center gap-12px">
       <NButton quaternary @click="router.push({ name: 'requests' })">← 需求列表</NButton>
-      <h2 class="text-18px font-600">{{ row?.title || '需求详情' }}</h2>
+      <h2 class="text-18px font-600">{{ row?.title || $t('route.requests_detail') }}</h2>
     </div>
 
     <NSpin :show="loading">
@@ -272,12 +274,12 @@ onMounted(load);
         </NSpace>
       </NCard>
 
-      <NCard title="关联 Issue" :bordered="false" class="mt-16px">
+      <NCard title="关联问题" :bordered="false" class="mt-16px">
         <div class="mb-12px flex gap-8px">
-          <NInput v-model:value="linkIssueId" placeholder="Issue ID" class="max-w-360px" />
+          <NInput v-model:value="linkIssueId" placeholder="问题 ID" class="max-w-360px" />
           <NButton type="primary" :loading="linking" @click="onLink">挂载</NButton>
         </div>
-        <NEmpty v-if="!(row?.issues || []).length" description="尚未关联 Issue" />
+        <NEmpty v-if="!(row?.issues || []).length" :description="$t('page.shell.noLinkedIssues')" />
         <NSpace v-else vertical>
           <div v-for="iss in row?.issues || []" :key="iss.id" class="flex items-center gap-8px">
             <NButton text type="primary" @click="router.push({ name: 'issue_detail', query: { id: iss.id } })">

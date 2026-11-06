@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { NTooltip } from 'naive-ui';
 import { useAppStore } from '@/store/modules/app';
+import { $t } from '@/locales';
 
 defineOptions({ name: 'TriageNav' });
 
@@ -23,12 +24,12 @@ function go() {
       <template #trigger>
         <button type="button" class="triage-nav__btn" @click="go">📥</button>
       </template>
-      分诊
+      {{ $t('page.sider.triage') }}
     </NTooltip>
     <button v-else type="button" class="triage-nav__row" @click="go">
       <span class="triage-nav__icon">📥</span>
-      <span class="triage-nav__label">分诊</span>
-      <span class="triage-nav__hint">入站</span>
+      <span class="triage-nav__label">{{ $t('page.sider.triage') }}</span>
+      <span class="triage-nav__hint">{{ $t('page.sider.triageHint') }}</span>
     </button>
   </div>
 </template>
@@ -53,7 +54,7 @@ function go() {
 }
 .triage-nav__btn:hover,
 .triage-nav.active .triage-nav__btn {
-  background: rgba(128, 128, 128, 0.15);
+  background: var(--vk-accent-soft);
 }
 .triage-nav__row {
   width: 100%;
@@ -70,7 +71,7 @@ function go() {
 }
 .triage-nav__row:hover,
 .triage-nav.active .triage-nav__row {
-  background: rgba(128, 128, 128, 0.15);
+  background: var(--vk-accent-soft);
 }
 .triage-nav__icon {
   font-size: 14px;
@@ -82,6 +83,6 @@ function go() {
 .triage-nav__hint {
   margin-left: auto;
   font-size: 11px;
-  opacity: 0.45;
+  color: var(--vk-muted);
 }
 </style>

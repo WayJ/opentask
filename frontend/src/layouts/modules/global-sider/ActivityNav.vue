@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useAppStore } from '@/store/modules/app';
 import { issueApi } from '@/service/api/issue';
+import { useAppStore } from '@/store/modules/app';
 import { formatUnreadBadge } from '@/utils/activityFeed';
+import { $t } from '@/locales';
 
 defineOptions({ name: 'ActivityNav' });
 
@@ -54,14 +55,14 @@ onUnmounted(() => {
             <span v-if="badge" class="activity-nav__dot">{{ badge }}</span>
           </button>
         </template>
-        活动{{ badge ? `（${badge}）` : '' }}
+        {{ $t('page.sider.activity') }}{{ badge ? `（${badge}）` : '' }}
       </NTooltip>
     </template>
     <button v-else type="button" class="activity-nav__row" @click="go">
       <span class="activity-nav__icon">🔔</span>
-      <span class="activity-nav__label">活动</span>
+      <span class="activity-nav__label">{{ $t('page.sider.activity') }}</span>
       <span v-if="badge" class="activity-nav__badge">{{ badge }}</span>
-      <span v-else class="activity-nav__hint">Feed</span>
+      <span v-else class="activity-nav__hint">{{ $t('page.sider.activityHint') }}</span>
     </button>
   </div>
 </template>
@@ -86,7 +87,7 @@ onUnmounted(() => {
 }
 .activity-nav__btn:hover,
 .activity-nav.active .activity-nav__btn {
-  background: rgba(94, 106, 210, 0.12);
+  background: var(--vk-accent-soft);
 }
 .activity-nav__dot {
   position: absolute;
@@ -115,7 +116,7 @@ onUnmounted(() => {
 }
 .activity-nav__row:hover,
 .activity-nav.active .activity-nav__row {
-  background: rgba(94, 106, 210, 0.12);
+  background: var(--vk-accent-soft);
 }
 .activity-nav__icon {
   font-size: 14px;
@@ -127,7 +128,7 @@ onUnmounted(() => {
 .activity-nav__hint {
   margin-left: auto;
   font-size: 11px;
-  opacity: 0.55;
+  color: var(--vk-muted);
 }
 .activity-nav__badge {
   margin-left: auto;

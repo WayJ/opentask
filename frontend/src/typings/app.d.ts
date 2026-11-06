@@ -502,6 +502,44 @@ declare namespace App {
       };
       route: Record<I18nRouteKey, string>;
       page: {
+        sider: {
+          triage: string;
+          triageHint: string;
+          customers: string;
+          customersHint: string;
+          insights: string;
+          insightsHint: string;
+          activity: string;
+          activityHint: string;
+        };
+        shell: {
+          export: string;
+          import: string;
+          createIssue: string;
+          importIssueCsv: string;
+          issueListTitle: string;
+          list: string;
+          board: string;
+          trash: string;
+          allRequests: string;
+          createCustomer: string;
+          createRequest: string;
+          createInitiative: string;
+          emptyInitiatives: string;
+          missingInitiativeId: string;
+          issueForm: string;
+          publicIssueForms: string;
+          selectIssueTemplate: string;
+          issueUploadHint: string;
+          noIssues: string;
+          issueMissing: string;
+          addSubIssue: string;
+          noLinkedIssues: string;
+          insightsEmpty: string;
+          editProjectTemplate: string;
+          createProjectTemplate: string;
+          searchIssues: string;
+        };
         search: {
           placeholder: string;
           hint: string;

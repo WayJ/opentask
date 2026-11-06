@@ -185,7 +185,7 @@ function insertTask() {
             </li>
             <li>
               <code>#OT-1</code>
-              - 引用 Issue
+              - 引用问题
             </li>
           </ul>
         </div>

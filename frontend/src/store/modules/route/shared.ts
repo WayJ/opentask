@@ -1,5 +1,5 @@
 import type { RouteLocationNormalizedLoaded, RouteRecordRaw, _RouteRecordBase } from 'vue-router';
-import type { ElegantConstRoute, LastLevelRouteKey, RouteKey, RouteMap } from '@elegant-router/types';
+import type { ElegantConstRoute, LastLevelRouteKey, RouteKey, RouteMap, RoutePath } from '@elegant-router/types';
 import { useSvgIcon } from '@/hooks/common/icon';
 import { $t } from '@/locales';
 
@@ -329,10 +329,49 @@ function transformMenuToBreadcrumb(menu: App.Global.Menu) {
  * @param route
  * @param menus
  */
-export function getBreadcrumbsByRoute(
-  route: RouteLocationNormalizedLoaded,
-  menus: App.Global.Menu[]
+const HIDDEN_MANAGEMENT = /^(manage|work-management)(_|$)|^workflow_requirements$|^workflow_requirement-detail$/;
+
+export function resolveMenuSelectedKey(route: {
+  name?: string | symbol | null;
+  meta?: { hideInMenu?: boolean; activeMenu?: string | null };
+}) {
+  const name = String(route.name ?? '');
+  const { hideInMenu, activeMenu } = route.meta ?? {};
+  return (hideInMenu ? activeMenu : name) || name;
+}
+
+function presentBreadcrumbs(items: App.Global.Breadcrumb[]) {
+  return items
+    .filter(item => {
+      if (!item.label) return false;
+      if (item.i18nKey && item.label === item.i18nKey) return false;
+      return !item.label.startsWith('route.');
+    })
+    .filter((item, index, list) => index === 0 || list[index - 1].label !== item.label);
+}
+
+export function breadcrumbsFromMatched(
+  route: Pick<RouteLocationNormalizedLoaded, 'path' | 'matched'>,
+  labelOf: (i18nKey: string) => string | null
 ): App.Global.Breadcrumb[] {
+  return (route.matched ?? []).flatMap(record => {
+    const name = String(record.name ?? '');
+    const i18nKey = record.meta?.i18nKey as string | undefined;
+    const label = i18nKey ? labelOf(i18nKey) : null;
+    if (!name || name === 'root' || HIDDEN_MANAGEMENT.test(name) || !i18nKey || !label) return [];
+    const recordPath = typeof record.path === 'string' && record.path.startsWith('/') ? record.path : route.path;
+    const item: App.Global.Breadcrumb = {
+      key: name,
+      label,
+      i18nKey: i18nKey as App.I18n.I18nKey,
+      routeKey: name as RouteKey,
+      routePath: recordPath as RoutePath
+    };
+    return [item];
+  });
+}
+
+function findBreadcrumbs(route: RouteLocationNormalizedLoaded, menus: App.Global.Menu[]): App.Global.Breadcrumb[] {
   const key = route.name as string;
   const activeKey = route.meta?.activeMenu;
 
@@ -343,19 +382,16 @@ export function getBreadcrumbsByRoute(
 
     if (menu.key === activeKey) {
       const ROUTE_DEGREE_SPLITTER = '_';
-
       const parentKey = key.split(ROUTE_DEGREE_SPLITTER).slice(0, -1).join(ROUTE_DEGREE_SPLITTER);
-
       const breadcrumbMenu = getGlobalMenuByBaseRoute(route);
       if (parentKey !== activeKey) {
         return [transformMenuToBreadcrumb(breadcrumbMenu)];
       }
-
       return [transformMenuToBreadcrumb(menu), transformMenuToBreadcrumb(breadcrumbMenu)];
     }
 
     if (menu.children?.length) {
-      const result = getBreadcrumbsByRoute(route, menu.children);
+      const result = findBreadcrumbs(route, menu.children);
       if (result.length > 0) {
         return [transformMenuToBreadcrumb(menu), ...result];
       }
@@ -363,6 +399,16 @@ export function getBreadcrumbsByRoute(
   }
 
   return [];
+}
+
+export function getBreadcrumbsByRoute(
+  route: RouteLocationNormalizedLoaded,
+  menus: App.Global.Menu[],
+  labelOf?: (i18nKey: string) => string | null
+): App.Global.Breadcrumb[] {
+  const fromMenu = presentBreadcrumbs(findBreadcrumbs(route, menus));
+  if (fromMenu.length > 0 || !labelOf) return fromMenu;
+  return presentBreadcrumbs(breadcrumbsFromMatched(route, labelOf));
 }
 
 /**

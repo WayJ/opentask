@@ -23,6 +23,8 @@ import {
   relationDirectionLabel
 } from '@/utils/initiativeRelations';
 import EntityDocsPanel from '@/components/entity-docs/EntityDocsPanel.vue';
+import { replaceWithListWhenIdMissing } from '@/router/list-entry';
+import { $t } from '@/locales';
 
 defineOptions({ name: 'InitiativeDetailPage' });
 
@@ -117,7 +119,7 @@ async function loadRelations() {
 
 async function onAddRelation() {
   if (!id.value || !addForm.targetInitiativeId) {
-    window.$message?.warning('请选择目标 Initiative');
+    window.$message?.warning('请选择目标举措');
     return;
   }
   relationSaving.value = true;
@@ -194,8 +196,8 @@ async function toggleSidebarPin() {
 
 async function load() {
   if (!id.value) {
-    window.$message?.warning('缺少 Initiative id');
-    router.replace({ name: 'initiatives' });
+    window.$message?.warning($t('page.shell.missingInitiativeId'));
+    replaceWithListWhenIdMissing('', router, 'initiatives_list');
     return;
   }
   loading.value = true;
@@ -269,7 +271,7 @@ onMounted(async () => {
     <div class="flex items-center justify-between gap-12px">
       <div class="flex items-center gap-12px">
         <NButton quaternary @click="router.push({ name: 'initiatives' })">← 返回列表</NButton>
-        <h2 class="text-18px font-600">Initiative 详情</h2>
+        <h2 class="text-18px font-600">{{ row?.name || $t('route.initiatives_detail') }}</h2>
         <NTag
           v-if="row?.healthSummary?.overall"
           :type="healthType[row.healthSummary.overall] || 'default'"
@@ -353,7 +355,7 @@ onMounted(async () => {
               <div class="flex-col gap-12px">
                 <div class="flex flex-wrap items-end gap-8px">
                   <div class="min-w-220px">
-                    <div class="mb-4px text-12px text-gray-500">目标 Initiative</div>
+                    <div class="mb-4px text-12px text-gray-500">{{ $t('route.initiatives') }}</div>
                     <NSelect
                       v-model:value="addForm.targetInitiativeId"
                       filterable
