@@ -7,6 +7,7 @@ import { useProjectStore } from '@/store/modules/project';
 import { fetchProjectTemplates, type ProjectTemplateRow } from '@/service/api/project-templates';
 import { previewMilestones } from '@/utils/projectTemplate';
 import { formatMemberCount } from '@/utils/projectLeadMembers';
+import { $t } from '@/locales';
 
 defineOptions({
   name: 'Projects'
@@ -264,7 +265,7 @@ onMounted(() => {
             v-model:value="formData.template_id"
             :options="templateOptions"
             clearable
-            placeholder="可选：从 Project 模板创建"
+            :placeholder="$t('page.shell.fromProjectTemplate')"
             @update:value="onTemplatePicked"
           />
         </NFormItem>

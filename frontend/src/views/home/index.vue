@@ -150,7 +150,7 @@ onMounted(load);
         <p class="mb-0 mt-4px text-13px opacity-60">
           {{ workspace?.name || '工作区' }}
           <span v-if="workspace?.issueKey" class="ml-8px text-12px opacity-50">
-            Issue Key · {{ workspace.issueKey }}
+            {{ $t('page.shell.issueKeyPrefix') }} · {{ workspace.issueKey }}
           </span>
         </p>
       </div>
@@ -165,16 +165,19 @@ onMounted(load);
         </NGi>
         <NGi>
           <NCard size="small" hoverable class="cursor-pointer" @click="goInbox">
-            <div class="text-12px opacity-60">Inbox</div>
+            <div class="text-12px ot-muted">{{ $t('route.inbox') }}</div>
             <div class="mt-4px text-28px font-medium">{{ inboxUnread }}</div>
             <div class="mt-8px text-12px text-primary">查看收件箱 →</div>
           </NCard>
         </NGi>
         <NGi>
           <NCard size="small" hoverable class="cursor-pointer" @click="goCycles">
-            <div class="text-12px opacity-60">Cycle</div>
+            <div class="text-12px ot-muted">{{ $t('route.workspace_cycles') }}</div>
             <div class="mt-8px truncate text-18px font-medium">
-              {{ activeCycleName || (workspace?.cyclesEnabled ? '无进行中的冲刺' : '未启用冲刺') }}
+              {{
+                activeCycleName ||
+                (workspace?.cyclesEnabled ? $t('page.shell.noActiveCycle') : $t('page.shell.cyclesDisabled'))
+              }}
             </div>
             <div class="mt-8px text-12px text-primary">工作区设置 →</div>
           </NCard>
@@ -214,16 +217,16 @@ onMounted(load);
       <NCard size="small" class="insights-strip mt-16px cursor-pointer" hoverable @click="goInsights">
         <div class="flex flex-wrap items-center justify-between gap-12px">
           <div>
-            <div class="text-13px font-medium">Insights</div>
-            <div class="mt-2px text-12px opacity-55">本周完成 / 开放问题</div>
+            <div class="text-13px font-medium">{{ $t('route.insights') }}</div>
+            <div class="mt-2px text-12px ot-muted">{{ $t('page.shell.weekDoneOpen') }}</div>
           </div>
           <div class="flex gap-24px">
             <div>
-              <div class="text-11px opacity-55">本周完成</div>
+              <div class="text-11px ot-muted">{{ $t('page.shell.weekDone') }}</div>
               <div class="text-20px font-medium">{{ weekCompleted }}</div>
             </div>
             <div>
-              <div class="text-11px opacity-55">开放</div>
+              <div class="text-11px ot-muted">{{ $t('page.shell.openShort') }}</div>
               <div class="text-20px font-medium">{{ insightsOpen }}</div>
             </div>
           </div>
@@ -235,9 +238,11 @@ onMounted(load);
         <NSpace>
           <NButton size="small" type="primary" @click="goIssues()">{{ $t('page.shell.issueListTitle') }}</NButton>
           <NButton size="small" @click="goIssues('assigned')">我的问题</NButton>
-          <NButton size="small" @click="goInbox">Inbox</NButton>
-          <NButton size="small" @click="router.push({ name: 'triage' })">Triage</NButton>
-          <NButton size="small" @click="goCycles">冲刺 / 问题单号</NButton>
+          <NButton size="small" @click="goInbox">{{ $t('route.inbox') }}</NButton>
+          <NButton size="small" @click="router.push({ name: 'triage' })">{{ $t('page.sider.triage') }}</NButton>
+          <NButton size="small" @click="goCycles">
+            {{ $t('route.workspace_cycles') }} / {{ $t('page.shell.issueKeyPrefix') }}
+          </NButton>
         </NSpace>
       </NCard>
     </NSpin>

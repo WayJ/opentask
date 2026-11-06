@@ -57,5 +57,11 @@ describe('route labels', () => {
     expect(zh.common.commandPalette.navLabels).toBe('标签');
     expect(en.common.commandPalette.groupIssues).toBe('Issues');
     expect(en.common.commandPalette.navCycles).toBe('Cycles settings');
+    expect(zh.page.shell.openIssues).toBe('开放问题');
+    expect(en.page.shell.openIssues).toBe('Open issues');
+    expect(zh.page.shell.favoriteInitiative).toBe('举措');
+    expect(en.page.shell.favoriteInitiative).toBe('Initiative');
+    expect(zh.page.shell.noActiveCycle).toBe('无进行中的冲刺');
+    expect(en.page.shell.noActiveCycle).toBe('No active cycle');
   });
 });

@@ -205,7 +205,7 @@ async function loadSummary() {
   try {
     const { data, error } = await fetchInsightsSummary(currentParams());
     if (error || !data) {
-      window.$message?.error(error?.message || '加载 Insights 失败');
+      window.$message?.error(error?.message || $t('page.shell.insightsLoadFailed'));
       summary.value = null;
       return;
     }
@@ -344,13 +344,13 @@ onMounted(async () => {
   <div class="insights-page">
     <div class="mb-16px flex flex-wrap items-center justify-between gap-12px">
       <div>
-        <h2 class="m-0 text-20px font-medium">Insights</h2>
+        <h2 class="m-0 text-20px font-medium">{{ $t('route.insights') }}</h2>
         <p class="mb-0 mt-4px text-13px opacity-60">
           工作区效能摘要（多标签 OR · 我的/团队报表 · 可选 digest）
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-8px">
-        <span class="text-12px opacity-60">Project</span>
+        <span class="text-12px ot-muted">{{ $t('route.workflow_projects') }}</span>
         <NSelect
           v-model:value="selectedProjectId"
           clearable
@@ -360,7 +360,7 @@ onMounted(async () => {
           size="small"
           @update:value="onFilterChange"
         />
-        <span class="text-12px opacity-60">Label（OR）</span>
+        <span class="text-12px ot-muted">{{ $t('page.shell.labelsOr') }}</span>
         <NSelect
           v-model:value="selectedLabelIds"
           multiple
@@ -372,11 +372,11 @@ onMounted(async () => {
           size="small"
           @update:value="onFilterChange"
         />
-        <span class="text-12px opacity-60">Cycle</span>
+        <span class="text-12px ot-muted">{{ $t('route.workspace_cycles') }}</span>
         <NSelect
           v-model:value="selectedCycleId"
           clearable
-          placeholder="默认 Active"
+          :placeholder="$t('page.shell.defaultCycle')"
           :options="cycleOptions"
           class="filter-select"
           size="small"
@@ -454,24 +454,24 @@ onMounted(async () => {
         <NGrid :x-gap="16" :y-gap="16" cols="1 s:2 m:5" responsive="screen">
           <NGi>
             <NCard size="small">
-              <div class="text-12px opacity-60">开放问题</div>
+              <div class="text-12px ot-muted">{{ $t('page.shell.openIssues') }}</div>
               <div class="mt-4px text-26px font-medium">{{ openCount }}</div>
             </NCard>
           </NGi>
           <NGi>
             <NCard size="small">
-              <div class="text-12px opacity-60">冲刺问题</div>
+              <div class="text-12px ot-muted">{{ $t('page.shell.cycleIssues') }}</div>
               <div class="mt-4px text-26px font-medium">
                 {{ summary.cycleSnapshot?.issueCount ?? '—' }}
               </div>
               <div class="mt-4px truncate text-12px opacity-50">
-                {{ summary.cycleSnapshot?.cycleName || '无 Active Cycle' }}
+                {{ summary.cycleSnapshot?.cycleName || $t('page.shell.noActiveCycle') }}
               </div>
             </NCard>
           </NGi>
           <NGi>
             <NCard size="small">
-              <div class="text-12px opacity-60">冲刺已完成</div>
+              <div class="text-12px ot-muted">{{ $t('page.shell.cycleCompleted') }}</div>
               <div class="mt-4px text-26px font-medium">
                 {{ summary.cycleSnapshot?.completedCount ?? '—' }}
               </div>

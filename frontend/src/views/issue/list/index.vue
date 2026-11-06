@@ -2063,7 +2063,6 @@ onUnmounted(() => {
   border-bottom: 1px solid var(--color-hairline);
   min-width: 0;
   max-width: 100%;
-  overflow: hidden;
 }
 
 .tabs-section :deep(.n-tabs-nav) {

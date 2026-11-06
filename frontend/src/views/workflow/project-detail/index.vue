@@ -44,6 +44,7 @@ import {
 } from '@/utils/project-timeline';
 import EntityDocsPanel from '@/components/entity-docs/EntityDocsPanel.vue';
 import { fetchProjectTemplateFromProject } from '@/service/api/project-templates';
+import { $t } from '@/locales';
 
 defineOptions({
   name: 'ProjectDetail'
@@ -699,7 +700,7 @@ const milestoneColumns: DataTableColumns<Api.Project.Milestone> = [
 
 
 async function openSaveAsTemplate() {
-  saveAsName.value = project.value ? `${project.value.name} 模板` : 'Project 模板';
+  saveAsName.value = project.value ? `${project.value.name} 模板` : $t('page.shell.projectTemplate');
   showSaveAsTemplate.value = true;
 }
 
@@ -718,7 +719,7 @@ async function confirmSaveAsTemplate() {
       window.$message?.error?.(error.message || '另存失败');
       return;
     }
-    window.$message?.success?.('已另存为 Project 模板');
+    window.$message?.success?.($t('page.shell.savedAsProjectTemplate'));
     showSaveAsTemplate.value = false;
   } finally {
     saveAsLoading.value = false;

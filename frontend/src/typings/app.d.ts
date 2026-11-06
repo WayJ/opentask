@@ -539,6 +539,26 @@ declare namespace App {
           editProjectTemplate: string;
           createProjectTemplate: string;
           searchIssues: string;
+          invites: string;
+          insightsLoadFailed: string;
+          openIssues: string;
+          cycleIssues: string;
+          cycleCompleted: string;
+          noActiveCycle: string;
+          cyclesDisabled: string;
+          issueKeyPrefix: string;
+          weekDoneOpen: string;
+          weekDone: string;
+          openShort: string;
+          projectTemplate: string;
+          fromProjectTemplate: string;
+          savedAsProjectTemplate: string;
+          favoriteIssue: string;
+          favoriteInitiative: string;
+          favoriteProject: string;
+          favoriteView: string;
+          labelsOr: string;
+          defaultCycle: string;
         };
         search: {
           placeholder: string;
