@@ -247,7 +247,7 @@ const local: App.I18n.Schema = {
   },
   route: {
     oauth2: 'OAuth2 Authorization',
-    oauth2_install: 'Install Consent',
+    'oauth2-install': 'Install Consent',
     profile: 'Profile',
     profile_userinfo: 'User Profile',
     login: 'Login',

@@ -502,6 +502,13 @@ declare namespace App {
       };
       route: Record<I18nRouteKey, string>;
       page: {
+        oauth2: {
+          consent: {
+            title: string; lead: string; loading: string; missingParams: string;
+            invalidRequest: string; decideFailed: string; scopeTitle: string;
+            redirectTitle: string; approve: string; deny: string;
+          };
+        };
         search: {
           placeholder: string;
           hint: string;

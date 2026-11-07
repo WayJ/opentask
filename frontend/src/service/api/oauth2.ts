@@ -1,6 +1,5 @@
 /** OAuth2 授权 API 客户端（OpenTask 授权服务器侧） */
 import { request } from '@/service/request';
-import type { Api } from '@/typings/api';
 
 /**
  * 校验授权请求并取回同意页上下文

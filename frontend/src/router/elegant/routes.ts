@@ -441,23 +441,23 @@ export const generatedRoutes: GeneratedRoute[] = [
   {
     name: 'oauth2',
     path: '/oauth2/authorize',
-    component: 'layout.base',
+    component: 'layout.base$view.oauth2',
     meta: {
       title: 'oauth2',
       i18nKey: 'route.oauth2',
       hideInMenu: true
-    },
-    children: [
-      {
-        name: 'oauth2_install',
-        path: '/oauth2/install/:installId',
-        component: 'view.oauth2_install',
-        meta: {
-          title: 'oauth2_install',
-          i18nKey: 'route.oauth2_install'
-        }
-      }
-    ]
+    }
+  },
+  {
+    name: 'oauth2-install',
+    path: '/oauth2/install/:installId',
+    component: 'layout.base$view.oauth2-install',
+    props: true,
+    meta: {
+      title: 'oauth2-install',
+      i18nKey: 'route.oauth2-install',
+      hideInMenu: true
+    }
   },
   {
     name: 'profile',

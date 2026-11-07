@@ -9,7 +9,6 @@ import {
   fetchRejectOAuthInstallRequest
 } from '@/service/api';
 import { scopeEndpoint, scopeLabel } from '@/utils/oauth2-client';
-import type { Api } from '@/typings/api';
 
 /**
  * OAuth 安装确认页（管理员，路由 /oauth2/install/:installId）

@@ -243,7 +243,7 @@ const local: App.I18n.Schema = {
   },
   route: {
     oauth2: 'OAuth2 授权',
-    oauth2_install: '安装确认',
+    'oauth2-install': '安装确认',
     profile: '个人信息',
     profile_userinfo: '个人信息',
     'profile_ssh-keys': 'SSH 密钥',

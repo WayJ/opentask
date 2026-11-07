@@ -33,6 +33,9 @@ const context = ref<{
   redirect_uri: string;
   redirect_host: string;
   state?: string | null;
+  code_challenge?: string | null;
+  code_challenge_method?: string | null;
+  resource?: string | null;
 } | null>(null);
 
 /** scope → 中文说明（未知 scope 回退展示原值，不静默吞掉） */
@@ -73,7 +76,10 @@ async function loadContext() {
     redirect_uri: redirectUri,
     response_type: queryString('response_type') || 'code',
     scope: queryString('scope'),
-    state: queryString('state') || undefined
+    state: queryString('state') || undefined,
+    code_challenge: queryString('code_challenge') || undefined,
+    code_challenge_method: queryString('code_challenge_method') || undefined,
+    resource: queryString('resource') || undefined
   });
   if (error) {
     status.value = 'error';
@@ -92,6 +98,9 @@ async function decide(decision: 'approve' | 'deny') {
     redirect_uri: context.value.redirect_uri,
     scope: (context.value.scope || []).join(' '),
     state: context.value.state || undefined,
+    code_challenge: context.value.code_challenge || undefined,
+    code_challenge_method: context.value.code_challenge_method || undefined,
+    resource: context.value.resource || undefined,
     decision
   });
   if (error) {
@@ -133,7 +142,7 @@ onMounted(() => {
         <h2 class="oauth2-consent__subtitle">{{ $t('page.oauth2.consent.scopeTitle') }}</h2>
         <ul class="oauth2-consent__scope-list">
           <li v-for="item in scopeList" :key="item.key" class="oauth2-consent__scope-item">
-            <NCheckbox :value="true" size="small" disabled />
+            <NCheckbox :checked="true" size="small" disabled />
             <span>{{ item.text }}</span>
           </li>
         </ul>

@@ -18,6 +18,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .metadata import mcp_challenge
 from opentask.models.user.model import UserModel
 from opentask.repositories.base import get_session
 from opentask.services.oauth2.token_service import (
@@ -46,11 +47,18 @@ async def require_oauth_token(
 
     失败一律 401（缺凭证 / 无效 / 已吊销 / 用户禁用 / token_version 失效）。
     """
+    def challenge() -> str:
+        if request.url.path != "/mcp":
+            return "Bearer"
+        try:
+            return mcp_challenge()
+        except HTTPException:
+            return "Bearer"
     if credentials is None or not credentials.credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="缺少访问令牌",
-            headers={"WWW-Authenticate": "Bearer"},
+            headers={"WWW-Authenticate": challenge()},
         )
     service = OAuthTokenService(session)
     try:
@@ -59,13 +67,13 @@ async def require_oauth_token(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(exc),
-            headers={"WWW-Authenticate": "Bearer"},
+            headers={"WWW-Authenticate": challenge()},
         )
     except ReplayDetectedError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(exc),
-            headers={"WWW-Authenticate": "Bearer"},
+            headers={"WWW-Authenticate": challenge()},
         )
 
 
@@ -80,6 +88,13 @@ def require_oauth_scope(*required: str):
         payload_and_user: tuple[dict, UserModel] = Depends(require_oauth_token),
     ) -> tuple[dict, UserModel]:
         payload, user = payload_and_user
+        # Resource-bound MCP tokens are valid only at their declared resource.
+        if payload.get("client_id") and payload.get("aud") != payload.get("client_id"):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="令牌不适用于此资源",
+                headers={"WWW-Authenticate": 'Bearer error="invalid_token"'},
+            )
         granted = set((payload.get("scope") or "").split())
         missing = [item for item in required if item not in granted]
         if missing:

@@ -9,9 +9,11 @@ from pydantic import Field, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opentask.models.user.model import UserModel
+from opentask.config import config
 from opentask.services.ontology.catalog import Page, TOOLS, tool_definitions
 from opentask.services.ontology.service import OntologyService
 from .dependencies import get_oauth_session, require_oauth_token
+from .metadata import mcp_challenge
 from .read_api import read_tasks
 
 router = APIRouter()
@@ -55,6 +57,10 @@ async def mcp(
     identity: tuple[dict, UserModel] = Depends(require_oauth_token),
     session: AsyncSession = Depends(get_oauth_session),
 ):
+    payload, _user = identity
+    # RFC 8707 资源令牌不可用于其他 MCP 服务；旧预注册客户端仍兼容历史令牌。
+    if payload.get("client_id") and payload.get("aud") != config.frontend_base_url.rstrip("/") + "/mcp":
+        raise HTTPException(401, detail="令牌受众不匹配", headers={"WWW-Authenticate": mcp_challenge()})
     try:
         message = await request.json()
     except (ValueError, UnicodeDecodeError):

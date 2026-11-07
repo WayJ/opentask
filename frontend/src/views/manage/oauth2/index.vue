@@ -13,7 +13,6 @@ import {
   fetchUpdateOAuthClient
 } from '@/service/api';
 import { clientStatusLabel, installStatusLabel, scopeLabel } from '@/utils/oauth2-client';
-import type { Api } from '@/typings/api';
 import ClientFormDrawer from './modules/client-form-drawer.vue';
 import SecretModal from './modules/secret-modal.vue';
 import GuidePanel from './modules/guide-panel.vue';
@@ -276,7 +275,7 @@ async function handleRejectInstall(row: Api.OAuth2.InstallRequestView) {
 }
 
 function renderInstallStatus(status: string) {
-  const map: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
+  const map: Record<string, 'success' | 'info' | 'warning' | 'error' | 'default'> = {
     PENDING: 'warning',
     APPROVED: 'info',
     REJECTED: 'error',

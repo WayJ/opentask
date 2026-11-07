@@ -20,14 +20,21 @@ SPA 地址登记为 authorization_endpoint；标准令牌端点仍是 ``/oauth2/
 """
 
 import logging
+import re
+import secrets
+from datetime import datetime, timedelta
+from urllib.parse import urlsplit
 from typing import Optional
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, status
 from fastapi.responses import JSONResponse
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opentask.auth import authenticate
+from opentask.config import config
+from opentask.models.oauth2.model import OAuthClient
 from opentask.models.user.model import UserModel
 from opentask.services.oauth2.authorization_service import (
     AuthorizationCodeService,
@@ -52,6 +59,7 @@ from opentask.services.oauth2.token_service import (
 from opentask.utils.response import success_response
 
 from .dependencies import get_oauth_session, require_oauth_scope
+from .metadata import public_origin
 from .schemas import (
     AuthorizeContextRequest,
     AuthorizeContextView,
@@ -73,6 +81,86 @@ router = APIRouter(tags=["OAuth2"])
 
 
 # ===== 工具 =====
+
+# 动态客户端只负责登记；用户仍须逐人授权。配额使用事务级 PostgreSQL 锁，
+# 防止并发注册绕过上限；配额由管理员清理不再使用的客户端后释放。
+_DCR_MAX_CLIENTS = 1000
+_DCR_PER_MINUTE = 10
+_MCP_SCOPES = {"profile", "read:tasks", "read:projects", "read:requirements", "read:members", "write:tasks"}
+
+
+@router.get("/.well-known/oauth-protected-resource/mcp")
+@router.get("/.well-known/oauth-protected-resource")
+async def mcp_resource_metadata():
+    origin = public_origin()
+    return {"resource": origin + "/mcp", "authorization_servers": [origin],
+            "scopes_supported": sorted(_MCP_SCOPES), "bearer_methods_supported": ["header"]}
+
+
+@router.get("/.well-known/oauth-authorization-server")
+async def oauth_server_metadata():
+    origin = public_origin()
+    return {"issuer": origin, "authorization_endpoint": origin + "/oauth2/authorize",
+            "token_endpoint": origin + "/oauth2/token", "registration_endpoint": origin + "/oauth2/register",
+            "response_types_supported": ["code"], "grant_types_supported": ["authorization_code", "refresh_token"],
+            "token_endpoint_auth_methods_supported": ["client_secret_post", "none"],
+            "code_challenge_methods_supported": ["S256"], "scopes_supported": sorted(_MCP_SCOPES)}
+
+
+@router.post("/oauth2/register")
+async def register_mcp_client(body: dict, session: AsyncSession = Depends(get_oauth_session)):
+    redirects = body.get("redirect_uris")
+    name = body.get("client_name", "MCP client")
+    scope = body.get("scope", "profile read:tasks read:projects read:requirements")
+    grants = body.get("grant_types", ["authorization_code", "refresh_token"])
+    responses = body.get("response_types", ["code"])
+    method = body.get("token_endpoint_auth_method", "client_secret_post")
+    if not isinstance(redirects, list) or not 1 <= len(redirects) <= 20:
+        return JSONResponse(status_code=400, content={"error": "invalid_redirect_uri"})
+    for redirect in redirects:
+        if not isinstance(redirect, str):
+            return JSONResponse(status_code=400, content={"error": "invalid_redirect_uri"})
+        try:
+            parsed = urlsplit(redirect)
+            valid = (len(redirect) <= 2048 and "," not in redirect
+                     and not any(ord(c) < 32 or ord(c) == 127 for c in redirect)
+                     and parsed.scheme in ("https", "http") and parsed.hostname
+                     and not parsed.username and not parsed.password and not parsed.fragment and parsed.port != 0)
+        except (ValueError, TypeError):
+            valid = False
+        if not valid:
+            return JSONResponse(status_code=400, content={"error": "invalid_redirect_uri"})
+    if (not isinstance(name, str) or not name.strip() or len(name) > 255
+            or not isinstance(scope, str) or len(scope) > 512 or not scope.split()
+            or not set(scope.split()).issubset(_MCP_SCOPES)
+            or not isinstance(grants, list) or not all(isinstance(item, str) for item in grants)
+            or "authorization_code" not in grants or not set(grants).issubset({"authorization_code", "refresh_token"})
+            or responses != ["code"] or method not in ("client_secret_post", "none")):
+        return JSONResponse(status_code=400, content={"error": "invalid_client_metadata"})
+    await session.execute(text("select pg_advisory_xact_lock(hashtext('opentask_mcp_dcr'))"))
+    total = await session.scalar(select(func.count()).select_from(OAuthClient).where(OAuthClient.created_by.is_(None)))
+    recent = await session.scalar(select(func.count()).select_from(OAuthClient).where(
+        OAuthClient.created_by.is_(None), OAuthClient.created_at >= datetime.utcnow() - timedelta(minutes=1)))
+    if total >= _DCR_MAX_CLIENTS or recent >= _DCR_PER_MINUTE:
+        return JSONResponse(status_code=429, content={"error": "rate_limited"}, headers={"Cache-Control": "no-store"})
+    client_id = "mcp-" + secrets.token_urlsafe(24)
+    client, secret = await OAuthClientService(session).register(
+        client_id=client_id, name=name, description=None, redirect_uris=redirects,
+        scopes=scope.split(), grant_types=grants, created_by=None, token_endpoint_auth_method=method)
+    return JSONResponse(status_code=201, headers={"Cache-Control": "no-store", "Pragma": "no-cache"}, content={
+        "client_id": client.client_id, **({"client_secret": secret, "client_secret_expires_at": 0} if method == "client_secret_post" else {}),
+        "client_id_issued_at": int(client.created_at.timestamp()), "client_name": client.name, "redirect_uris": redirects,
+        "grant_types": grants, "response_types": responses, "scope": scope,
+        "token_endpoint_auth_method": method})
+
+
+
+def _validate_pkce(challenge: Optional[str], method: Optional[str]) -> None:
+    if challenge is None and method is None:
+        return  # 既有 confidential 客户端兼容；MCP 客户端使用 S256。
+    if method != "S256" or challenge is None or not re.fullmatch(r"[A-Za-z0-9_-]{43}", challenge):
+        raise HTTPException(status_code=400, detail={"error": "invalid_request"})
+
 
 
 def _client_view(client) -> OAuthClientView:
@@ -121,6 +209,9 @@ async def authorize_context(
     response_type: str = Query("code", description="授权类型（仅 code）"),
     scope: str = Query("", description="请求的 scope（空格分隔）"),
     state: Optional[str] = Query(None, description="客户端自带状态串"),
+    code_challenge: Optional[str] = Query(None),
+    code_challenge_method: Optional[str] = Query(None),
+    resource: Optional[str] = Query(None),
     current_user: UserModel = Depends(authenticate),
     session: AsyncSession = Depends(get_oauth_session),
 ):
@@ -130,10 +221,13 @@ async def authorize_context(
     - redirect_uri 非法 → **不重定向**，直接 400（防开放重定向）；
     - 其余非法 → 400 + error 字段。
     """
+    _validate_pkce(code_challenge, code_challenge_method)
     client_service = OAuthClientService(session)
     try:
         client = await client_service.require_active_client(client_id)
         client_service.verify_redirect_uri(client, redirect_uri)
+        if client.created_by is None and (code_challenge is None or resource != public_origin() + "/mcp"):
+            raise HTTPException(status_code=400, detail={"error": "invalid_request"})
         if response_type != "code":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -167,6 +261,9 @@ async def authorize_context(
             redirect_uri=redirect_uri,
             redirect_host=urlparse(redirect_uri).netloc,
             state=state,
+            code_challenge=code_challenge,
+            code_challenge_method=code_challenge_method,
+            resource=resource,
         )
     )
 
@@ -184,10 +281,13 @@ async def authorize_decision(
 
     此处**重新校验**全部参数（不信任前端回传），授权码 10 分钟 TTL、一次性消费。
     """
+    _validate_pkce(body.code_challenge, body.code_challenge_method)
     client_service = OAuthClientService(session)
     try:
         client = await client_service.require_active_client(body.client_id)
         client_service.verify_redirect_uri(client, body.redirect_uri)
+        if client.created_by is None and (body.code_challenge is None or body.resource != public_origin() + "/mcp"):
+            raise HTTPException(status_code=400, detail={"error": "invalid_request"})
         scope = client_service.verify_scope(client, body.scope)
     except ClientNotFoundError as exc:
         raise HTTPException(
@@ -224,6 +324,8 @@ async def authorize_decision(
         user_id=str(current_user.id),
         redirect_uri=body.redirect_uri,
         scope=scope,
+        code_challenge=body.code_challenge,
+        resource=body.resource,
     )
     params["code"] = code
     separator = "&" if "?" in body.redirect_uri else "?"
@@ -245,10 +347,12 @@ async def authorize_decision(
 async def issue_token(
     grant_type: str = Form(...),
     client_id: str = Form(...),
-    client_secret: str = Form(...),
+    client_secret: Optional[str] = Form(None),
     code: Optional[str] = Form(None),
     redirect_uri: Optional[str] = Form(None),
     refresh_token: Optional[str] = Form(None),
+    code_verifier: Optional[str] = Form(None),
+    resource: Optional[str] = Form(None),
     session: AsyncSession = Depends(get_oauth_session),
 ):
     """授权码 / refresh token 换令牌
@@ -258,7 +362,11 @@ async def issue_token(
     client_service = OAuthClientService(session)
     try:
         client = await client_service.require_active_client(client_id)
-        client_service.verify_secret(client, client_secret)
+        if client.token_endpoint_auth_method == "none":
+            if client.created_by is not None or client_secret:
+                raise ClientSecretError("公共客户端认证方式不匹配")
+        else:
+            client_service.verify_secret(client, client_secret)
         client_service.verify_grant_type(client, grant_type)
     except ClientNotFoundError as exc:
         return _oauth_error("invalid_client", str(exc), status.HTTP_401_UNAUTHORIZED)
@@ -274,7 +382,8 @@ async def issue_token(
             return _oauth_error("invalid_request", "缺少 code")
         code_service = AuthorizationCodeService(session)
         try:
-            record = await code_service.consume(code=code, client_id=client_id)
+            record = await code_service.consume(code=code, client_id=client_id,
+                                                code_verifier=code_verifier, redirect_uri=redirect_uri, resource=resource)
         except InvalidGrantError as exc:
             # 重放：授权码已被消费过 → 吊销该用户全部活跃 OAuth token
             existing = await code_service.find(code)
@@ -295,7 +404,7 @@ async def issue_token(
         if user is None:
             return _oauth_error("invalid_grant", "授权用户不存在")
         pair = await token_service.issue(
-            user=user, client_id=client_id, scope=record.scope
+            user=user, client_id=client_id, scope=record.scope, resource=record.resource
         )
         return OAuthTokenResponse(**pair)
 
@@ -307,6 +416,8 @@ async def issue_token(
         identity = OAuthIdentityService(session)
         record = await token_service._find_refresh(refresh_token)
         user = await identity.find_by_id(record.user_id) if record else None
+        if record and record.resource != resource:
+            return _oauth_error("invalid_target", "resource 与授权请求不一致")
         if user is None:
             return _oauth_error("invalid_grant", "refresh_token 无效")
         try:
@@ -458,6 +569,8 @@ async def rotate_client_secret(
         client, secret = await OAuthClientService(session).rotate_secret(client_id)
     except ClientNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except ClientSecretError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     return success_response(
         data=OAuthClientCreated(client=_client_view(client), client_secret=secret)
     )

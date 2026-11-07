@@ -20,7 +20,8 @@
                    │     容器内：/assets/* 静态，/api/ 与 /ws/workspace 原样转 7377，其余 index.html
                    ├─ /api/  /ws/workspace  ─▶ 127.0.0.1:7377
                    ├─ /oauth2/authorize     ─▶ 127.0.0.1:8080  SPA 同意页
-                   ├─ /oauth2/              ─▶ 127.0.0.1:7377  token / userinfo / revoke
+                   ├─ /oauth2/              ─▶ 127.0.0.1:7377  token / userinfo / revoke / register
+                   ├─ /mcp、/.well-known/oauth-* ─▶ 127.0.0.1:7377  MCP 与授权发现
                    ├─ /tasks/ /capabilities /healthcheck ─▶ 127.0.0.1:7377
 
 docker compose（目录 /opt/opentask）
@@ -42,7 +43,8 @@ docker compose（目录 /opt/opentask）
 | `/`、`/login`、`/issue/list`、`/f/:token`、`/r/:token` | 前端 SPA | history 基址 `/`，刷新回 index.html |
 | `/api/*`、`/ws/workspace` | 后端 | 不剥前缀，不设置 `X-Workspace-Id`。`/ws/hub*` 不转发 |
 | `=/oauth2/authorize` | 前端 SPA | 授权同意页 |
-| `/oauth2/*` | 后端 | token、userinfo、revoke |
+| `/oauth2/*` | 后端 | token、userinfo、revoke、动态注册 |
+| `/mcp`、`/.well-known/oauth-*` | 后端 | MCP 工具与标准授权元数据 |
 | `/tasks/*`、`/capabilities`、`/healthcheck` | 后端 | 原先已暴露的协议与探活 |
 
 **刻意不外露**的后端顶层路径：`/test/*`（后端自测端点，公开机无需暴露）、
@@ -54,7 +56,7 @@ docker compose（目录 /opt/opentask）
 `/oauth2`（授权同意页）等 17 个——**只有 `oauth2` 重名**，所以授权服务器的端点
 必须与 SPA 的路径前缀分离。其余顶层段无冲突。
 
-授权同意页是 SPA 路由 `/oauth2/authorize`，token 端点是 `/oauth2/token`。宿主用精确匹配把同意页送到前端容器，其余 `/oauth2/` 送到后端。不新增 `/rest`、`/mcp`、`/docs`、`/test`。
+授权同意页是 SPA 路由 `/oauth2/authorize`，token 端点是 `/oauth2/token`。宿主用精确匹配把同意页送到前端容器，其余 `/oauth2/` 送到后端。MCP 资源 `/mcp` 与标准发现 `/.well-known/oauth-*` 均转发后端。HTTP 接入为明文兼容模式。 动态注册支持公共客户端与保密客户端；成员仍需本人登录并同意授权，公共客户端须使用 PKCE S256。
 
 ---
 

@@ -53,6 +53,11 @@ class OAuthClient(DBModel, UUIDMixin, kw_only=True):
         comment="客户端密钥前缀（展示用）",
     )
 
+    # 公共客户端仅允许动态注册，兑换时依靠 PKCE 而非 client secret。
+    token_endpoint_auth_method: Mapped[str] = mapped_column(
+        String(24), nullable=False, default="client_secret_post", server_default="client_secret_post"
+    )
+
     # 应用名（同意页展示）
     name: Mapped[str] = mapped_column(
         "name",
@@ -105,11 +110,11 @@ class OAuthClient(DBModel, UUIDMixin, kw_only=True):
     )
 
     # 注册人（用户 ID，外键级联删除）
-    created_by: Mapped[str] = mapped_column(
+    created_by: Mapped[str | None] = mapped_column(
         "created_by",
         String(36),
         ForeignKey("user.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
         comment="注册人用户 ID",
     )
 
@@ -181,6 +186,13 @@ class OAuthAuthorizationCode(DBModel, UUIDMixin, kw_only=True):
         default="",
         comment="授予的 scope（空格分隔）",
     )
+
+    # RFC 7636：只存 challenge，不存客户端 verifier。
+    code_challenge: Mapped[str | None] = mapped_column(
+        "code_challenge", String(43), nullable=True, default=None,
+    )
+
+    resource: Mapped[str | None] = mapped_column("resource", String(2048), nullable=True, default=None)
 
     # 过期时间（默认签发后 10 分钟）
     expires_at: Mapped[datetime] = mapped_column(
@@ -321,6 +333,8 @@ class OAuthRefreshToken(DBModel, UUIDMixin, kw_only=True):
         default="",
         comment="授予的 scope（空格分隔）",
     )
+
+    resource: Mapped[str | None] = mapped_column("resource", String(2048), nullable=True, default=None)
 
     # 过期时间
     expires_at: Mapped[datetime] = mapped_column(

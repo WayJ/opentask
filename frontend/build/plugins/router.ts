@@ -33,6 +33,9 @@ export function setupElegantRouter() {
       if (key === 'oauth2') {
         return '/oauth2/authorize';
       }
+      if (key === 'oauth2-install') {
+        return '/oauth2/install/:installId';
+      }
 
       return routePath;
     },
@@ -49,7 +52,8 @@ export function setupElegantRouter() {
         'knowledge-base_knowledge_edit',
         'knowledge-base_knowledge_edit_git',
         // OAuth2 授权同意页：仅经授权入口跳转进入，不出现在菜单
-        'oauth2'
+        'oauth2',
+        'oauth2-install'
       ];
 
       const meta: Partial<RouteMeta> = {

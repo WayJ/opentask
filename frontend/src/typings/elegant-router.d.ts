@@ -57,7 +57,7 @@ declare module "@elegant-router/types" {
     "manage_user": "/manage/user";
     "manage_user-detail": "/manage/user-detail/:id";
     "oauth2": "/oauth2/authorize";
-    "oauth2_install": "/oauth2/install/:installId";
+    "oauth2-install": "/oauth2/install/:installId";
     "profile": "/profile";
     "profile_access-tokens": "/profile/access-tokens";
     "profile_userinfo": "/profile/userinfo";
@@ -150,6 +150,7 @@ declare module "@elegant-router/types" {
     | "login"
     | "manage"
     | "oauth2"
+    | "oauth2-install"
     | "profile"
     | "requests"
     | "search"
@@ -210,8 +211,8 @@ declare module "@elegant-router/types" {
     | "manage_role"
     | "manage_user-detail"
     | "manage_user"
+    | "oauth2-install"
     | "oauth2"
-    | "oauth2_install"
     | "profile_access-tokens"
     | "profile_userinfo"
     | "requests_detail"

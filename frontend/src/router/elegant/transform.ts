@@ -203,7 +203,7 @@ const routeMap: RouteMap = {
   "manage_user": "/manage/user",
   "manage_user-detail": "/manage/user-detail/:id",
   "oauth2": "/oauth2/authorize",
-  "oauth2_install": "/oauth2/install/:installId",
+  "oauth2-install": "/oauth2/install/:installId",
   "profile": "/profile",
   "profile_access-tokens": "/profile/access-tokens",
   "profile_userinfo": "/profile/userinfo",

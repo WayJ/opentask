@@ -83,6 +83,9 @@ class AuthorizeContextView(BaseModel):
     redirect_uri: str
     redirect_host: str
     state: Optional[str] = None
+    code_challenge: Optional[str] = None
+    code_challenge_method: Optional[str] = None
+    resource: Optional[str] = None
 
 
 class AuthorizeDecisionRequest(BaseModel):
@@ -92,6 +95,9 @@ class AuthorizeDecisionRequest(BaseModel):
     redirect_uri: str
     scope: str = ""
     state: Optional[str] = None
+    code_challenge: Optional[str] = None
+    code_challenge_method: Optional[str] = None
+    resource: Optional[str] = None
     decision: str = Field(..., description="approve / deny")
 
 

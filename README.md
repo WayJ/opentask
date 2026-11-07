@@ -160,7 +160,7 @@ docker compose down          # 停止并移除容器（数据卷保留）
 | 后端 | http://localhost:7377 | 启动前自动 `alembic upgrade head` |
 | 数据库 | localhost:5432 | `opentask` / `opentask`（可用 `POSTGRES_PASSWORD` 覆盖） |
 
-生产与本地编排都把 SPA 放在站点根：`VITE_BASE_URL=/`，`VITE_SERVICE_BASE_URL=/`。浏览器打开 `/` 和 `/login`。`/api/` 与 `/ws/` 由 nginx 原样转到后端，不注入 `X-Workspace-Id`。本地 `pnpm dev` 仍用 Vite 把 `/opentask` 代理到 7377，这个前缀只存在于开发服务器。
+生产与本地编排都把 SPA 放在站点根：`VITE_BASE_URL=/`，`VITE_SERVICE_BASE_URL=/`。浏览器打开 `/` 和 `/login`。`/api/`、`/ws/`、`/mcp`、`/.well-known/oauth-*` 和 OAuth 协议端点由 nginx 转到后端，`/oauth2/authorize` 保留为前端同意页；不注入 `X-Workspace-Id`。本地 `pnpm dev` 仍用 Vite 把 `/opentask` 代理到 7377，这个前缀只存在于开发服务器。
 
 Issue 单号是 `KEY-N`。需求接口还在，产品界面不再提供入口。问题集的页面和专属接口已移除，数据表 `issue_collections` 仍保留。没有可用工作区的账号会先进入创建页；部署脚本只在该管理员还没有可用成员关系时创建名为 OpenTask 的工作区，重复执行不重置口令。
 

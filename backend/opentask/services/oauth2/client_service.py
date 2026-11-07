@@ -102,13 +102,18 @@ class OAuthClientService:
         redirect_uris: list[str],
         scopes: list[str],
         grant_types: Optional[list[str]] = None,
-        created_by: str,
+        created_by: Optional[str],
+        token_endpoint_auth_method: str = "client_secret_post",
     ) -> tuple[OAuthClient, str]:
         """注册 client，返回 (模型, client_secret 明文)
 
         client_secret 明文**只在此刻出现一次**，调用方须立即下发给客户端并
         自负责任存；库中只存 SHA-256 哈希。
         """
+        if token_endpoint_auth_method not in {"client_secret_post", "none"} or (
+            token_endpoint_auth_method == "none" and created_by is not None
+        ):
+            raise ValueError("客户端认证方式不支持")
         if not client_id or not client_id.strip():
             raise ValueError("client_id 不能为空")
         if not redirect_uris:
@@ -123,7 +128,8 @@ class OAuthClientService:
         client = OAuthClient(
             client_id=client_id.strip(),
             client_secret_hash=hash_secret(secret_plain),
-            client_secret_prefix=secret_plain[:CLIENT_SECRET_PREFIX_LEN],
+            client_secret_prefix=secret_plain[:CLIENT_SECRET_PREFIX_LEN] if token_endpoint_auth_method != "none" else "public",
+            token_endpoint_auth_method=token_endpoint_auth_method,
             name=name.strip(),
             description=description,
             redirect_uris=",".join(redirect_uris),
@@ -197,6 +203,8 @@ class OAuthClientService:
         client = await self.get_by_client_id(client_id)
         if client is None:
             raise ClientNotFoundError("客户端不存在")
+        if client.token_endpoint_auth_method == "none":
+            raise ClientSecretError("公共客户端不使用客户端密钥")
         secret_plain = generate_client_secret()
         client.client_secret_hash = hash_secret(secret_plain)
         client.client_secret_prefix = secret_plain[:CLIENT_SECRET_PREFIX_LEN]

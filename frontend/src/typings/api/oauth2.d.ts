@@ -14,6 +14,9 @@ declare namespace Api {
       response_type?: string;
       scope?: string;
       state?: string;
+      code_challenge?: string;
+      code_challenge_method?: string;
+      resource?: string;
     }
 
     /** 同意页上下文（后端校验后返回） */
@@ -27,6 +30,9 @@ declare namespace Api {
       /** 回调地址的主机名（展示用，防钓鱼提示） */
       redirect_host: string;
       state?: string | null;
+      code_challenge?: string | null;
+      code_challenge_method?: string | null;
+      resource?: string | null;
     }
 
     /** 同意/拒绝请求 */
@@ -35,6 +41,9 @@ declare namespace Api {
       redirect_uri: string;
       scope: string;
       state?: string;
+      code_challenge?: string;
+      code_challenge_method?: string;
+      resource?: string;
       decision: 'approve' | 'deny';
     }
 

@@ -7,13 +7,16 @@
   吊销该用户全部活跃 OAuth token（疑似泄漏处置），并返回 invalid_grant。
 """
 
+import base64
 import hashlib
+import hmac
+import re
 import logging
 import secrets
 from datetime import datetime, timedelta
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opentask.config import config
@@ -44,6 +47,8 @@ class AuthorizationCodeService:
         user_id: str,
         redirect_uri: str,
         scope: str,
+        code_challenge: Optional[str] = None,
+        resource: Optional[str] = None,
     ) -> str:
         """签发授权码，返回明文（仅此一次下发给用户端）"""
         code_plain = secrets.token_hex(32)
@@ -54,6 +59,8 @@ class AuthorizationCodeService:
             user_id=user_id,
             redirect_uri=redirect_uri,
             scope=scope,
+            code_challenge=code_challenge,
+            resource=resource,
             expires_at=now + timedelta(seconds=config.oauth_code_expire_seconds),
             used_at=None,
             created_at=now,
@@ -79,6 +86,9 @@ class AuthorizationCodeService:
         *,
         code: str,
         client_id: str,
+        code_verifier: Optional[str] = None,
+        redirect_uri: Optional[str] = None,
+        resource: Optional[str] = None,
     ) -> OAuthAuthorizationCode:
         """消费授权码，返回授权记录
 
@@ -101,7 +111,28 @@ class AuthorizationCodeService:
         if record.used_at is not None:
             # 重放：授权码已被消费过（二次使用）
             raise InvalidGrantError("授权码已被使用")
-        record.used_at = datetime.utcnow()
+        if redirect_uri is not None and record.redirect_uri != redirect_uri:
+            raise InvalidGrantError("redirect_uri 与授权请求不一致")
+        if record.resource != resource:
+            raise InvalidGrantError("resource 与授权请求不一致")
+        if record.code_challenge is not None:
+            if redirect_uri is None or not code_verifier or not re.fullmatch(r"[A-Za-z0-9._~-]{43,128}", code_verifier):
+                raise InvalidGrantError("PKCE verifier 无效")
+            digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
+            challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+            if not hmac.compare_digest(record.code_challenge, challenge):
+                raise InvalidGrantError("PKCE verifier 无效")
+        now = datetime.utcnow()
+        result = await self.session.execute(
+            update(OAuthAuthorizationCode)
+            .where(OAuthAuthorizationCode.id == record.id,
+                   OAuthAuthorizationCode.used_at.is_(None),
+                   OAuthAuthorizationCode.expires_at >= now)
+            .values(used_at=now).returning(OAuthAuthorizationCode.id)
+        )
+        if result.scalar_one_or_none() is None:
+            await self.session.rollback()
+            raise InvalidGrantError("授权码已被使用或已过期")
         await self.session.commit()
         return record
 

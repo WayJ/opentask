@@ -73,6 +73,7 @@ class OAuthTokenService:
         user: UserModel,
         client_id: str,
         scope: str,
+        resource: Optional[str] = None,
         expires_delta: Optional[timedelta] = None,
     ) -> dict:
         """签发 access token + refresh token
@@ -89,7 +90,8 @@ class OAuthTokenService:
             {
                 "sub": str(user.id),
                 "tv": user.token_version,
-                "aud": client_id,
+                "aud": resource or client_id,
+                **({"client_id": client_id} if resource else {}),
                 "scope": scope,
                 "jti": jti,
                 "exp": now + access_expire,
@@ -116,6 +118,7 @@ class OAuthTokenService:
                 client_id=client_id,
                 user_id=str(user.id),
                 scope=scope,
+                resource=resource,
                 expires_at=now + timedelta(days=config.oauth_refresh_expire_days),
                 revoked_at=None,
                 rotated_to_hash=None,
@@ -162,7 +165,7 @@ class OAuthTokenService:
             raise InvalidTokenError("refresh_token 已过期")
 
         new_pair = await self.issue(
-            user=user, client_id=client_id, scope=record.scope
+            user=user, client_id=client_id, scope=record.scope, resource=record.resource
         )
         # 旧行标记轮换并吊销
         record.revoked_at = datetime.utcnow()
@@ -240,7 +243,7 @@ class OAuthTokenService:
         except JWTError:
             return False
         jti = payload.get("jti")
-        if not jti or payload.get("aud") != client_id:
+        if not jti or (payload.get("client_id") or payload.get("aud")) != client_id:
             return False
         return await self.revoke_access_token_by_jti(jti)
 
@@ -278,7 +281,7 @@ class OAuthTokenService:
 
         from opentask.services.oauth2.client_service import OAuthClientService
 
-        client = await OAuthClientService(self.session).get_by_client_id(aud)
+        client = await OAuthClientService(self.session).get_by_client_id(payload.get("client_id") or aud)
         if client is None or client.status != "ACTIVE":
             raise InvalidTokenError("客户端不存在或已禁用")
 
