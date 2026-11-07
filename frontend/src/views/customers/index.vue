@@ -3,6 +3,7 @@ import { computed, h, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { type DataTableColumns, NButton, NTag } from 'naive-ui';
 import { type CustomerRow, fetchCreateCustomer, fetchCustomers, fetchDeleteCustomer } from '@/service/api';
+import { $t } from '@/locales';
 
 defineOptions({ name: 'CustomersPage' });
 
@@ -128,19 +129,19 @@ onMounted(load);
   <div class="h-full flex-col gap-16px overflow-hidden p-16px">
     <div class="flex items-center justify-between">
       <div>
-        <h2 class="text-18px font-600">客户</h2>
-        <p class="mt-4px text-13px text-gray-500">工作区客户账户；可关联客户需求与 Issue</p>
+        <h2 class="text-18px font-600">{{ $t('route.customers') }}</h2>
+        <p class="mt-4px text-13px text-gray-500">工作区客户账户；可关联客户需求与问题</p>
       </div>
       <div class="flex gap-8px">
-        <NButton quaternary @click="$router.push({ name: 'requests' })">全部需求</NButton>
-        <NButton type="primary" @click="createOpen = true">新建客户</NButton>
+        <NButton quaternary @click="$router.push({ name: 'requests' })">{{ $t('page.shell.allRequests') }}</NButton>
+        <NButton type="primary" @click="createOpen = true">{{ $t('page.shell.createCustomer') }}</NButton>
       </div>
     </div>
 
     <NCard :bordered="false" class="flex-1 overflow-hidden" content-style="padding: 0; height: 100%">
-      <NEmpty v-if="empty" class="py-48px" description="暂无客户。创建客户后可录入客户需求并关联 Issue。">
+      <NEmpty v-if="empty" class="py-48px" description="暂无客户。创建客户后可录入客户需求并关联问题。">
         <template #extra>
-          <NButton type="primary" @click="createOpen = true">新建客户</NButton>
+          <NButton type="primary" @click="createOpen = true">{{ $t('page.shell.createCustomer') }}</NButton>
         </template>
       </NEmpty>
       <NDataTable
@@ -155,7 +156,7 @@ onMounted(load);
       />
     </NCard>
 
-    <NModal v-model:show="createOpen" preset="card" title="新建客户" class="w-480px">
+    <NModal v-model:show="createOpen" preset="card" :title="$t('page.shell.createCustomer')" class="w-480px">
       <NForm label-placement="left" label-width="80">
         <NFormItem label="名称" required>
           <NInput v-model:value="form.name" maxlength="200" placeholder="例如：Acme Corp" />

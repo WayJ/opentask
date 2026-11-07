@@ -41,9 +41,92 @@ html:not(.dark) .n-layout-header {
   border-bottom: 1px solid var(--color-hairline);
 }
 
+#app,
+.n-layout,
+.n-layout-scroll-container,
+.n-layout-header {
+  min-width: 0;
+  max-width: 100vw;
+}
+
+#app {
+  overflow-x: auto;
+}
+
 /* Content cards: prefer hairline over heavy elevation */
 .n-card {
   border-color: var(--color-hairline) !important;
   box-shadow: none !important;
   border-radius: var(--radius-md) !important;
+}
+
+/* Dialogs, drawers and empty states stay on the same paper. No extra page padding. */
+.n-modal .n-card,
+.n-drawer .n-drawer-content,
+.ot-modal.n-card {
+  background: var(--vk-paper);
+  color: var(--vk-ink);
+  border: 1px solid var(--vk-line);
+  border-radius: var(--vk-radius-dialog);
+}
+
+.n-empty .n-empty__description {
+  color: var(--vk-muted);
+}
+
+.ot-public-page {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: var(--vk-bg);
+  color: var(--vk-ink);
+}
+
+.ot-public-card {
+  width: min(520px, 100%);
+  background: var(--vk-paper);
+  border: 1px solid var(--vk-line);
+  border-radius: var(--vk-radius-card);
+}
+
+.ot-auth-page {
+  background: var(--vk-bg);
+  color: var(--vk-ink);
+}
+
+.ot-auth-card.n-card {
+  background: var(--vk-paper);
+  border: 1px solid var(--vk-line);
+  border-radius: var(--vk-radius-card);
+  box-shadow: none;
+}
+
+.ot-auth-form {
+  width: min(400px, 100%);
+}
+
+.ot-muted {
+  color: var(--vk-muted);
+}
+
+.ot-error {
+  color: var(--vk-error);
+}
+
+:focus-visible {
+  outline: 2px solid var(--vk-accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -3,6 +3,7 @@ import { onMounted, ref, watch } from 'vue';
 import { NButton, NCard, NEmpty, NGrid, NGridItem, NSpace, NSpin, NText } from 'naive-ui';
 import { ISSUE_TEMPLATES, type IssueTemplate } from '@/constants/issueTemplates';
 import { type IssueTemplateRow, fetchIssueTemplates } from '@/service/api/issue-templates';
+import { $t } from '@/locales';
 
 interface Props {
   visible: boolean;
@@ -92,7 +93,7 @@ function close() {
 <template>
   <Teleport to="body">
     <div v-if="visible" class="template-selector-overlay" @click.self="close">
-      <NCard class="template-selector-card" title="选择 Issue 模板" :bordered="true">
+      <NCard class="template-selector-card" :title="$t('page.shell.selectIssueTemplate')" :bordered="true">
         <template #header-extra>
           <NButton text @click="close">
             <icon-mdi-close />
@@ -100,7 +101,7 @@ function close() {
         </template>
 
         <div class="template-description">
-          <NText depth="3">选择一个模板来快速创建规范的 Issue（工作区模板）</NText>
+          <NText depth="3">选择一个模板来快速创建规范的问题（工作区模板）</NText>
         </div>
 
         <NSpin :show="loading">
@@ -133,7 +134,7 @@ function close() {
 
         <div class="template-footer">
           <NSpace justify="space-between">
-            <NText depth="3" style="font-size: 12px">提示：你也可以不使用模板，直接创建空白 Issue</NText>
+            <NText depth="3" style="font-size: 12px">提示：你也可以不使用模板，直接创建空白问题</NText>
             <NButton text @click="close">
               <NText depth="3">取消</NText>
             </NButton>

@@ -17,7 +17,7 @@ describe('formatTimelineAction', () => {
         action_type: 'cycle_changed',
         action_data: { from: null, to: 'c1' }
       })
-    ).toBe('将周期从 空 改为 c1');
+    ).toBe('将冲刺从 空 改为 c1');
   });
 
   it('formats estimate_changed', () => {
@@ -39,7 +39,7 @@ describe('formatTimelineAction', () => {
   });
 
   it('keeps created', () => {
-    expect(formatTimelineAction({ action_type: 'created' })).toBe('创建了此 Issue');
+    expect(formatTimelineAction({ action_type: 'created' })).toBe('创建了此问题');
   });
 
   it('formats sla_paused / sla_resumed', () => {

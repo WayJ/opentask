@@ -69,6 +69,7 @@ import {
   projectMoveClearedMessage
 } from '@/utils/nextMilestoneAfterProjectMove';
 import type { Api } from '@/typings/api';
+import { $t } from '@/locales';
 
 defineOptions({
   name: 'IssueDetail'
@@ -591,7 +592,7 @@ async function loadParentAndChildren() {
 
 async function createSubIssue() {
   if (!issue.value || !newSubIssueTitle.value.trim()) {
-    window.$message?.warning('请输入子 Issue 标题');
+    window.$message?.warning('请输入子问题标题');
     return;
   }
   addingSubIssue.value = true;
@@ -605,7 +606,7 @@ async function createSubIssue() {
       parent_issue_id: issue.value.id,
       project_id: issue.value.project_id
     } as Api.Issue.CreateIssue);
-    window.$message?.success('子 Issue 已创建');
+    window.$message?.success('子问题已创建');
     showAddSubIssue.value = false;
     newSubIssueTitle.value = '';
     await loadIssue();
@@ -613,7 +614,7 @@ async function createSubIssue() {
       router.push({ path: '/issue/detail', query: { id: created.id } });
     }
   } catch (e: any) {
-    window.$message?.error(e?.message || '创建子 Issue 失败');
+    window.$message?.error(e?.message || '创建子问题失败');
   } finally {
     addingSubIssue.value = false;
   }
@@ -639,7 +640,7 @@ async function handleAddRelation() {
     if (/^[A-Z][A-Z0-9]*-\d+$/i.test(targetId)) {
       const { data, error } = await issueApi.getIssue(targetId, { byCode: true });
       if (error || !data?.id) {
-        window.$message?.error?.('找不到目标 Issue');
+        window.$message?.error?.('找不到目标问题');
         return;
       }
       targetId = data.id;
@@ -1020,9 +1021,9 @@ async function saveCycle() {
   try {
     await issueStore.updateIssue(issueId.value, { cycle_id: tempCycle.value || null });
     await loadIssue();
-    window.$message?.success('Cycle 更新成功');
+    window.$message?.success('冲刺更新成功');
   } catch {
-    window.$message?.error('Cycle 更新失败');
+    window.$message?.error('冲刺更新失败');
   }
 }
 
@@ -1118,16 +1119,16 @@ function handleDeleteIssue() {
 
   window.$dialog?.warning({
     title: '确认删除',
-    content: `确定要删除 Issue "${issue.value.title}" 吗？`,
+    content: `确定要删除问题 "${issue.value.title}" 吗？`,
     positiveText: '删除',
     negativeText: '取消',
     onPositiveClick: async () => {
       try {
         await issueStore.deleteIssue(issue.value!.id);
         router.push('/issue/list');
-        window.$message?.success('Issue 删除成功');
+        window.$message?.success('问题删除成功');
       } catch {
-        window.$message?.error('Issue 删除失败');
+        window.$message?.error('问题删除失败');
       }
     }
   });
@@ -1174,7 +1175,7 @@ function openSetParentModal(mode: 'set' | 'change' = 'set') {
 
 async function confirmSetParent() {
   if (!issue.value || !pendingParentId.value) {
-    window.$message?.warning('请选择父 Issue');
+    window.$message?.warning('请选择父问题');
     return;
   }
   setParentLoading.value = true;
@@ -1183,7 +1184,7 @@ async function confirmSetParent() {
       parent_issue_id: pendingParentId.value
     } as any);
     if (error || !data) {
-      window.$message?.error((error as any)?.message || '设置父 Issue 失败');
+      window.$message?.error((error as any)?.message || '设置父问题失败');
       return;
     }
     const parentCode =
@@ -1195,7 +1196,7 @@ async function confirmSetParent() {
     await loadIssue();
     await loadParentAndChildren();
   } catch (e: any) {
-    window.$message?.error(e?.message || '设置父 Issue 失败');
+    window.$message?.error(e?.message || '设置父问题失败');
   } finally {
     setParentLoading.value = false;
   }
@@ -1231,10 +1232,10 @@ async function handleDuplicateIssue() {
     const newId = created?.id;
     const code = created?.issue_code || (created as any)?.issueCode || '';
     if (!newId) throw new Error('missing id');
-    window.$message?.success(code ? `已复制为 ${code}` : 'Issue 复制成功');
+    window.$message?.success(code ? `已复制为 ${code}` : '问题复制成功');
     router.push({ path: '/issue/detail', query: { id: newId } });
   } catch (e: any) {
-    window.$message?.error(e?.message || 'Issue 复制失败');
+    window.$message?.error(e?.message || '问题复制失败');
   } finally {
     duplicateLoading.value = false;
   }
@@ -1356,7 +1357,7 @@ async function toggleWatch() {
     } else {
       await watchIssue(id);
       watching.value = true;
-      window.$message?.success('已关注 Issue');
+      window.$message?.success('已关注问题');
     }
     await loadWatchState();
   } catch {
@@ -1452,7 +1453,7 @@ onUnmounted(() => {
                 <div class="issue-code">{{ issue.issue_code }}</div>
                 <h1 class="issue-title">{{ issue.title }}</h1>
                 <div v-if="parentIssue || issue.parent_issue_id" class="parent-issue-link">
-                  <NText depth="3" style="font-size: 12px">父 Issue：</NText>
+                  <NText depth="3" style="font-size: 12px">父问题：</NText>
                   <NButton
                     text
                     size="tiny"
@@ -1493,7 +1494,7 @@ onUnmounted(() => {
                   <template #icon>
                     <icon-mdi-content-copy />
                   </template>
-                  复制 Issue
+                  复制问题
                 </NButton>
                 <NButton size="small" @click="openSetParentModal(issue.parent_issue_id ? 'change' : 'set')">
                   <template #icon>
@@ -1868,7 +1869,7 @@ onUnmounted(() => {
             <EditableField
               v-model="tempCycle"
               v-model:editing="editingCycle"
-              label="Cycle"
+              label="冲刺"
               :display-value="cycleDisplayValue"
               placeholder="未分配"
               @save="saveCycle"
@@ -1882,7 +1883,7 @@ onUnmounted(() => {
                 <NSelect
                   v-model:value="tempCycle"
                   :options="cycleOptions"
-                  placeholder="选择 Cycle"
+                  placeholder="选择冲刺"
                   size="small"
                   clearable
                 />
@@ -2119,7 +2120,7 @@ onUnmounted(() => {
             <!-- Linked Issues / Relations CRUD (E20) -->
             <div id="issue-relations" class="sidebar-section">
               <div class="sidebar-section-title">
-                <span>关联 Issue</span>
+                <span>关联问题</span>
                 <NButton text size="tiny" @click="showAddRelation = !showAddRelation">+ 添加</NButton>
               </div>
               <div class="linked-issues">
@@ -2171,7 +2172,7 @@ onUnmounted(() => {
                 <NInput
                   v-model:value="pendingRelationTarget"
                   size="small"
-                  placeholder="目标 Issue ID 或 KEY-N"
+                  placeholder="目标问题 ID 或 KEY-N"
                   class="mb-2"
                 />
                 <NSelect v-model:value="pendingRelationType" :options="relationTypeOptions" size="small" class="mb-2" />
@@ -2266,25 +2267,25 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <NEmpty v-else-if="!loading" description="Issue 不存在" size="large" />
+      <NEmpty v-else-if="!loading" :description="$t('page.shell.issueMissing')" size="large" />
     </NSpin>
 
     <!-- E78: set / change parent -->
     <NModal
       v-model:show="showSetParentModal"
       preset="card"
-      :title="setParentMode === 'change' ? '更换父 Issue' : '设为子项'"
+      :title="setParentMode === 'change' ? '更换父问题' : '设为子项'"
       style="width: 480px"
     >
       <NSpace vertical>
-        <NText depth="3">选择同工作区的父 Issue（排除自身；环由服务端校验）。</NText>
+        <NText depth="3">选择同工作区的父问题（排除自身；环由服务端校验）。</NText>
         <NSelect
           v-model:value="pendingParentId"
           filterable
           clearable
           :loading="parentPickerLoading"
           :options="parentPickerOptions"
-          placeholder="搜索 Issue…"
+          placeholder="搜索问题…"
           @search="loadParentPickerOptions"
         />
         <NSpace justify="end">
@@ -2302,10 +2303,16 @@ onUnmounted(() => {
     </NModal>
 
     <!-- Agent Prompt Modal -->
-    <NModal v-model:show="showAddSubIssue" preset="card" title="添加子 Issue" style="width: 480px">
+    <NModal
+      v-model:show="showAddSubIssue"
+      preset="card"
+      :title="$t('page.shell.addSubIssue')"
+      class="ot-modal"
+      style="width: 480px"
+    >
       <NSpace vertical>
-        <NText depth="3">将创建挂在当前 Issue 下的子项（parent_issue_id）。</NText>
-        <NInput v-model:value="newSubIssueTitle" placeholder="子 Issue 标题" @keyup.enter="createSubIssue" />
+        <NText depth="3">将创建挂在当前问题下的子项（parent_issue_id）。</NText>
+        <NInput v-model:value="newSubIssueTitle" placeholder="子问题标题" @keyup.enter="createSubIssue" />
         <NSpace justify="end">
           <NButton @click="showAddSubIssue = false">取消</NButton>
           <NButton type="primary" :loading="addingSubIssue" @click="createSubIssue">创建</NButton>

@@ -40,7 +40,7 @@ const cardData = computed<StatItem[]>(() => [
   },
   {
     key: 'issue_total',
-    title: 'Issue 总数',
+    title: '问题总数',
     value: props.data?.issues?.total ?? 0,
     subLabel: '待处理',
     subValue: props.data?.issues?.open_count ?? 0,
@@ -58,7 +58,7 @@ const cardData = computed<StatItem[]>(() => [
   },
   {
     key: 'issue_completed',
-    title: 'Issue 已解决',
+    title: '问题已解决',
     value: props.data?.issues?.completed_count ?? 0,
     subLabel: '进行中',
     subValue: props.data?.issues?.in_progress_count ?? 0,

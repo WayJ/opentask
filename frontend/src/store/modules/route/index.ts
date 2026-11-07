@@ -9,6 +9,7 @@ import { SetupStoreId } from '@/enum';
 import { createStaticRoutes, getAuthVueRoutes } from '@/router/routes';
 import { ROOT_ROUTE } from '@/router/routes/builtin';
 import { getRouteName, getRoutePath } from '@/router/elegant/transform';
+import { $t, i18n } from '@/locales';
 import { useAuthStore } from '../auth';
 import { useTabStore } from '../tab';
 import {
@@ -22,6 +23,12 @@ import {
   transformMenuToSearchMenus,
   updateLocaleOfGlobalMenus
 } from './shared';
+
+export function breadcrumbLabel(key: string) {
+  const translated = $t(key as App.I18n.I18nKey);
+  if (!translated || translated === key) return null;
+  return String(translated);
+}
 
 export const useRouteStore = defineStore(SetupStoreId.Route, () => {
   const authStore = useAuthStore();
@@ -127,8 +134,11 @@ export const useRouteStore = defineStore(SetupStoreId.Route, () => {
     excludeCacheRoutes.value = [];
   }
 
-  /** Global breadcrumbs */
-  const breadcrumbs = computed(() => getBreadcrumbsByRoute(router.currentRoute.value, menus.value));
+  /** Global breadcrumbs. Locale is read so fallback labels follow the active language. */
+  const breadcrumbs = computed(() => {
+    const locale = i18n.global.locale.value;
+    return getBreadcrumbsByRoute(router.currentRoute.value, menus.value, key => (locale ? breadcrumbLabel(key) : null));
+  });
 
   /** Reset store */
   async function resetStore() {

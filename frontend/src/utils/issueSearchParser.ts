@@ -306,14 +306,14 @@ export function isIssueCodeToken(value: string): boolean {
  */
 export function generateSearchSuggestions(): string[] {
   return [
-    'is:open - 只显示待办中的 Issue',
-    'is:closed - 只显示已完成的 Issue',
-    'is:in_progress - 只显示进行中的 Issue',
+    'is:open - 只显示待办中的问题',
+    'is:closed - 只显示已完成的问题',
+    'is:in_progress - 只显示进行中的问题',
     'assignee:@me - 指派给我',
-    'label:bug - 只显示标签为 bug 的 Issue',
-    'type:feature - 只显示类型为功能的 Issue',
-    'priority:urgent - 只显示紧急优先级的 Issue',
-    'cycle:__none__ - 无 Cycle',
+    'label:bug - 只显示标签为 bug 的问题',
+    'type:feature - 只显示类型为功能的问题',
+    'priority:urgent - 只显示紧急优先级的问题',
+    'cycle:__none__ - 无冲刺',
     'project:<id> - 按项目过滤',
     'field:severity:s1 - 自定义字段过滤（cf:key:value 亦可）',
     'field:score:10 - 公式字段按计算值等值过滤（只读）',

@@ -68,7 +68,7 @@ const displayData = computed(() => props.data || []);
           <template #header>
             <div class="flex items-center gap-8px">
               <NTag :type="item.type === 'requirement' ? 'info' : 'warning'" size="small" round>
-                {{ item.type === 'requirement' ? '需求' : 'Issue' }}
+                {{ item.type === 'requirement' ? '需求' : '问题' }}
               </NTag>
               <span class="font-medium">{{ item.code }}</span>
               <span class="text-gray-500">-</span>

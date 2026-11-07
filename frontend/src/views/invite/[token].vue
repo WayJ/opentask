@@ -75,8 +75,8 @@ onMounted(loadPreview);
 </script>
 
 <template>
-  <div class="min-h-screen flex-center p-24px">
-    <NCard title="工作区邀请" style="width: 420px" :bordered="false" class="card-wrapper">
+  <div class="ot-public-page min-h-screen">
+    <NCard title="工作区邀请" :bordered="false" class="ot-public-card card-wrapper">
       <NSpin :show="loading">
         <NSpace v-if="errorMsg" vertical>
           <div class="text-error">{{ errorMsg }}</div>

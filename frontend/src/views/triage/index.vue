@@ -60,7 +60,7 @@ async function onDecline(row: TriageIssue) {
 async function onDuplicate(row: TriageIssue) {
   const target = (dupTarget.value[row.id] || '').trim();
   if (!target) {
-    window.$message?.warning('请填写规范 Issue 的 ID');
+    window.$message?.warning('请填写规范问题的 ID');
     return;
   }
   const { error } = await fetchTriageDuplicate(row.id, target);
@@ -149,7 +149,7 @@ onMounted(load);
               <NInput
                 v-model:value="dupTarget[row.id]"
                 size="tiny"
-                placeholder="重复于：目标 Issue ID"
+                placeholder="重复于：目标问题 ID"
                 class="max-w-320px"
               />
               <NButton size="tiny" @click="onDuplicate(row)">标记重复</NButton>

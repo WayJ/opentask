@@ -82,12 +82,12 @@ onMounted(load);
         <NInput v-model:value="newName" placeholder="工作区名称" />
         <NInput
           v-model:value="newIssueKey"
-          placeholder="Issue Key（可选，2–6 位大写）"
+          placeholder="问题单号（可选，2–6 位大写）"
           maxlength="6"
           style="text-transform: uppercase"
           @update:value="v => (newIssueKey = (v || '').toUpperCase())"
         />
-        <p class="m-0 text-12px text-gray-400">留空则从名称自动生成；创建后可在 Cycles 设置中修改。</p>
+        <p class="m-0 text-12px text-gray-400">留空则从名称自动生成；创建后可在冲刺设置中修改。</p>
       </div>
     </NModal>
   </div>

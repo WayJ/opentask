@@ -26,7 +26,7 @@ const { domRef, updateOptions } = useEcharts(() => ({
     }
   },
   legend: {
-    data: ['需求创建', 'Issue 创建'],
+    data: ['需求创建', '问题创建'],
     top: '0'
   },
   grid: {
@@ -67,7 +67,7 @@ const { domRef, updateOptions } = useEcharts(() => ({
     },
     {
       color: '#26deca',
-      name: 'Issue 创建',
+      name: '问题创建',
       type: 'line',
       smooth: true,
       areaStyle: {

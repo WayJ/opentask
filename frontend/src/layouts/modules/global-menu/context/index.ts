@@ -3,6 +3,7 @@ import { useRoute } from 'vue-router';
 import { useContext } from '@sa/hooks';
 import type { RouteKey } from '@elegant-router/types';
 import { useRouteStore } from '@/store/modules/route';
+import { resolveMenuSelectedKey } from '@/store/modules/route/shared';
 import { useThemeStore } from '@/store/modules/theme';
 import { useRouterPush } from '@/hooks/common/router';
 
@@ -169,14 +170,7 @@ function useMixMenu() {
 export function useMenu() {
   const route = useRoute();
 
-  const selectedKey = computed(() => {
-    const { hideInMenu, activeMenu } = route.meta;
-    const name = route.name as string;
-
-    const routeName = (hideInMenu ? activeMenu : name) || name;
-
-    return routeName;
-  });
+  const selectedKey = computed(() => resolveMenuSelectedKey(route));
 
   return {
     selectedKey

@@ -12,6 +12,7 @@ import {
 import type { WorkspaceItem } from '@/service/api';
 import { issueApi } from '@/service/api/issue';
 import { localStg } from '@/utils/storage';
+import { $t } from '@/locales';
 
 defineOptions({ name: 'HomeWorkspaceSummary' });
 
@@ -149,7 +150,7 @@ onMounted(load);
         <p class="mb-0 mt-4px text-13px opacity-60">
           {{ workspace?.name || '工作区' }}
           <span v-if="workspace?.issueKey" class="ml-8px text-12px opacity-50">
-            Issue Key · {{ workspace.issueKey }}
+            {{ $t('page.shell.issueKeyPrefix') }} · {{ workspace.issueKey }}
           </span>
         </p>
       </div>
@@ -157,23 +158,26 @@ onMounted(load);
       <NGrid :x-gap="16" :y-gap="16" cols="1 s:2 m:3" responsive="screen">
         <NGi>
           <NCard size="small" hoverable class="cursor-pointer" @click="goIssues()">
-            <div class="text-12px opacity-60">Issues</div>
+            <div class="ot-muted text-12px">{{ $t('page.shell.issueListTitle') }}</div>
             <div class="mt-4px text-28px font-medium">{{ issueTotal }}</div>
             <div class="mt-8px text-12px text-primary">打开列表 →</div>
           </NCard>
         </NGi>
         <NGi>
           <NCard size="small" hoverable class="cursor-pointer" @click="goInbox">
-            <div class="text-12px opacity-60">Inbox</div>
+            <div class="ot-muted text-12px">{{ $t('route.inbox') }}</div>
             <div class="mt-4px text-28px font-medium">{{ inboxUnread }}</div>
             <div class="mt-8px text-12px text-primary">查看收件箱 →</div>
           </NCard>
         </NGi>
         <NGi>
           <NCard size="small" hoverable class="cursor-pointer" @click="goCycles">
-            <div class="text-12px opacity-60">Cycle</div>
+            <div class="ot-muted text-12px">{{ $t('route.workspace_cycles') }}</div>
             <div class="mt-8px truncate text-18px font-medium">
-              {{ activeCycleName || (workspace?.cyclesEnabled ? '无 Active Cycle' : '未启用 Cycles') }}
+              {{
+                activeCycleName ||
+                (workspace?.cyclesEnabled ? $t('page.shell.noActiveCycle') : $t('page.shell.cyclesDisabled'))
+              }}
             </div>
             <div class="mt-8px text-12px text-primary">工作区设置 →</div>
           </NCard>
@@ -213,16 +217,16 @@ onMounted(load);
       <NCard size="small" class="insights-strip mt-16px cursor-pointer" hoverable @click="goInsights">
         <div class="flex flex-wrap items-center justify-between gap-12px">
           <div>
-            <div class="text-13px font-medium">Insights</div>
-            <div class="mt-2px text-12px opacity-55">本周完成 / 开放 Issue</div>
+            <div class="text-13px font-medium">{{ $t('route.insights') }}</div>
+            <div class="ot-muted mt-2px text-12px">{{ $t('page.shell.weekDoneOpen') }}</div>
           </div>
           <div class="flex gap-24px">
             <div>
-              <div class="text-11px opacity-55">本周完成</div>
+              <div class="ot-muted text-11px">{{ $t('page.shell.weekDone') }}</div>
               <div class="text-20px font-medium">{{ weekCompleted }}</div>
             </div>
             <div>
-              <div class="text-11px opacity-55">开放</div>
+              <div class="ot-muted text-11px">{{ $t('page.shell.openShort') }}</div>
               <div class="text-20px font-medium">{{ insightsOpen }}</div>
             </div>
           </div>
@@ -232,11 +236,13 @@ onMounted(load);
 
       <NCard size="small" class="mt-16px" title="快速入口">
         <NSpace>
-          <NButton size="small" type="primary" @click="goIssues()">Issue 列表</NButton>
+          <NButton size="small" type="primary" @click="goIssues()">{{ $t('page.shell.issueListTitle') }}</NButton>
           <NButton size="small" @click="goIssues('assigned')">我的问题</NButton>
-          <NButton size="small" @click="goInbox">Inbox</NButton>
-          <NButton size="small" @click="router.push({ name: 'triage' })">Triage</NButton>
-          <NButton size="small" @click="goCycles">Cycles / Issue Key</NButton>
+          <NButton size="small" @click="goInbox">{{ $t('route.inbox') }}</NButton>
+          <NButton size="small" @click="router.push({ name: 'triage' })">{{ $t('page.sider.triage') }}</NButton>
+          <NButton size="small" @click="goCycles">
+            {{ $t('route.workspace_cycles') }} / {{ $t('page.shell.issueKeyPrefix') }}
+          </NButton>
         </NSpace>
       </NCard>
     </NSpin>

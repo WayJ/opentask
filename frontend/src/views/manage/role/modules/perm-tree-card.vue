@@ -38,7 +38,7 @@ const GROUP_LABELS: Record<string, string> = {
   'manage:role': '角色管理',
   'manage:dingtalk': '钉钉同步',
   requirement: '需求',
-  issue: 'Issue',
+  issue: '问题',
   project: '项目',
   knowledge: '知识库',
   task: '任务',

@@ -66,6 +66,6 @@ export function favoriteLabel(fav: FavoriteLike): string {
 export const FAVORITE_TYPE_LABEL: Record<FavoriteTargetType, string> = {
   project: '项目',
   saved_view: '视图',
-  issue: 'Issue',
-  initiative: 'Initiative'
+  issue: '问题',
+  initiative: '举措'
 };

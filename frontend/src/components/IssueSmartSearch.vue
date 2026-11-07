@@ -9,7 +9,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  placeholder: '搜索 Issue... (支持 is:open, field:key:value 等)'
+  placeholder: '搜索问题... (支持 is:open, field:key:value 等)'
 });
 
 const emit = defineEmits<{

@@ -49,11 +49,11 @@ export function formatTimelineAction(item: TimelineActionItem): string {
 
   switch (action_type) {
     case 'created':
-      return '创建了此 Issue';
+      return '创建了此问题';
     case 'restored':
-      return '从回收站恢复了此 Issue';
+      return '从回收站恢复了此问题';
     case 'updated':
-      return '更新了 Issue';
+      return '更新了问题';
     case 'commented':
       return '添加了评论';
     case 'status_changed':
@@ -85,15 +85,15 @@ export function formatTimelineAction(item: TimelineActionItem): string {
     case 'resolved':
       return '标记为已解决';
     case 'closed':
-      return '关闭了此 Issue';
+      return '关闭了此问题';
     case 'reopened':
-      return '重新打开此 Issue';
+      return '重新打开此问题';
     case 'custom_field_changed': {
       const key = ad.fieldKey || ad.field_key || '';
       return `将自定义字段 ${key} 从 ${displayVal(ad.from)} 改为 ${displayVal(ad.to)}`;
     }
     case 'cycle_changed':
-      return `将周期从 ${displayVal(ad.from)} 改为 ${displayVal(ad.to)}`;
+      return `将冲刺从 ${displayVal(ad.from)} 改为 ${displayVal(ad.to)}`;
     case 'estimate_changed':
       return `将估分从 ${displayVal(ad.from)} 改为 ${displayVal(ad.to)}`;
     case 'project_changed':

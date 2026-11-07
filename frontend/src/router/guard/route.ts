@@ -11,6 +11,7 @@ import { useRouteStore } from '@/store/modules/route';
 import { isMenuPermissionRoute } from '@/store/modules/route/shared';
 import { localStg } from '@/utils/storage';
 import { getRouteName } from '@/router/elegant/transform';
+import { listRedirectForMissingId } from '@/router/list-entry';
 import { requirementSurfaceRedirect, workspaceGateRedirect } from './surface';
 
 /**
@@ -89,6 +90,14 @@ export function createRouteGuard(router: Router) {
     // if the user is logged in but does not have authorization, then switch to the 403 page
     if (!hasAuth) {
       next({ name: noAuthorizationRoute });
+      return;
+    }
+
+    // Replace a no-id detail before the route is confirmed, so the tab store
+    // never records the detail page. The list route already exists at this point.
+    const missingIdRedirect = listRedirectForMissingId(to);
+    if (missingIdRedirect) {
+      next(missingIdRedirect);
       return;
     }
 

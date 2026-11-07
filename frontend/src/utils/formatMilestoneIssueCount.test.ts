@@ -22,7 +22,7 @@ describe('formatMilestoneIssueCount', () => {
 describe('milestoneDeleteConfirmText', () => {
   it('mentions occupancy when count > 0', () => {
     expect(milestoneDeleteConfirmText(3)).toContain('3');
-    expect(milestoneDeleteConfirmText(3)).toContain('Issue');
+    expect(milestoneDeleteConfirmText(3)).toContain('问题');
   });
 
   it('uses plain confirm when empty', () => {

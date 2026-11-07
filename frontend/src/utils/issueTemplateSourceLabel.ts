@@ -5,5 +5,5 @@ export function issueTemplateSourceLabel(source: string | null | undefined): str
 }
 
 export function issueTemplateSeedConfirmText(): string {
-  return '将补齐缺失的内置 Issue 模板（已有 seedKey 不覆盖）。继续？';
+  return '将补齐缺失的内置问题模板（已有 seedKey 不覆盖）。继续？';
 }

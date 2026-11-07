@@ -42,20 +42,20 @@ async function logout() {
 </script>
 
 <template>
-  <div class="min-h-screen flex-center bg-layout p-24px">
-    <div class="max-w-420px w-full rounded-8px bg-container p-32px shadow-sm">
+  <div class="ot-public-page min-h-screen">
+    <div class="ot-public-card max-w-420px p-32px">
       <div class="mb-24px flex-y-center gap-12px">
         <SystemLogo class="text-40px" />
-        <h1 class="text-22px font-600">{{ $t('system.title') }}</h1>
+        <h1 class="text-20px font-600">{{ $t('system.title') }}</h1>
       </div>
-      <p class="mb-16px text-14px text-#666">当前账号还没有可用工作区。创建一个之后再进入问题列表。</p>
+      <p class="ot-muted mb-16px text-14px">当前账号还没有可用工作区。创建一个之后再进入问题列表。</p>
       <template v-if="authStore.workspaceGate === 'error'">
-        <p class="mb-16px text-14px text-#c45656">暂时读不到工作区列表，没有创建新的工作区。</p>
+        <p class="ot-error mb-16px text-14px">暂时读不到工作区列表，没有创建新的工作区。</p>
         <NButton type="primary" @click="retry">重试</NButton>
       </template>
       <template v-else>
         <NInput v-model:value="name" placeholder="OpenTask" class="mb-16px" />
-        <p v-if="errorText" class="mb-12px text-14px text-#c45656">{{ errorText }}</p>
+        <p v-if="errorText" class="ot-error mb-12px text-14px">{{ errorText }}</p>
         <NButton type="primary" :loading="submitting" :disabled="submitting" @click="createWorkspace">
           创建工作区
         </NButton>
