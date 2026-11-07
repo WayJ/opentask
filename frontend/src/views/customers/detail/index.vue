@@ -10,6 +10,8 @@ import {
   fetchCustomerRequests,
   fetchUpdateCustomer
 } from '@/service/api';
+import { replaceWithListWhenIdMissing } from '@/router/list-entry';
+import { $t } from '@/locales';
 
 defineOptions({ name: 'CustomerDetailPage' });
 
@@ -55,7 +57,7 @@ const columns: DataTableColumns<CustomerRequestRow> = [
     render: row => h(NTag, { size: 'small' }, { default: () => statusLabel[row.status] || row.status })
   },
   {
-    title: '关联 Issue',
+    title: '关联问题',
     key: 'issueCount',
     width: 100,
     render: row => String(row.issueCount ?? 0)
@@ -63,7 +65,7 @@ const columns: DataTableColumns<CustomerRequestRow> = [
 ];
 
 async function load() {
-  if (!customerId.value) return;
+  if (replaceWithListWhenIdMissing(customerId.value, router, 'customers_list')) return;
   loading.value = true;
   try {
     const [{ data: c, error: ce }, { data: r, error: re }] = await Promise.all([
@@ -155,7 +157,7 @@ onMounted(load);
   <div class="h-full flex-col gap-16px overflow-auto p-16px">
     <div class="flex items-center gap-12px">
       <NButton quaternary @click="router.push({ name: 'customers' })">← 客户列表</NButton>
-      <h2 class="text-18px font-600">{{ customer?.name || '客户详情' }}</h2>
+      <h2 class="text-18px font-600">{{ customer?.name || $t('route.customers_detail') }}</h2>
     </div>
 
     <NSpin :show="loading">
@@ -179,11 +181,11 @@ onMounted(load);
 
       <NCard title="客户需求" :bordered="false" class="mt-16px">
         <template #header-extra>
-          <NButton type="primary" size="small" @click="createOpen = true">新建需求</NButton>
+          <NButton type="primary" size="small" @click="createOpen = true">{{ $t('page.shell.createRequest') }}</NButton>
         </template>
-        <NEmpty v-if="!requests.length" description="暂无客户需求。可新建并可选创建关联 Issue。">
+        <NEmpty v-if="!requests.length" description="暂无客户需求。可新建并可选创建关联问题。">
           <template #extra>
-            <NButton type="primary" @click="createOpen = true">新建需求</NButton>
+            <NButton type="primary" @click="createOpen = true">{{ $t('page.shell.createRequest') }}</NButton>
           </template>
         </NEmpty>
         <NDataTable v-else :columns="columns" :data="requests" :bordered="false" />
@@ -210,7 +212,7 @@ onMounted(load);
             ]"
           />
         </NFormItem>
-        <NFormItem label="创建并关联 Issue">
+        <NFormItem label="创建并关联问题">
           <NSwitch v-model:value="reqForm.createAndLinkIssue" />
         </NFormItem>
       </NForm>

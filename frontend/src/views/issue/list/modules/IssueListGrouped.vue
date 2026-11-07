@@ -35,7 +35,7 @@ watch(
 
 <template>
   <div class="issue-list-grouped">
-    <NEmpty v-if="buckets.length === 0" description="暂无 Issue" size="large" />
+    <NEmpty v-if="buckets.length === 0" description="暂无问题" size="large" />
     <NCollapse v-else v-model:expanded-names="expandedNames" display-directive="show">
       <NCollapseItem v-for="bucket in buckets" :key="bucket.key" :name="bucket.key">
         <template #header>

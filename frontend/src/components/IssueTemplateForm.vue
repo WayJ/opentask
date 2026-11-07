@@ -139,7 +139,7 @@ function handleSubmit() {
             <NFormItem label="内容预览">
               <div class="content-preview">
                 <NText depth="3" style="font-size: 12px; margin-bottom: 8px; display: block">
-                  以下内容将填充到 Issue 描述中：
+                  以下内容将填充到问题描述中：
                 </NText>
                 <div class="preview-content">
                   <pre>{{ generateTemplateContent(template, formData) }}</pre>
@@ -152,7 +152,7 @@ function handleSubmit() {
         <template #footer>
           <NSpace justify="end">
             <NButton @click="emit('close')">取消</NButton>
-            <NButton type="primary" @click="handleSubmit">创建 Issue</NButton>
+            <NButton type="primary" @click="handleSubmit">创建问题</NButton>
           </NSpace>
         </template>
       </NCard>

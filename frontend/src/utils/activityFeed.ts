@@ -92,7 +92,7 @@ export function formatActivityActor(item: ActivityItem): string {
 
 /** Q4a empty copy: distinguish no activity vs no watches */
 export function emptyActivityDescription(watching: boolean): string {
-  return watching ? '你还没有关注任何 Issue，或关注的 Issue 暂无动态' : '暂无活动';
+  return watching ? '你还没有关注任何问题，或关注的问题暂无动态' : '暂无活动';
 }
 
 /** Bell badge: '' | '1'..'99' | '99+' */

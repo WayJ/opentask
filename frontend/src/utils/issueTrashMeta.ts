@@ -10,5 +10,5 @@ export function restoreSuccessMessage(code: string): string {
 }
 
 export function deletedReadonlyBanner(): string {
-  return '此 Issue 已在回收站中，只读。恢复后可继续编辑。';
+  return '此问题已在回收站中，只读。恢复后可继续编辑。';
 }

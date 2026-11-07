@@ -16,6 +16,7 @@ import {
 } from '@/service/api/workspace';
 import { useAuthStore } from '@/store/modules/auth';
 import { localStg } from '@/utils/storage';
+import { $t } from '@/locales';
 
 defineOptions({ name: 'WorkspaceMembersPage' });
 
@@ -248,7 +249,7 @@ onMounted(load);
 
 <template>
   <div class="h-full flex-col-stretch gap-12px overflow-hidden lt-sm:overflow-auto">
-    <NCard title="成员 Members" :bordered="false" class="card-wrapper">
+    <NCard :title="$t('route.workspace_members')" :bordered="false" class="card-wrapper">
       <NSpace vertical :size="12">
         <NSpace v-if="myRole && myRole !== 'owner'">
           <NButton @click="leave">离开工作区</NButton>
@@ -257,7 +258,7 @@ onMounted(load);
       </NSpace>
     </NCard>
 
-    <NCard v-if="isOwner" title="邀请 Invites" :bordered="false" class="card-wrapper sm:flex-1-hidden">
+    <NCard v-if="isOwner" :title="$t('page.shell.invites')" :bordered="false" class="card-wrapper sm:flex-1-hidden">
       <NSpace vertical :size="16">
         <NSpace>
           <NInput v-model:value="inviteForm.email" placeholder="可选邮箱备注" style="width: 200px" />

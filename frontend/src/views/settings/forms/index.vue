@@ -20,6 +20,7 @@ import {
   fetchRegenerateFormToken,
   fetchUpdateForm
 } from '@/service/api/forms';
+import { $t } from '@/locales';
 
 defineOptions({ name: 'SettingsFormsPage' });
 
@@ -227,9 +228,9 @@ onMounted(load);
 
 <template>
   <div class="p-4">
-    <NCard title="公开 Issue 表单" :bordered="false">
+    <NCard :title="$t('page.shell.publicIssueForms')" :bordered="false">
       <template #header-extra>
-        <NText depth="3">分享链接，无需登录即可创建 Issue</NText>
+        <NText depth="3">分享链接，无需登录即可创建问题</NText>
       </template>
 
       <NCard size="small" title="新建" class="mb-4">

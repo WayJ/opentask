@@ -11,6 +11,7 @@ import {
   favoriteNavTarget,
   sortFavoritesByPosition
 } from '@/utils/favorites';
+import { $t } from '@/locales';
 
 defineOptions({ name: 'FavoritesNav' });
 
@@ -48,7 +49,14 @@ function onClick(fav: FavoriteItem) {
 }
 
 function typeHint(type: string): string {
-  return FAVORITE_TYPE_LABEL[type as FavoriteTargetType] || type;
+  const keyByType: Record<string, App.I18n.I18nKey> = {
+    project: 'page.shell.favoriteProject',
+    saved_view: 'page.shell.favoriteView',
+    issue: 'page.shell.favoriteIssue',
+    initiative: 'page.shell.favoriteInitiative'
+  };
+  const key = keyByType[type];
+  return key ? $t(key) : FAVORITE_TYPE_LABEL[type as FavoriteTargetType] || type;
 }
 
 onMounted(load);

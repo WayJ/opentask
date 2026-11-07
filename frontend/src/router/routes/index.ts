@@ -2,6 +2,7 @@ import type { CustomRoute, ElegantConstRoute, ElegantRoute } from '@elegant-rout
 import { generatedRoutes } from '../elegant/routes';
 import { views as generatedViews, layouts } from '../elegant/imports';
 import { transformElegantRoutesToVueRoutes } from '../elegant/transform';
+import { attachDefaultListChildren } from '../list-entry';
 
 // elegant-router rejects one-letter directories. Attach the pages when routes are
 // transformed, not at module init, so a cycle cannot read the generated map early.
@@ -453,7 +454,7 @@ export function createStaticRoutes() {
 
   return {
     constantRoutes,
-    authRoutes
+    authRoutes: attachDefaultListChildren(authRoutes)
   };
 }
 

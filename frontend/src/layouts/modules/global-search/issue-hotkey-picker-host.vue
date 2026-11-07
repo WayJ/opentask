@@ -178,7 +178,7 @@ async function applyLabels() {
     @after-leave="closePicker()"
   >
     <NSpin :show="submitting || tagsLoading">
-      <div v-if="!focusedIssueId" class="picker-empty">无焦点 Issue</div>
+      <div v-if="!focusedIssueId" class="picker-empty">无焦点问题</div>
       <template v-else-if="activePicker === 'status'">
         <NSpace vertical>
           <NButton

@@ -228,7 +228,7 @@ function showField(key: keyof IssueDisplayFields): boolean {
 <template>
   <div class="issue-board" :class="{ 'is-moving': moving }">
     <div v-if="totalCards === 0" class="board-empty">
-      <NEmpty description="暂无 Issue" size="large" />
+      <NEmpty description="暂无问题" size="large" />
     </div>
     <div v-else class="board-lanes">
       <div v-for="lane in lanes" :key="lane.key" class="board-lane">
@@ -334,7 +334,7 @@ function showField(key: keyof IssueDisplayFields): boolean {
                   <NText depth="3" class="text-12px">项目 {{ String(issue.project_id).slice(0, 8) }}</NText>
                 </div>
                 <div v-if="showField('cycle') && issue.cycle_id" class="board-card-meta">
-                  <NText depth="3" class="text-12px">Cycle {{ String(issue.cycle_id).slice(0, 8) }}</NText>
+                  <NText depth="3" class="text-12px">冲刺 {{ String(issue.cycle_id).slice(0, 8) }}</NText>
                 </div>
               </NCard>
             </VueDraggable>

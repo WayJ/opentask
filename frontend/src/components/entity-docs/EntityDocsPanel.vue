@@ -141,7 +141,7 @@ onMounted(load);
     </template>
 
     <p class="mb-12px text-12px text-gray-500">
-      轻量 Markdown 备注（Issue / Project / Initiative）。完整文档请用知识库。不引导遗留需求 / PGE。
+      轻量 Markdown 备注（问题 / 项目 / 举措）。完整文档请用知识库。不引导遗留需求 / PGE。
     </p>
 
     <NSpin :show="loading">

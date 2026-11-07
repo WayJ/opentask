@@ -121,7 +121,7 @@ async function apply() {
       <NSelect
         v-model:value="cycleId"
         :options="cycles.map(c => ({ label: c.name, value: c.id }))"
-        placeholder="Cycle"
+        placeholder="冲刺"
         clearable
         size="small"
         style="width: 130px"

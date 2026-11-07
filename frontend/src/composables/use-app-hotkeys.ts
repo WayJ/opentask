@@ -93,7 +93,7 @@ export function useAppHotkeys() {
         const issueId = focus.focusedIssueId.value;
         const userId = authStore.userInfo?.userId;
         if (!issueId || !userId) {
-          window.$message?.info?.('请先聚焦 Issue 并确保已登录');
+          window.$message?.info?.('请先聚焦问题并确保已登录');
           break;
         }
         issueApi

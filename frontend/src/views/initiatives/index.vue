@@ -10,6 +10,7 @@ import {
   fetchInitiatives
 } from '@/service/api';
 import { formatRelationBadge } from '@/utils/initiativeRelations';
+import { $t } from '@/locales';
 
 defineOptions({ name: 'InitiativesPage' });
 
@@ -124,7 +125,7 @@ async function load() {
   try {
     const { data, error } = await fetchInitiatives({ include: 'relationCounts' });
     if (error || !data) {
-      window.$message?.error(error?.message || '加载 Initiatives 失败');
+      window.$message?.error(error?.message || '加载举措失败');
       return;
     }
     rows.value = data.rows || [];
@@ -179,14 +180,14 @@ onMounted(load);
   <div class="h-full flex-col gap-16px overflow-hidden p-16px">
     <div class="flex items-center justify-between">
       <div>
-        <h2 class="text-18px font-600">Initiatives</h2>
-        <p class="mt-4px text-13px text-gray-500">跨项目战略目标（Issue / Project 轴；不含遗留需求）</p>
+        <h2 class="text-18px font-600">{{ $t('route.initiatives') }}</h2>
+        <p class="mt-4px text-13px text-gray-500">跨项目战略目标（问题 / 项目；不含遗留需求）</p>
       </div>
-      <NButton type="primary" @click="createOpen = true">新建 Initiative</NButton>
+      <NButton type="primary" @click="createOpen = true">{{ $t('page.shell.createInitiative') }}</NButton>
     </div>
 
     <NCard :bordered="false" class="flex-1 overflow-hidden" content-style="padding: 0; height: 100%">
-      <NEmpty v-if="empty" class="py-48px" description="暂无 Initiative，创建后关联多个 Project">
+      <NEmpty v-if="empty" class="py-48px" :description="$t('page.shell.emptyInitiatives')">
         <template #extra>
           <NButton type="primary" @click="createOpen = true">新建</NButton>
         </template>
@@ -203,7 +204,7 @@ onMounted(load);
       />
     </NCard>
 
-    <NModal v-model:show="createOpen" preset="card" title="新建 Initiative" class="w-480px">
+    <NModal v-model:show="createOpen" preset="card" :title="$t('page.shell.createInitiative')" class="w-480px">
       <NForm label-placement="left" label-width="80">
         <NFormItem label="名称" required>
           <NInput v-model:value="form.name" maxlength="100" placeholder="例如：Q4 增长" />

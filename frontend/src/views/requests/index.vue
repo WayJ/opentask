@@ -3,6 +3,7 @@ import { computed, h, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { type DataTableColumns, NButton, NTag } from 'naive-ui';
 import { type CustomerRequestRow, type CustomerRequestStatus, fetchCustomerRequests } from '@/service/api';
+import { $t } from '@/locales';
 
 defineOptions({ name: 'RequestsPage' });
 
@@ -51,7 +52,7 @@ const columns: DataTableColumns<CustomerRequestRow> = [
     render: row => h(NTag, { size: 'small' }, { default: () => statusLabel[row.status] || row.status })
   },
   {
-    title: 'Issue',
+    title: '问题',
     key: 'issueCount',
     width: 80,
     render: row => String(row.issueCount ?? 0)
@@ -81,8 +82,8 @@ onMounted(load);
   <div class="h-full flex-col gap-16px overflow-hidden p-16px">
     <div class="flex items-center justify-between">
       <div>
-        <h2 class="text-18px font-600">客户需求</h2>
-        <p class="mt-4px text-13px text-gray-500">跨客户的需求列表；可关联 Issue</p>
+        <h2 class="text-18px font-600">{{ $t('route.requests') }}</h2>
+        <p class="mt-4px text-13px text-gray-500">跨客户的需求列表；可关联问题</p>
       </div>
       <div class="flex items-center gap-8px">
         <NSelect

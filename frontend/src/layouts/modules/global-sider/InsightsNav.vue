@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAppStore } from '@/store/modules/app';
+import { $t } from '@/locales';
 
 defineOptions({ name: 'InsightsNav' });
 
@@ -23,13 +24,13 @@ function go() {
         <template #trigger>
           <button type="button" class="insights-nav__btn" @click="go">📈</button>
         </template>
-        Insights
+        {{ $t('page.sider.insights') }}
       </NTooltip>
     </template>
     <button v-else type="button" class="insights-nav__row" @click="go">
       <span class="insights-nav__icon">📈</span>
-      <span class="insights-nav__label">Insights</span>
-      <span class="insights-nav__hint">效能</span>
+      <span class="insights-nav__label">{{ $t('page.sider.insights') }}</span>
+      <span class="insights-nav__hint">{{ $t('page.sider.insightsHint') }}</span>
     </button>
   </div>
 </template>
@@ -53,7 +54,7 @@ function go() {
 }
 .insights-nav__btn:hover,
 .insights-nav.active .insights-nav__btn {
-  background: rgba(94, 106, 210, 0.12);
+  background: var(--vk-accent-soft);
 }
 .insights-nav__row {
   width: 100%;
@@ -69,7 +70,7 @@ function go() {
 }
 .insights-nav__row:hover,
 .insights-nav.active .insights-nav__row {
-  background: rgba(94, 106, 210, 0.12);
+  background: var(--vk-accent-soft);
 }
 .insights-nav__icon {
   font-size: 14px;
@@ -81,6 +82,6 @@ function go() {
 .insights-nav__hint {
   margin-left: auto;
   font-size: 11px;
-  opacity: 0.55;
+  color: var(--vk-muted);
 }
 </style>

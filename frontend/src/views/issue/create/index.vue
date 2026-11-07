@@ -15,6 +15,7 @@ import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
 import IssueTemplateSelector from '@/components/IssueTemplateSelector.vue';
 import IssueTemplateForm from '@/components/IssueTemplateForm.vue';
 import type { Api } from '@/typings/api';
+import { $t } from '@/locales';
 
 defineOptions({
   name: 'IssueCreate'
@@ -203,7 +204,7 @@ function onCustomFieldDraft(rows: Array<{ key: string; value: unknown }>) {
 
 async function handleCreate() {
   if (!formData.value.title.trim()) {
-    window.$message?.error('请输入 Issue 标题');
+    window.$message?.error('请输入问题标题');
     titleInputRef.value?.focus();
     return;
   }
@@ -234,18 +235,18 @@ async function handleCreate() {
           filled.map(d => ({ key: d.key, value: d.value }))
         );
       } catch {
-        window.$message?.warning?.('Issue 已创建，但自定义字段保存失败');
+        window.$message?.warning?.('问题已创建，但自定义字段保存失败');
       }
     }
 
-    window.$message?.success('Issue 创建成功');
+    window.$message?.success('问题创建成功');
     hasUnsavedChanges.value = false;
     router.push({
       path: '/issue/detail',
       query: { id: issue.id }
     });
   } catch {
-    window.$message?.error('Issue 创建失败');
+    window.$message?.error('问题创建失败');
   } finally {
     loading.value = false;
   }
@@ -387,7 +388,7 @@ onBeforeRouteLeave((_to, _from, next) => {
           返回列表 (Esc)
         </NTooltip>
 
-        <NText strong style="font-size: 16px; margin-left: 12px">创建 Issue</NText>
+        <NText strong style="font-size: 16px; margin-left: 12px">创建问题</NText>
 
         <NTag v-if="hasUnsavedChanges" type="warning" size="small" style="margin-left: 12px">未保存</NTag>
       </div>
@@ -404,7 +405,7 @@ onBeforeRouteLeave((_to, _from, next) => {
                 使用模板
               </NButton>
             </template>
-            从模板创建 Issue
+            从模板创建问题
           </NTooltip>
 
           <!-- 预览切换 -->
@@ -424,7 +425,7 @@ onBeforeRouteLeave((_to, _from, next) => {
             <template #icon>
               <icon-mdi-check />
             </template>
-            创建 Issue
+            创建问题
           </NButton>
         </NSpace>
       </div>
@@ -440,7 +441,7 @@ onBeforeRouteLeave((_to, _from, next) => {
             ref="titleInputRef"
             v-model="formData.title"
             class="title-input"
-            placeholder="输入 Issue 标题..."
+            placeholder="输入问题标题..."
             maxlength="200"
           />
           <div class="title-hint">
@@ -456,7 +457,7 @@ onBeforeRouteLeave((_to, _from, next) => {
           </div>
           <MarkdownEditor
             v-model="formData.description"
-            placeholder="详细描述这个 Issue..."
+            placeholder="详细描述这个问题..."
             :max-height="400"
             @submit="handleCreate"
           />
@@ -477,7 +478,7 @@ onBeforeRouteLeave((_to, _from, next) => {
         <div class="attachment-section">
           <div class="section-header">
             <NText strong>附件</NText>
-            <NText depth="3" style="font-size: 12px">Issue 创建后自动上传</NText>
+            <NText depth="3" style="font-size: 12px">{{ $t('page.shell.issueUploadHint') }}</NText>
           </div>
 
           <!-- 已选择的文件列表 -->
