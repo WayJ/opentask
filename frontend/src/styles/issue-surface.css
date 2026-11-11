@@ -115,8 +115,13 @@ html.dark .issue-create-page {
 
 html.dark .issue-create-page .description-section .preview-pane .markdown-body pre.hljs,
 html.dark .issue-create-page .description-section .preview-pane .markdown-body pre.hljs code {
-  background-color: #f6f8fa;
+  background-color: #ffffff;
   color: #24292e;
+}
+
+html.dark .issue-create-page .description-section .preview-pane .markdown-body .hljs-built_in,
+html.dark .issue-create-page .description-section .preview-pane .markdown-body .hljs-symbol {
+  color: #c35408;
 }
 
 html.dark .issue-create-page .description-section .preview-pane .markdown-body a {
