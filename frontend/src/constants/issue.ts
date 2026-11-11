@@ -14,7 +14,7 @@ export enum IssueTypeEnum {
  * Issue 类型选项（用于下拉选择）
  */
 export const issueTypeOptions = [
-  { label: 'Bug', value: IssueTypeEnum.Bug },
+  { label: '缺陷', value: IssueTypeEnum.Bug },
   { label: '功能', value: IssueTypeEnum.Feature },
   { label: '问题', value: IssueTypeEnum.Question },
   { label: '反馈', value: IssueTypeEnum.Feedback },

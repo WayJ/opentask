@@ -568,6 +568,70 @@ declare namespace App {
           labelsOr: string;
           defaultCycle: string;
         };
+        issueType: {
+          bug: string;
+          feature: string;
+          question: string;
+          feedback: string;
+          incident: string;
+          improvement: string;
+        };
+        issueStatus: {
+          open: string;
+          in_progress: string;
+          feedback: string;
+          resolved: string;
+          closed: string;
+          rejected: string;
+        };
+        issuePriority: {
+          low: string;
+          medium: string;
+          high: string;
+          critical: string;
+        };
+        sla: {
+          runDue: string;
+          help: string;
+          businessHours: string;
+          metricPlaceholder: string;
+          startPlaceholder: string;
+          stopPlaceholder: string;
+          pausePlaceholder: string;
+          targetPlaceholder: string;
+          windowPlaceholder: string;
+          pauseHint: string;
+          priorityRule: string;
+          firstResponseNote: string;
+          closingStatuses: string;
+          startPrefix: string;
+          stopPrefix: string;
+          pausePrefix: string;
+          targetWorkspace: string;
+          targetPolicy: string;
+          choosePolicy: string;
+          defaultPolicyName: string;
+          holidayIntro: string;
+          regionCN: string;
+          regionUS: string;
+          regionEU: string;
+          regionUK: string;
+          metric: { time_in_status: string; first_response: string };
+          exception: { closed: string; forced_open: string };
+        };
+        insights: {
+          subtitle: string;
+          exportCsv: string;
+          exportedCsv: string;
+          digest: string;
+          digestDefault: string;
+          digestHint: string;
+          cycleActive: string;
+          estimatePoints: string;
+          createdCompleted: string;
+          velocityTitle: string;
+          points: string;
+        };
         search: {
           placeholder: string;
           hint: string;
