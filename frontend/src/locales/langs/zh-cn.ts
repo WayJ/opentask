@@ -301,6 +301,7 @@ const local: App.I18n.Schema = {
     issue: '问题',
     issue_create: '问题登记',
     issue_detail: '问题详情',
+    issue_edit: '编辑问题',
     'issue_detail-new': '问题详情（新设计）',
     issue_list: '我的问题',
     issue_trash: '回收站',

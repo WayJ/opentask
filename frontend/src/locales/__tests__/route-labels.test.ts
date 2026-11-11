@@ -63,5 +63,9 @@ describe('route labels', () => {
     expect(en.page.shell.favoriteInitiative).toBe('Initiative');
     expect(zh.page.shell.noActiveCycle).toBe('无进行中的冲刺');
     expect(en.page.shell.noActiveCycle).toBe('No active cycle');
+    expect(zh.route.issue_edit).toBe('编辑问题');
+    expect(en.route.issue_edit).toBe('Edit Issue');
+    expect(zh.route.issue_edit).not.toBe('route.issue_edit');
+    expect(en.route.issue_edit).not.toBe('route.issue_edit');
   });
 });

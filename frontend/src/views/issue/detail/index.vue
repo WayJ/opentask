@@ -2500,6 +2500,29 @@ onUnmounted(() => {
   white-space: normal;
 }
 
+html.dark .issue-detail-container .description-content :deep(.markdown-body) {
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+html.dark .issue-detail-container .description-content :deep(.markdown-body h6),
+html.dark .issue-detail-container .description-content :deep(.markdown-body blockquote) {
+  color: var(--color-text-secondary);
+}
+
+html.dark .issue-detail-container .description-content :deep(.markdown-body a) {
+  color: #828fff;
+}
+
+html.dark .issue-detail-container .description-content :deep(.markdown-body :not(pre) > code:not([lang]):not([class])) {
+  color: var(--color-text-primary);
+  background-color: #23252a;
+}
+
+html.dark .issue-detail-container .description-content :deep(pre.hljs) {
+  background-color: #ffffff;
+}
+
 /* ============================================
    COMMENTS - Enhanced
    ============================================ */
