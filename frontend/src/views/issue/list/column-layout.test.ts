@@ -1,15 +1,16 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import process from 'node:process';
 import { describe, expect, it } from 'vitest';
 import {
   ISSUE_CODE_COLUMN_WIDTH,
+  type ListScrollMutationObserver,
+  type ListScrollResizeObserver,
   createListScrollBinder,
   issueListActionsPinThreshold,
   issueListColumnLayout,
   issueListPinColumnWidths,
-  listTableBodyScrollElement,
-  type ListScrollMutationObserver,
-  type ListScrollResizeObserver
+  listTableBodyScrollElement
 } from './column-layout';
 
 describe('issueListColumnLayout', () => {
@@ -84,25 +85,27 @@ function makeFakes() {
   const resizeCallbacks: Array<() => void> = [];
   const mutationCallbacks: Array<() => void> = [];
   class Resize implements ListScrollResizeObserver {
+    private readonly label = 'resize';
     constructor(callback: () => void) {
       resizeCallbacks.push(callback);
     }
     observe(target: Element) {
-      events.push(`resize-observe:${(target as HTMLElement).id}`);
+      events.push(`${this.label}-observe:${(target as HTMLElement).id}`);
     }
     disconnect() {
-      events.push('resize-disconnect');
+      events.push(`${this.label}-disconnect`);
     }
   }
   class Mutation implements ListScrollMutationObserver {
+    private readonly label = 'mutation';
     constructor(callback: () => void) {
       mutationCallbacks.push(callback);
     }
     observe(target: Node) {
-      events.push(`mutation-observe:${(target as HTMLElement).id}`);
+      events.push(`${this.label}-observe:${(target as HTMLElement).id}`);
     }
     disconnect() {
-      events.push('mutation-disconnect');
+      events.push(`${this.label}-disconnect`);
     }
   }
   const queued: Array<() => void> = [];
@@ -133,7 +136,12 @@ function addScroller(root: HTMLElement, id: string) {
   Object.defineProperty(node, 'clientWidth', { configurable: true, get: () => width });
   body.append(node);
   root.append(body);
-  return { node, setWidth(value: number) { width = value; } };
+  return {
+    node,
+    setWidth(value: number) {
+      width = value;
+    }
+  };
 }
 
 describe('createListScrollBinder', () => {
@@ -283,9 +291,9 @@ describe('createListScrollBinder', () => {
     oldResize();
     oldMutation();
     expect(widths.length).toBe(afterSwitch.widths);
-    expect(fakes.events.filter(event => event.startsWith('resize-observe') || event.startsWith('mutation-observe'))).toEqual(
-      afterSwitch.observes
-    );
+    expect(
+      fakes.events.filter(event => event.startsWith('resize-observe') || event.startsWith('mutation-observe'))
+    ).toEqual(afterSwitch.observes);
     active = false;
     binder.disconnect();
     const afterUnmount = widths.length;
@@ -326,7 +334,9 @@ describe('createListScrollBinder', () => {
     binder.disconnect();
     fakes.flush();
     for (const callback of saved) callback();
-    const observes = fakes.events.filter(event => event.startsWith('resize-observe') || event.startsWith('mutation-observe'));
+    const observes = fakes.events.filter(
+      event => event.startsWith('resize-observe') || event.startsWith('mutation-observe')
+    );
     expect(observes).toEqual(['mutation-observe:table', 'resize-observe:real']);
     expect(widths).toEqual([0]);
     root.remove();
@@ -341,7 +351,9 @@ it('wires the list page to the scroll binder', () => {
   expect(index).toContain('listScroll.schedule()');
   expect(index).toContain('listScroll.disconnect()');
   expect(unmounted.indexOf('listScrollActive.value = false')).toBeGreaterThanOrEqual(0);
-  expect(unmounted.indexOf('listScroll.disconnect()')).toBeGreaterThan(unmounted.indexOf('listScrollActive.value = false'));
+  expect(unmounted.indexOf('listScroll.disconnect()')).toBeGreaterThan(
+    unmounted.indexOf('listScrollActive.value = false')
+  );
   expect(index).not.toContain('document.querySelector');
   expect(index).not.toContain("querySelector('.n-data-table')");
   expect(index).not.toContain('ISSUE_ACTIONS_PIN_MIN');

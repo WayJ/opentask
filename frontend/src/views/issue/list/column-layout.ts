@@ -38,9 +38,7 @@ export function issueListColumnLayout(tableWidth: number) {
   const pinActions = tableWidth > 0 && tableWidth >= issueListActionsPinThreshold();
   const available = tableWidth - ISSUE_CODE_COLUMN_WIDTH - TITLE_GUTTER;
   const titleWidth =
-    tableWidth <= 0 || pinActions
-      ? ISSUE_TITLE_COLUMN_MAX
-      : Math.min(ISSUE_TITLE_COLUMN_MAX, Math.max(160, available));
+    tableWidth <= 0 || pinActions ? ISSUE_TITLE_COLUMN_MAX : Math.min(ISSUE_TITLE_COLUMN_MAX, Math.max(160, available));
   return { pinActions, titleWidth };
 }
 
@@ -107,7 +105,8 @@ export function createListScrollBinder(options: ListScrollBinderOptions): ListSc
     if (!(mutationObserver && mutationRoot === root) && options.MutationObserver) {
       mutationObserver?.disconnect();
       mutationRoot = root;
-      const id = ++activeMutationId;
+      activeMutationId += 1;
+      const id = activeMutationId;
       mutationObserver = new options.MutationObserver(() => {
         if (id !== activeMutationId) return;
         sync();
@@ -120,7 +119,8 @@ export function createListScrollBinder(options: ListScrollBinderOptions): ListSc
     detachResize();
     if (!node || !options.ResizeObserver) return;
     observed = node;
-    const id = ++activeResizeId;
+    activeResizeId += 1;
+    const id = activeResizeId;
     resizeObserver = new options.ResizeObserver(() => {
       if (id !== activeResizeId) return;
       sync();
@@ -130,7 +130,8 @@ export function createListScrollBinder(options: ListScrollBinderOptions): ListSc
 
   return {
     schedule() {
-      const token = ++generation;
+      generation += 1;
+      const token = generation;
       options.nextTick(() => {
         if (token !== generation) return;
         if (!options.isActive()) {

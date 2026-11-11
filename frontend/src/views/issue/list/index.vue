@@ -1491,7 +1491,7 @@ const listScroll = createListScrollBinder({
     tableWidth.value = width;
   },
   nextTick: callback => {
-    void nextTick(callback);
+    nextTick(callback);
   },
   isActive: () => listScrollActive.value,
   ResizeObserver: ResizeObserverCtor,
