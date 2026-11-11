@@ -53,6 +53,15 @@ describe('issue surface tokens', () => {
     expect(css).toContain('outline: var(--issue-focus)');
     expect(css).toContain(':not(.n-button--disabled)');
     expect(css).toContain(':not(.n-button--secondary)');
+    expect(css).toContain('n-button--primary-type.n-button--secondary:not(.n-button--disabled)');
+    expect(css).toContain('--n-text-color: #828fff !important');
+    const card = [24, 24, 28];
+    const accent = [94, 106, 210];
+    for (const alpha of [0.12, 0.16, 0.2]) {
+      const wash = accent.map((part, index) => Math.round(part * alpha + card[index] * (1 - alpha)));
+      const hex = `#${wash.map(part => part.toString(16).padStart(2, '0')).join('')}`;
+      expect(contrast('#828fff', hex)).toBeGreaterThanOrEqual(4.5);
+    }
     expect(css).toContain('--n-color-hover: #a8071a !important');
     expect(css).toContain('--n-color-pressed: #820014 !important');
     expect(css).toContain('.issue-create-page .markdown-textarea');

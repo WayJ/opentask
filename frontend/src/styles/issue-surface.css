@@ -122,6 +122,14 @@ html.dark .issue-create-page .n-button.n-button--primary-type:not(.n-button--dis
   color: var(--issue-on-accent);
 }
 
+html.dark .issue-list-container .n-button.n-button--primary-type.n-button--secondary:not(.n-button--disabled) {
+  --n-text-color: #828fff !important;
+  --n-text-color-hover: #828fff !important;
+  --n-text-color-pressed: #828fff !important;
+  --n-text-color-focus: #828fff !important;
+  color: #828fff;
+}
+
 .issue-list-container .n-button.n-button--error-type:not(.n-button--disabled) {
   --n-color: var(--issue-danger) !important;
   --n-color-hover: #a8071a !important;
