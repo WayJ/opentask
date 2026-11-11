@@ -602,7 +602,8 @@ html.dark .issue-edit-page {
 
 .preview-content {
   padding: 20px;
-  background: #f9fafb;
+  background: var(--issue-surface);
+  color: var(--issue-ink);
   border-radius: 8px;
   border: 1px solid var(--color-border-subtle);
   min-height: 200px;
