@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { issueApi } from '@/service/api/issue';
 import { useAppStore } from '@/store/modules/app';
 import { formatUnreadBadge } from '@/utils/activityFeed';
+import SvgIcon from '@/components/custom/svg-icon.vue';
 import { $t } from '@/locales';
 
 defineOptions({ name: 'ActivityNav' });
@@ -17,6 +18,10 @@ const active = computed(() => route.name === 'activity' || route.path.startsWith
 const unread = ref(0);
 const capped = ref(false);
 const badge = computed(() => formatUnreadBadge(unread.value, capped.value));
+const collapsedLabel = computed(() => {
+  const name = $t('page.sider.activity');
+  return badge.value ? `${name}（${badge.value}）` : name;
+});
 
 let timer: ReturnType<typeof setInterval> | null = null;
 
@@ -25,7 +30,7 @@ async function refreshUnread() {
     const { data, error } = await issueApi.fetchActivityUnreadCount({ watching: true });
     if (error || !data) return;
     unread.value = data.count || 0;
-    capped.value = !!data.capped;
+    capped.value = Boolean(data.capped);
   } catch {
     /* ignore */
   }
@@ -50,16 +55,20 @@ onUnmounted(() => {
     <template v-if="collapsed">
       <NTooltip placement="right">
         <template #trigger>
-          <button type="button" class="activity-nav__btn" @click="go">
-            🔔
+          <button type="button" class="activity-nav__btn" :aria-label="collapsedLabel" @click="go">
+            <span class="activity-nav__icon" aria-hidden="true">
+              <SvgIcon icon="mdi:timeline-text-outline" />
+            </span>
             <span v-if="badge" class="activity-nav__dot">{{ badge }}</span>
           </button>
         </template>
-        {{ $t('page.sider.activity') }}{{ badge ? `（${badge}）` : '' }}
+        {{ collapsedLabel }}
       </NTooltip>
     </template>
     <button v-else type="button" class="activity-nav__row" @click="go">
-      <span class="activity-nav__icon">🔔</span>
+      <span class="activity-nav__icon" aria-hidden="true">
+        <SvgIcon icon="mdi:timeline-text-outline" />
+      </span>
       <span class="activity-nav__label">{{ $t('page.sider.activity') }}</span>
       <span v-if="badge" class="activity-nav__badge">{{ badge }}</span>
       <span v-else class="activity-nav__hint">{{ $t('page.sider.activityHint') }}</span>
@@ -69,21 +78,27 @@ onUnmounted(() => {
 
 <style scoped>
 .activity-nav {
-  padding: 4px 8px 0;
+  padding: 0;
+  margin: 0;
 }
 .activity-nav.collapsed {
   display: flex;
   justify-content: center;
-  padding: 4px 0 0;
+  padding: 0;
+  margin: 0;
 }
 .activity-nav__btn {
   position: relative;
+  box-sizing: border-box;
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  padding: 0;
+  margin: 0;
+  border-radius: 6px;
   border: none;
   background: transparent;
   cursor: pointer;
+  color: inherit;
 }
 .activity-nav__btn:hover,
 .activity-nav.active .activity-nav__btn {
@@ -103,23 +118,34 @@ onUnmounted(() => {
   line-height: 16px;
 }
 .activity-nav__row {
+  box-sizing: border-box;
+  height: 34px;
   width: 100%;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
-  border-radius: 8px;
+  margin: 0;
+  padding: 0 8px;
+  border-radius: 6px;
   border: none;
   background: transparent;
   cursor: pointer;
   color: inherit;
+}
+.activity-nav__row:focus-visible,
+.activity-nav__btn:focus-visible {
+  outline: 2px solid var(--vk-accent);
+  outline-offset: 2px;
 }
 .activity-nav__row:hover,
 .activity-nav.active .activity-nav__row {
   background: var(--vk-accent-soft);
 }
 .activity-nav__icon {
-  font-size: 14px;
+  display: inline-flex;
+  font-size: 20px;
+  color: currentColor;
+  line-height: 0;
 }
 .activity-nav__label {
   font-size: 13px;

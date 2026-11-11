@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAppStore } from '@/store/modules/app';
+import SvgIcon from '@/components/custom/svg-icon.vue';
 import { $t } from '@/locales';
 
 defineOptions({ name: 'CustomersNav' });
@@ -30,13 +31,19 @@ function go() {
     <template v-if="collapsed">
       <NTooltip placement="right">
         <template #trigger>
-          <button type="button" class="customers-nav__btn" @click="go">👥</button>
+          <button type="button" class="customers-nav__btn" :aria-label="$t('page.sider.customers')" @click="go">
+            <span class="customers-nav__icon" aria-hidden="true">
+              <SvgIcon icon="mdi:account-group-outline" />
+            </span>
+          </button>
         </template>
         {{ $t('page.sider.customers') }}
       </NTooltip>
     </template>
     <button v-else type="button" class="customers-nav__row" @click="go">
-      <span class="customers-nav__icon">👥</span>
+      <span class="customers-nav__icon" aria-hidden="true">
+        <SvgIcon icon="mdi:account-group-outline" />
+      </span>
       <span class="customers-nav__label">{{ $t('page.sider.customers') }}</span>
       <span class="customers-nav__hint">{{ $t('page.sider.customersHint') }}</span>
     </button>
@@ -45,43 +52,60 @@ function go() {
 
 <style scoped>
 .customers-nav {
-  padding: 4px 8px 0;
+  padding: 0;
+  margin: 0;
 }
 .customers-nav.collapsed {
   display: flex;
   justify-content: center;
-  padding: 4px 0 0;
+  padding: 0;
+  margin: 0;
 }
 .customers-nav__btn {
+  box-sizing: border-box;
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  padding: 0;
+  margin: 0;
+  border-radius: 6px;
   border: none;
   background: transparent;
   cursor: pointer;
+  color: inherit;
 }
 .customers-nav__btn:hover,
 .customers-nav.active .customers-nav__btn {
   background: var(--vk-accent-soft);
 }
 .customers-nav__row {
+  box-sizing: border-box;
+  height: 34px;
   width: 100%;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
-  border-radius: 8px;
+  margin: 0;
+  padding: 0 8px;
+  border-radius: 6px;
   border: none;
   background: transparent;
   cursor: pointer;
   color: inherit;
+}
+.customers-nav__row:focus-visible,
+.customers-nav__btn:focus-visible {
+  outline: 2px solid var(--vk-accent);
+  outline-offset: 2px;
 }
 .customers-nav__row:hover,
 .customers-nav.active .customers-nav__row {
   background: var(--vk-accent-soft);
 }
 .customers-nav__icon {
-  font-size: 14px;
+  display: inline-flex;
+  font-size: 20px;
+  color: currentColor;
+  line-height: 0;
 }
 .customers-nav__label {
   font-size: 13px;
