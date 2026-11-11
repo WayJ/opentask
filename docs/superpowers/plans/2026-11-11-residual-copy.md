@@ -1,6 +1,6 @@
 # 残留界面文案 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 让举措、问题类型、SLA 和洞察上残留的英文和错字变成当前语言的可读文字，存储值和接口保持原样。
 
@@ -99,7 +99,7 @@ export function policyNameAfterLocaleChange(draft: PolicyNameDraft, suggested: s
 - Modify: `frontend/src/locales/langs/en-us.ts`
 - Modify: `frontend/src/constants/issue.ts`（只把 `bug` 的兜底 label 改为「缺陷」）
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 把下面整段写入 `frontend/src/locales/__tests__/residual-copy.test.ts`。
 
@@ -179,23 +179,23 @@ describe('lookupLabel', () => {
 
 测试文件顶部补上 `import type { LabelTable } from '../display-label';`。
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd frontend && npx vitest run src/locales/__tests__/residual-copy.test.ts`
 
 Expected: FAIL。`display-label` 或 `page.issueType` 尚不存在。
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 按设计第 3 节和上面的接口补键、补函数。`issue.ts` 里 `bug` 的兜底 label 改为「缺陷」，枚举值不动。
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd frontend && npx vitest run src/locales/__tests__/residual-copy.test.ts src/locales/__tests__/route-labels.test.ts`
 
 Expected: PASS。`route-labels` 里「新建需求」仍通过。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/locales/display-label.ts frontend/src/locales/use-label-table.ts frontend/src/locales/__tests__/residual-copy.test.ts frontend/src/locales/langs/zh-cn.ts frontend/src/locales/langs/en-us.ts frontend/src/typings/app.d.ts frontend/src/constants/issue.ts
@@ -208,7 +208,7 @@ git commit -m "fix(ui): add locale label lookup for residual copy"
 - Modify: `frontend/src/views/initiatives/index.vue`
 - Create: `frontend/src/views/initiatives/__tests__/create-label.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { mount } from '@vue/test-utils';
@@ -245,23 +245,23 @@ describe('initiative create label', () => {
 
 若该页的 API mock 路径和实际导出不一致，只补 mock，不改创建请求的参数。
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd frontend && npx vitest run src/views/initiatives/__tests__/create-label.test.ts`
 
 Expected: FAIL。空状态仍是写死的「新建」，或英文切换后主按钮仍是中文。
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 空状态按钮改为 `{{ $t('page.shell.createInitiative') }}`。不改弹窗字段和 `fetchCreateInitiative` 的参数。
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd frontend && npx vitest run src/views/initiatives/__tests__/create-label.test.ts`
 
 Expected: PASS。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/views/initiatives/index.vue frontend/src/views/initiatives/__tests__/create-label.test.ts
@@ -281,7 +281,7 @@ git commit -m "fix(ui): use the initiative create label in the empty state"
 - Modify: `frontend/src/utils/boardSwimlanes.ts`
 - Create: `frontend/src/views/issue/list/__tests__/type-labels.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { computed, defineComponent } from 'vue';
@@ -338,23 +338,23 @@ describe('issue type labels follow the locale', () => {
 
 分组组件在实现后自己读 `useLabelTable`。测试要断言切换语言后分组标题从「缺陷」变成 `Bug`，而 `groupIssuesBy` 返回的 `key` 仍是 `bug`。上面的宿主在实现完成前会失败，因为分组组件还没用这张表。补上 `computed` 的导入。样本问题若类型不够，按 `groupIssuesBy.test.ts` 的 `makeIssue` 补字段，不改分组规则。
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd frontend && npx vitest run src/views/issue/list/__tests__/type-labels.test.ts`
 
 Expected: FAIL。分组标题仍来自写死的中文表，英文切换后不会变成 `Bug`，或宿主还编不过。
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 列表、新建、编辑、详情的类型选项改为 `labeledOptions` 加 `useLabelTable('page.issueType')`。列表筛选和类型列都用这份选项。分组和看板泳道把 `useLabelTable` 的三张表传给 `groupIssuesBy` / `buildBoardSwimlanes`。不改搜索语法，不改 Agent 指令里的 `typeTextMap`。
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd frontend && npx vitest run src/views/issue/list/__tests__/type-labels.test.ts src/utils/groupIssuesBy.test.ts`
 
 Expected: PASS。原分组测试里「进行中」「功能」仍在。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/views/issue frontend/src/utils/groupIssuesBy.ts frontend/src/utils/boardSwimlanes.ts
@@ -369,7 +369,7 @@ git commit -m "fix(ui): localize issue type labels and group headings"
 - Modify: `frontend/src/views/settings/sla/index.vue`
 - Do not modify: `frontend/src/service/api/sla.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { mount } from '@vue/test-utils';
@@ -432,23 +432,23 @@ describe('SLA labels', () => {
 
 页面测试在实现后还要断言：名称框初始为当前语言的默认名；调用输入更新并标为 dirty 后，再 `setLocale`，输入框文字不变。选择中的度量值仍是 `time_in_status`。假日包和策略接口的 mock 只提供空数据。若 `fetchHolidayPacks` 的返回形状和页面不一致，按页面现有读取方式改 mock。
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd frontend && npx vitest run src/views/settings/sla/__tests__/labels.test.ts`
 
 Expected: FAIL。按钮仍是「立即 run-due」，说明里仍有 `time_in_status`，或 `policy-name` 不存在。
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 页面上的枚举 label 全部来自 `lookupLabel` / `labeledOptions`。说明、按钮和占位用第 3 节的静态键。`form.metric` 等 value 保持枚举。新建表单在 `dirty === false` 且 `loaded === false` 时，用 `watch(locale)` 调用 `policyNameAfterLocaleChange`。用户通过输入事件把 `dirty` 设为真。本页今天没有把已有策略载入名称框；预留 `loaded`，载入时置真且不覆盖。不改 `runDue`、日历计算和 `sla.ts`。
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd frontend && npx vitest run src/views/settings/sla/__tests__/labels.test.ts src/service/api/sla.test.ts`
 
 Expected: PASS。`slaMetricLabel('time_in_status')` 仍是「状态停留」。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/views/settings/sla
@@ -461,7 +461,7 @@ git commit -m "fix(ui): localize SLA labels without changing policy values"
 - Modify: `frontend/src/views/insights/index.vue`
 - Create: `frontend/src/views/insights/__tests__/labels.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { mount } from '@vue/test-utils';
@@ -531,23 +531,23 @@ describe('insights labels', () => {
 
 mock 的导出要和 `@/service/api` 的实际导入对齐。未知键 `mystery` 必须原样留下。下载文件名仍是 `insights-export.csv`，用源码断言或调用导出函数时检查，不改那个字符串。
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd frontend && npx vitest run src/views/insights/__tests__/labels.test.ts`
 
 Expected: FAIL。分布仍显示 `open` / `in_progress`，副标题仍含 OR 或 digest。
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 分布标签用 `lookupLabel`。副标题、导出、摘要开关、冲刺后缀和估点标题用设计第 3 节的键。`updateNotifPrefs({ insights_digest })` 的字段名不变。不改统计和筛选参数。
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd frontend && npx vitest run src/views/insights/__tests__/labels.test.ts`
 
 Expected: PASS。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/views/insights
@@ -556,7 +556,7 @@ git commit -m "fix(ui): localize insights labels and keep CSV"
 
 ## Task 6: 门禁
 
-- [ ] **Step 1: Run the frontend suite, lint and build**
+- [x] **Step 1: Run the frontend suite, lint and build**
 
 ```bash
 cd frontend && npx vitest run
@@ -566,18 +566,18 @@ cd frontend && npm run build
 
 Expected: Vitest 全过，数字按这次记录。eslint 与 `22c8d8b` 上同一批已有文件对比，不新增错误。构建通过。
 
-- [ ] **Step 2: Remeasure vue-tsc**
+- [x] **Step 2: Remeasure vue-tsc**
 
 在本分支和干净的 `22c8d8b` 上分别运行 `npx vue-tsc --noEmit --skipLibCheck`。生成文件的既有语法错误不修。对照后照实写通过或未通过。
 
-- [ ] **Step 3: Leave backend and CLI unrun**
+- [x] **Step 3: Leave backend and CLI unrun**
 
 `git diff 22c8d8b3e3681e9d6b79d6e72fd200c2156cbd34 -- backend agent-harness` 应为空。不要把没跑的 pytest 写成通过。
 
-- [ ] **Step 4: Browser check**
+- [x] **Step 4: Browser check**
 
 用本地编译结果或本地 dev（端口保持 9527）打开 `/initiatives`、`/issue/list`、`/settings/sla`、`/insights` 的中文和英文。能打开新建、编辑、详情的类型选项就一并看。截图只记录实际拿到的文件。打不开的页面写明原因，不连接现网。
 
-- [ ] **Step 5: Review**
+- [x] **Step 5: Review**
 
 独立审查只看本分支相对 `22c8d8b` 的 diff。有实质问题就先改再提交。然后更新 PR #6 的说明。不合并、不部署。
