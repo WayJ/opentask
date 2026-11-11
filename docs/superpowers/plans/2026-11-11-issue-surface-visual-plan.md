@@ -263,8 +263,8 @@ html.dark .issue-create-page {
   color: var(--issue-ink);
 }
 
-html.dark .issue-list-container .n-button.n-button--primary-type:not(.n-button--disabled),
-html.dark .issue-create-page .n-button.n-button--primary-type:not(.n-button--disabled) {
+html.dark .issue-list-container .n-button.n-button--primary-type:not(.n-button--disabled):not(.n-button--secondary):not(.n-button--tertiary):not(.n-button--quaternary):not(.n-button--ghost),
+html.dark .issue-create-page .n-button.n-button--primary-type:not(.n-button--disabled):not(.n-button--secondary):not(.n-button--tertiary):not(.n-button--quaternary):not(.n-button--ghost) {
   --n-text-color: var(--issue-on-accent) !important;
   --n-text-color-hover: var(--issue-on-accent) !important;
   --n-text-color-pressed: var(--issue-on-accent) !important;

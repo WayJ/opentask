@@ -45,9 +45,14 @@ describe('issue surface tokens', () => {
     expect(contrast(token(dark, '--issue-ink'), '#0f1011')).toBeGreaterThanOrEqual(4.5);
     expect(contrast('#ffffff', token(light, '--issue-danger'))).toBeGreaterThanOrEqual(4.5);
     expect(contrast('#ffffff', token(dark, '--issue-danger'))).toBeGreaterThanOrEqual(4.5);
+    expect(contrast('#ffffff', '#a8071a')).toBeGreaterThanOrEqual(4.5);
+    expect(contrast('#ffffff', '#820014')).toBeGreaterThanOrEqual(4.5);
+    expect(contrast('#828fff', '#0f1011')).toBeGreaterThanOrEqual(3);
+    expect(contrast('#5e6ad2', '#ffffff')).toBeGreaterThanOrEqual(3);
     expect(token(light, '--issue-danger')).toBe('#cf1322');
     expect(css).toContain('outline: var(--issue-focus)');
     expect(css).toContain(':not(.n-button--disabled)');
+    expect(css).toContain(':not(.n-button--secondary)');
     expect(css).toContain('--n-color-hover: #a8071a !important');
     expect(css).toContain('--n-color-pressed: #820014 !important');
     expect(css).toContain('.issue-create-page .markdown-textarea');
