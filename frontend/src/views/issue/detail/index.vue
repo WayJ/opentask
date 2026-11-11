@@ -1477,7 +1477,7 @@ onUnmounted(() => {
             <!-- Quick Actions -->
             <div v-if="!issue.is_deleted" class="issue-actions">
               <NButtonGroup>
-                <NButton size="small" @click="router.push({ path: '/issue/edit', query: { id: issue.id } })">
+                <NButton size="small" class="issue-action-edit" @click="router.push({ path: '/issue/edit', query: { id: issue.id } })">
                   <template #icon>
                     <icon-mdi-pencil />
                   </template>
@@ -2796,6 +2796,17 @@ html.dark .issue-detail-container .description-content :deep(pre.hljs) {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+.issue-detail-container {
+  --issue-focus: 2px solid #5e6ad2;
+}
+html.dark .issue-detail-container {
+  --issue-focus: 2px solid #828fff;
+}
+.issue-detail-container .issue-actions .n-button.issue-action-edit:focus-visible {
+  outline: var(--issue-focus);
+  outline-offset: 2px;
 }
 
 /* Focus Styles */
