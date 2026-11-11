@@ -483,10 +483,32 @@ onBeforeRouteLeave((_to, _from, next) => {
 
 <style scoped>
 .issue-edit-page {
+  --issue-canvas: #f5f6f6;
+  --issue-surface: #ffffff;
+  --issue-surface-muted: #f5f6f6;
+  --issue-ink: #000000;
+  --issue-ink-secondary: #62666d;
+  --issue-line: #e6e7e8;
+  --issue-accent: #5e6ad2;
+  --issue-on-accent: #ffffff;
+  --issue-focus: 2px solid #5e6ad2;
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #f5f7fa;
+  background: var(--issue-canvas);
+  color: var(--issue-ink);
+}
+
+html.dark .issue-edit-page {
+  --issue-canvas: #010102;
+  --issue-surface: #0f1011;
+  --issue-surface-muted: #141516;
+  --issue-ink: #f7f8f8;
+  --issue-ink-secondary: #d0d6e0;
+  --issue-line: #23252a;
+  --issue-accent: #5e6ad2;
+  --issue-on-accent: #ffffff;
+  --issue-focus: 2px solid #828fff;
 }
 
 /* 顶部工具栏 */
@@ -495,8 +517,9 @@ onBeforeRouteLeave((_to, _from, next) => {
   align-items: center;
   justify-content: space-between;
   padding: 12px 24px;
-  background: #fff;
-  border-bottom: 1px solid #e8eaed;
+  background: var(--issue-surface);
+  color: var(--issue-ink);
+  border-bottom: 1px solid var(--issue-line);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   z-index: 10;
 }
@@ -523,7 +546,8 @@ onBeforeRouteLeave((_to, _from, next) => {
   flex: 1;
   padding: 32px 48px;
   overflow-y: auto;
-  background: #fff;
+  background: var(--issue-surface);
+  color: var(--issue-ink);
 }
 
 /* 标题区域 */
@@ -536,7 +560,7 @@ onBeforeRouteLeave((_to, _from, next) => {
   font-size: 32px;
   font-weight: 600;
   line-height: 1.3;
-  color: #1a1a1a;
+  color: var(--issue-ink);
   border: none;
   outline: none;
   background: transparent;
@@ -546,11 +570,12 @@ onBeforeRouteLeave((_to, _from, next) => {
 }
 
 .title-input::placeholder {
-  color: #aaa;
+  color: var(--issue-ink-secondary);
 }
 
-.title-input:focus {
-  outline: none;
+.title-input:focus-visible {
+  outline: var(--issue-focus);
+  outline-offset: 2px;
 }
 
 .title-hint {
@@ -587,8 +612,8 @@ onBeforeRouteLeave((_to, _from, next) => {
 .sidebar {
   width: 320px;
   padding: 24px;
-  background: #f5f7fa;
-  border-left: 1px solid #e8eaed;
+  background: var(--issue-surface-muted);
+  border-left: 1px solid var(--issue-line);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -651,7 +676,7 @@ onBeforeRouteLeave((_to, _from, next) => {
   .sidebar {
     width: 100%;
     border-left: none;
-    border-top: 1px solid #e8eaed;
+    border-top: 1px solid var(--issue-line);
   }
 
   .main-content {
@@ -683,5 +708,50 @@ onBeforeRouteLeave((_to, _from, next) => {
 .main-content::-webkit-scrollbar-thumb:hover,
 .sidebar::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-tertiary);
+}
+
+.issue-edit-page :deep(textarea.markdown-textarea) {
+  color: var(--issue-ink);
+  background: transparent;
+}
+
+.issue-edit-page :deep(textarea.markdown-textarea:focus-visible) {
+  outline: var(--issue-focus);
+  outline-offset: 2px;
+}
+
+.issue-edit-page :deep(.markdown-editor) {
+  background: var(--issue-surface);
+  border-color: var(--issue-line);
+}
+
+.issue-edit-page :deep(.markdown-editor .toolbar),
+.issue-edit-page :deep(.markdown-editor .editor-footer) {
+  background: var(--issue-surface-muted);
+  color: var(--issue-ink);
+  border-color: var(--issue-line);
+}
+
+.issue-edit-page .preview-content :deep(.markdown-body) {
+  background: var(--issue-surface);
+  color: var(--issue-ink);
+}
+
+.issue-edit-page .preview-content :deep(.markdown-body a) {
+  color: var(--issue-accent);
+}
+
+html.dark .issue-edit-page .preview-content :deep(.markdown-body a) {
+  color: #828fff;
+}
+
+.issue-edit-page .preview-content :deep(.markdown-body code:not([lang]):not([class])) {
+  color: var(--issue-ink);
+  background: var(--issue-surface-muted);
+}
+
+.issue-edit-page .sidebar :deep(.n-card) {
+  background: var(--issue-surface);
+  color: var(--issue-ink);
 }
 </style>
