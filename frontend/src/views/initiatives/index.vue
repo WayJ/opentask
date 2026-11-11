@@ -189,7 +189,7 @@ onMounted(load);
     <NCard :bordered="false" class="flex-1 overflow-hidden" content-style="padding: 0; height: 100%">
       <NEmpty v-if="empty" class="py-48px" :description="$t('page.shell.emptyInitiatives')">
         <template #extra>
-          <NButton type="primary" @click="createOpen = true">新建</NButton>
+          <NButton type="primary" @click="createOpen = true">{{ $t('page.shell.createInitiative') }}</NButton>
         </template>
       </NEmpty>
       <NDataTable
