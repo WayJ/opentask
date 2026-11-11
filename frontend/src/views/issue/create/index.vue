@@ -18,6 +18,7 @@ import IssueTemplateSelector from '@/components/IssueTemplateSelector.vue';
 import IssueTemplateForm from '@/components/IssueTemplateForm.vue';
 import type { Api } from '@/typings/api';
 import { $t } from '@/locales';
+import '@/styles/issue-surface.css';
 
 defineOptions({
   name: 'IssueCreate'
@@ -683,7 +684,7 @@ onBeforeRouteLeave((_to, _from, next) => {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #f5f7fa;
+  background: var(--issue-canvas);
 }
 
 /* 顶部工具栏 */
@@ -692,9 +693,9 @@ onBeforeRouteLeave((_to, _from, next) => {
   align-items: center;
   justify-content: space-between;
   padding: 12px 24px;
-  background: #fff;
-  border-bottom: 1px solid #e8eaed;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  background: var(--issue-surface);
+  border-bottom: 1px solid var(--issue-line);
+  box-shadow: none;
   z-index: 10;
 }
 
@@ -720,7 +721,7 @@ onBeforeRouteLeave((_to, _from, next) => {
   flex: 1;
   padding: 32px 48px;
   overflow-y: auto;
-  background: #fff;
+  background: var(--issue-surface);
 }
 
 /* 标题区域 */
@@ -733,9 +734,8 @@ onBeforeRouteLeave((_to, _from, next) => {
   font-size: 32px;
   font-weight: 600;
   line-height: 1.3;
-  color: #1a1a1a;
+  color: var(--issue-ink);
   border: none;
-  outline: none;
   background: transparent;
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans',
@@ -743,11 +743,13 @@ onBeforeRouteLeave((_to, _from, next) => {
 }
 
 .title-input::placeholder {
-  color: #aaa;
+  color: var(--issue-ink-secondary);
 }
 
-.title-input:focus {
-  outline: none;
+.title-input:focus,
+.title-input:focus-visible {
+  outline: var(--issue-focus);
+  outline-offset: 2px;
 }
 
 .title-hint {
@@ -764,9 +766,9 @@ onBeforeRouteLeave((_to, _from, next) => {
 .attachment-section {
   margin-bottom: 24px;
   padding: 16px;
-  background: #f9fafb;
+  background: var(--issue-surface-muted);
   border-radius: 8px;
-  border: 1px solid var(--color-border-subtle);
+  border: 1px solid var(--issue-line);
 }
 
 .pending-files {
@@ -782,8 +784,8 @@ onBeforeRouteLeave((_to, _from, next) => {
   gap: 12px;
   padding: 8px 12px;
   border-radius: 6px;
-  background: #fff;
-  border: 1px solid #e8eaed;
+  background: var(--issue-surface);
+  border: 1px solid var(--issue-line);
 }
 
 .pending-file-item .file-icon {
@@ -824,9 +826,9 @@ onBeforeRouteLeave((_to, _from, next) => {
 
 .preview-content {
   padding: 20px;
-  background: #f9fafb;
+  background: var(--issue-surface-muted);
   border-radius: 8px;
-  border: 1px solid var(--color-border-subtle);
+  border: 1px solid var(--issue-line);
   min-height: 200px;
 }
 
@@ -834,8 +836,8 @@ onBeforeRouteLeave((_to, _from, next) => {
 .sidebar {
   width: 320px;
   padding: 24px;
-  background: #f5f7fa;
-  border-left: 1px solid #e8eaed;
+  background: var(--issue-surface-muted);
+  border-left: 1px solid var(--issue-line);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -913,7 +915,7 @@ onBeforeRouteLeave((_to, _from, next) => {
   .sidebar {
     width: 100%;
     border-left: none;
-    border-top: 1px solid #e8eaed;
+    border-top: 1px solid var(--issue-line);
   }
 
   .main-content {
