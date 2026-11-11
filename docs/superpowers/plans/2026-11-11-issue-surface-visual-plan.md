@@ -658,4 +658,76 @@ Important 和 Critical 改完后，再让评审者看新的 HEAD。通过后才�
 - 计划里的属性名与 Task 1 CSS 一致，没有第二套名字。
 - 没有留空项。旧测试被写成回归命令，没有先改坏再修。
 - 36–40 与 41px、删除色与确认框、暗色主按钮与全局 `themeColor`、空态按钮，都按规格 §10 定死。
-- Yuri 已批准按 §11 执行。第一笔是文档提交，然后是 Task 1、Task 2、Task 3。Task 4 不提交。Task 5 的评审通过后才开 PR。
+- Yuri 未接受 PR7。§12 补正优先于上文冲突句。先提交文档，再为选中切换钮补一条会失败的测试，然后只改 `issue-surface.css`。
+
+### Task 6: 暗色选中视图切换的字色
+
+**Files:**
+
+- Modify: `frontend/src/styles/issue-surface.css`
+- Test: `frontend/src/styles/__tests__/issue-surface.test.ts`
+
+**Interfaces:**
+
+- Consumes: 暗色选中钮同时有 `n-button--primary-type` 与 `n-button--secondary`。底是 `rgba(94, 106, 210, 0.16)`，卡片是 `rgb(24, 24, 28)`。
+- Produces: 只在 `html.dark .issue-list-container` 里给这个启用钮的 `--n-text-color`、hover、pressed、focus 设为 `#828fff`。不写 `background`。实心主按钮规则不动。
+
+- [ ] **Step 1: 先写会失败的断言**
+
+在现有测试里增加：样式表含 `n-button--primary-type.n-button--secondary:not(.n-button--disabled)` 和 `--n-text-color: #828fff !important`。用规格 §12 的叠色算法，断言 `#828fff` 对 alpha 0.12、0.16、0.20 叠在 `rgb(24, 24, 28)` 上的结果都 ≥ 4.5。这三条 alpha 是过渡结束之后的实测底，不是过渡中间色。
+
+- [ ] **Step 2: 确认失败**
+
+`pnpm exec vitest run src/styles/__tests__/issue-surface.test.ts` 因缺少选择器失败。不要改列表模板来制造失败。
+
+- [ ] **Step 3: 补上窄规则**
+
+```css
+html.dark .issue-list-container .n-button.n-button--primary-type.n-button--secondary:not(.n-button--disabled) {
+  --n-text-color: #828fff !important;
+  --n-text-color-hover: #828fff !important;
+  --n-text-color-pressed: #828fff !important;
+  --n-text-color-focus: #828fff !important;
+  color: #828fff;
+}
+```
+
+- [ ] **Step 4: 确认通过并提交**
+
+```bash
+pnpm exec vitest run src/styles/__tests__/issue-surface.test.ts
+git add frontend/src/styles/issue-surface.css frontend/src/styles/__tests__/issue-surface.test.ts
+git commit -m "$(cat <<'EOF'
+fix(ui): raise dark selected view-switch contrast
+
+EOF
+)"
+```
+
+### Task 7: 一份带最终 SHA 的测量
+
+**Files:**
+
+- 不改产品文件。证据写到 `/opt/cursor/artifacts/ui-round1/after/measurements-final.json`。
+
+旧的 `measurements.json` 与 `remeasure.json` 作废，不把它们的数字抄进最终文件。
+
+必须包括：最终 SHA、视口、主题、状态、采样方法（指针停留至少 450ms，等过渡结束）、叠色算法和每一层的原始颜色。暗色实心「新建问题」和选中「列表」都要有默认、hover、按下、`:focus-visible`。375、768、1280 记下真正滚动容器的 `scrollWidth`、`clientWidth`、滚动前后 `scrollLeft` 和操作列位置。按钮宽高大于 0。Markdown 预览的段落、行内代码、代码块、链接单独采样。一次成功的合成提交要有请求体、toast 和跳转。空标题和高级选项仍要回归。禁用证据要设置按钮的 `disabled` 属性并确认点击不切换视图。Tab 日志单独列出标题、「详情」、「删除」。
+
+预览子元素若不可读且必须改 `MarkdownRenderer.vue`，停止并写出最小 diff。
+
+## 当前账本（补正前）
+
+以下是 `554e650e` 的状态。补正测完后改成通过、失败或未测，不保留互相矛盾的数字。
+
+- [x] 文档、令牌、新建表单、列表 import 已在分支上。
+- [ ] 暗色选中「列表」字色对比 ≥ 4.5。`554e650e` 是 3.20，失败。
+- [ ] 四态在过渡结束后采样。80ms 的第一批数字作废。
+- [ ] 透明背景直接对比的 1 和 1.73 作废，改用叠色。
+- [ ] 真正的横向滚动容器尚未记录。
+- [ ] Markdown 预览的子元素未测。
+- [ ] 成功提交未测。空标题校验和高级选项展开已在旧脚本里看到，补正后重测。
+- [ ] 禁用只加过 CSS 类，未设置 `disabled` 属性。
+- [ ] 标题的真实 Tab 在 `remeasure.json`，不在第一份 JSON。最终日志尚未带最终 SHA。
+- [ ] `vue-tsc` 仍失败，29 条与基线相同。ESLint 仍失败，两个页面没有新增诊断。Vitest 与 build 在 `554e650e` 通过。这些命令要在最终 HEAD 重跑。
+- [ ] 最终 HEAD 的独立规格评审和代码评审尚未做。`554e650e` 的评审不能算这次补正的评审。
