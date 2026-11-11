@@ -60,6 +60,9 @@ describe('issue surface tokens', () => {
     expect(css).toContain('.hljs-built_in');
     expect(css).toContain('color: #c35408');
     expect(css).toContain('preview-pane .markdown-body a');
+    expect(css).toContain('preview-section .preview-content .markdown-body pre.hljs');
+    expect(css).toContain('preview-section .preview-content .markdown-body .hljs-built_in');
+    expect(css).toContain('preview-section .preview-content .markdown-body a');
     for (const ink of ['#24292e', '#d73a49', '#6a737d', '#22863a', '#c35408', '#6f42c1', '#005cc5', '#032f62']) {
       expect(contrast(ink, '#ffffff')).toBeGreaterThanOrEqual(4.5);
     }
