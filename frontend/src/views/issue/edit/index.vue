@@ -746,9 +746,13 @@ html.dark .issue-edit-page .preview-content :deep(.markdown-body a) {
   color: #828fff;
 }
 
-.issue-edit-page .preview-content :deep(.markdown-body code:not([lang]):not([class])) {
+.issue-edit-page .preview-content :deep(.markdown-body :not(pre) > code:not([lang]):not([class])) {
   color: var(--issue-ink);
   background: var(--issue-surface-muted);
+}
+
+html.dark .issue-edit-page .preview-content :deep(pre.hljs) {
+  background-color: #ffffff;
 }
 
 .issue-edit-page .sidebar :deep(.n-card) {

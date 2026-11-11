@@ -58,7 +58,42 @@ describe('edit page local surface', () => {
     expect(shellStyle.backgroundColor).toBe(pageStyle.getPropertyValue('--issue-surface').trim());
     expect(shellStyle.color).toBe(pageStyle.getPropertyValue('--issue-ink').trim());
     expect(shellStyle.padding).toBe('20px');
-    expect(window.getComputedStyle(shell.querySelector('pre.hljs') as Element).backgroundColor).not.toBe('#ffffff');
+    window.close();
+  });
+
+  it('restores a light preview fence and leaves the dark chip on real inline code', () => {
+    const scoped = edit.match(/<style scoped>([\s\S]*?)<\/style>/);
+    expect(scoped).not.toBeNull();
+    const compiled = compileStyle({
+      source: scoped?.[1] ?? '',
+      filename: 'src/views/issue/edit/index.vue',
+      id: 'edit',
+      scoped: true
+    });
+    expect(compiled.errors).toEqual([]);
+    const window = new Window();
+    const { document } = window;
+    document.documentElement.className = 'dark';
+    const style = document.createElement('style');
+    style.textContent = compiled.code;
+    document.head.appendChild(style);
+    document.body.innerHTML = [
+      '<div class="issue-edit-page" data-v-edit>',
+      '<div class="preview-content" data-v-edit><div class="markdown-body">',
+      '<p><code>code</code></p>',
+      '<pre class="hljs"><code class="language-javascript">const value</code></pre>',
+      '<pre class="hljs"><code>plain fence alpha</code></pre>',
+      '</div></div></div>'
+    ].join('');
+    const pageStyle = window.getComputedStyle(document.querySelector('.issue-edit-page') as Element);
+    const chip = pageStyle.getPropertyValue('--issue-surface-muted').trim();
+    const background = (el: Element) => window.getComputedStyle(el).backgroundColor;
+    const pres = [...document.querySelectorAll('pre.hljs')];
+    expect(background(document.querySelector('p > code') as Element)).toBe(chip);
+    expect(background(pres[0].querySelector('code') as Element)).not.toBe(chip);
+    expect(background(pres[1].querySelector('code') as Element)).not.toBe(chip);
+    expect(background(pres[0])).toBe('#ffffff');
+    expect(background(pres[1])).toBe('#ffffff');
     window.close();
   });
 
