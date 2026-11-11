@@ -34,13 +34,27 @@ const menuWrapperClass = computed(() => (showLogo.value ? 'flex-1-hidden' : 'h-f
       :show-title="!appStore.siderCollapse"
       :style="{ height: themeStore.header.height + 'px' }"
     />
-    <TriageNav />
-    <CustomersNav />
-    <InsightsNav />
-    <ActivityNav />
+    <div class="global-sider__quick" :class="{ 'is-collapsed': appStore.siderCollapse }">
+      <TriageNav />
+      <CustomersNav />
+      <InsightsNav />
+      <ActivityNav />
+    </div>
     <FavoritesNav />
     <div :id="GLOBAL_SIDER_MENU_ID" :class="menuWrapperClass"></div>
   </DarkModeContainer>
 </template>
 
-<style scoped></style>
+<style scoped>
+.global-sider__quick {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 8px 0;
+  margin: 0;
+}
+.global-sider__quick.is-collapsed {
+  align-items: center;
+  padding: 6px 0 0;
+}
+</style>

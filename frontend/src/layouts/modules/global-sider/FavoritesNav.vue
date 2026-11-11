@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { NEmpty, NSpin, NText, NTooltip } from 'naive-ui';
+import { NSpin, NTooltip } from 'naive-ui';
 import { type FavoriteItem, fetchFavorites } from '@/service/api/favorites';
 import { useAppStore } from '@/store/modules/app';
 import {
@@ -23,6 +23,7 @@ const loading = ref(false);
 const rows = ref<FavoriteItem[]>([]);
 
 const ordered = computed(() => sortFavoritesByPosition(rows.value));
+const showFavorites = computed(() => !(collapsed.value && !loading.value && ordered.value.length === 0));
 
 async function load() {
   loading.value = true;
@@ -76,17 +77,10 @@ defineExpose({ reload: load });
 </script>
 
 <template>
-  <div class="favorites-nav" :class="{ collapsed }">
-    <div v-if="!collapsed" class="favorites-nav__title">
-      <NText depth="3" style="font-size: 12px">收藏</NText>
-    </div>
+  <div v-if="showFavorites" class="favorites-nav" :class="{ collapsed }">
+    <p v-if="!collapsed" class="favorites-nav__title">收藏</p>
     <NSpin :show="loading" size="small">
-      <NEmpty
-        v-if="!loading && ordered.length === 0"
-        :description="collapsed ? '' : '暂无侧栏收藏'"
-        size="small"
-        class="favorites-nav__empty"
-      />
+      <p v-if="!loading && !collapsed && ordered.length === 0" class="favorites-nav__empty-note">暂无侧栏收藏</p>
       <ul v-else class="favorites-nav__list">
         <li v-for="fav in ordered" :key="fav.id">
           <NTooltip :disabled="!collapsed" placement="right">
@@ -109,19 +103,31 @@ defineExpose({ reload: load });
 
 <style scoped>
 .favorites-nav {
-  padding: 8px 10px 4px;
+  padding: 6px 8px;
   border-bottom: 1px solid var(--color-hairline);
   max-height: 40%;
   overflow: auto;
 }
 
 .favorites-nav.collapsed {
-  padding: 8px 4px;
+  padding: 6px 8px;
 }
 
 .favorites-nav__title {
-  padding: 0 4px 6px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--vk-muted);
+  margin: 0 0 6px;
+  padding: 0 8px;
   font-weight: 500;
+}
+
+.favorites-nav__empty-note {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--vk-muted);
+  margin: 0;
+  padding: 0 8px;
 }
 
 .favorites-nav__list {
@@ -180,9 +186,5 @@ defineExpose({ reload: load });
 .favorites-nav__type {
   font-size: 11px;
   opacity: 0.65;
-}
-
-.favorites-nav__empty {
-  padding: 4px 0 8px;
 }
 </style>

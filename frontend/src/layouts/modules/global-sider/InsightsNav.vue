@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAppStore } from '@/store/modules/app';
+import SvgIcon from '@/components/custom/svg-icon.vue';
 import { $t } from '@/locales';
 
 defineOptions({ name: 'InsightsNav' });
@@ -22,13 +23,19 @@ function go() {
     <template v-if="collapsed">
       <NTooltip placement="right">
         <template #trigger>
-          <button type="button" class="insights-nav__btn" @click="go">📈</button>
+          <button type="button" class="insights-nav__btn" :aria-label="$t('page.sider.insights')" @click="go">
+            <span class="insights-nav__icon" aria-hidden="true">
+              <SvgIcon icon="mdi:chart-box-outline" />
+            </span>
+          </button>
         </template>
         {{ $t('page.sider.insights') }}
       </NTooltip>
     </template>
     <button v-else type="button" class="insights-nav__row" @click="go">
-      <span class="insights-nav__icon">📈</span>
+      <span class="insights-nav__icon" aria-hidden="true">
+        <SvgIcon icon="mdi:chart-box-outline" />
+      </span>
       <span class="insights-nav__label">{{ $t('page.sider.insights') }}</span>
       <span class="insights-nav__hint">{{ $t('page.sider.insightsHint') }}</span>
     </button>
@@ -37,43 +44,60 @@ function go() {
 
 <style scoped>
 .insights-nav {
-  padding: 4px 8px 0;
+  padding: 0;
+  margin: 0;
 }
 .insights-nav.collapsed {
   display: flex;
   justify-content: center;
-  padding: 4px 0 0;
+  padding: 0;
+  margin: 0;
 }
 .insights-nav__btn {
+  box-sizing: border-box;
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  padding: 0;
+  margin: 0;
+  border-radius: 6px;
   border: none;
   background: transparent;
   cursor: pointer;
+  color: inherit;
 }
 .insights-nav__btn:hover,
 .insights-nav.active .insights-nav__btn {
   background: var(--vk-accent-soft);
 }
 .insights-nav__row {
+  box-sizing: border-box;
+  height: 34px;
   width: 100%;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
-  border-radius: 8px;
+  margin: 0;
+  padding: 0 8px;
+  border-radius: 6px;
   border: none;
   background: transparent;
   cursor: pointer;
   color: inherit;
+}
+.insights-nav__row:focus-visible,
+.insights-nav__btn:focus-visible {
+  outline: 2px solid var(--vk-accent);
+  outline-offset: 2px;
 }
 .insights-nav__row:hover,
 .insights-nav.active .insights-nav__row {
   background: var(--vk-accent-soft);
 }
 .insights-nav__icon {
-  font-size: 14px;
+  display: inline-flex;
+  font-size: 20px;
+  color: currentColor;
+  line-height: 0;
 }
 .insights-nav__label {
   font-size: 13px;
