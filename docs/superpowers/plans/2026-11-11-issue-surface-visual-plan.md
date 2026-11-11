@@ -672,15 +672,15 @@ Important 和 Critical 改完后，再让评审者看新的 HEAD。通过后才�
 - Consumes: 暗色选中钮同时有 `n-button--primary-type` 与 `n-button--secondary`。底是 `rgba(94, 106, 210, 0.16)`，卡片是 `rgb(24, 24, 28)`。
 - Produces: 只在 `html.dark .issue-list-container` 里给这个启用钮的 `--n-text-color`、hover、pressed、focus 设为 `#828fff`。不写 `background`。实心主按钮规则不动。
 
-- [ ] **Step 1: 先写会失败的断言**
+- [x] **Step 1: 先写会失败的断言**
 
 在现有测试里增加：样式表含 `n-button--primary-type.n-button--secondary:not(.n-button--disabled)` 和 `--n-text-color: #828fff !important`。用规格 §12 的叠色算法，断言 `#828fff` 对 alpha 0.12、0.16、0.20 叠在 `rgb(24, 24, 28)` 上的结果都 ≥ 4.5。这三条 alpha 是过渡结束之后的实测底，不是过渡中间色。
 
-- [ ] **Step 2: 确认失败**
+- [x] **Step 2: 确认失败**
 
-`pnpm exec vitest run src/styles/__tests__/issue-surface.test.ts` 因缺少选择器失败。不要改列表模板来制造失败。
+`pnpm exec vitest run src/styles/__tests__/issue-surface.test.ts` 因缺少选择器失败。不要改列表模板来制造失败。这次失败发生在 `0ec5ac7b` 的工作区上，完整标准输出当时没有落盘。不要事后重写那份日志。预览子元素的红灯日志是另外两次，已经落在仓库外。
 
-- [ ] **Step 3: 补上窄规则**
+- [x] **Step 3: 补上窄规则**
 
 ```css
 html.dark .issue-list-container .n-button.n-button--primary-type.n-button--secondary:not(.n-button--disabled) {
@@ -692,7 +692,7 @@ html.dark .issue-list-container .n-button.n-button--primary-type.n-button--secon
 }
 ```
 
-- [ ] **Step 4: 确认通过并提交**
+- [x] **Step 4: 确认通过并提交**
 
 ```bash
 pnpm exec vitest run src/styles/__tests__/issue-surface.test.ts
@@ -716,18 +716,22 @@ EOF
 
 预览子元素若不可读且必须改 `MarkdownRenderer.vue`，停止并写出最小 diff。
 
-## 当前账本（补正前）
+## 当前账本
 
-以下是 `554e650e` 的状态。补正测完后改成通过、失败或未测，不保留互相矛盾的数字。
+数字来自过渡结束后的合成测量。权威文件是 `/opt/cursor/artifacts/ui-round1/after/measurements-final.json`。本段提交之后要重跑那份测量，使文件里的 `sha` 等于当时的 `git rev-parse HEAD`。`measurements.json` 和 `remeasure.json` 作废。`554e650e` 的 3.20 是补正前的失败值，不再引用为现状。
 
-- [x] 文档、令牌、新建表单、列表 import 已在分支上。
-- [ ] 暗色选中「列表」字色对比 ≥ 4.5。`554e650e` 是 3.20，失败。
-- [ ] 四态在过渡结束后采样。80ms 的第一批数字作废。
-- [ ] 透明背景直接对比的 1 和 1.73 作废，改用叠色。
-- [ ] 真正的横向滚动容器尚未记录。
-- [ ] Markdown 预览的子元素未测。
-- [ ] 成功提交未测。空标题校验和高级选项展开已在旧脚本里看到，补正后重测。
-- [ ] 禁用只加过 CSS 类，未设置 `disabled` 属性。
-- [ ] 标题的真实 Tab 在 `remeasure.json`，不在第一份 JSON。最终日志尚未带最终 SHA。
-- [ ] `vue-tsc` 仍失败，29 条与基线相同。ESLint 仍失败，两个页面没有新增诊断。Vitest 与 build 在 `554e650e` 通过。这些命令要在最终 HEAD 重跑。
-- [ ] 最终 HEAD 的独立规格评审和代码评审尚未做。`554e650e` 的评审不能算这次补正的评审。
+- [x] 文档、令牌、新建表单、列表 import、选中钮字色、预览子元素规则已在分支上。
+- [x] 暗色启用选中「列表」：默认对比 5.25（`#828fff` 对 alpha 0.16 叠在 `rgb(24, 24, 28)`），hover 5.02（alpha 0.20），按下 5.48（alpha 0.12）。尺寸 72×28。底仍是 secondary 浅色，不是实心主按钮。
+- [x] 选中钮 `:focus-visible` 在真实 Tab 日志里：轮廓 `2px solid #828fff`，字色对比 5.25。实心「新建问题」默认与 hover 都是白字对 `#5e6ad2`，对比 4.70；按下底是 `rgb(46, 49, 133)`，对比 11.09。hover 底与默认相同，因为 Naive 的 `--n-color-hover` 仍是 `#5e6ad2`。这不是对比失败，hover 底没有变深。
+- [x] 删除钮在失焦后采样：默认 `rgb(207, 19, 34)` 对比 5.57，hover `rgb(168, 7, 26)` 对比 7.75，按下 `rgb(130, 0, 20)` 对比 10.72。尺寸 48×28。
+- [x] 未选中「看板」仍是 Naive 字色，对比 10.13，没有被涂成 `#828fff`。
+- [x] 叠色从第一层不透明祖先算起。标题对比约 12.07，不再使用透明背景直接比较得到的 1 和 1.73。
+- [x] 横向滚动容器是 `.n-scrollbar-container`。375：client 349 / scroll 1400 / scrollLeft 0→1051，操作列 `relative`，删除钮 48×28。768：client 522 / scroll 1402 / scrollLeft 0→880，操作列 `relative`。1280：client 1034 / scroll 1402 / scrollLeft 0→368，操作列 `sticky`。
+- [x] 1280、scrollLeft 0 时「负责人」末字仍被操作列盖住。这是既有例外，没有改。
+- [x] 单行行高 41。长标题行高 93，标题没有被裁成 36–40。
+- [x] 暗色预览实测：段落 17.90，行内代码 12.13，代码块底 `#ffffff` 上的正文 14.67，链接 `#828fff` 对 `rgb(15, 16, 17)` 为 6.64。代码块里的 comment 4.82、keyword 4.57、number 6.29、`console`（`hljs-variable language_`）4.57、`log` 6.51。样本没有 `.hljs-built_in`，浏览器未测该类；`#c35408` 对 `#ffffff` 的 4.57 只在单测里。
+- [x] 空标题出现「请输入问题标题」，没有成功 toast，仍停在 `/issue/create`。高级选项展开前没有「关联任务 ID」，展开后三个 ID 字段都在。成功提交的请求体是 `{"title":"合成提交标题","description":"","type":"bug","priority":"medium","reporter_id":"admin"}`，toast「问题创建成功」，进入 `/issue/detail?id=issue-created`。
+- [x] 禁用：给未选中「看板」设置 DOM `disabled` 后点击，视图仍停在列表，Naive 自己加上 `n-button--disabled`。选中钮在 disabled 后字色回到 `rgb(94, 106, 210)`，对比 3.04。这是保留的禁用外观，不是 4.5 通过，也不把 `#828fff` 写进禁用态。
+- [x] 真实 Tab 到达标题、「列表」、「详情」、「删除」。`focus()` 没有当作 Tab。
+- [ ] 全量 Vitest、`vue-tsc`、ESLint、`vite build` 的通过或失败只认带有本 HEAD 完整 SHA 的仓库外日志。`582b1f33` 的 507 与 build、`554e650e` 的单文件 1/1 都不能顶替。本勾选保持空着：把「已通过」写进本文件会换掉 SHA，而命令必须打在最终 SHA 上。`vue-tsc` 的基线 29 条和两个页面上已有的 ESLint 错误仍然是这些命令的失败，不是回归被清零。`554e650e` 的 CI 是 pending、没有成功状态，不是绿。
+- [ ] 独立规格评审和代码评审只认仓库外的原文，原文里要有被评审的完整 SHA 和结论。`554e650e` 的评审者 `bc-64172acc-41f3-5d11-beff-8c4fd040fa65` 与 `bc-a9d03a95-d8e3-5877-bf81-a3dce3e17b63` 只看过旧 HEAD，当时留下的是转述。本勾选保持空着，避免为了打勾再提交一次而让评审 SHA 失效。
