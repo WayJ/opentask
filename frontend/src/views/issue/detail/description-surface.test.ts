@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import process from 'node:process';
 import { describe, expect, it } from 'vitest';
 
 const detail = readFileSync(resolve(process.cwd(), 'src/views/issue/detail/index.vue'), 'utf8');
@@ -7,9 +8,7 @@ const renderer = readFileSync(resolve(process.cwd(), 'src/components/MarkdownRen
 
 describe('detail description dark surface', () => {
   it('overrides prose only inside the detail description', () => {
-    expect(detail).toContain(
-      'html.dark .issue-detail-container .description-content :deep(.markdown-body)'
-    );
+    expect(detail).toContain('html.dark .issue-detail-container .description-content :deep(.markdown-body)');
     expect(detail).toContain('background-color: var(--color-bg-primary);');
     expect(detail).toContain('color: #828fff;');
     expect(detail).toContain('background-color: #23252a;');
