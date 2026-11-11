@@ -13,6 +13,8 @@ import { issueApi } from '@/service/api/issue';
 import { useIssueFocus } from '@/composables/use-issue-focus';
 import { useIssueSelection } from '@/composables/use-issue-selection';
 import { buildIssueDetailLocation } from '@/utils/issue-board-nav';
+import { lookupLabel } from '@/locales/display-label';
+import { useLabelTable } from '@/locales/use-label-table';
 import { BOARD_STATUS_COLUMNS, type BoardSwimlane, buildBoardSwimlanes } from '@/utils/boardSwimlanes';
 import type {
   ColorScaleRule,
@@ -106,17 +108,30 @@ const router = useRouter();
 const message = useMessage();
 const moving = ref(false);
 
-const columns = BOARD_STATUS_COLUMNS;
+const statusLabels = useLabelTable('page.issueStatus');
+const typeLabels = useLabelTable('page.issueType');
+const priorityLabels = useLabelTable('page.issuePriority');
+const groupLabels = computed(() => ({
+  status: statusLabels.value,
+  type: typeLabels.value,
+  priority: priorityLabels.value
+}));
+const columns = computed(() =>
+  BOARD_STATUS_COLUMNS.map(col => ({
+    status: col.status,
+    label: lookupLabel(statusLabels.value, col.status)
+  }))
+);
 
 /** laneKey -> status -> issues (mutable for drag) */
 const laneColumnMap = ref<Record<string, Record<string, Api.Issue.Issue[]>>>({});
 
 function rebuild(source: Api.Issue.Issue[]) {
-  const lanes = buildBoardSwimlanes(source, props.swimlaneBy, props.hideEmptyLanes);
+  const lanes = buildBoardSwimlanes(source, props.swimlaneBy, props.hideEmptyLanes, groupLabels.value);
   const next: Record<string, Record<string, Api.Issue.Issue[]>> = {};
   for (const lane of lanes) {
     next[lane.key] = {};
-    for (const col of columns) {
+    for (const col of BOARD_STATUS_COLUMNS) {
       next[lane.key][col.status] = [...(lane.columns[col.status] || [])];
     }
   }
@@ -143,7 +158,8 @@ const lanes = computed<BoardSwimlane[]>(() => {
     const label =
       key === '__all__'
         ? ''
-        : buildBoardSwimlanes(props.issues, props.swimlaneBy, false).find(l => l.key === key)?.label || key;
+        : buildBoardSwimlanes(props.issues, props.swimlaneBy, false, groupLabels.value).find(l => l.key === key)?.label ||
+          key;
     return { key, label, columns: columnsMap };
   });
 });

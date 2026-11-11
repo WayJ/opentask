@@ -30,6 +30,8 @@ import {
   issueStatusOptions,
   issueTypeOptions
 } from '@/constants/issue';
+import { labeledOptions } from '@/locales/display-label';
+import { useLabelTable } from '@/locales/use-label-table';
 import { fetchProjectList } from '@/service/api';
 import { type CycleItem, fetchCycles } from '@/service/api/cycles';
 import { formatIssueImportSummary, issueApi } from '@/service/api/issue';
@@ -806,9 +808,14 @@ function applySmartSearchFromString(raw: string) {
 }
 
 // Use imported constants and utility functions
-const statusOptions = issueStatusOptions;
-const priorityOptions = issuePriorityOptions;
-const typeOptions = issueTypeOptions;
+const statusLabels = useLabelTable('page.issueStatus');
+const priorityLabels = useLabelTable('page.issuePriority');
+const typeLabels = useLabelTable('page.issueType');
+const statusOptions = computed(() => labeledOptions(issueStatusOptions.map(option => option.value), statusLabels.value));
+const priorityOptions = computed(() =>
+  labeledOptions(issuePriorityOptions.map(option => option.value), priorityLabels.value)
+);
+const typeOptions = computed(() => labeledOptions(issueTypeOptions.map(option => option.value), typeLabels.value));
 const getStatusType = getIssueStatusTagType;
 const getPriorityType = getIssuePriorityTagType;
 const getTypeType = getIssueTypeTagType;
@@ -1271,7 +1278,7 @@ function getProjectName(projectId: string): string {
 
 // Get type label
 function getTypeLabel(type: Api.Issue.IssueType): string {
-  const option = typeOptions.find(opt => opt.value === type);
+  const option = typeOptions.value.find(opt => opt.value === type);
   return option?.label || type;
 }
 
@@ -1283,7 +1290,7 @@ function getTypeLabel(type: Api.Issue.IssueType): string {
 
 // Get priority label
 function getPriorityLabel(priority: Api.Issue.IssuePriority): string {
-  const option = priorityOptions.find(opt => opt.value === priority);
+  const option = priorityOptions.value.find(opt => opt.value === priority);
   return option?.label || priority;
 }
 
@@ -1354,7 +1361,7 @@ const baseColumns: DataTableColumns<Api.Issue.Issue> = [
     key: 'type',
     width: 100,
     render: row => {
-      const label = typeOptions.find(t => t.value === row.type)?.label || row.type;
+      const label = typeOptions.value.find(t => t.value === row.type)?.label || row.type;
       return h(NTag, { type: getTypeType(row.type), size: 'small' }, { default: () => label });
     }
   },
@@ -1363,7 +1370,7 @@ const baseColumns: DataTableColumns<Api.Issue.Issue> = [
     key: 'status',
     width: 120,
     render: row => {
-      const label = statusOptions.find(s => s.value === row.status)?.label || row.status;
+      const label = statusOptions.value.find(s => s.value === row.status)?.label || row.status;
       return h(NTag, { type: getStatusType(row.status), size: 'small' }, { default: () => label });
     }
   },
@@ -1372,7 +1379,7 @@ const baseColumns: DataTableColumns<Api.Issue.Issue> = [
     key: 'priority',
     width: 100,
     render: row => {
-      const label = priorityOptions.find(p => p.value === row.priority)?.label;
+      const label = priorityOptions.value.find(p => p.value === row.priority)?.label;
       return h(NTag, { type: getPriorityType(row.priority), size: 'small' }, { default: () => label || '-' });
     }
   },

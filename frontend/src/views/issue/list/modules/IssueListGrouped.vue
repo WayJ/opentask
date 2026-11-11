@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { NCollapse, NCollapseItem, NDataTable, NEmpty, NTag, NText } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
+import { useLabelTable } from '@/locales/use-label-table';
 import { type GroupByKey, type IssueGroupBucket, groupIssuesBy } from '@/utils/groupIssuesBy';
 import { nestIssuesDepth1 } from '@/utils/nestIssuesDepth1';
 import type { Api } from '@/typings/api';
@@ -15,7 +16,16 @@ const props = defineProps<{
   rowProps?: (row: Api.Issue.Issue) => Record<string, unknown>;
 }>();
 
-const buckets = computed<IssueGroupBucket[]>(() => groupIssuesBy(props.issues, props.groupBy));
+const typeLabels = useLabelTable('page.issueType');
+const statusLabels = useLabelTable('page.issueStatus');
+const priorityLabels = useLabelTable('page.issuePriority');
+const buckets = computed<IssueGroupBucket[]>(() =>
+  groupIssuesBy(props.issues, props.groupBy, {
+    type: typeLabels.value,
+    status: statusLabels.value,
+    priority: priorityLabels.value
+  })
+);
 
 function nestBucketIssues(list: Api.Issue.Issue[]) {
   return nestIssuesDepth1(list).map(r => ({ ...r.issue, nestDepth: r.depth }));

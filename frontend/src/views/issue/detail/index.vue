@@ -24,6 +24,8 @@ import {
   issueStatusOptions,
   issueTypeOptions
 } from '@/constants/issue';
+import { labeledOptions } from '@/locales/display-label';
+import { useLabelTable } from '@/locales/use-label-table';
 import { fetchProjectMilestones, projectApi } from '@/service/api/project';
 import { type CycleItem, fetchCycles } from '@/service/api/cycles';
 import { type TagItem, tagApi } from '@/service/api/tag';
@@ -235,7 +237,8 @@ const getStatusType = getIssueStatusTagType;
 const getPriorityType = getIssuePriorityTagType;
 const statusOptions = issueStatusOptions;
 const priorityOptions = issuePriorityOptions;
-const typeOptions = issueTypeOptions;
+const typeLabels = useLabelTable('page.issueType');
+const typeOptions = computed(() => labeledOptions(issueTypeOptions.map(option => option.value), typeLabels.value));
 const estimateOptions = [
   { label: '—', value: null },
   { label: '1', value: 1 },

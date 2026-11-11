@@ -4,7 +4,7 @@
  */
 import { issueStatusOptions } from '@/constants/issue';
 import type { Api } from '@/typings/api';
-import { type GroupByKey, groupIssuesBy, isCfDim } from './groupIssuesBy';
+import { type GroupByKey, type GroupLabels, groupIssuesBy, isCfDim } from './groupIssuesBy';
 import type { SwimlaneBy } from './display-prefs';
 
 export type BoardStatus = Api.Issue.IssueStatus;
@@ -57,7 +57,8 @@ function swimlaneToGroupBy(swimlaneBy: Exclude<SwimlaneBy, 'none'>): Exclude<Gro
 export function buildBoardSwimlanes(
   issues: Api.Issue.Issue[],
   swimlaneBy: SwimlaneBy,
-  hideEmptyLanes: boolean
+  hideEmptyLanes: boolean,
+  labels?: GroupLabels
 ): BoardSwimlane[] {
   const source = issues || [];
 
@@ -71,7 +72,7 @@ export function buildBoardSwimlanes(
     return [lane];
   }
 
-  const buckets = groupIssuesBy(source, swimlaneToGroupBy(swimlaneBy));
+  const buckets = groupIssuesBy(source, swimlaneToGroupBy(swimlaneBy), labels);
   const lanes: BoardSwimlane[] = buckets.map(b => ({
     key: b.key,
     label: b.label,

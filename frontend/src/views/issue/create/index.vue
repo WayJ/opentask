@@ -3,6 +3,8 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import { NButton, NCard, NDivider, NEmpty, NInput, NModal, NSpace, NTag, NText, NTooltip, NUpload } from 'naive-ui';
 import { issuePriorityOptions, issueTypeOptions } from '@/constants/issue';
+import { labeledOptions } from '@/locales/display-label';
+import { useLabelTable } from '@/locales/use-label-table';
 import type { IssueTemplate } from '@/constants/issueTemplates';
 import { fetchProjectList } from '@/service/api';
 import { fetchIssueTemplates } from '@/service/api/issue-templates';
@@ -24,6 +26,8 @@ defineOptions({
 const router = useRouter();
 const route = useRoute();
 const issueStore = useIssueStore();
+const typeLabels = useLabelTable('page.issueType');
+const typeOptions = computed(() => labeledOptions(issueTypeOptions.map(option => option.value), typeLabels.value));
 
 // 页面状态
 const loading = ref(false);
@@ -547,7 +551,7 @@ onBeforeRouteLeave((_to, _from, next) => {
             <div class="property-label">
               <NText depth="3" style="font-size: 12px">类型</NText>
             </div>
-            <NSelect v-model:value="formData.type" :options="issueTypeOptions" size="small" placeholder="选择类型">
+            <NSelect v-model:value="formData.type" :options="typeOptions" size="small" placeholder="选择类型">
               <template #label="{ option }">
                 <NSpace :size="8" align="center">
                   <icon-mdi v-if="option?.value" :name="typeIconMap[option.value as Api.Issue.IssueType]" />
