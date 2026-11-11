@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   ISSUE_CODE_COLUMN_WIDTH,
@@ -329,4 +331,24 @@ describe('createListScrollBinder', () => {
     expect(widths).toEqual([0]);
     root.remove();
   });
+});
+
+it('wires the list page to the scroll binder', () => {
+  const index = readFileSync(join(process.cwd(), 'src/views/issue/list/index.vue'), 'utf8');
+  const unmounted = index.slice(index.indexOf('onUnmounted(() =>'));
+  expect(index).toContain('ref="listTableRef"');
+  expect(index).toContain('createListScrollBinder');
+  expect(index).toContain('listScroll.schedule()');
+  expect(index).toContain('listScroll.disconnect()');
+  expect(unmounted.indexOf('listScrollActive.value = false')).toBeGreaterThanOrEqual(0);
+  expect(unmounted.indexOf('listScroll.disconnect()')).toBeGreaterThan(unmounted.indexOf('listScrollActive.value = false'));
+  expect(index).not.toContain('document.querySelector');
+  expect(index).not.toContain("querySelector('.n-data-table')");
+  expect(index).not.toContain('ISSUE_ACTIONS_PIN_MIN');
+  expect(index).toContain("whiteSpace: 'normal'");
+  expect(index).toContain('issueListPinColumnWidths.issue_code');
+  expect(index).toContain('issueListPinColumnWidths.assignee_id');
+  expect(index).toContain('issueListPinColumnWidths.actions');
+  expect(index).toContain("key: 'reporter_id'");
+  expect(index).toContain('width: 150');
 });

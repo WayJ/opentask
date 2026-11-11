@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, h, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { computed, h, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   NButton,
@@ -85,7 +85,7 @@ import type { Api } from '@/typings/api';
 import IssueBulkBar from '@/components/IssueBulkBar.vue';
 import IssueBoard from './modules/IssueBoard.vue';
 import IssueListGrouped from './modules/IssueListGrouped.vue';
-import { issueListColumnLayout } from './column-layout';
+import { createListScrollBinder, issueListColumnLayout, issueListPinColumnWidths } from './column-layout';
 import DisplayOptionsPanel from './modules/DisplayOptionsPanel.vue';
 import '@/styles/issue-surface.css';
 
@@ -1308,13 +1308,13 @@ const baseColumns: DataTableColumns<Api.Issue.Issue> = [
   {
     title: '编号',
     key: 'issue_code',
-    width: 120,
+    width: issueListPinColumnWidths.issue_code,
     ellipsis: { tooltip: true }
   },
   {
     title: '标题',
     key: 'title',
-    width: 300,
+    width: issueListPinColumnWidths.title,
     render: (row: Api.Issue.Issue & { nestDepth?: number }) => {
       const depth = row.nestDepth || 0;
       return h(
@@ -1364,7 +1364,7 @@ const baseColumns: DataTableColumns<Api.Issue.Issue> = [
   {
     title: '类型',
     key: 'type',
-    width: 100,
+    width: issueListPinColumnWidths.type,
     render: row => {
       const label = typeOptions.value.find(t => t.value === row.type)?.label || row.type;
       return h(NTag, { type: getTypeType(row.type), size: 'small' }, { default: () => label });
@@ -1373,7 +1373,7 @@ const baseColumns: DataTableColumns<Api.Issue.Issue> = [
   {
     title: '状态',
     key: 'status',
-    width: 120,
+    width: issueListPinColumnWidths.status,
     render: row => {
       const label = statusOptions.value.find(s => s.value === row.status)?.label || row.status;
       return h(NTag, { type: getStatusType(row.status), size: 'small' }, { default: () => label });
@@ -1382,7 +1382,7 @@ const baseColumns: DataTableColumns<Api.Issue.Issue> = [
   {
     title: '优先级',
     key: 'priority',
-    width: 100,
+    width: issueListPinColumnWidths.priority,
     render: row => {
       const label = priorityOptions.value.find(p => p.value === row.priority)?.label;
       return h(NTag, { type: getPriorityType(row.priority), size: 'small' }, { default: () => label || '-' });
@@ -1391,7 +1391,7 @@ const baseColumns: DataTableColumns<Api.Issue.Issue> = [
   {
     title: '估点',
     key: 'estimate_points',
-    width: 72,
+    width: issueListPinColumnWidths.estimate_points,
     render: row => {
       const prefix = iconPrefixFor(row, 'estimate_points');
       const body = row.estimate_points != null ? String(row.estimate_points) : '—';
@@ -1401,7 +1401,7 @@ const baseColumns: DataTableColumns<Api.Issue.Issue> = [
   {
     title: '负责人',
     key: 'assignee_id',
-    width: 120,
+    width: issueListPinColumnWidths.assignee_id,
     render: row => {
       if (row.assignee) {
         return row.assignee.name || row.assignee.id;
@@ -1437,7 +1437,7 @@ const baseColumns: DataTableColumns<Api.Issue.Issue> = [
   {
     title: '操作',
     key: 'actions',
-    width: 200,
+    width: issueListPinColumnWidths.actions,
     fixed: 'right' as const,
     render: row =>
       h(NSpace, null, {
@@ -1449,17 +1449,68 @@ const baseColumns: DataTableColumns<Api.Issue.Issue> = [
   }
 ];
 
-const issueListEl = ref<HTMLElement | null>(null);
-const tableWidth = ref(typeof window === 'undefined' ? 1280 : window.innerWidth);
-let tableObserver: ResizeObserver | undefined;
+const listTableRef = ref<{ $el?: unknown } | null>(null);
+const tableWidth = ref(0);
+const listScrollActive = ref(true);
+const ResizeObserverCtor =
+  typeof ResizeObserver === 'undefined'
+    ? undefined
+    : class {
+        private observer: ResizeObserver;
+        constructor(callback: () => void) {
+          this.observer = new ResizeObserver(() => callback());
+        }
+        observe(target: Element) {
+          this.observer.observe(target);
+        }
+        disconnect() {
+          this.observer.disconnect();
+        }
+      };
+const MutationObserverCtor =
+  typeof MutationObserver === 'undefined'
+    ? undefined
+    : class {
+        private observer: MutationObserver;
+        constructor(callback: () => void) {
+          this.observer = new MutationObserver(() => callback());
+        }
+        observe(target: Node, init: { childList: true; subtree: true }) {
+          this.observer.observe(target, init);
+        }
+        disconnect() {
+          this.observer.disconnect();
+        }
+      };
+const listScroll = createListScrollBinder({
+  getRoot: () => {
+    const el = listTableRef.value?.$el;
+    return el instanceof Element ? el : null;
+  },
+  onWidth: width => {
+    tableWidth.value = width;
+  },
+  nextTick: callback => {
+    void nextTick(callback);
+  },
+  isActive: () => listScrollActive.value,
+  ResizeObserver: ResizeObserverCtor,
+  MutationObserver: MutationObserverCtor
+});
 
-function readTableWidth() {
-  const root = issueListEl.value;
-  if (!root) return;
-  const table = root.querySelector('.n-data-table');
-  const width = table instanceof HTMLElement ? table.clientWidth : root.clientWidth;
-  if (width > 0) tableWidth.value = width;
-}
+watch(
+  listTableRef,
+  inst => {
+    if (!listScrollActive.value) return;
+    if (!inst) {
+      listScroll.disconnect();
+      tableWidth.value = 0;
+      return;
+    }
+    listScroll.schedule();
+  },
+  { flush: 'post' }
+);
 
 const columns = computed<DataTableColumns<Api.Issue.Issue>>(() => {
   const { pinActions, titleWidth } = issueListColumnLayout(tableWidth.value);
@@ -1530,11 +1581,6 @@ watch(
 );
 
 onMounted(async () => {
-  if (typeof ResizeObserver !== 'undefined' && issueListEl.value) {
-    tableObserver = new ResizeObserver(() => readTableWidth());
-    tableObserver.observe(issueListEl.value);
-    readTableWidth();
-  }
   unsubRealtime = subscribeWorkspaceRealtime(ev => {
     if (typeof ev.type === 'string' && ev.type.startsWith('issue.')) {
       debouncedRealtimeReload();
@@ -1577,14 +1623,16 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  tableObserver?.disconnect();
+  listScrollActive.value = false;
+  listScroll.disconnect();
+  tableWidth.value = 0;
   unsubRealtime?.();
   unsubRealtime = null;
 });
 </script>
 
 <template>
-  <div ref="issueListEl" class="issue-list-container">
+  <div class="issue-list-container">
     <NCard :bordered="false">
       <NAlert v-if="scopeTitle" type="info" :bordered="false" class="mb-12px" closable @close="clearScope">
         当前视图：{{ scopeTitle }}
@@ -2007,6 +2055,7 @@ onUnmounted(() => {
           <NEmpty v-if="!loading && issues.length === 0" :description="$t('page.shell.noIssues')" size="large" />
           <div v-else>
             <NDataTable
+              ref="listTableRef"
               :columns="columns"
               :data="nestedListIssues"
               :row-key="(row: Api.Issue.Issue) => row.id"
