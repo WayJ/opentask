@@ -87,6 +87,7 @@ import IssueBoard from './modules/IssueBoard.vue';
 import IssueListGrouped from './modules/IssueListGrouped.vue';
 import { issueListColumnLayout } from './column-layout';
 import DisplayOptionsPanel from './modules/DisplayOptionsPanel.vue';
+import '@/styles/issue-surface.css';
 
 defineOptions({
   name: 'IssueList'
