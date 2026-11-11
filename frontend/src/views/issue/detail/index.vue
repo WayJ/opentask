@@ -1477,7 +1477,11 @@ onUnmounted(() => {
             <!-- Quick Actions -->
             <div v-if="!issue.is_deleted" class="issue-actions">
               <NButtonGroup>
-                <NButton size="small" class="issue-action-edit" @click="router.push({ path: '/issue/edit', query: { id: issue.id } })">
+                <NButton
+                  size="small"
+                  class="issue-action-edit"
+                  @click="router.push({ path: '/issue/edit', query: { id: issue.id } })"
+                >
                   <template #icon>
                     <icon-mdi-pencil />
                   </template>

@@ -18,9 +18,7 @@ describe('detail edit button focus ring', () => {
     const block = editButtonBlock(detail);
     expect(block).toContain('v-if="!issue.is_deleted"');
     expect(block).toContain('编辑');
-    expect(block).toContain(
-      `@click="router.push({ path: '/issue/edit', query: { id: issue.id } })"`
-    );
+    expect(block).toContain(`@click="router.push({ path: '/issue/edit', query: { id: issue.id } })"`);
   });
 
   it('keeps the existing generic focus rule', () => {
