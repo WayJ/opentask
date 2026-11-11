@@ -402,6 +402,104 @@ const local: App.I18n.Schema = {
       labelsOr: 'Labels (OR)',
       defaultCycle: 'Default cycle'
     },
+    issueType: {
+      bug: 'Bug',
+      feature: 'Feature',
+      question: 'Question',
+      feedback: 'Feedback',
+      incident: 'Incident',
+      improvement: 'Improvement'
+    },
+    issueStatus: {
+      open: 'Open',
+      in_progress: 'In progress',
+      feedback: 'Waiting for feedback',
+      resolved: 'Resolved',
+      closed: 'Closed',
+      rejected: 'Rejected'
+    },
+    issuePriority: {
+      low: 'Low',
+      medium: 'Medium',
+      high: 'High',
+      critical: 'Urgent'
+    },
+    sla: {
+      runDue: 'Run due checks',
+      help: 'Two metrics: time in status and first response. Minutes use the wall clock unless business hours are on. First response is the first comment by someone other than the creator. Assignment does not count. If no stop status is set, resolved, closed, or rejected completes it. Pause statuses do not count; the clock resumes with the time left. There is no built-in scheduler (cron). Call POST /api/sla/run-due from an external scheduler.',
+      businessHours: 'Business hours',
+      metricPlaceholder: 'Metric',
+      startPlaceholder: 'Start statuses',
+      stopPlaceholder: 'Stop statuses (empty counts as closing statuses)',
+      pausePlaceholder: 'Pause statuses (optional)',
+      targetPlaceholder: 'Target minutes',
+      windowPlaceholder: 'Forced-open windows (optional)',
+      pauseHint: 'These statuses pause the clock. It resumes with the time left. For example: waiting for feedback.',
+      priorityRule: 'Stop wins over pause, and pause wins over start.',
+      firstResponseNote:
+        'First response is the first comment by someone other than the creator. Assignment does not count.',
+      closingStatuses: 'Closing statuses',
+      startPrefix: 'Start',
+      stopPrefix: 'Stop',
+      pausePrefix: 'Pause',
+      targetWorkspace: 'Workspace business hours',
+      targetPolicy: 'A policy calendar',
+      choosePolicy: 'Choose a policy',
+      defaultPolicyName: 'Time in progress',
+      nameRequired: 'Enter a name and at least one start status',
+      holidayIntro:
+        'Static packs for China, the United States, the European Union, and the United Kingdom, 2026 and 2027. Preview, then apply them to this workspace or to a policy calendar. The pack wins on the same date. Other exceptions stay. No network sync.',
+      hoursIntro:
+        'The workspace uses an IANA time zone and weekly windows. When business hours are on, deadlines and the time left after a pause use business minutes. When they are off, the wall clock is used. Saving recalculates policies that are counting and policies that are paused. At most two ranges a day, written as 09:00-12:00,13:00-18:00.',
+      hoursEnabled: 'Use business hours',
+      weekdayPreset: 'Weekdays 09:00–18:00',
+      hoursWindowPlaceholder: 'Empty means not open. Example: 09:00-12:00,13:00-18:00',
+      exceptionDays:
+        'Exception days use the local calendar. A closed day counts no business minutes. Forced open replaces that day’s weekly window. If no window is set, Monday’s window is used, otherwise 09:00–18:00. At most 366 days.',
+      noExceptions: 'No exception days',
+      defaultWindow: 'Default window',
+      addException: 'Add exception',
+      removeException: 'Remove',
+      weekday: {
+        mon: 'Mon',
+        tue: 'Tue',
+        wed: 'Wed',
+        thu: 'Thu',
+        fri: 'Fri',
+        sat: 'Sat',
+        sun: 'Sun'
+      },
+      saveHours: 'Save business hours',
+      hoursSaved: 'Business hours saved. Counting and paused policies were recalculated.',
+      packAdded: 'Added',
+      packReplaced: 'Replaced',
+      regionCN: 'China CN',
+      regionUS: 'United States US',
+      regionEU: 'European Union EU',
+      regionUK: 'United Kingdom UK',
+      metric: {
+        time_in_status: 'Time in status',
+        first_response: 'First response'
+      },
+      exception: {
+        closed: 'Closed day',
+        forced_open: 'Forced open'
+      }
+    },
+    insights: {
+      subtitle:
+        'Workspace performance summary. Any selected label matches. Personal and team reports. Optional digest.',
+      exportCsv: 'Export CSV',
+      exportedCsv: 'Exported CSV',
+      digest: 'Performance digest',
+      digestDefault: 'Set as the default digest report',
+      digestHint: 'Off by default. When on, an external scheduler writes to Inbox and email.',
+      cycleActive: ' · Active',
+      estimatePoints: 'Estimate points',
+      createdCompleted: 'Last 14 days · Created and completed',
+      velocityTitle: 'Estimate velocity · Completed points, last 14 days',
+      points: 'Points'
+    },
     search: {
       placeholder: 'Search issues, projects, docs, members, comments…',
       hint: 'Type to search. Or open the command palette with ⌘K.',

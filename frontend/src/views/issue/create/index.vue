@@ -9,6 +9,8 @@ import { fetchIssueTemplates } from '@/service/api/issue-templates';
 import { type CustomFieldRow, fetchCustomFields, fetchPatchIssueCustomFields } from '@/service/api/custom-fields';
 import { issueApi } from '@/service/api/issue';
 import { useIssueStore } from '@/store/modules/issue';
+import { useLabelTable } from '@/locales/use-label-table';
+import { labeledOptions } from '@/locales/display-label';
 import IssueCustomFieldsEditor from '@/components/issue/IssueCustomFieldsEditor.vue';
 import MarkdownEditor from '@/components/MarkdownEditor.vue';
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
@@ -24,6 +26,13 @@ defineOptions({
 const router = useRouter();
 const route = useRoute();
 const issueStore = useIssueStore();
+const typeLabels = useLabelTable('page.issueType');
+const typeOptions = computed(() =>
+  labeledOptions(
+    issueTypeOptions.map(option => option.value),
+    typeLabels.value
+  )
+);
 
 // 页面状态
 const loading = ref(false);
@@ -547,7 +556,7 @@ onBeforeRouteLeave((_to, _from, next) => {
             <div class="property-label">
               <NText depth="3" style="font-size: 12px">类型</NText>
             </div>
-            <NSelect v-model:value="formData.type" :options="issueTypeOptions" size="small" placeholder="选择类型">
+            <NSelect v-model:value="formData.type" :options="typeOptions" size="small" placeholder="选择类型">
               <template #label="{ option }">
                 <NSpace :size="8" align="center">
                   <icon-mdi v-if="option?.value" :name="typeIconMap[option.value as Api.Issue.IssueType]" />

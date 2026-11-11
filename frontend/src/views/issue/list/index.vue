@@ -44,6 +44,7 @@ import {
 import { fetchIssueDisplayPrefs, fetchPutIssueDisplayPrefs } from '@/service/api/display-prefs';
 import { fetchAddFavorite, fetchFavorites, fetchRemoveFavorite } from '@/service/api/favorites';
 import { fetchWorkspaceList } from '@/service/api/workspace';
+import { type CustomFieldRow, fetchCustomFields } from '@/service/api/custom-fields';
 import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
 import { useIssueFocus } from '@/composables/use-issue-focus';
@@ -53,12 +54,7 @@ import { debounceFn, subscribeWorkspaceRealtime } from '@/composables/use-worksp
 import { localStg } from '@/utils/storage';
 import { buildSavedViewDropdownOptions, canWriteSavedView } from '@/utils/saved-view-sections';
 import { deriveListStateFromSavedView } from '@/utils/apply-saved-view';
-import {
-  GROUP_BY_OPTIONS,
-  buildGroupByOptions,
-  parseCfDim,
-  type GroupByKey
-} from '@/utils/groupIssuesBy';
+import { GROUP_BY_OPTIONS, type GroupByKey, buildGroupByOptions, parseCfDim } from '@/utils/groupIssuesBy';
 import {
   type ColorScaleRule,
   type ConditionalFormatRule,
@@ -81,7 +77,8 @@ import {
   parseSearchString,
   parsedQueryToFilters
 } from '@/utils/issueSearchParser';
-import { fetchCustomFields, type CustomFieldRow } from '@/service/api/custom-fields';
+import { useLabelTable } from '@/locales/use-label-table';
+import { labeledOptions } from '@/locales/display-label';
 import { $t } from '@/locales';
 import IssueSmartSearch from '@/components/IssueSmartSearch.vue';
 import type { Api } from '@/typings/api';
@@ -664,7 +661,10 @@ async function loadIssues() {
         due_soon: filters.due_soon,
         sort_by: listSortBy.value || 'created_at',
         sort_order: listSortOrder.value || 'desc',
-        include: needCf || needCfSort || conditionalFormats.value.length || colorScales.value.length || iconSets.value.length ? 'custom_fields' : undefined,
+        include:
+          needCf || needCfSort || conditionalFormats.value.length || colorScales.value.length || iconSets.value.length
+            ? 'custom_fields'
+            : undefined,
         ...cfParams
       } as any);
 
@@ -806,9 +806,27 @@ function applySmartSearchFromString(raw: string) {
 }
 
 // Use imported constants and utility functions
-const statusOptions = issueStatusOptions;
-const priorityOptions = issuePriorityOptions;
-const typeOptions = issueTypeOptions;
+const statusLabels = useLabelTable('page.issueStatus');
+const priorityLabels = useLabelTable('page.issuePriority');
+const typeLabels = useLabelTable('page.issueType');
+const statusOptions = computed(() =>
+  labeledOptions(
+    issueStatusOptions.map(option => option.value),
+    statusLabels.value
+  )
+);
+const priorityOptions = computed(() =>
+  labeledOptions(
+    issuePriorityOptions.map(option => option.value),
+    priorityLabels.value
+  )
+);
+const typeOptions = computed(() =>
+  labeledOptions(
+    issueTypeOptions.map(option => option.value),
+    typeLabels.value
+  )
+);
 const getStatusType = getIssueStatusTagType;
 const getPriorityType = getIssuePriorityTagType;
 const getTypeType = getIssueTypeTagType;
@@ -947,11 +965,7 @@ const ICON_GLYPH: Record<string, string> = {
 };
 
 function iconPrefixFor(issue: Api.Issue.Issue, field?: string): string {
-  const icon = resolveCellIcon(
-    issue as unknown as Record<string, unknown>,
-    iconSets.value,
-    field
-  );
+  const icon = resolveCellIcon(issue as unknown as Record<string, unknown>, iconSets.value, field);
   return icon ? `${ICON_GLYPH[icon] || ''} ` : '';
 }
 
@@ -974,7 +988,8 @@ function issueRowProps(row: Api.Issue.Issue) {
   if (focused) style = 'outline: 2px solid var(--color-primary); outline-offset: -2px;';
   else if (selected) style = 'background: color-mix(in srgb, var(--color-primary) 8%, transparent);';
   else if (appearance?.kind === 'tint') style = `background: ${TINT_BG[appearance.value]};`;
-  else if (appearance?.kind === 'scale') style = `background: color-mix(in srgb, ${appearance.value} 22%, transparent);`;
+  else if (appearance?.kind === 'scale')
+    style = `background: color-mix(in srgb, ${appearance.value} 22%, transparent);`;
   return {
     class: classes || undefined,
     style,
@@ -1271,7 +1286,7 @@ function getProjectName(projectId: string): string {
 
 // Get type label
 function getTypeLabel(type: Api.Issue.IssueType): string {
-  const option = typeOptions.find(opt => opt.value === type);
+  const option = typeOptions.value.find(opt => opt.value === type);
   return option?.label || type;
 }
 
@@ -1283,7 +1298,7 @@ function getTypeLabel(type: Api.Issue.IssueType): string {
 
 // Get priority label
 function getPriorityLabel(priority: Api.Issue.IssuePriority): string {
-  const option = priorityOptions.find(opt => opt.value === priority);
+  const option = priorityOptions.value.find(opt => opt.value === priority);
   return option?.label || priority;
 }
 
@@ -1332,17 +1347,13 @@ const baseColumns: DataTableColumns<Api.Issue.Issue> = [
           ),
           ...(formatChildProgress(row.childProgress)
             ? [
-                h(
-                  'span',
-                  { style: 'margin-left: 6px; display: inline-flex; vertical-align: middle;' },
-                  [
-                    h(
-                      NTag,
-                      { size: 'tiny', type: 'info', bordered: false },
-                      { default: () => formatChildProgress(row.childProgress) }
-                    )
-                  ]
-                )
+                h('span', { style: 'margin-left: 6px; display: inline-flex; vertical-align: middle;' }, [
+                  h(
+                    NTag,
+                    { size: 'tiny', type: 'info', bordered: false },
+                    { default: () => formatChildProgress(row.childProgress) }
+                  )
+                ])
               ]
             : [])
         ]
@@ -1354,7 +1365,7 @@ const baseColumns: DataTableColumns<Api.Issue.Issue> = [
     key: 'type',
     width: 100,
     render: row => {
-      const label = typeOptions.find(t => t.value === row.type)?.label || row.type;
+      const label = typeOptions.value.find(t => t.value === row.type)?.label || row.type;
       return h(NTag, { type: getTypeType(row.type), size: 'small' }, { default: () => label });
     }
   },
@@ -1363,7 +1374,7 @@ const baseColumns: DataTableColumns<Api.Issue.Issue> = [
     key: 'status',
     width: 120,
     render: row => {
-      const label = statusOptions.find(s => s.value === row.status)?.label || row.status;
+      const label = statusOptions.value.find(s => s.value === row.status)?.label || row.status;
       return h(NTag, { type: getStatusType(row.status), size: 'small' }, { default: () => label });
     }
   },
@@ -1372,7 +1383,7 @@ const baseColumns: DataTableColumns<Api.Issue.Issue> = [
     key: 'priority',
     width: 100,
     render: row => {
-      const label = priorityOptions.find(p => p.value === row.priority)?.label;
+      const label = priorityOptions.value.find(p => p.value === row.priority)?.label;
       return h(NTag, { type: getPriorityType(row.priority), size: 'small' }, { default: () => label || '-' });
     }
   },
@@ -1478,7 +1489,6 @@ const columns = computed<DataTableColumns<Api.Issue.Issue>>(() => {
   }
   return cols;
 });
-
 
 // Project options
 const projectOptions = computed(() => {
@@ -1782,7 +1792,14 @@ onUnmounted(() => {
                 :swimlane-by="swimlaneBy"
                 :hide-empty-lanes="hideEmptyLanes"
                 :saving="displayPrefsSaving"
-                :custom-field-options="customFieldDefs.map(f => ({ key: f.key, name: f.name, type: f.type, formulaResultType: f.formulaResultType }))"
+                :custom-field-options="
+                  customFieldDefs.map(f => ({
+                    key: f.key,
+                    name: f.name,
+                    type: f.type,
+                    formulaResultType: f.formulaResultType
+                  }))
+                "
                 :custom-field-keys="customFieldKeys"
                 :conditional-formats="conditionalFormats"
                 :color-scales="colorScales"
@@ -1810,7 +1827,10 @@ onUnmounted(() => {
               />
               <NSelect
                 :value="listSortOrder"
-                :options="[{ label: '降序', value: 'desc' }, { label: '升序', value: 'asc' }]"
+                :options="[
+                  { label: '降序', value: 'desc' },
+                  { label: '升序', value: 'asc' }
+                ]"
                 size="small"
                 style="width: 90px"
                 @update:value="onListSortOrderUpdate"
@@ -2019,7 +2039,11 @@ onUnmounted(() => {
       class="ot-modal w-480px"
     >
       <NSpace vertical>
-        <NText depth="3">列需含 title；可选 issue_code（本工作区已存在则更新）。自定义字段用 <code>cf.&lt;key&gt;</code> 列（模板已含当前工作区字段；multi 逗号分隔，boolean 用 true/false）。未知 key 不阻断主字段写入。</NText>
+        <NText depth="3">
+          列需含 title；可选 issue_code（本工作区已存在则更新）。自定义字段用
+          <code>cf.&lt;key&gt;</code>
+          列（模板已含当前工作区字段；multi 逗号分隔，boolean 用 true/false）。未知 key 不阻断主字段写入。
+        </NText>
         <NButton size="small" secondary @click="downloadImportTemplate">下载模板 CSV</NButton>
         <input ref="importFileInput" type="file" accept=".csv,text/csv" @change="onImportFileChange" />
         <NText v-if="importSummary" type="success">{{ importSummary }}</NText>

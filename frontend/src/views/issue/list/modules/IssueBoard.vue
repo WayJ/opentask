@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { NCard, NEmpty, NTag, NAvatar, NText, useMessage } from 'naive-ui';
+import { NAvatar, NCard, NEmpty, NTag, NText, useMessage } from 'naive-ui';
 import { VueDraggable } from 'vue-draggable-plus';
 import {
   getIssuePriorityLabel,
@@ -22,8 +22,10 @@ import type {
   SwimlaneBy
 } from '@/utils/display-prefs';
 import { resolveCellIcon, resolveRowBackground } from '@/utils/display-prefs';
-import type { Api } from '@/typings/api';
 import { formatChildProgress } from '@/utils/childProgress';
+import type { Api } from '@/typings/api';
+import { useLabelTable } from '@/locales/use-label-table';
+import { lookupLabel } from '@/locales/display-label';
 
 defineOptions({ name: 'IssueBoard' });
 
@@ -88,10 +90,7 @@ const ICON_GLYPH: Record<string, string> = {
 };
 
 function cardIconPrefix(issue: Api.Issue.Issue): string {
-  const icon = resolveCellIcon(
-    issue as unknown as Record<string, unknown>,
-    props.iconSets
-  );
+  const icon = resolveCellIcon(issue as unknown as Record<string, unknown>, props.iconSets);
   return icon ? ICON_GLYPH[icon] || '' : '';
 }
 
@@ -106,17 +105,33 @@ const router = useRouter();
 const message = useMessage();
 const moving = ref(false);
 
-const columns = BOARD_STATUS_COLUMNS;
+const statusLabels = useLabelTable('page.issueStatus');
+const typeLabels = useLabelTable('page.issueType');
+const priorityLabels = useLabelTable('page.issuePriority');
+const groupLabels = computed(() => ({
+  status: statusLabels.value,
+  type: typeLabels.value,
+  priority: priorityLabels.value
+}));
+const columns = computed(() =>
+  BOARD_STATUS_COLUMNS.map(col => ({
+    status: col.status,
+    label: lookupLabel(statusLabels.value, col.status)
+  }))
+);
 
 /** laneKey -> status -> issues (mutable for drag) */
 const laneColumnMap = ref<Record<string, Record<string, Api.Issue.Issue[]>>>({});
 
 function rebuild(source: Api.Issue.Issue[]) {
-  const lanes = buildBoardSwimlanes(source, props.swimlaneBy, props.hideEmptyLanes);
+  const lanes = buildBoardSwimlanes(source, props.swimlaneBy, {
+    hideEmptyLanes: props.hideEmptyLanes,
+    labels: groupLabels.value
+  });
   const next: Record<string, Record<string, Api.Issue.Issue[]>> = {};
   for (const lane of lanes) {
     next[lane.key] = {};
-    for (const col of columns) {
+    for (const col of BOARD_STATUS_COLUMNS) {
       next[lane.key][col.status] = [...(lane.columns[col.status] || [])];
     }
   }
@@ -143,7 +158,8 @@ const lanes = computed<BoardSwimlane[]>(() => {
     const label =
       key === '__all__'
         ? ''
-        : buildBoardSwimlanes(props.issues, props.swimlaneBy, false).find(l => l.key === key)?.label || key;
+        : buildBoardSwimlanes(props.issues, props.swimlaneBy, { labels: groupLabels.value }).find(l => l.key === key)
+            ?.label || key;
     return { key, label, columns: columnsMap };
   });
 });

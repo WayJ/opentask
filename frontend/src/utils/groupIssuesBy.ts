@@ -4,7 +4,14 @@
  * 列表泳道仅展示，不负责跨泳道拖拽改字段。
  */
 import { issuePriorityOptions, issueStatusOptions, issueTypeOptions } from '@/constants/issue';
+import { type LabelTable, lookupLabel } from '@/locales/display-label';
 import type { Api } from '@/typings/api';
+
+export interface GroupLabels {
+  status?: LabelTable;
+  priority?: LabelTable;
+  type?: LabelTable;
+}
 
 export type SystemGroupByKey = 'none' | 'status' | 'assignee' | 'priority' | 'type' | 'label';
 export type GroupByKey = SystemGroupByKey | `cf:${string}`;
@@ -87,22 +94,28 @@ function assigneeLabel(issue: Api.Issue.Issue): string {
   return issue.assignee_id.slice(0, 8);
 }
 
+function namedLabel(table: LabelTable | undefined, fallback: Record<string, string>, key: string) {
+  if (table) return lookupLabel(table, key);
+  return fallback[key] || key;
+}
+
 function resolveKeyAndLabel(
   issue: Api.Issue.Issue,
-  groupBy: Exclude<SystemGroupByKey, 'none'>
+  groupBy: Exclude<SystemGroupByKey, 'none'>,
+  labels?: GroupLabels
 ): { key: string; label: string } {
   switch (groupBy) {
     case 'status': {
       const key = String(issue.status || 'unknown');
-      return { key, label: STATUS_LABEL[key] || key };
+      return { key, label: namedLabel(labels?.status, STATUS_LABEL, key) };
     }
     case 'priority': {
       const key = String(issue.priority || 'unknown');
-      return { key, label: PRIORITY_LABEL[key] || key };
+      return { key, label: namedLabel(labels?.priority, PRIORITY_LABEL, key) };
     }
     case 'type': {
       const key = String(issue.type || 'unknown');
-      return { key, label: TYPE_LABEL[key] || key };
+      return { key, label: namedLabel(labels?.type, TYPE_LABEL, key) };
     }
     case 'assignee':
       return { key: assigneeKey(issue), label: assigneeLabel(issue) };
@@ -267,7 +280,11 @@ function groupByCustomField(issues: Api.Issue.Issue[], fieldKey: string): IssueG
   return orderKeys('cf', [...map.keys()]).map(k => map.get(k)!);
 }
 
-export function groupIssuesBy(issues: Api.Issue.Issue[], groupBy: GroupByKey): IssueGroupBucket[] {
+export function groupIssuesBy(
+  issues: Api.Issue.Issue[],
+  groupBy: GroupByKey,
+  labels?: GroupLabels
+): IssueGroupBucket[] {
   if (groupBy === 'none' || !issues?.length) {
     return [];
   }
@@ -286,7 +303,7 @@ export function groupIssuesBy(issues: Api.Issue.Issue[], groupBy: GroupByKey): I
   const systemKey = groupBy as Exclude<SystemGroupByKey, 'none'>;
 
   for (const issue of issues) {
-    const { key, label } = resolveKeyAndLabel(issue, systemKey);
+    const { key, label } = resolveKeyAndLabel(issue, systemKey, labels);
     let bucket = map.get(key);
     if (!bucket) {
       bucket = { key, label, issues: [] };

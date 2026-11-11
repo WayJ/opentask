@@ -362,7 +362,7 @@ const local: App.I18n.Schema = {
       allRequests: '全部需求',
       createCustomer: '新建客户',
       createRequest: '新建需求',
-      createInitiative: '新建议措',
+      createInitiative: '新建举措',
       emptyInitiatives: '暂无举措，创建后关联多个项目',
       missingInitiativeId: '缺少举措 id',
       issueForm: '问题表单',
@@ -397,6 +397,102 @@ const local: App.I18n.Schema = {
       favoriteView: '视图',
       labelsOr: '标签（或）',
       defaultCycle: '默认当前冲刺'
+    },
+    issueType: {
+      bug: '缺陷',
+      feature: '功能',
+      question: '问题',
+      feedback: '反馈',
+      incident: '事件',
+      improvement: '改进'
+    },
+    issueStatus: {
+      open: '待办',
+      in_progress: '进行中',
+      feedback: '等待反馈',
+      resolved: '已解决',
+      closed: '已关闭',
+      rejected: '已拒绝'
+    },
+    issuePriority: {
+      low: '低',
+      medium: '中',
+      high: '高',
+      critical: '紧急'
+    },
+    sla: {
+      runDue: '立即执行到期检查',
+      help: '支持「状态停留」和「首次响应」两种度量。默认按墙钟分钟；启用营业时段后按营业分钟。首次响应：不是创建者的第一条评论即满足，指派负责人不算。结束状态留空时，进入已解决、已关闭或已拒绝即满足。进入暂停状态时不计时，离开后按剩余时间继续。没有内置定时任务（cron）。请用外部调度调用 POST /api/sla/run-due。',
+      businessHours: '营业时段',
+      metricPlaceholder: '度量',
+      startPlaceholder: '开始状态',
+      stopPlaceholder: '结束状态（可空，空则视为关闭类）',
+      pausePlaceholder: '暂停计时的状态（可空）',
+      targetPlaceholder: '目标分钟',
+      windowPlaceholder: '强制营业时段（可选）',
+      pauseHint: '进入这些状态时暂停计时；离开后按剩余时间继续。例如：等待反馈。',
+      priorityRule: '结束优先于暂停，暂停优先于开始。',
+      firstResponseNote: '首次响应：不是创建者的第一条评论算首次响应；指派负责人不算。',
+      closingStatuses: '关闭类',
+      startPrefix: '开始',
+      stopPrefix: '结束',
+      pausePrefix: '暂停',
+      targetWorkspace: '本工作区营业时段',
+      targetPolicy: '指定策略的日历',
+      choosePolicy: '请选择策略',
+      defaultPolicyName: '进行中停留',
+      nameRequired: '请填写名称和开始状态',
+      holidayIntro:
+        '精选静态包（中国、美国、欧盟、英国 · 2026/2027）。预览后应用到本工作区营业例外，或某个策略的日历。同日以包为准覆盖；包外例外保留。无外网同步。',
+      hoursIntro:
+        '工作区使用 IANA 时区，并配置每周的营业窗口。启用后，到期时间和暂停后的剩余时间按营业分钟计算；关闭后按墙钟计算。保存后会重算正在计时和已暂停的策略。每天最多 2 段，格式 09:00-12:00,13:00-18:00。',
+      hoursEnabled: '启用营业时段',
+      weekdayPreset: '工作日 09:00–18:00',
+      hoursWindowPlaceholder: '空=非营业；例 09:00-12:00,13:00-18:00',
+      exceptionDays:
+        '例外日按本地日历。关闭日整天不计入营业分钟。强制营业会覆盖当天的周窗口；没有填写窗口时，用周一的窗口，否则用 09:00–18:00。最多 366 天。',
+      noExceptions: '暂无例外日',
+      defaultWindow: '默认窗',
+      addException: '添加例外',
+      removeException: '删除',
+      weekday: {
+        mon: '周一',
+        tue: '周二',
+        wed: '周三',
+        thu: '周四',
+        fri: '周五',
+        sat: '周六',
+        sun: '周日'
+      },
+      saveHours: '保存营业时段',
+      hoursSaved: '营业时段已保存，正在计时和已暂停的策略已重算。',
+      packAdded: '新增',
+      packReplaced: '覆盖',
+      regionCN: '中国 CN',
+      regionUS: '美国 US',
+      regionEU: '欧盟 EU',
+      regionUK: '英国 UK',
+      metric: {
+        time_in_status: '状态停留',
+        first_response: '首次响应'
+      },
+      exception: {
+        closed: '关闭日',
+        forced_open: '强制营业'
+      }
+    },
+    insights: {
+      subtitle: '工作区效能摘要。多个标签取并集，可查看我的报表和团队报表，也可打开定期摘要。',
+      exportCsv: '导出 CSV',
+      exportedCsv: '已导出 CSV',
+      digest: '效能摘要',
+      digestDefault: '已设为摘要的默认报表',
+      digestHint: '默认关闭。打开后，由外部定时调用写入收件箱和邮件。',
+      cycleActive: ' · 进行中',
+      estimatePoints: '估点合计',
+      createdCompleted: '近 14 日 · 创建与完成',
+      velocityTitle: '估点速度 · 近 14 日完成点数',
+      points: '点数'
     },
     search: {
       placeholder: '搜索问题、项目、文档、成员、评论…',

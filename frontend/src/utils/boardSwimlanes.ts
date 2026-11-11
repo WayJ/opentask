@@ -4,7 +4,7 @@
  */
 import { issueStatusOptions } from '@/constants/issue';
 import type { Api } from '@/typings/api';
-import { type GroupByKey, groupIssuesBy, isCfDim } from './groupIssuesBy';
+import { type GroupByKey, type GroupLabels, groupIssuesBy, isCfDim } from './groupIssuesBy';
 import type { SwimlaneBy } from './display-prefs';
 
 export type BoardStatus = Api.Issue.IssueStatus;
@@ -57,8 +57,10 @@ function swimlaneToGroupBy(swimlaneBy: Exclude<SwimlaneBy, 'none'>): Exclude<Gro
 export function buildBoardSwimlanes(
   issues: Api.Issue.Issue[],
   swimlaneBy: SwimlaneBy,
-  hideEmptyLanes: boolean
+  hideEmptyLanes: boolean | { hideEmptyLanes?: boolean; labels?: GroupLabels } = false
 ): BoardSwimlane[] {
+  const labels = typeof hideEmptyLanes === 'object' ? hideEmptyLanes.labels : undefined;
+  const hideEmpty = typeof hideEmptyLanes === 'object' ? Boolean(hideEmptyLanes.hideEmptyLanes) : hideEmptyLanes;
   const source = issues || [];
 
   if (swimlaneBy === 'none') {
@@ -67,18 +69,18 @@ export function buildBoardSwimlanes(
       label: '',
       columns: fillByStatus(source)
     };
-    if (hideEmptyLanes && laneIsEmpty(lane.columns)) return [];
+    if (hideEmpty && laneIsEmpty(lane.columns)) return [];
     return [lane];
   }
 
-  const buckets = groupIssuesBy(source, swimlaneToGroupBy(swimlaneBy));
+  const buckets = groupIssuesBy(source, swimlaneToGroupBy(swimlaneBy), labels);
   const lanes: BoardSwimlane[] = buckets.map(b => ({
     key: b.key,
     label: b.label,
     columns: fillByStatus(b.issues)
   }));
 
-  if (!hideEmptyLanes) return lanes;
+  if (!hideEmpty) return lanes;
   return lanes.filter(l => !laneIsEmpty(l.columns));
 }
 

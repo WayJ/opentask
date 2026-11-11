@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import {
   type CycleItem,
   type InsightsSavedReport,
   type InsightsSummary,
+  type TagItem,
   canEditReport,
   countOpenFromStatus,
   createInsightsReport,
@@ -21,15 +23,19 @@ import {
   patchInsightsReport,
   sumVelocityPoints,
   tagApi,
-  updateNotifPrefs,
-  type TagItem
+  updateNotifPrefs
 } from '@/service/api';
 import { useAuthStore } from '@/store/modules/auth';
 import { $t } from '@/locales';
+import { lookupLabel } from '@/locales/display-label';
+import { useLabelTable } from '@/locales/use-label-table';
 
 defineOptions({ name: 'InsightsPage' });
 
 const authStore = useAuthStore();
+const { t } = useI18n();
+const statusLabels = useLabelTable('page.issueStatus');
+const priorityLabels = useLabelTable('page.issuePriority');
 const loading = ref(false);
 const exporting = ref(false);
 const summary = ref<InsightsSummary | null>(null);
@@ -80,7 +86,7 @@ const maxVelocity = computed(() =>
 
 const cycleOptions = computed(() =>
   cycles.value.map(c => ({
-    label: `${c.name}${c.status === 'active' ? ' · active' : ''}`,
+    label: `${c.name}${c.status === 'active' ? t('page.insights.cycleActive') : ''}`,
     value: c.id
   }))
 );
@@ -93,9 +99,9 @@ const projectOptions = computed(() =>
 );
 
 const labelOptions = computed(() =>
-  labels.value.map(t => ({
-    label: t.name,
-    value: t.id
+  labels.value.map(tag => ({
+    label: tag.name,
+    value: tag.id
   }))
 );
 
@@ -119,9 +125,7 @@ const teamReportOptions = computed(() =>
 
 const selectedReport = computed(() => reports.value.find(r => r.id === selectedReportId.value) || null);
 const selectedCanEdit = computed(() => canEditReport(selectedReport.value, currentUserId.value));
-const selectedIsShared = computed(
-  () => (selectedReport.value?.visibility || 'personal') === 'workspace'
-);
+const selectedIsShared = computed(() => (selectedReport.value?.visibility || 'personal') === 'workspace');
 
 function currentParams() {
   const ids = normalizeLabelIds(selectedLabelIds.value);
@@ -271,7 +275,7 @@ async function onSetDefaultReport() {
     window.$message?.error(error.message || '设置失败');
     return;
   }
-  window.$message?.success('已设为 digest 默认报表');
+  window.$message?.success(t('page.insights.digestDefault'));
   await loadReports();
 }
 
@@ -325,7 +329,7 @@ async function onExportCsv() {
     a.download = 'insights-export.csv';
     a.click();
     URL.revokeObjectURL(url);
-    window.$message?.success('已导出 CSV');
+    window.$message?.success(t('page.insights.exportedCsv'));
   } catch (e) {
     console.error(e);
     window.$message?.error('导出失败');
@@ -346,7 +350,7 @@ onMounted(async () => {
       <div>
         <h2 class="m-0 text-20px font-medium">{{ $t('route.insights') }}</h2>
         <p class="mb-0 mt-4px text-13px opacity-60">
-          工作区效能摘要（多标签 OR · 我的/团队报表 · 可选 digest）
+          {{ $t('page.insights.subtitle') }}
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-8px">
@@ -382,7 +386,9 @@ onMounted(async () => {
           size="small"
           @update:value="onFilterChange"
         />
-        <NButton size="small" secondary :loading="exporting" @click="onExportCsv">导出 CSV</NButton>
+        <NButton size="small" secondary :loading="exporting" @click="onExportCsv">
+          {{ $t('page.insights.exportCsv') }}
+        </NButton>
       </div>
     </div>
 
@@ -409,20 +415,10 @@ onMounted(async () => {
       />
       <NInput v-model:value="saveName" size="small" placeholder="另存为名称" class="filter-select" />
       <NButton size="small" secondary @click="onSaveAsReport">另存为</NButton>
-      <NButton
-        size="small"
-        secondary
-        :disabled="!selectedReportId || !selectedCanEdit"
-        @click="onSetDefaultReport"
-      >
+      <NButton size="small" secondary :disabled="!selectedReportId || !selectedCanEdit" @click="onSetDefaultReport">
         设为默认
       </NButton>
-      <NButton
-        size="small"
-        tertiary
-        :disabled="!selectedReportId || !selectedCanEdit"
-        @click="onDeleteReport"
-      >
+      <NButton size="small" tertiary :disabled="!selectedReportId || !selectedCanEdit" @click="onDeleteReport">
         删除
       </NButton>
       <NButton
@@ -433,18 +429,13 @@ onMounted(async () => {
       >
         {{ selectedIsShared ? '取消分享' : '分享到团队' }}
       </NButton>
-      <NButton
-        v-if="selectedReportId && !selectedCanEdit"
-        size="small"
-        secondary
-        @click="onForkReport"
-      >
+      <NButton v-if="selectedReportId && !selectedCanEdit" size="small" secondary @click="onForkReport">
         另存为我的
       </NButton>
       <span class="mx-4px opacity-30">|</span>
-      <span class="text-12px opacity-70">效能 digest</span>
+      <span class="text-12px opacity-70">{{ $t('page.insights.digest') }}</span>
       <NSwitch :value="digestOn" :loading="digestBusy" size="small" @update:value="onToggleDigest" />
-      <span class="text-11px opacity-50">默认关；开后由外部 tick 写 Inbox/邮件</span>
+      <span class="text-11px opacity-50">{{ $t('page.insights.digestHint') }}</span>
     </div>
 
     <NSpin :show="loading">
@@ -479,7 +470,7 @@ onMounted(async () => {
           </NGi>
           <NGi>
             <NCard size="small">
-              <div class="text-12px opacity-60">Estimate 点合计</div>
+              <div class="text-12px opacity-60">{{ $t('page.insights.estimatePoints') }}</div>
               <div class="mt-4px text-26px font-medium">
                 {{ summary.cycleSnapshot ? summary.cycleSnapshot.estimatePointsSum : '—' }}
               </div>
@@ -499,7 +490,7 @@ onMounted(async () => {
               <div v-if="!statusEntries.length" class="text-12px opacity-50">无数据</div>
               <div v-for="row in statusEntries" :key="row.key" class="mb-10px">
                 <div class="mb-4px flex justify-between text-12px">
-                  <span>{{ row.key }}</span>
+                  <span>{{ lookupLabel(statusLabels, row.key) }}</span>
                   <span>{{ row.count }}</span>
                 </div>
                 <NProgress
@@ -516,7 +507,7 @@ onMounted(async () => {
               <div v-if="!priorityEntries.length" class="text-12px opacity-50">无数据</div>
               <div v-for="row in priorityEntries" :key="row.key" class="mb-10px">
                 <div class="mb-4px flex justify-between text-12px">
-                  <span>{{ row.key }}</span>
+                  <span>{{ lookupLabel(priorityLabels, row.key) }}</span>
                   <span>{{ row.count }}</span>
                 </div>
                 <NProgress
@@ -553,7 +544,7 @@ onMounted(async () => {
             </NCard>
           </NGi>
           <NGi>
-            <NCard size="small" title="近 14 日 · 创建 vs 完成">
+            <NCard size="small" :title="$t('page.insights.createdCompleted')">
               <div class="trend-table">
                 <div class="trend-head">
                   <span>日期</span>
@@ -575,21 +566,15 @@ onMounted(async () => {
           </NGi>
         </NGrid>
 
-        <NCard class="mt-16px" size="small" title="估点速度 · 近 14 日 completed points">
-          <div v-if="!(summary.estimateVelocity?.buckets || []).length" class="text-12px opacity-50">
-            无速度数据
-          </div>
+        <NCard class="mt-16px" size="small" :title="$t('page.insights.velocityTitle')">
+          <div v-if="!(summary.estimateVelocity?.buckets || []).length" class="text-12px opacity-50">无速度数据</div>
           <div v-else class="velocity-table">
             <div class="velocity-head">
               <span>日期</span>
-              <span>Points</span>
+              <span>{{ $t('page.insights.points') }}</span>
               <span>柱</span>
             </div>
-            <div
-              v-for="bucket in summary.estimateVelocity?.buckets || []"
-              :key="bucket.date"
-              class="velocity-row"
-            >
+            <div v-for="bucket in summary.estimateVelocity?.buckets || []" :key="bucket.date" class="velocity-row">
               <span class="mono">{{ bucket.date.slice(5) }}</span>
               <span>{{ bucket.completedPoints }}</span>
               <span class="bars">
