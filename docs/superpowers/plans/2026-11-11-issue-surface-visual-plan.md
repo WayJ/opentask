@@ -729,8 +729,7 @@ EOF
 - [x] 横向滚动容器是 `.n-scrollbar-container`。375：client 349 / scroll 1400 / scrollLeft 0→1051，操作列 `relative`，删除钮 48×28。768：client 522 / scroll 1402 / scrollLeft 0→880，操作列 `relative`。1280：client 1034 / scroll 1402 / scrollLeft 0→368，操作列 `sticky`。
 - [x] 1280、scrollLeft 0 时「负责人」末字仍被操作列盖住。这是既有例外，没有改。
 - [x] 单行行高 41。长标题行高 93，标题没有被裁成 36–40。
-- [x] 编辑器内 `.preview-pane` 暗色预览实测：段落 17.90，行内代码 12.13，代码块底 `#ffffff` 上的正文 14.67，链接 `#828fff` 对 `rgb(15, 16, 17)` 为 6.64。代码块里的 comment 4.82、keyword 4.57、number 6.29、`console`（`hljs-variable language_`）4.57、`log` 6.51。样本没有 `.hljs-built_in`，浏览器未测该类；`#c35408` 对 `#ffffff` 的 4.57 只在单测里。这些数字来自上一份测量，提交本段后要重跑，确认没有回退。
-- [ ] 页头「预览模式」（`.preview-section .preview-content`）的段落、行内代码、代码块和链接还没有写进测量文件。编辑器里的 `.preview-pane` 不能代替它。规则已经扩到这条路径，通过与否以重跑后的测量文件为准。
+- [x] 编辑器内 `.preview-pane` 与页头「预览模式」`.preview-section .preview-content` 的暗色子元素对比相同：段落 17.90，行内代码 12.13，代码块白底上的正文 14.67，链接 6.64。同屏 token：comment 4.82、keyword 4.57、number 6.29、`console`（`hljs-variable language_`）4.57、`log` 6.51。两条路径都没有 `.hljs-built_in`，浏览器未测该类；`#c35408` 对 `#ffffff` 的 4.57 只在单测里。文档提交后重跑测量，文件里的 `sha` 必须等于 HEAD。
 - [x] 空标题出现「请输入问题标题」，没有成功 toast，仍停在 `/issue/create`。高级选项展开前没有「关联任务 ID」，展开后三个 ID 字段都在。成功提交的请求体是 `{"title":"合成提交标题","description":"","type":"bug","priority":"medium","reporter_id":"admin"}`，toast「问题创建成功」，进入 `/issue/detail?id=issue-created`。
 - [x] 禁用：给未选中「看板」设置 DOM `disabled` 后点击，视图仍停在列表，Naive 自己加上 `n-button--disabled`。选中钮在 disabled 后字色回到 `rgb(94, 106, 210)`，对比 3.04。这是保留的禁用外观，不是 4.5 通过，也不把 `#828fff` 写进禁用态。
 - [x] 真实 Tab 到达标题、「列表」、「详情」、「删除」。`focus()` 没有当作 Tab。
