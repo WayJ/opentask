@@ -61,6 +61,10 @@
 
 删掉 `.title-input:focus { outline: none; }`。未聚焦时可以保持 `outline: none`。标题和 `textarea.markdown-textarea` 的 `:focus-visible` 使用 `outline: var(--issue-focus)` 与 `outline-offset: 2px`。预览里的 `.markdown-body`、链接和行内 code 只在 `.issue-edit-page .preview-content` 下覆盖。不给 `pre`、`pre code` 或 `.hljs` 设暗色背景。
 
+`091b84fea436b22e708f72c3318280cfea361ee9` 暗色实测：`.preview-content` 背景是 `rgb(249, 250, 251)`，也就是 `#f9fafb`，`padding` 是 `20px`，内部 `.markdown-body` 背景是 `rgb(15, 16, 17)`。外壳字色当时已是 `rgb(247, 248, 248)`。这圈浅色内边距和本页暗色 `--issue-surface`（`#0f1011`）冲突。
+
+有限例外：只改本页 `.preview-content` 的背景为 `var(--issue-surface)`、前景为 `var(--issue-ink)`。`padding: 20px` 保持。不改圆角、最小高度、边框和布局。不给预览里的 `pre` 或 `.hljs` 加背景。编辑预览围栏若仍透明，继续只记录。
+
 选择器焦点：实施时用真实 Tab 走到类型、优先级、关联项目，读取 `activeElement` 及其祖先的 `outline`、`box-shadow`、`background-color`。某一层已经有可见环就不再加规则。三处都没有可见环时，才在 `.issue-edit-page .sidebar` 下为 `.n-base-selection:focus-within` 和 `.n-input:focus-within` 加本页焦点环。
 
 ### 3.3 暗色详情描述
@@ -72,11 +76,15 @@
 - 链接 `#828fff`。
 - 行内 `code:not([lang]):not([class])` 用 `var(--color-text-primary)` 和背景 `#23252a`。
 
-正文、行内 code、评论不改。不改 `.comment-text :deep(.markdown-body)` 现有的 `white-space: normal`。评论区 `.markdown-body` 应仍是共享渲染器的浅色。不改共享渲染器、编辑预览、主题或全局 CSS。
+评论不改。不改 `.comment-text :deep(.markdown-body)` 现有的 `white-space: normal`。评论区 `.markdown-body` 应仍是共享渲染器的浅色。不改共享渲染器、主题或全局 CSS。真正的行内 `code` 继续用暗色芯片。围栏里的 `code` 不再使用这枚芯片。
 
 `f174bb38687c95258fb9a417b31e84909d40e7b7` 上，共享规则 `.markdown-body .hljs { background-color: transparent }` 的特异度是 (0, 2, 0)，压过 `.markdown-body pre { background-color: #f6f8fa }` 的 (0, 1, 1)，也压过 highlight.js `github.css` 里 `.hljs { background: #ffffff }` 的 (0, 1, 0)。因此 `.description-content pre.hljs` 自身背景是透明，第一层不透明祖先是暗色 `.markdown-body`。样例里 `.hljs-keyword` 为 `rgb(215, 58, 73)`，叠在 `rgb(15, 16, 17)` 上的对比是 4.16。`#f6f8fa` 对这枚实际 keyword 色只有约 4.30，到不了 4.5，所以不把 `#f6f8fa` 当作要恢复的岛色。
 
-唯一例外：只在暗色详情 `.issue-detail-container .description-content` 下，给 `pre.hljs` 恢复 `background-color: #ffffff`。这是 `github.css` 里 `.hljs` 已经声明的浅色岛背景。本页 `compileStyle({ scoped: true })` 把 `data-v` 留在 `.description-content` 上，编译结果是 `html.dark .issue-detail-container .description-content[data-v] pre.hljs`，特异度高于共享的透明规则。不写 `pre code` 的背景，不改 token 颜色。编辑预览若仍是透明岛，只记录，不在这次修。
+第一个有限例外：只在暗色详情 `.issue-detail-container .description-content` 下，给 `pre.hljs` 恢复 `background-color: #ffffff`。这是 `github.css` 里 `.hljs` 已经声明的浅色岛背景。本页 `compileStyle({ scoped: true })` 把 `data-v` 留在 `.description-content` 上，编译结果是 `html.dark .issue-detail-container .description-content[data-v] pre.hljs`，特异度高于共享的透明规则。不写 `pre code` 的背景，不改 token 颜色。编辑预览若仍是透明岛，只记录，不在这次修。
+
+`091b84fea436b22e708f72c3318280cfea361ee9` 上，描述里加入正常 Markdown 无语言围栏 `plain fence alpha` 之后，暗色详情的 `pre.hljs > code` 没有 class，计算背景是 `rgb(35, 37, 42)`，字色是 `rgb(247, 248, 248)`。同一 `pre.hljs` 仍是 `rgb(255, 255, 255)`。真正行内 `code` 的父元素是 `p`，背景也是 `rgb(35, 37, 42)`。行内芯片 `code:not([lang]):not([class])` 命中了渲染器无语言回退的 `<pre class="hljs"><code>`。`.markdown-body pre code` 是 `display: block`，所以芯片铺满围栏内容盒。
+
+第二个有限例外：这枚芯片只匹配父元素不是 `pre` 的 `code`。有语言的 `code.language-*` 和无语言的 `pre.hljs > code` 都不拿 `#23252a`。浅色岛仍只由 `pre.hljs` 的 `#ffffff` 承担。不改共享渲染器，不改 token 颜色。
 
 围栏代码保持浅色。通过条件是浏览器里 `pre.hljs` 的叠色结果为 `rgb(255, 255, 255)`，并且样例里实际出现的每个 `.hljs-*` 对比至少 4.5。没有节点的类写 `absent`，不算通过。`.hljs-built_in` 与 `.hljs-symbol` 若仍无节点，继续算未测。不把代码岛改成暗色来凑对比。
 
@@ -113,7 +121,8 @@
 - 标题和描述 textarea 在真实 Tab / Shift+Tab 下有可见焦点环。保存按钮现有环还在。
 - 高级选项默认关闭。展开后填写的三个值在收起再展开后还在。
 - 空标题不发 PUT，并出现「请输入问题标题」。普通保存和展开高级选项后的保存都保留原描述、类型、优先级；只有展开并填写后，JSON 才带那三个 ID。成功消息仍是「问题更新成功」，并进入详情。
-- 暗色描述的段落、链接、行内 code 对比至少 4.5，背景是详情暗色表面。围栏代码可以仍是浅色。无节点的 token 类保持未测。
+- 暗色描述的段落、链接、行内 code 对比至少 4.5，背景是详情暗色表面。有语言和无语言围栏都保持浅色岛：`pre.hljs` 为白，围栏内 `code` 不使用 `#23252a` 芯片。父元素不是 `pre` 的行内 `code` 仍是这块芯片。无节点的 token 类保持未测。
+- 暗色编辑预览外壳背景跟 `--issue-surface`，前景跟 `--issue-ink`，`padding` 仍是 `20px`。
 - 375、768、1280，明暗，以及 480 低高度都要采样。长标题在详情和编辑都要看。
 - `vue-tsc` 的 29 条和退出码 2、ESLint 的非零退出，都记成失败，不报成全绿。生产构建退出码 0 不能代替这两项。
 

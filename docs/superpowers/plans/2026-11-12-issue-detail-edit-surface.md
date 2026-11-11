@@ -119,7 +119,9 @@ expect(en.route.issue_edit).not.toBe('route.issue_edit');
 
 - [ ] **Step 2: 保存当次失败，再按规格第 3.3 节追加样式**
 
-不改评论的 `white-space: normal`。正文和行内 code 保持原规则。唯一例外是暗色详情 `.description-content pre.hljs` 恢复 `background-color: #ffffff`，也就是 `github.css` 里 `.hljs` 的浅色背景。共享 `.markdown-body .hljs { background-color: transparent }` 特异度更高，所以不能靠渲染器里的 `#f6f8fa`。`#f6f8fa` 对实测 keyword `rgb(215, 58, 73)` 低于 4.5。编辑预览不在这次修改里。
+不改评论的 `white-space: normal`。真正的行内 code 保持暗芯片。暗色详情 `.description-content pre.hljs` 恢复 `background-color: #ffffff`，也就是 `github.css` 里 `.hljs` 的浅色背景。共享 `.markdown-body .hljs { background-color: transparent }` 特异度更高，所以不能靠渲染器里的 `#f6f8fa`。`#f6f8fa` 对实测 keyword `rgb(215, 58, 73)` 低于 4.5。围栏里的 `code` 不再使用这枚芯片。编辑预览围栏不在这次修改里。
+
+`091b84fea436b22e708f72c3318280cfea361ee9` 的计算样式已经确认两处有限例外，见规格 3.2 和 3.3。详情芯片只匹配父元素不是 `pre` 的 `code`。编辑页 `.preview-content` 的背景改为 `var(--issue-surface)`，前景改为 `var(--issue-ink)`，`padding: 20px` 保留。两项各自先有失败测试，再改对应的 vue 文件。回归要编译本页样式，并用三个样本区分有语言围栏、无语言围栏和真正行内 code，不能只断言颜色字符串出现过。
 
 - [ ] **Step 3: 通过后单独提交**
 
