@@ -113,6 +113,16 @@ html.dark .issue-create-page {
   color: var(--issue-ink);
 }
 
+html.dark .issue-create-page .description-section .preview-pane .markdown-body pre.hljs,
+html.dark .issue-create-page .description-section .preview-pane .markdown-body pre.hljs code {
+  background-color: #f6f8fa;
+  color: #24292e;
+}
+
+html.dark .issue-create-page .description-section .preview-pane .markdown-body a {
+  color: #828fff;
+}
+
 html.dark .issue-list-container .n-button.n-button--primary-type:not(.n-button--disabled):not(.n-button--secondary):not(.n-button--tertiary):not(.n-button--quaternary):not(.n-button--ghost),
 html.dark .issue-create-page .n-button.n-button--primary-type:not(.n-button--disabled):not(.n-button--secondary):not(.n-button--tertiary):not(.n-button--quaternary):not(.n-button--ghost) {
   --n-text-color: var(--issue-on-accent) !important;

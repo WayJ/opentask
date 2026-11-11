@@ -55,6 +55,10 @@ describe('issue surface tokens', () => {
     expect(css).toContain(':not(.n-button--secondary)');
     expect(css).toContain('n-button--primary-type.n-button--secondary:not(.n-button--disabled)');
     expect(css).toContain('--n-text-color: #828fff !important');
+    expect(css).toContain('preview-pane .markdown-body pre.hljs');
+    expect(css).toContain('preview-pane .markdown-body a');
+    expect(contrast('#24292e', '#f6f8fa')).toBeGreaterThanOrEqual(4.5);
+    expect(contrast('#828fff', '#0f1011')).toBeGreaterThanOrEqual(4.5);
     const card = [24, 24, 28];
     const accent = [94, 106, 210];
     for (const alpha of [0.12, 0.16, 0.2]) {
