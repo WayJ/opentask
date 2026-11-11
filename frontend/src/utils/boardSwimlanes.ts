@@ -57,9 +57,10 @@ function swimlaneToGroupBy(swimlaneBy: Exclude<SwimlaneBy, 'none'>): Exclude<Gro
 export function buildBoardSwimlanes(
   issues: Api.Issue.Issue[],
   swimlaneBy: SwimlaneBy,
-  hideEmptyLanes: boolean,
-  labels?: GroupLabels
+  hideEmptyLanes: boolean | { hideEmptyLanes?: boolean; labels?: GroupLabels } = false
 ): BoardSwimlane[] {
+  const labels = typeof hideEmptyLanes === 'object' ? hideEmptyLanes.labels : undefined;
+  const hideEmpty = typeof hideEmptyLanes === 'object' ? Boolean(hideEmptyLanes.hideEmptyLanes) : hideEmptyLanes;
   const source = issues || [];
 
   if (swimlaneBy === 'none') {
@@ -68,7 +69,7 @@ export function buildBoardSwimlanes(
       label: '',
       columns: fillByStatus(source)
     };
-    if (hideEmptyLanes && laneIsEmpty(lane.columns)) return [];
+    if (hideEmpty && laneIsEmpty(lane.columns)) return [];
     return [lane];
   }
 
@@ -79,7 +80,7 @@ export function buildBoardSwimlanes(
     columns: fillByStatus(b.issues)
   }));
 
-  if (!hideEmptyLanes) return lanes;
+  if (!hideEmpty) return lanes;
   return lanes.filter(l => !laneIsEmpty(l.columns));
 }
 

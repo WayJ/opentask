@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { NAvatar,
+import {
   NAlert,
+  NAvatar,
   NButton,
   NCard,
   NDatePicker,
@@ -24,8 +25,6 @@ import {
   issueStatusOptions,
   issueTypeOptions
 } from '@/constants/issue';
-import { labeledOptions } from '@/locales/display-label';
-import { useLabelTable } from '@/locales/use-label-table';
 import { fetchProjectMilestones, projectApi } from '@/service/api/project';
 import { type CycleItem, fetchCycles } from '@/service/api/cycles';
 import { type TagItem, tagApi } from '@/service/api/tag';
@@ -46,30 +45,25 @@ import { useIssueStore } from '@/store/modules/issue';
 import { useAuthStore } from '@/store/modules/auth';
 import { subscribeWorkspaceRealtime } from '@/composables/use-workspace-realtime';
 import { useIssueFocus } from '@/composables/use-issue-focus';
-import MarkdownEditor from '@/components/MarkdownEditor.vue';
-import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
 import { childProgressPercent, formatChildProgressLabel } from '@/utils/childProgress';
 import { buildCommentTree } from '@/utils/buildCommentTree';
+import { commentAttachmentToDocument } from '@/utils/attachmentUrls';
+import { formatTimelineAction } from '@/utils/formatTimelineAction';
+import { deletedReadonlyBanner, restoreSuccessMessage } from '@/utils/issueTrashMeta';
+import { canPromoteToRoot, excludeSelfFromPicker, setParentSuccessMessage } from '@/utils/issueParentMeta';
+import { nextMilestoneAfterProjectMove, projectMoveClearedMessage } from '@/utils/nextMilestoneAfterProjectMove';
+import MarkdownEditor from '@/components/MarkdownEditor.vue';
+import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
 import IssueReactions from '@/components/IssueReactions.vue';
 import IssueCustomFieldsEditor from '@/components/issue/IssueCustomFieldsEditor.vue';
 import UserSelect from '@/components/UserSelect.vue';
 import AttachmentList from '@/components/common/AttachmentList.vue';
-import { commentAttachmentToDocument } from '@/utils/attachmentUrls';
 import EntityDocsPanel from '@/components/entity-docs/EntityDocsPanel.vue';
 import IssuePrPanel from '@/components/issue-vcs/IssuePrPanel.vue';
 import IssueLinksPanel from '@/components/issue-links/IssueLinksPanel.vue';
 import EditableField from '@/components/EditableField.vue';
-import { formatTimelineAction } from '@/utils/formatTimelineAction';
-import { deletedReadonlyBanner, restoreSuccessMessage } from '@/utils/issueTrashMeta';
-import {
-  canPromoteToRoot,
-  excludeSelfFromPicker,
-  setParentSuccessMessage
-} from '@/utils/issueParentMeta';
-import {
-  nextMilestoneAfterProjectMove,
-  projectMoveClearedMessage
-} from '@/utils/nextMilestoneAfterProjectMove';
+import { useLabelTable } from '@/locales/use-label-table';
+import { labeledOptions } from '@/locales/display-label';
 import type { Api } from '@/typings/api';
 import { $t } from '@/locales';
 
@@ -238,7 +232,12 @@ const getPriorityType = getIssuePriorityTagType;
 const statusOptions = issueStatusOptions;
 const priorityOptions = issuePriorityOptions;
 const typeLabels = useLabelTable('page.issueType');
-const typeOptions = computed(() => labeledOptions(issueTypeOptions.map(option => option.value), typeLabels.value));
+const typeOptions = computed(() =>
+  labeledOptions(
+    issueTypeOptions.map(option => option.value),
+    typeLabels.value
+  )
+);
 const estimateOptions = [
   { label: '—', value: null },
   { label: '1', value: 1 },
@@ -285,7 +284,7 @@ async function loadIssue() {
     customFields.value = ((data as any)?.customFields as IssueCustomFieldValue[]) || [];
     try {
       const slaRes = await fetchIssueSla(issueId.value);
-      slaClocks.value = (!slaRes.error && slaRes.data?.rows) ? slaRes.data.rows : [];
+      slaClocks.value = !slaRes.error && slaRes.data?.rows ? slaRes.data.rows : [];
     } catch {
       slaClocks.value = [];
     }
@@ -349,7 +348,6 @@ async function exportTimelineCsv() {
     timelineExportLoading.value = false;
   }
 }
-
 
 // Load attachments
 async function loadAttachments() {
@@ -867,8 +865,6 @@ async function handleCommentUnreact(commentId: string, emoji: string) {
   }
 }
 
-
-
 // Inline editing functions
 async function saveStatus() {
   if (!issueId.value || tempStatus.value === null) return;
@@ -938,9 +934,7 @@ function cancelAssignee() {
 function assigneesDisplayValue(): string {
   const list = issue.value?.assignees;
   if (Array.isArray(list) && list.length) {
-    return list
-      .map(a => a.sso_name || a.name || a.id.slice(0, 8))
-      .join(', ');
+    return list.map(a => a.sso_name || a.name || a.id.slice(0, 8)).join(', ');
   }
   return issue.value?.assignee?.sso_name || issue.value?.assignee?.name || issue.value?.assignee_id || '未分配';
 }
@@ -1001,11 +995,7 @@ async function saveProject() {
     await issueStore.updateIssue(issueId.value, { project_id: tempProject.value || null });
     await loadIssue();
     const newProjectId = issue.value?.project_id ?? null;
-    tempMilestone.value = nextMilestoneAfterProjectMove(
-      oldProjectId,
-      newProjectId,
-      issue.value?.milestone_id
-    );
+    tempMilestone.value = nextMilestoneAfterProjectMove(oldProjectId, newProjectId, issue.value?.milestone_id);
     await loadMilestones(newProjectId);
     const tip = projectMoveClearedMessage(oldProjectId, newProjectId, hadMilestone);
     window.$message?.success(tip ? `项目更新成功；${tip}` : '项目更新成功');
@@ -1581,7 +1571,10 @@ onUnmounted(() => {
           <!-- E70: sub-issues + childProgress -->
           <NCard class="mt-12px" size="small">
             <template #header>
-              <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;width:100%">
+              <div
+                class="card-header"
+                style="display: flex; align-items: center; justify-content: space-between; width: 100%"
+              >
                 <span>子问题</span>
                 <NButton text size="tiny" @click="showAddSubIssue = true">+ 添加</NButton>
               </div>
@@ -1615,14 +1608,16 @@ onUnmounted(() => {
             </NSpace>
           </NCard>
 
-
           <div v-if="issueId" class="mt-12px">
             <IssuePrPanel :issue-id="issueId" />
           </div>
 
           <!-- Comments & Timeline -->
           <div class="issue-activity">
-            <div class="section-header" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+            <div
+              class="section-header"
+              style="display: flex; align-items: center; justify-content: space-between; gap: 8px"
+            >
               <NText strong>活动 ({{ timeline.length }})</NText>
               <NButton
                 size="tiny"
@@ -1648,7 +1643,9 @@ onUnmounted(() => {
                       <div class="activity-header">
                         <NSpace align="center" :size="8">
                           <NText strong>
-                            {{ node.comment.user_info?.sso_name || node.comment.user_info?.name || node.comment.user_id }}
+                            {{
+                              node.comment.user_info?.sso_name || node.comment.user_info?.name || node.comment.user_id
+                            }}
                           </NText>
                           <NText depth="3" style="font-size: 12px">
                             {{ formatDateTime(node.comment.created_at) }}
@@ -1681,7 +1678,9 @@ onUnmounted(() => {
                         <AttachmentList
                           :issue-id="issueId"
                           :comment-id="node.comment.id"
-                          :attachments="(node.comment.attachments || []).map(a => commentAttachmentToDocument(a, node.comment.id))"
+                          :attachments="
+                            (node.comment.attachments || []).map(a => commentAttachmentToDocument(a, node.comment.id))
+                          "
                           @refresh="loadComments"
                         />
                       </div>
@@ -1768,7 +1767,11 @@ onUnmounted(() => {
               </div>
               <MarkdownEditor
                 v-model="newComment"
-                :placeholder="replyToId ? '写下回复...支持 Markdown' : '添加评论...支持 Markdown 语法。使用 @提及用户，+ISSUE-xxx 引用问题、+PROJECT-xxx 引用项目、+REQUIREMENT-xxx 引用需求等'"
+                :placeholder="
+                  replyToId
+                    ? '写下回复...支持 Markdown'
+                    : '添加评论...支持 Markdown 语法。使用 @提及用户，+ISSUE-xxx 引用问题、+PROJECT-xxx 引用项目、+REQUIREMENT-xxx 引用需求等'
+                "
                 :rows="4"
                 @submit="handleAddComment"
               />
@@ -1811,14 +1814,16 @@ onUnmounted(() => {
               @save="saveAssignee"
               @cancel="cancelAssignee"
               @start-edit="
-                tempAssignee = (issue.assignees?.map(a => a.id) || (issue.assignee_id ? [issue.assignee_id] : [])).slice()
+                tempAssignee = (
+                  issue.assignees?.map(a => a.id) || (issue.assignee_id ? [issue.assignee_id] : [])
+                ).slice()
               "
             >
               <template #label-icon>
                 <icon-mdi-account-multiple />
               </template>
               <template #display>
-                <div class="flex items-center gap-4px flex-wrap">
+                <div class="flex flex-wrap items-center gap-4px">
                   <template v-if="issue.assignees?.length">
                     <NAvatar
                       v-for="(a, idx) in issue.assignees.slice(0, 3)"
@@ -1830,7 +1835,9 @@ onUnmounted(() => {
                     >
                       {{ (a.sso_name || a.name || a.id || '?').charAt(0).toUpperCase() }}
                     </NAvatar>
-                    <NText v-if="issue.assignees.length > 3" depth="3" class="text-12px">+{{ issue.assignees.length - 3 }}</NText>
+                    <NText v-if="issue.assignees.length > 3" depth="3" class="text-12px">
+                      +{{ issue.assignees.length - 3 }}
+                    </NText>
                   </template>
                   <NText v-else depth="3">{{ assigneesDisplayValue() }}</NText>
                 </div>
@@ -1944,7 +1951,9 @@ onUnmounted(() => {
               placeholder="-"
               @save="saveStartDate"
               @cancel="cancelStartDate"
-              @start-edit="tempStartDate = issue.start_date ? Number(new Date(issue.start_date).getTime() / 1000) : null"
+              @start-edit="
+                tempStartDate = issue.start_date ? Number(new Date(issue.start_date).getTime() / 1000) : null
+              "
             >
               <template #label-icon>
                 <icon-mdi-calendar-start />
@@ -2293,12 +2302,7 @@ onUnmounted(() => {
         />
         <NSpace justify="end">
           <NButton @click="showSetParentModal = false">取消</NButton>
-          <NButton
-            type="primary"
-            :loading="setParentLoading"
-            :disabled="!pendingParentId"
-            @click="confirmSetParent"
-          >
+          <NButton type="primary" :loading="setParentLoading" :disabled="!pendingParentId" @click="confirmSetParent">
             确认
           </NButton>
         </NSpace>

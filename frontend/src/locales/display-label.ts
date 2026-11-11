@@ -21,9 +21,9 @@ export function labelTable(source: unknown): LabelTable {
  * names such as `toString` or `__proto__` return the original value.
  */
 export function lookupLabel(table: LabelTable | null | undefined, value: unknown): string {
-  if (value == null) return '';
+  if (value === null || value === undefined) return '';
   const raw = String(value);
-  if (!table || !Object.prototype.hasOwnProperty.call(table, raw)) return raw;
+  if (!table || !Object.hasOwn(table, raw)) return raw;
   const label = table[raw];
   return typeof label === 'string' && label !== '' ? label : raw;
 }

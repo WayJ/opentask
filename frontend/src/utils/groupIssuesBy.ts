@@ -4,7 +4,7 @@
  * 列表泳道仅展示，不负责跨泳道拖拽改字段。
  */
 import { issuePriorityOptions, issueStatusOptions, issueTypeOptions } from '@/constants/issue';
-import { lookupLabel, type LabelTable } from '@/locales/display-label';
+import { type LabelTable, lookupLabel } from '@/locales/display-label';
 import type { Api } from '@/typings/api';
 
 export interface GroupLabels {

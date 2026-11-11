@@ -16,10 +16,10 @@ import {
   NTooltip
 } from 'naive-ui';
 import { issuePriorityOptions, issueTypeOptions } from '@/constants/issue';
-import { labeledOptions } from '@/locales/display-label';
-import { useLabelTable } from '@/locales/use-label-table';
 import { fetchProjectList } from '@/service/api';
 import { useIssueStore } from '@/store/modules/issue';
+import { labeledOptions } from '@/locales/display-label';
+import { useLabelTable } from '@/locales/use-label-table';
 import MarkdownEditor from '@/components/MarkdownEditor.vue';
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
 import type { Api } from '@/typings/api';
@@ -32,7 +32,12 @@ const route = useRoute();
 const router = useRouter();
 const issueStore = useIssueStore();
 const typeLabels = useLabelTable('page.issueType');
-const typeOptions = computed(() => labeledOptions(issueTypeOptions.map(option => option.value), typeLabels.value));
+const typeOptions = computed(() =>
+  labeledOptions(
+    issueTypeOptions.map(option => option.value),
+    typeLabels.value
+  )
+);
 
 const issueId = computed(() => (route.query.id as string) || '');
 

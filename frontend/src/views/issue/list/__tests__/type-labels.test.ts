@@ -1,13 +1,13 @@
 import { computed, defineComponent } from 'vue';
 import { mount } from '@vue/test-utils';
 import { afterEach, describe, expect, it } from 'vitest';
+import { issueTypeOptions } from '@/constants/issue';
+import { groupIssuesBy } from '@/utils/groupIssuesBy';
 import { i18n, setLocale } from '@/locales';
 import { labeledOptions } from '@/locales/display-label';
 import { useLabelTable } from '@/locales/use-label-table';
-import { issueTypeOptions } from '@/constants/issue';
-import { groupIssuesBy } from '@/utils/groupIssuesBy';
-import IssueListGrouped from '../modules/IssueListGrouped.vue';
 import type { Api } from '@/typings/api';
+import IssueListGrouped from '../modules/IssueListGrouped.vue';
 
 const sampleIssues = [
   {
@@ -24,7 +24,12 @@ const TypeHost = defineComponent({
   components: { IssueListGrouped },
   setup() {
     const typeLabels = useLabelTable('page.issueType');
-    const options = computed(() => labeledOptions(issueTypeOptions.map(option => option.value), typeLabels.value));
+    const options = computed(() =>
+      labeledOptions(
+        issueTypeOptions.map(option => option.value),
+        typeLabels.value
+      )
+    );
     return { options, typeLabels, issues: sampleIssues, columns: [] };
   },
   template: `

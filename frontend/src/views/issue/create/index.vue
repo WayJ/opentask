@@ -3,14 +3,14 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import { NButton, NCard, NDivider, NEmpty, NInput, NModal, NSpace, NTag, NText, NTooltip, NUpload } from 'naive-ui';
 import { issuePriorityOptions, issueTypeOptions } from '@/constants/issue';
-import { labeledOptions } from '@/locales/display-label';
-import { useLabelTable } from '@/locales/use-label-table';
 import type { IssueTemplate } from '@/constants/issueTemplates';
 import { fetchProjectList } from '@/service/api';
 import { fetchIssueTemplates } from '@/service/api/issue-templates';
 import { type CustomFieldRow, fetchCustomFields, fetchPatchIssueCustomFields } from '@/service/api/custom-fields';
 import { issueApi } from '@/service/api/issue';
 import { useIssueStore } from '@/store/modules/issue';
+import { useLabelTable } from '@/locales/use-label-table';
+import { labeledOptions } from '@/locales/display-label';
 import IssueCustomFieldsEditor from '@/components/issue/IssueCustomFieldsEditor.vue';
 import MarkdownEditor from '@/components/MarkdownEditor.vue';
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
@@ -27,7 +27,12 @@ const router = useRouter();
 const route = useRoute();
 const issueStore = useIssueStore();
 const typeLabels = useLabelTable('page.issueType');
-const typeOptions = computed(() => labeledOptions(issueTypeOptions.map(option => option.value), typeLabels.value));
+const typeOptions = computed(() =>
+  labeledOptions(
+    issueTypeOptions.map(option => option.value),
+    typeLabels.value
+  )
+);
 
 // 页面状态
 const loading = ref(false);

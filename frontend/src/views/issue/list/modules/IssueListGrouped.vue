@@ -2,9 +2,9 @@
 import { computed, ref, watch } from 'vue';
 import { NCollapse, NCollapseItem, NDataTable, NEmpty, NTag, NText } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
-import { useLabelTable } from '@/locales/use-label-table';
 import { type GroupByKey, type IssueGroupBucket, groupIssuesBy } from '@/utils/groupIssuesBy';
 import { nestIssuesDepth1 } from '@/utils/nestIssuesDepth1';
+import { useLabelTable } from '@/locales/use-label-table';
 import type { Api } from '@/typings/api';
 
 defineOptions({ name: 'IssueListGrouped' });

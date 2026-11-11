@@ -436,7 +436,8 @@ const local: App.I18n.Schema = {
       windowPlaceholder: 'Forced-open windows (optional)',
       pauseHint: 'These statuses pause the clock. It resumes with the time left. For example: waiting for feedback.',
       priorityRule: 'Stop wins over pause, and pause wins over start.',
-      firstResponseNote: 'First response is the first comment by someone other than the creator. Assignment does not count.',
+      firstResponseNote:
+        'First response is the first comment by someone other than the creator. Assignment does not count.',
       closingStatuses: 'Closing statuses',
       startPrefix: 'Start',
       stopPrefix: 'Stop',
@@ -462,7 +463,8 @@ const local: App.I18n.Schema = {
       }
     },
     insights: {
-      subtitle: 'Workspace performance summary. Any selected label matches. Personal and team reports. Optional digest.',
+      subtitle:
+        'Workspace performance summary. Any selected label matches. Personal and team reports. Optional digest.',
       exportCsv: 'Export CSV',
       exportedCsv: 'Exported CSV',
       digest: 'Performance digest',

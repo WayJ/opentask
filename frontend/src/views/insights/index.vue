@@ -5,6 +5,7 @@ import {
   type CycleItem,
   type InsightsSavedReport,
   type InsightsSummary,
+  type TagItem,
   canEditReport,
   countOpenFromStatus,
   createInsightsReport,
@@ -22,8 +23,7 @@ import {
   patchInsightsReport,
   sumVelocityPoints,
   tagApi,
-  updateNotifPrefs,
-  type TagItem
+  updateNotifPrefs
 } from '@/service/api';
 import { useAuthStore } from '@/store/modules/auth';
 import { $t } from '@/locales';
@@ -99,9 +99,9 @@ const projectOptions = computed(() =>
 );
 
 const labelOptions = computed(() =>
-  labels.value.map(t => ({
-    label: t.name,
-    value: t.id
+  labels.value.map(tag => ({
+    label: tag.name,
+    value: tag.id
   }))
 );
 
@@ -125,9 +125,7 @@ const teamReportOptions = computed(() =>
 
 const selectedReport = computed(() => reports.value.find(r => r.id === selectedReportId.value) || null);
 const selectedCanEdit = computed(() => canEditReport(selectedReport.value, currentUserId.value));
-const selectedIsShared = computed(
-  () => (selectedReport.value?.visibility || 'personal') === 'workspace'
-);
+const selectedIsShared = computed(() => (selectedReport.value?.visibility || 'personal') === 'workspace');
 
 function currentParams() {
   const ids = normalizeLabelIds(selectedLabelIds.value);
@@ -388,7 +386,9 @@ onMounted(async () => {
           size="small"
           @update:value="onFilterChange"
         />
-        <NButton size="small" secondary :loading="exporting" @click="onExportCsv">{{ $t('page.insights.exportCsv') }}</NButton>
+        <NButton size="small" secondary :loading="exporting" @click="onExportCsv">
+          {{ $t('page.insights.exportCsv') }}
+        </NButton>
       </div>
     </div>
 
@@ -415,20 +415,10 @@ onMounted(async () => {
       />
       <NInput v-model:value="saveName" size="small" placeholder="另存为名称" class="filter-select" />
       <NButton size="small" secondary @click="onSaveAsReport">另存为</NButton>
-      <NButton
-        size="small"
-        secondary
-        :disabled="!selectedReportId || !selectedCanEdit"
-        @click="onSetDefaultReport"
-      >
+      <NButton size="small" secondary :disabled="!selectedReportId || !selectedCanEdit" @click="onSetDefaultReport">
         设为默认
       </NButton>
-      <NButton
-        size="small"
-        tertiary
-        :disabled="!selectedReportId || !selectedCanEdit"
-        @click="onDeleteReport"
-      >
+      <NButton size="small" tertiary :disabled="!selectedReportId || !selectedCanEdit" @click="onDeleteReport">
         删除
       </NButton>
       <NButton
@@ -439,12 +429,7 @@ onMounted(async () => {
       >
         {{ selectedIsShared ? '取消分享' : '分享到团队' }}
       </NButton>
-      <NButton
-        v-if="selectedReportId && !selectedCanEdit"
-        size="small"
-        secondary
-        @click="onForkReport"
-      >
+      <NButton v-if="selectedReportId && !selectedCanEdit" size="small" secondary @click="onForkReport">
         另存为我的
       </NButton>
       <span class="mx-4px opacity-30">|</span>
@@ -582,20 +567,14 @@ onMounted(async () => {
         </NGrid>
 
         <NCard class="mt-16px" size="small" :title="$t('page.insights.velocityTitle')">
-          <div v-if="!(summary.estimateVelocity?.buckets || []).length" class="text-12px opacity-50">
-            无速度数据
-          </div>
+          <div v-if="!(summary.estimateVelocity?.buckets || []).length" class="text-12px opacity-50">无速度数据</div>
           <div v-else class="velocity-table">
             <div class="velocity-head">
               <span>日期</span>
               <span>{{ $t('page.insights.points') }}</span>
               <span>柱</span>
             </div>
-            <div
-              v-for="bucket in summary.estimateVelocity?.buckets || []"
-              :key="bucket.date"
-              class="velocity-row"
-            >
+            <div v-for="bucket in summary.estimateVelocity?.buckets || []" :key="bucket.date" class="velocity-row">
               <span class="mono">{{ bucket.date.slice(5) }}</span>
               <span>{{ bucket.completedPoints }}</span>
               <span class="bars">

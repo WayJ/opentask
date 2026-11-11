@@ -1,13 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { flushPromises, mount } from '@vue/test-utils';
-import { NInput } from 'naive-ui';
-import { createPinia, setActivePinia } from 'pinia';
-import { afterEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h } from 'vue';
+import { flushPromises, mount } from '@vue/test-utils';
+import { createPinia, setActivePinia } from 'pinia';
+import { NInput } from 'naive-ui';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { i18n, setLocale } from '@/locales';
 import SlaSettings from '../index.vue';
 import { policyNameAfterLocaleChange } from '../policy-name';
-import { i18n, setLocale } from '@/locales';
 
 vi.mock('@/service/api/sla', async () => {
   const actual = await vi.importActual<typeof import('@/service/api/sla')>('@/service/api/sla');
@@ -41,9 +41,9 @@ const passthrough = (name: string) =>
 
 describe('policyNameAfterLocaleChange', () => {
   it('keeps a loaded or typed name and only fills a new untouched policy', () => {
-    expect(policyNameAfterLocaleChange({ dirty: false, loaded: false, current: '进行中停留' }, 'Time in progress')).toBe(
-      'Time in progress'
-    );
+    expect(
+      policyNameAfterLocaleChange({ dirty: false, loaded: false, current: '进行中停留' }, 'Time in progress')
+    ).toBe('Time in progress');
     expect(policyNameAfterLocaleChange({ dirty: true, loaded: false, current: '我的策略' }, 'Time in progress')).toBe(
       '我的策略'
     );
@@ -87,7 +87,7 @@ describe('SLA settings labels', () => {
     expect(wrapper.get('input[placeholder="名称"]').element).toHaveProperty('value', '进行中停留');
 
     const source = readFileSync(resolve('src/views/settings/sla/index.vue'), 'utf8');
-    expect(source).toContain("lookupLabel(metricLabels.value, row.metric)");
+    expect(source).toContain('lookupLabel(metricLabels.value, row.metric)');
     expect(source).toContain('lookupLabel(exceptionLabels.value, kind)');
     expect(source).toContain('labeledOptions(SLA_METRICS, metricLabels.value)');
 

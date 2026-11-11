@@ -1,9 +1,9 @@
+import { defineComponent, h } from 'vue';
 import { flushPromises, mount } from '@vue/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { defineComponent, h } from 'vue';
-import InsightsPage from '../index.vue';
 import { downloadInsightsExport, updateNotifPrefs } from '@/service/api';
 import { i18n, setLocale } from '@/locales';
+import InsightsPage from '../index.vue';
 
 vi.mock('@/service/api', async () => {
   const actual = await vi.importActual<typeof import('@/service/api')>('@/service/api');

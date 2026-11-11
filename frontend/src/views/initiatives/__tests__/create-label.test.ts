@@ -43,6 +43,6 @@ describe('initiative create label', () => {
     setLocale('en-US');
     await wrapper.vm.$nextTick();
     expect(createLabels(wrapper).filter(label => label === 'New initiative')).toHaveLength(2);
-    expect(createLabels(wrapper).some(label => label === '新建')).toBe(false);
+    expect(createLabels(wrapper).includes('新建')).toBe(false);
   });
 });
