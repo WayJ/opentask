@@ -10,13 +10,15 @@ import FavoritesNav from './FavoritesNav.vue';
 import InsightsNav from './InsightsNav.vue';
 import TriageNav from './TriageNav.vue';
 
-const { app } = vi.hoisted(() => ({
-  app: { siderCollapse: false }
+const { app, push, favorites } = vi.hoisted(() => ({
+  app: { siderCollapse: false },
+  push: vi.fn(),
+  favorites: { rows: [] as Record<string, unknown>[] }
 }));
 
 vi.mock('vue-router', () => ({
   useRoute: () => ({ name: 'issue_list', path: '/issue/list' }),
-  useRouter: () => ({ push: vi.fn() })
+  useRouter: () => ({ push })
 }));
 
 vi.mock('@/store/modules/app', () => ({
@@ -30,7 +32,7 @@ vi.mock('@/service/api/issue', () => ({
 }));
 
 vi.mock('@/service/api/favorites', () => ({
-  fetchFavorites: vi.fn(async () => ({ data: { rows: [] }, error: null }))
+  fetchFavorites: vi.fn(async () => ({ data: { rows: favorites.rows }, error: null }))
 }));
 
 const stubs = {
@@ -93,6 +95,8 @@ function readSider(name: string) {
 describe('quicklink icons and accessible names', () => {
   afterEach(() => {
     app.siderCollapse = false;
+    favorites.rows = [];
+    push.mockClear();
     setLocale('zh-CN');
   });
 
@@ -187,6 +191,40 @@ describe('sider density contract', () => {
     await flushPromises();
     expect(shut.find('.favorites-nav').exists()).toBe(false);
     expect(shut.text()).not.toContain('无数据');
+    shut.unmount();
+  });
+
+  it('renders a populated favorite and keeps its click target when collapsed', async () => {
+    favorites.rows = [
+      {
+        id: 'fav-1',
+        workspaceId: 'ws',
+        userId: 'u',
+        targetType: 'issue',
+        targetId: 'issue-long',
+        position: 0,
+        createdAt: '2026-11-11T08:00:00Z',
+        target: { id: 'issue-long', type: 'issue', name: '合成收藏的很长问题标题用来观察省略', code: 'SYN-1' }
+      }
+    ];
+    app.siderCollapse = false;
+    const open = mount(FavoritesNav, { global: { stubs } });
+    await flushPromises();
+    expect(open.find('p.favorites-nav__empty-note').exists()).toBe(false);
+    expect(open.get('button').text()).toContain('合成收藏的很长问题标题用来观察省略');
+    await open.get('button').trigger('click');
+    expect(push).toHaveBeenCalledWith({ path: '/issue/detail', query: { id: 'issue-long' } });
+    open.unmount();
+
+    app.siderCollapse = true;
+    push.mockClear();
+    const shut = mount(FavoritesNav, { global: { stubs } });
+    await flushPromises();
+    expect(shut.find('.favorites-nav').exists()).toBe(true);
+    expect(shut.get('button').text()).not.toContain('合成收藏的很长问题标题用来观察省略');
+    expect(shut.get('.favorites-nav__icon').text()).toBe('🎫');
+    await shut.get('button').trigger('click');
+    expect(push).toHaveBeenCalledWith({ path: '/issue/detail', query: { id: 'issue-long' } });
     shut.unmount();
   });
 });

@@ -88,5 +88,29 @@ describe('quicklink navigation still reaches the existing routes', () => {
     const current = mount(item.component);
     expect(current.classes()).toContain('active');
     current.unmount();
+
+    app.siderCollapse = true;
+    route.name = 'issue_list';
+    route.path = '/issue/list';
+    push.mockClear();
+    const collapsed = mount(item.component, {
+      global: {
+        stubs: { NTooltip: { template: '<div><slot name="trigger" /><span class="tip"><slot /></span></div>' } }
+      }
+    });
+    await collapsed.get('button').trigger('click');
+    expect(push).toHaveBeenCalledWith(item.args);
+    collapsed.unmount();
+  });
+
+  it('keeps the customers active routes that are not the list name', () => {
+    app.siderCollapse = false;
+    for (const routeName of ['customers_detail', 'requests', 'requests_detail']) {
+      route.name = routeName;
+      route.path = '/requests';
+      const wrapper = mount(CustomersNav);
+      expect(wrapper.classes()).toContain('active');
+      wrapper.unmount();
+    }
   });
 });
