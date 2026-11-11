@@ -754,4 +754,10 @@ html.dark .issue-edit-page .preview-content :deep(.markdown-body a) {
   background: var(--issue-surface);
   color: var(--issue-ink);
 }
+
+.issue-edit-page .sidebar :deep(.n-base-selection:focus-within),
+.issue-edit-page .sidebar :deep(.n-input:focus-within) {
+  outline: var(--issue-focus);
+  outline-offset: 2px;
+}
 </style>

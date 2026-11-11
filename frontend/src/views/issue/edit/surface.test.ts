@@ -17,6 +17,11 @@ describe('edit page local surface', () => {
     expect(edit).toContain('outline-offset: 2px;');
   });
 
+  it('draws a focus ring on sidebar selects only after measurement finds none', () => {
+    expect(edit).toContain('.issue-edit-page .sidebar :deep(.n-base-selection:focus-within)');
+    expect(edit).toContain('.issue-edit-page .sidebar :deep(.n-input:focus-within)');
+  });
+
   it('keeps advanced options collapsed by default', () => {
     expect(edit).toContain('const advancedExpanded = ref(false);');
   });
