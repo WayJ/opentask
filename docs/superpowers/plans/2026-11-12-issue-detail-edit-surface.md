@@ -123,6 +123,8 @@ expect(en.route.issue_edit).not.toBe('route.issue_edit');
 
 `091b84fea436b22e708f72c3318280cfea361ee9` 的计算样式已经确认两处有限例外，见规格 3.2 和 3.3。详情芯片只匹配父元素不是 `pre` 的 `code`。编辑页 `.preview-content` 的背景改为 `var(--issue-surface)`，前景改为 `var(--issue-ink)`，`padding: 20px` 保留。两项各自先有失败测试，再改对应的 vue 文件。回归要编译本页样式，并用三个样本区分有语言围栏、无语言围栏和真正行内 code，不能只断言颜色字符串出现过。
 
+`f263ae280ab1ad65156915a1d4828d3167ab9866` 又确认暗色编辑预览的 `pre.hljs` 仍透明，带语言 token 低于 4.5。第三项有限例外只在暗色 `.preview-content` 下把 `pre.hljs` 设为 `#ffffff`，并把预览行内芯片改成父元素不是 `pre` 才匹配。这项单独先红后绿，不并进外壳或详情的日志。不改共享渲染器，不改 token 颜色，不改 `20px`。
+
 - [ ] **Step 3: 通过后单独提交**
 
 消息：`feat: theme issue detail description prose in dark mode`。这一提交可以单独回退，而不带回标题键和编辑页表面。
