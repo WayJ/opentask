@@ -84,17 +84,38 @@ describe('SLA settings labels', () => {
     expect(wrapper.text()).toContain('POST /api/sla/run-due');
     expect(wrapper.text()).not.toContain('立即 run-due');
     expect(wrapper.text()).not.toContain('time_in_status');
+    expect(wrapper.text()).toContain('关闭日整天不计入营业分钟');
+    expect(wrapper.text()).toContain('添加例外');
+    expect(wrapper.text()).toContain('周一');
+    expect(wrapper.text()).not.toContain('SLA deadline');
+    expect(wrapper.text()).not.toContain('running/paused');
+    expect(wrapper.text()).not.toContain('forced_open');
     expect(wrapper.get('input[placeholder="名称"]').element).toHaveProperty('value', '进行中停留');
 
     const source = readFileSync(resolve('src/views/settings/sla/index.vue'), 'utf8');
     expect(source).toContain('lookupLabel(metricLabels.value, row.metric)');
     expect(source).toContain('lookupLabel(exceptionLabels.value, kind)');
     expect(source).toContain('labeledOptions(SLA_METRICS, metricLabels.value)');
+    expect(source).not.toContain('请选择 policy');
+    expect(source).not.toContain('{{ row._tag }}');
+    expect(source).not.toContain('暂无例外日');
+    expect(source).not.toContain("'默认窗'");
 
     setLocale('en-US');
     await flushPromises();
     expect(wrapper.text()).toContain('Run due checks');
     expect(wrapper.text()).toContain('Two metrics: time in status and first response.');
+    expect(wrapper.text()).toContain('No exception days');
+    expect(wrapper.text()).toContain('Add exception');
+    expect(wrapper.text()).toContain('Mon');
+    expect(wrapper.text()).not.toContain('添加例外');
+    expect(wrapper.text()).not.toContain('周一');
+    expect(wrapper.text()).not.toContain('暂无例外日');
+    expect(wrapper.text()).toContain('IANA time zone');
+    expect(wrapper.text()).toContain('A closed day counts no business minutes');
+    expect(wrapper.text()).toContain('09:00-12:00,13:00-18:00');
+    expect(wrapper.text()).not.toContain('forced_open');
+    expect(wrapper.text()).not.toContain('SLA deadline');
     expect(wrapper.get('input[placeholder="名称"]').element).toHaveProperty('value', 'Time in progress');
 
     const onName = wrapper.getComponent(NInput).props('onUpdate:value') as (value: string) => void;

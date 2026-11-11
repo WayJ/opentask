@@ -36,7 +36,6 @@ import {
   type ExceptionKind,
   type PolicyCalendar,
   WEEKDAY_KEYS,
-  WEEKDAY_LABELS,
   type WeekdayKey,
   emptyWindows,
   normalizeBusinessHours,
@@ -56,6 +55,7 @@ const { t, locale } = useI18n();
 const statusLabels = useLabelTable('page.issueStatus');
 const metricLabels = useLabelTable('page.sla.metric');
 const exceptionLabels = useLabelTable('page.sla.exception');
+const weekdayLabels = useLabelTable('page.sla.weekday');
 const nameDirty = ref(false);
 const nameLoaded = ref(false);
 
@@ -110,6 +110,12 @@ const kindOptions = computed(() => labeledOptions(['closed', 'forced_open'] as c
 
 function exceptionKindLabel(kind: string) {
   return lookupLabel(exceptionLabels.value, kind);
+}
+
+function previewTagLabel(tag: string) {
+  if (tag === 'added') return t('page.sla.packAdded');
+  if (tag === 'replaced') return t('page.sla.packReplaced');
+  return tag;
 }
 const timezoneOptions = [
   { label: 'Asia/Shanghai', value: 'Asia/Shanghai' },
@@ -204,7 +210,7 @@ async function previewHolidayPack() {
     const body: { target: string; policyId?: string } = { target: packTarget.value };
     if (packTarget.value === 'policy') {
       if (!packPolicyId.value) {
-        window.$message?.error?.('请选择 policy');
+        window.$message?.error?.(t('page.sla.choosePolicy'));
         return;
       }
       body.policyId = packPolicyId.value;
@@ -228,7 +234,7 @@ async function applyHolidayPack() {
     const body: { target: string; policyId?: string } = { target: packTarget.value };
     if (packTarget.value === 'policy') {
       if (!packPolicyId.value) {
-        window.$message?.error?.('请选择 policy');
+        window.$message?.error?.(t('page.sla.choosePolicy'));
         return;
       }
       body.policyId = packPolicyId.value;
@@ -320,7 +326,7 @@ async function saveBusinessHours() {
       return;
     }
     workspace.value = data;
-    window.$message?.success?.('营业时段已保存（running/paused deadline 已重算）');
+    window.$message?.success?.(t('page.sla.hoursSaved'));
     await loadBusinessHours();
   } finally {
     bhSaving.value = false;
@@ -657,13 +663,11 @@ onMounted(async () => {
 
     <NCard :title="$t('page.sla.businessHours')" :bordered="false" style="margin-top: 16px">
       <NText depth="3" style="display: block; margin-bottom: 12px; font-size: 12px">
-        工作区级 IANA 时区 + 周内营业窗口。启用后 SLA deadline / pause
-        剩余按营业分钟计算；关闭则回退墙钟。配置保存后批量重算 running/paused。每日最多 2 段，格式
-        09:00-12:00,13:00-18:00。
+        {{ $t('page.sla.hoursIntro') }}
       </NText>
       <NSpace vertical>
         <NSpace align="center">
-          <span>启用营业时</span>
+          <span>{{ $t('page.sla.hoursEnabled') }}</span>
           <NSwitch v-model:value="bhForm.enabled" :disabled="!isOwner" />
           <NSelect
             v-model:value="bhForm.timezone"
@@ -673,24 +677,25 @@ onMounted(async () => {
             filterable
             tag
           />
-          <NButton size="small" :disabled="!isOwner" @click="applyWeekdayPreset">工作日 09–18</NButton>
+          <NButton size="small" :disabled="!isOwner" @click="applyWeekdayPreset">
+            {{ $t('page.sla.weekdayPreset') }}
+          </NButton>
         </NSpace>
         <div v-for="day in WEEKDAY_KEYS" :key="day" style="display: flex; gap: 8px; align-items: center">
-          <span style="width: 48px">{{ WEEKDAY_LABELS[day] }}</span>
+          <span style="width: 48px">{{ lookupLabel(weekdayLabels, day) }}</span>
           <NInput
             :value="daySegmentsText(day)"
             :disabled="!isOwner"
-            placeholder="空=非营业；例 09:00-12:00,13:00-18:00"
+            :placeholder="$t('page.sla.hoursWindowPlaceholder')"
             @update:value="(v: string) => setDaySegments(day, v)"
           />
         </div>
         <div style="margin-top: 8px">
           <NText depth="3" style="display: block; margin-bottom: 8px; font-size: 12px">
-            例外日（本地日历日）：closed 全日不计营业分钟；forced_open 覆盖周窗（未填窗口则用周一窗或
-            09:00–18:00）。上限 366。
+            {{ $t('page.sla.exceptionDays') }}
           </NText>
           <div v-if="!bhForm.exceptions.length" style="font-size: 12px; color: #888; margin-bottom: 8px">
-            暂无例外日
+            {{ $t('page.sla.noExceptions') }}
           </div>
           <div
             v-for="ex in bhForm.exceptions"
@@ -702,11 +707,13 @@ onMounted(async () => {
             <span style="flex: 1; font-size: 12px; color: #666">
               {{
                 ex.kind === 'forced_open'
-                  ? (ex.windows || []).map(s => `${s.start}-${s.end}`).join(',') || '默认窗'
+                  ? (ex.windows || []).map(s => `${s.start}-${s.end}`).join(',') || $t('page.sla.defaultWindow')
                   : '—'
               }}
             </span>
-            <NButton size="tiny" :disabled="!isOwner" @click="removeException(ex.date)">删除</NButton>
+            <NButton size="tiny" :disabled="!isOwner" @click="removeException(ex.date)">
+              {{ $t('page.sla.removeException') }}
+            </NButton>
           </div>
           <NSpace align="center" style="margin-top: 8px">
             <NInput v-model:value="exDraft.date" :disabled="!isOwner" placeholder="YYYY-MM-DD" style="width: 140px" />
@@ -717,11 +724,13 @@ onMounted(async () => {
               :placeholder="$t('page.sla.windowPlaceholder')"
               style="width: 220px"
             />
-            <NButton size="small" :disabled="!isOwner" @click="addExceptionDraft">添加例外</NButton>
+            <NButton size="small" :disabled="!isOwner" @click="addExceptionDraft">
+              {{ $t('page.sla.addException') }}
+            </NButton>
           </NSpace>
         </div>
         <NButton type="primary" :loading="bhSaving" :disabled="!isOwner" @click="saveBusinessHours">
-          保存营业时段
+          {{ $t('page.sla.saveHours') }}
         </NButton>
       </NSpace>
     </NCard>
@@ -804,7 +813,7 @@ onMounted(async () => {
               :key="row._tag + row.date"
               style="display: flex; gap: 8px; margin-bottom: 2px"
             >
-              <span style="width: 70px; color: #888">{{ row._tag }}</span>
+              <span style="width: 70px; color: #888">{{ previewTagLabel(row._tag) }}</span>
               <span style="width: 110px">{{ row.date }}</span>
               <span>{{ exceptionKindLabel(row.kind) }}</span>
             </div>

@@ -449,6 +449,30 @@ const local: App.I18n.Schema = {
       nameRequired: 'Enter a name and at least one start status',
       holidayIntro:
         'Static packs for China, the United States, the European Union, and the United Kingdom, 2026 and 2027. Preview, then apply them to this workspace or to a policy calendar. The pack wins on the same date. Other exceptions stay. No network sync.',
+      hoursIntro:
+        'The workspace uses an IANA time zone and weekly windows. When business hours are on, deadlines and the time left after a pause use business minutes. When they are off, the wall clock is used. Saving recalculates policies that are counting and policies that are paused. At most two ranges a day, written as 09:00-12:00,13:00-18:00.',
+      hoursEnabled: 'Use business hours',
+      weekdayPreset: 'Weekdays 09:00–18:00',
+      hoursWindowPlaceholder: 'Empty means not open. Example: 09:00-12:00,13:00-18:00',
+      exceptionDays:
+        'Exception days use the local calendar. A closed day counts no business minutes. Forced open replaces that day’s weekly window. If no window is set, Monday’s window is used, otherwise 09:00–18:00. At most 366 days.',
+      noExceptions: 'No exception days',
+      defaultWindow: 'Default window',
+      addException: 'Add exception',
+      removeException: 'Remove',
+      weekday: {
+        mon: 'Mon',
+        tue: 'Tue',
+        wed: 'Wed',
+        thu: 'Thu',
+        fri: 'Fri',
+        sat: 'Sat',
+        sun: 'Sun'
+      },
+      saveHours: 'Save business hours',
+      hoursSaved: 'Business hours saved. Counting and paused policies were recalculated.',
+      packAdded: 'Added',
+      packReplaced: 'Replaced',
       regionCN: 'China CN',
       regionUS: 'United States US',
       regionEU: 'European Union EU',

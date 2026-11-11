@@ -613,6 +613,28 @@ declare namespace App {
           defaultPolicyName: string;
           nameRequired: string;
           holidayIntro: string;
+          hoursIntro: string;
+          hoursEnabled: string;
+          weekdayPreset: string;
+          hoursWindowPlaceholder: string;
+          exceptionDays: string;
+          noExceptions: string;
+          defaultWindow: string;
+          addException: string;
+          removeException: string;
+          weekday: {
+            mon: string;
+            tue: string;
+            wed: string;
+            thu: string;
+            fri: string;
+            sat: string;
+            sun: string;
+          };
+          saveHours: string;
+          hoursSaved: string;
+          packAdded: string;
+          packReplaced: string;
           regionCN: string;
           regionUS: string;
           regionEU: string;

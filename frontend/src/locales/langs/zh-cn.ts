@@ -444,6 +444,30 @@ const local: App.I18n.Schema = {
       nameRequired: '请填写名称和开始状态',
       holidayIntro:
         '精选静态包（中国、美国、欧盟、英国 · 2026/2027）。预览后应用到本工作区营业例外，或某个策略的日历。同日以包为准覆盖；包外例外保留。无外网同步。',
+      hoursIntro:
+        '工作区使用 IANA 时区，并配置每周的营业窗口。启用后，到期时间和暂停后的剩余时间按营业分钟计算；关闭后按墙钟计算。保存后会重算正在计时和已暂停的策略。每天最多 2 段，格式 09:00-12:00,13:00-18:00。',
+      hoursEnabled: '启用营业时段',
+      weekdayPreset: '工作日 09:00–18:00',
+      hoursWindowPlaceholder: '空=非营业；例 09:00-12:00,13:00-18:00',
+      exceptionDays:
+        '例外日按本地日历。关闭日整天不计入营业分钟。强制营业会覆盖当天的周窗口；没有填写窗口时，用周一的窗口，否则用 09:00–18:00。最多 366 天。',
+      noExceptions: '暂无例外日',
+      defaultWindow: '默认窗',
+      addException: '添加例外',
+      removeException: '删除',
+      weekday: {
+        mon: '周一',
+        tue: '周二',
+        wed: '周三',
+        thu: '周四',
+        fri: '周五',
+        sat: '周六',
+        sun: '周日'
+      },
+      saveHours: '保存营业时段',
+      hoursSaved: '营业时段已保存，正在计时和已暂停的策略已重算。',
+      packAdded: '新增',
+      packReplaced: '覆盖',
       regionCN: '中国 CN',
       regionUS: '美国 US',
       regionEU: '欧盟 EU',
