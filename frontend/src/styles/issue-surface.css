@@ -1,0 +1,142 @@
+.issue-list-container,
+.issue-create-page {
+  --issue-canvas: #f5f6f6;
+  --issue-surface: #ffffff;
+  --issue-surface-muted: #f5f6f6;
+  --issue-ink: #000000;
+  --issue-ink-secondary: #62666d;
+  --issue-line: #e6e7e8;
+  --issue-accent: #5e6ad2;
+  --issue-on-accent: #ffffff;
+  --issue-danger: #cf1322;
+  --issue-on-danger: #ffffff;
+  --issue-focus: 2px solid #5e6ad2;
+}
+
+html.dark .issue-list-container,
+html.dark .issue-create-page {
+  --issue-canvas: #010102;
+  --issue-surface: #0f1011;
+  --issue-surface-muted: #141516;
+  --issue-ink: #f7f8f8;
+  --issue-ink-secondary: #d0d6e0;
+  --issue-line: #23252a;
+  --issue-accent: #5e6ad2;
+  --issue-on-accent: #ffffff;
+  --issue-danger: #cf1322;
+  --issue-on-danger: #ffffff;
+  --issue-focus: 2px solid #828fff;
+}
+
+.issue-create-page {
+  background: var(--issue-canvas);
+  color: var(--issue-ink);
+}
+
+.issue-create-page .page-header,
+.issue-create-page .main-content {
+  background: var(--issue-surface);
+  color: var(--issue-ink);
+}
+
+.issue-create-page .page-header {
+  border-bottom-color: var(--issue-line);
+}
+
+.issue-create-page .sidebar {
+  background: var(--issue-surface-muted);
+  border-left-color: var(--issue-line);
+}
+
+.issue-create-page .title-input {
+  color: var(--issue-ink);
+}
+
+.issue-create-page .title-input::placeholder {
+  color: var(--issue-ink-secondary);
+}
+
+.issue-create-page .title-input:focus,
+.issue-create-page .title-input:focus-visible {
+  outline: var(--issue-focus);
+  outline-offset: 2px;
+}
+
+.issue-create-page .attachment-section,
+.issue-create-page .preview-content {
+  background: var(--issue-surface-muted);
+  border-color: var(--issue-line);
+}
+
+.issue-create-page .pending-file-item {
+  background: var(--issue-surface);
+  border-color: var(--issue-line);
+}
+
+.issue-create-page .markdown-editor,
+.issue-create-page .description-section .markdown-editor {
+  background: var(--issue-surface);
+  border-color: var(--issue-line);
+}
+
+.issue-create-page .toolbar,
+.issue-create-page .editor-footer,
+.issue-create-page .description-section .toolbar,
+.issue-create-page .description-section .editor-footer {
+  background: var(--issue-surface-muted);
+  border-color: var(--issue-line);
+  color: var(--issue-ink);
+}
+
+.issue-create-page .markdown-textarea,
+.issue-create-page .description-section .markdown-textarea {
+  color: var(--issue-ink);
+  background: transparent;
+}
+
+.issue-create-page .markdown-textarea::placeholder,
+.issue-create-page .description-section .markdown-textarea::placeholder {
+  color: var(--issue-ink-secondary);
+}
+
+.issue-create-page .markdown-textarea:focus-visible,
+.issue-create-page .description-section .markdown-textarea:focus-visible {
+  outline: var(--issue-focus);
+  outline-offset: 2px;
+}
+
+.issue-create-page .preview-pane,
+.issue-create-page .preview-pane .markdown-body,
+.issue-create-page .description-section .preview-pane,
+.issue-create-page .description-section .preview-pane .markdown-body {
+  background: var(--issue-surface);
+  color: var(--issue-ink);
+}
+
+html.dark .issue-list-container .n-button.n-button--primary-type:not(.n-button--disabled),
+html.dark .issue-create-page .n-button.n-button--primary-type:not(.n-button--disabled) {
+  --n-text-color: var(--issue-on-accent) !important;
+  --n-text-color-hover: var(--issue-on-accent) !important;
+  --n-text-color-pressed: var(--issue-on-accent) !important;
+  --n-text-color-focus: var(--issue-on-accent) !important;
+  color: var(--issue-on-accent);
+}
+
+.issue-list-container .n-button.n-button--error-type:not(.n-button--disabled) {
+  --n-color: var(--issue-danger) !important;
+  --n-color-hover: #a8071a !important;
+  --n-color-pressed: #820014 !important;
+  --n-color-focus: var(--issue-danger) !important;
+  --n-text-color: var(--issue-on-danger) !important;
+  --n-text-color-hover: var(--issue-on-danger) !important;
+  --n-text-color-pressed: var(--issue-on-danger) !important;
+  --n-text-color-focus: var(--issue-on-danger) !important;
+  color: var(--issue-on-danger);
+}
+
+.issue-list-container .n-button.n-button--primary-type:not(.n-button--disabled):focus-visible,
+.issue-list-container .n-button.n-button--error-type:not(.n-button--disabled):focus-visible,
+.issue-create-page .n-button.n-button--primary-type:not(.n-button--disabled):focus-visible {
+  outline: var(--issue-focus);
+  outline-offset: 2px;
+}
