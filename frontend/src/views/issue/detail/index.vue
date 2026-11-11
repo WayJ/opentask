@@ -2514,7 +2514,7 @@ html.dark .issue-detail-container .description-content :deep(.markdown-body a) {
   color: #828fff;
 }
 
-html.dark .issue-detail-container .description-content :deep(.markdown-body code:not([lang]):not([class])) {
+html.dark .issue-detail-container .description-content :deep(.markdown-body :not(pre) > code:not([lang]):not([class])) {
   color: var(--color-text-primary);
   background-color: #23252a;
 }
