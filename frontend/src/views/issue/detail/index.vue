@@ -2519,6 +2519,10 @@ html.dark .issue-detail-container .description-content :deep(.markdown-body code
   background-color: #23252a;
 }
 
+html.dark .issue-detail-container .description-content :deep(pre.hljs) {
+  background-color: #ffffff;
+}
+
 /* ============================================
    COMMENTS - Enhanced
    ============================================ */

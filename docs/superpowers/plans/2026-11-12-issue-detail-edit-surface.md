@@ -119,7 +119,7 @@ expect(en.route.issue_edit).not.toBe('route.issue_edit');
 
 - [ ] **Step 2: 保存当次失败，再按规格第 3.3 节追加样式**
 
-不改评论的 `white-space: normal`。不写 `pre` 或 `.hljs` 背景。
+不改评论的 `white-space: normal`。正文和行内 code 保持原规则。唯一例外是暗色详情 `.description-content pre.hljs` 恢复 `background-color: #ffffff`，也就是 `github.css` 里 `.hljs` 的浅色背景。共享 `.markdown-body .hljs { background-color: transparent }` 特异度更高，所以不能靠渲染器里的 `#f6f8fa`。`#f6f8fa` 对实测 keyword `rgb(215, 58, 73)` 低于 4.5。编辑预览不在这次修改里。
 
 - [ ] **Step 3: 通过后单独提交**
 

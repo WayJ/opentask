@@ -72,9 +72,13 @@
 - 链接 `#828fff`。
 - 行内 `code:not([lang]):not([class])` 用 `var(--color-text-primary)` 和背景 `#23252a`。
 
-不写 `pre`、`.hljs`、`pre code` 的背景。不改 `.comment-text :deep(.markdown-body)` 现有的 `white-space: normal`。评论区 `.markdown-body` 应仍是共享渲染器的浅色。
+正文、行内 code、评论不改。不改 `.comment-text :deep(.markdown-body)` 现有的 `white-space: normal`。评论区 `.markdown-body` 应仍是共享渲染器的浅色。不改共享渲染器、编辑预览、主题或全局 CSS。
 
-围栏代码保持浅色是允许的。条件是这次样例里实际出现的每个 `.hljs-*` 都重新测过。没有节点的类写 `absent`，不算通过。`.hljs-keyword` 若低于 4.5，停止并报告，不把代码岛改成暗色来凑对比。
+`f174bb38687c95258fb9a417b31e84909d40e7b7` 上，共享规则 `.markdown-body .hljs { background-color: transparent }` 的特异度是 (0, 2, 0)，压过 `.markdown-body pre { background-color: #f6f8fa }` 的 (0, 1, 1)，也压过 highlight.js `github.css` 里 `.hljs { background: #ffffff }` 的 (0, 1, 0)。因此 `.description-content pre.hljs` 自身背景是透明，第一层不透明祖先是暗色 `.markdown-body`。样例里 `.hljs-keyword` 为 `rgb(215, 58, 73)`，叠在 `rgb(15, 16, 17)` 上的对比是 4.16。`#f6f8fa` 对这枚实际 keyword 色只有约 4.30，到不了 4.5，所以不把 `#f6f8fa` 当作要恢复的岛色。
+
+唯一例外：只在暗色详情 `.issue-detail-container .description-content` 下，给 `pre.hljs` 恢复 `background-color: #ffffff`。这是 `github.css` 里 `.hljs` 已经声明的浅色岛背景。本页 `compileStyle({ scoped: true })` 把 `data-v` 留在 `.description-content` 上，编译结果是 `html.dark .issue-detail-container .description-content[data-v] pre.hljs`，特异度高于共享的透明规则。不写 `pre code` 的背景，不改 token 颜色。编辑预览若仍是透明岛，只记录，不在这次修。
+
+围栏代码保持浅色。通过条件是浏览器里 `pre.hljs` 的叠色结果为 `rgb(255, 255, 255)`，并且样例里实际出现的每个 `.hljs-*` 对比至少 4.5。没有节点的类写 `absent`，不算通过。`.hljs-built_in` 与 `.hljs-symbol` 若仍无节点，继续算未测。不把代码岛改成暗色来凑对比。
 
 ### 3.4 选择器必须先由本仓库编译器证明
 
