@@ -338,6 +338,7 @@ const local: App.I18n.Schema = {
     issue: 'Issues',
     issue_create: 'Create Issue',
     issue_detail: 'Issue Detail',
+    issue_edit: 'Edit Issue',
     'issue_detail-new': 'Issue Detail (New Design)',
     issue_list: 'My issues',
     issue_trash: 'Trash',
