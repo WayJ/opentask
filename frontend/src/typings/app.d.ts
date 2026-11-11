@@ -611,6 +611,7 @@ declare namespace App {
           targetPolicy: string;
           choosePolicy: string;
           defaultPolicyName: string;
+          nameRequired: string;
           holidayIntro: string;
           regionCN: string;
           regionUS: string;

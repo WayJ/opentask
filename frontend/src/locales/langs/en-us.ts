@@ -445,6 +445,7 @@ const local: App.I18n.Schema = {
       targetPolicy: 'A policy calendar',
       choosePolicy: 'Choose a policy',
       defaultPolicyName: 'Time in progress',
+      nameRequired: 'Enter a name and at least one start status',
       holidayIntro:
         'Static packs for China, the United States, the European Union, and the United Kingdom, 2026 and 2027. Preview, then apply them to this workspace or to a policy calendar. The pack wins on the same date. Other exceptions stay. No network sync.',
       regionCN: 'China CN',

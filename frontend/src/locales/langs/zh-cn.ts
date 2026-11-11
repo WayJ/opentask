@@ -441,6 +441,7 @@ const local: App.I18n.Schema = {
       targetPolicy: '指定策略的日历',
       choosePolicy: '请选择策略',
       defaultPolicyName: '进行中停留',
+      nameRequired: '请填写名称和开始状态',
       holidayIntro:
         '精选静态包（中国、美国、欧盟、英国 · 2026/2027）。预览后应用到本工作区营业例外，或某个策略的日历。同日以包为准覆盖；包外例外保留。无外网同步。',
       regionCN: '中国 CN',

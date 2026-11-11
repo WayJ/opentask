@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, h, onMounted, reactive, ref } from 'vue';
+import { computed, h, onMounted, reactive, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import {
   type DataTableColumns,
   NButton,
@@ -14,6 +15,7 @@ import {
 } from 'naive-ui';
 import {
   ISSUE_STATUSES,
+  SLA_METRICS,
   type SlaPolicyRow,
   fetchCreateSlaPolicy,
   fetchDeleteSlaPolicy,
@@ -24,9 +26,11 @@ import {
   fetchHolidayPackPreview,
   fetchHolidayPackApply,
   type HolidayPackSummary,
-  type HolidayPackMergeResult,
-  slaMetricLabel
+  type HolidayPackMergeResult
 } from '@/service/api/sla';
+import { labeledOptions, lookupLabel } from '@/locales/display-label';
+import { useLabelTable } from '@/locales/use-label-table';
+import { policyNameAfterLocaleChange } from './policy-name';
 import { filterHolidayPackRows } from '@/utils/holidayPacks';
 import {
   type WorkspaceItem,
@@ -53,12 +57,19 @@ import {
 
 defineOptions({ name: 'SettingsSlaPage' });
 
+const { t, locale } = useI18n();
+const statusLabels = useLabelTable('page.issueStatus');
+const metricLabels = useLabelTable('page.sla.metric');
+const exceptionLabels = useLabelTable('page.sla.exception');
+const nameDirty = ref(false);
+const nameLoaded = ref(false);
+
 const loading = ref(false);
 const rows = ref<SlaPolicyRow[]>([]);
 const creating = ref(false);
 const running = ref(false);
 const form = reactive({
-  name: 'Time in progress',
+  name: t('page.sla.defaultPolicyName'),
   startStatuses: ['in_progress'] as string[],
   stopStatuses: ['resolved', 'closed'] as string[],
   pauseStatuses: [] as string[],
@@ -72,7 +83,20 @@ const form = reactive({
 });
 const calExDraft = reactive({ date: '', kind: 'closed' as ExceptionKind, windowsText: '' });
 
-const statusOptions = ISSUE_STATUSES.map(v => ({ label: v, value: v }));
+function onPolicyNameInput(value: string) {
+  if (value === form.name) return;
+  form.name = value;
+  nameDirty.value = true;
+}
+
+watch(locale, () => {
+  form.name = policyNameAfterLocaleChange(
+    { dirty: nameDirty.value, loaded: nameLoaded.value, current: form.name },
+    t('page.sla.defaultPolicyName')
+  );
+});
+
+const statusOptions = computed(() => labeledOptions(ISSUE_STATUSES, statusLabels.value));
 
 const workspace = ref<WorkspaceItem | null>(null);
 const bhSaving = ref(false);
@@ -87,10 +111,11 @@ const exDraft = reactive({
   kind: 'closed' as ExceptionKind,
   windowsText: ''
 });
-const kindOptions = [
-  { label: '关闭日 (closed)', value: 'closed' },
-  { label: '强制营业 (forced_open)', value: 'forced_open' }
-];
+const kindOptions = computed(() => labeledOptions(['closed', 'forced_open'] as const, exceptionLabels.value));
+
+function exceptionKindLabel(kind: string) {
+  return lookupLabel(exceptionLabels.value, kind);
+}
 const timezoneOptions = [
   { label: 'Asia/Shanghai', value: 'Asia/Shanghai' },
   { label: 'UTC', value: 'UTC' },
@@ -112,13 +137,17 @@ const packPreview = ref<HolidayPackMergeResult | null>(null);
 const packSourceNote = ref('');
 const packFilterRegion = ref<string | null>(null);
 const packFilterYear = ref<number | null>(null);
-const packRegionFilterOptions = [
+const packRegionFilterOptions = computed(() => [
   { label: '全部地区', value: null as string | null },
-  { label: 'CN', value: 'CN' },
-  { label: 'US', value: 'US' },
-  { label: 'EU', value: 'EU' },
-  { label: 'UK', value: 'UK' }
-];
+  { label: t('page.sla.regionCN'), value: 'CN' },
+  { label: t('page.sla.regionUS'), value: 'US' },
+  { label: t('page.sla.regionEU'), value: 'EU' },
+  { label: t('page.sla.regionUK'), value: 'UK' }
+]);
+const packTargetOptions = computed(() => [
+  { label: t('page.sla.targetWorkspace'), value: 'workspace' as const },
+  { label: t('page.sla.targetPolicy'), value: 'policy' as const }
+]);
 const packYearFilterOptions = [
   { label: '全部年份', value: null as number | null },
   { label: '2026', value: 2026 },
@@ -343,10 +372,7 @@ function removeException(date: string) {
   bhForm.exceptions = bhForm.exceptions.filter(e => e.date !== date);
 }
 
-const metricOptions = [
-  { label: '状态停留 (time_in_status)', value: 'time_in_status' },
-  { label: '首次响应 (first_response)', value: 'first_response' }
-];
+const metricOptions = computed(() => labeledOptions(SLA_METRICS, metricLabels.value));
 
 const columns: DataTableColumns<SlaPolicyRow> = [
   {
@@ -355,7 +381,7 @@ const columns: DataTableColumns<SlaPolicyRow> = [
     render: row =>
       h('div', [
         h('div', { style: 'font-weight:500' }, row.name),
-        h(NText, { depth: 3, style: 'font-size:12px' }, { default: () => `${row.targetMinutes} 分钟 · ${slaMetricLabel(row.metric)}` })
+        h(NText, { depth: 3, style: 'font-size:12px' }, { default: () => `${row.targetMinutes} 分钟 · ${lookupLabel(metricLabels.value, row.metric)}` })
       ])
   },
   {
@@ -367,7 +393,7 @@ const columns: DataTableColumns<SlaPolicyRow> = [
         { depth: 3, style: 'font-size:12px' },
         {
           default: () =>
-            `start: ${(row.startStatuses || []).join(', ') || '—'} → stop: ${(row.stopStatuses || []).join(', ') || '关闭类'} · pause: ${(row.pauseStatuses || []).join(', ') || '—'}`
+            `${t('page.sla.startPrefix')}: ${(row.startStatuses || []).map(status => lookupLabel(statusLabels.value, status)).join(', ') || '—'} → ${t('page.sla.stopPrefix')}: ${(row.stopStatuses || []).map(status => lookupLabel(statusLabels.value, status)).join(', ') || t('page.sla.closingStatuses')} · ${t('page.sla.pausePrefix')}: ${(row.pauseStatuses || []).map(status => lookupLabel(statusLabels.value, status)).join(', ') || '—'}`
         }
       )
   },
@@ -425,7 +451,7 @@ async function load() {
 
 async function create() {
   if (!form.name.trim() || !form.startStatuses.length) {
-    window.$message?.warning?.('名称与 startStatuses 必填');
+    window.$message?.warning?.(t('page.sla.nameRequired'));
     return;
   }
   creating.value = true;
@@ -543,31 +569,31 @@ onMounted(async () => {
     <NCard title="SLA 策略" :bordered="false">
       <template #header-extra>
         <NSpace>
-          <NButton size="small" :loading="running" @click="runDue">立即 run-due</NButton>
+          <NButton size="small" :loading="running" @click="runDue">{{ $t('page.sla.runDue') }}</NButton>
           <NButton size="small" @click="load">刷新</NButton>
         </NSpace>
       </template>
       <NText depth="3" style="display:block;margin-bottom:12px;font-size:12px">
-        支持「状态停留」与「首次响应」两种 metric。默认墙钟分钟；下方启用营业时后按营业分钟。首次响应：非创建者首条评论即满足；指派不算。stop 为空时进入 resolved/closed/rejected 即满足。进入暂停状态时不计时，离开后按剩余时间续跑。无内置 cron，请外部调度 POST /api/sla/run-due。
+        {{ $t('page.sla.help') }}
       </NText>
       <NDataTable :columns="columns" :data="rows" :loading="loading" size="small" />
     </NCard>
 
     <NCard title="新建策略" :bordered="false" style="margin-top:16px">
       <NSpace vertical>
-        <NInput v-model:value="form.name" placeholder="名称" maxlength="80" />
-        <NSelect v-model:value="form.metric" :options="metricOptions" placeholder="metric" />
-        <NText depth="3" style="font-size:12px">首次响应：非创建者首条评论算首响；指派负责人不算。</NText>
-        <NSelect v-model:value="form.startStatuses" multiple :options="statusOptions" placeholder="startStatuses" />
-        <NSelect v-model:value="form.stopStatuses" multiple :options="statusOptions" placeholder="stopStatuses（可空=关闭类）" />
+        <NInput :value="form.name" placeholder="名称" maxlength="80" @update:value="onPolicyNameInput" />
+        <NSelect v-model:value="form.metric" :options="metricOptions" :placeholder="$t('page.sla.metricPlaceholder')" />
+        <NText depth="3" style="font-size:12px">{{ $t('page.sla.firstResponseNote') }}</NText>
+        <NSelect v-model:value="form.startStatuses" multiple :options="statusOptions" :placeholder="$t('page.sla.startPlaceholder')" />
+        <NSelect v-model:value="form.stopStatuses" multiple :options="statusOptions" :placeholder="$t('page.sla.stopPlaceholder')" />
         <NSelect
           v-model:value="form.pauseStatuses"
           multiple
           :options="statusOptions"
-          placeholder="暂停计时的状态（可空=不启用暂停；示例 feedback）"
+          :placeholder="$t('page.sla.pausePlaceholder')"
         />
-        <NText depth="3" style="font-size:12px">进入这些状态时 SLA 暂停；离开后按剩余时间续跑。优先级：stop &gt; pause &gt; start。</NText>
-        <NInputNumber v-model:value="form.targetMinutes" :min="1" :max="10080" placeholder="targetMinutes" />
+        <NText depth="3" style="font-size:12px">{{ $t('page.sla.pauseHint') }} {{ $t('page.sla.priorityRule') }}</NText>
+        <NInputNumber v-model:value="form.targetMinutes" :min="1" :max="10080" :placeholder="$t('page.sla.targetPlaceholder')" />
         <NSpace>
           <span>通知负责人</span>
           <NSwitch v-model:value="form.notifyAssignee" />
@@ -595,7 +621,7 @@ onMounted(async () => {
             <NText depth="3" style="display:block;margin-bottom:6px;font-size:12px">例外覆盖（填写则整表替换 WS 例外；留空=继承）</NText>
             <div v-for="ex in form.calendarExceptions" :key="ex.date" style="display:flex;gap:8px;margin-bottom:4px">
               <span style="width:110px">{{ ex.date }}</span>
-              <span style="width:120px">{{ ex.kind }}</span>
+              <span style="width:120px">{{ exceptionKindLabel(ex.kind) }}</span>
               <NButton size="tiny" @click="form.calendarExceptions = form.calendarExceptions.filter(e => e.date !== ex.date)">删</NButton>
             </div>
             <NSpace align="center">
@@ -609,7 +635,7 @@ onMounted(async () => {
       </NSpace>
     </NCard>
 
-    <NCard title="营业时段（SLA business hours）" :bordered="false" style="margin-top:16px">
+    <NCard :title="$t('page.sla.businessHours')" :bordered="false" style="margin-top:16px">
       <NText depth="3" style="display:block;margin-bottom:12px;font-size:12px">
         工作区级 IANA 时区 + 周内营业窗口。启用后 SLA deadline / pause 剩余按营业分钟计算；关闭则回退墙钟。配置保存后批量重算 running/paused。每日最多 2 段，格式 09:00-12:00,13:00-18:00。
       </NText>
@@ -647,7 +673,7 @@ onMounted(async () => {
             style="display:flex;gap:8px;align-items:center;margin-bottom:4px"
           >
             <span style="width:110px">{{ ex.date }}</span>
-            <span style="width:120px">{{ ex.kind }}</span>
+            <span style="width:120px">{{ exceptionKindLabel(ex.kind) }}</span>
             <span style="flex:1;font-size:12px;color:#666">
               {{
                 ex.kind === 'forced_open'
@@ -663,7 +689,7 @@ onMounted(async () => {
             <NInput
               v-model:value="exDraft.windowsText"
               :disabled="!isOwner || exDraft.kind !== 'forced_open'"
-              placeholder="forced_open 可选窗口"
+              :placeholder="$t('page.sla.windowPlaceholder')"
               style="width:220px"
             />
             <NButton size="small" :disabled="!isOwner" @click="addExceptionDraft">添加例外</NButton>
@@ -681,7 +707,7 @@ onMounted(async () => {
       </div>
       <template v-if="packOpen">
         <NText depth="3" style="display:block;margin-bottom:12px;font-size:12px">
-          精选静态包（CN/US/EU/UK · 2026/2027）；预览后应用到本工作区营业例外或某 policy 日历覆盖。同日以包为准覆盖；包外例外保留。无外网同步。
+          {{ $t('page.sla.holidayIntro') }}
         </NText>
         <NSpace vertical>
           <NSpace align="center">
@@ -702,17 +728,14 @@ onMounted(async () => {
             <NSelect :value="packKey" @update:value="onPackKeyUpdate" :options="packOptions" style="width:360px" :loading="packLoading" />
             <NSelect
               v-model:value="packTarget"
-              :options="[
-                { label: '本工作区 business_hours', value: 'workspace' },
-                { label: '指定 policy 日历', value: 'policy' }
-              ]"
+              :options="packTargetOptions"
               style="width:220px"
             />
             <NSelect
               v-if="packTarget === 'policy'"
               v-model:value="packPolicyId"
               :options="policyOptions"
-              placeholder="选择 policy"
+              :placeholder="$t('page.sla.choosePolicy')"
               style="width:200px"
               clearable
             />
@@ -744,7 +767,7 @@ onMounted(async () => {
             >
               <span style="width:70px;color:#888">{{ row._tag }}</span>
               <span style="width:110px">{{ row.date }}</span>
-              <span>{{ row.kind }}</span>
+              <span>{{ exceptionKindLabel(row.kind) }}</span>
             </div>
           </div>
         </NSpace>
