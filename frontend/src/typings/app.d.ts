@@ -382,6 +382,7 @@ declare namespace App {
           navLabels: string;
           navInitiatives: string;
           actionAddLabel: string;
+          estimateTitle: string;
         };
       };
       request: {
@@ -567,6 +568,45 @@ declare namespace App {
           favoriteView: string;
           labelsOr: string;
           defaultCycle: string;
+          favorites: {
+            title: string;
+            empty: string;
+          };
+          realtime: {
+            connected: string;
+            disconnected: string;
+          };
+          workspaceSwitcher: {
+            placeholder: string;
+            createTitle: string;
+            namePlaceholder: string;
+            issueKeyPlaceholder: string;
+            issueKeyHint: string;
+            createFailed: string;
+          };
+          hotkeyPicker: {
+            changeStatus: string;
+            assignOwner: string;
+            changePriority: string;
+            setLabels: string;
+            setEstimate: string;
+            noFocusedIssue: string;
+            selectOwner: string;
+            confirmAssign: string;
+            noLabels: string;
+            points: string;
+            clearEstimate: string;
+            updateStatusFailed: string;
+            statusUpdated: string;
+            updateEstimateFailed: string;
+            estimateUpdated: string;
+            updatePriorityFailed: string;
+            priorityUpdated: string;
+            assignFailed: string;
+            ownerUpdated: string;
+            updateLabelsFailed: string;
+            labelsUpdated: string;
+          };
         };
         issueList: {
           tabs: { myTodos: string; open: string; closed: string; all: string };

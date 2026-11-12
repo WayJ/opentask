@@ -8,6 +8,9 @@ import { useIssueFocus } from '@/composables/use-issue-focus';
 import { useIssueFieldPickers } from '@/composables/use-issue-field-pickers';
 import UserSelect from '@/components/UserSelect.vue';
 import type { Api } from '@/typings/api';
+import { $t, locale } from '@/locales';
+import { lookupLabel } from '@/locales/display-label';
+import { useLabelTable } from '@/locales/use-label-table';
 
 defineOptions({ name: 'IssueHotkeyPickerHost' });
 
@@ -23,21 +26,44 @@ const show = computed({
   }
 });
 
+const statusLabels = useLabelTable('page.issueStatus');
+const priorityLabels = useLabelTable('page.issuePriority');
+
 const title = computed(() => {
+  // eslint-disable-next-line no-void
+  void locale.value;
   switch (activePicker.value) {
     case 'status':
-      return '更改状态';
+      return $t('page.shell.hotkeyPicker.changeStatus');
     case 'assignee':
-      return '指派负责人';
+      return $t('page.shell.hotkeyPicker.assignOwner');
     case 'priority':
-      return '更改优先级';
+      return $t('page.shell.hotkeyPicker.changePriority');
     case 'labels':
-      return '设置标签';
+      return $t('page.shell.hotkeyPicker.setLabels');
     case 'estimate':
-      return '设置估点';
+      return $t('page.shell.hotkeyPicker.setEstimate');
     default:
       return '';
   }
+});
+
+const statusSelectOptions = computed(() => {
+  // eslint-disable-next-line no-void
+  void locale.value;
+  return issueStatusOptions.map(option => ({
+    ...option,
+    label: lookupLabel(statusLabels.value, option.value)
+  }));
+});
+
+const prioritySelectOptions = computed(() => {
+  // eslint-disable-next-line no-void
+  void locale.value;
+  return issuePriorityOptions.map(option => ({
+    ...option,
+    label: lookupLabel(priorityLabels.value, option.value)
+  }));
 });
 
 const submitting = ref(false);
@@ -87,10 +113,10 @@ async function applyStatus(status: Api.Issue.IssueStatus) {
   try {
     const { error } = await issueApi.updateStatus(id, status);
     if (error) {
-      window.$message?.error?.(error.message || '更新状态失败');
+      window.$message?.error?.(error.message || $t('page.shell.hotkeyPicker.updateStatusFailed'));
       return;
     }
-    window.$message?.success?.('状态已更新');
+    window.$message?.success?.($t('page.shell.hotkeyPicker.statusUpdated'));
     closePicker();
   } finally {
     submitting.value = false;
@@ -106,10 +132,10 @@ async function applyEstimate(points: number | null) {
   try {
     const { error } = await issueApi.updateIssue(id, { estimate_points: points });
     if (error) {
-      window.$message?.error?.(error.message || '更新估点失败');
+      window.$message?.error?.(error.message || $t('page.shell.hotkeyPicker.updateEstimateFailed'));
       return;
     }
-    window.$message?.success?.('估点已更新');
+    window.$message?.success?.($t('page.shell.hotkeyPicker.estimateUpdated'));
     closePicker();
   } finally {
     submitting.value = false;
@@ -123,10 +149,10 @@ async function applyPriority(priority: Api.Issue.IssuePriority) {
   try {
     const { error } = await issueApi.updatePriority(id, priority);
     if (error) {
-      window.$message?.error?.(error.message || '更新优先级失败');
+      window.$message?.error?.(error.message || $t('page.shell.hotkeyPicker.updatePriorityFailed'));
       return;
     }
-    window.$message?.success?.('优先级已更新');
+    window.$message?.success?.($t('page.shell.hotkeyPicker.priorityUpdated'));
     closePicker();
   } finally {
     submitting.value = false;
@@ -140,10 +166,10 @@ async function applyAssignee() {
   try {
     const { error } = await issueApi.updateAssignee(id, assigneeId.value || undefined);
     if (error) {
-      window.$message?.error?.(error.message || '指派失败');
+      window.$message?.error?.(error.message || $t('page.shell.hotkeyPicker.assignFailed'));
       return;
     }
-    window.$message?.success?.('负责人已更新');
+    window.$message?.success?.($t('page.shell.hotkeyPicker.ownerUpdated'));
     closePicker();
   } finally {
     submitting.value = false;
@@ -157,10 +183,10 @@ async function applyLabels() {
   try {
     const { error } = await issueApi.replaceTags(id, selectedTagIds.value);
     if (error) {
-      window.$message?.error?.(error.message || '更新标签失败');
+      window.$message?.error?.(error.message || $t('page.shell.hotkeyPicker.updateLabelsFailed'));
       return;
     }
-    window.$message?.success?.('标签已更新');
+    window.$message?.success?.($t('page.shell.hotkeyPicker.labelsUpdated'));
     closePicker();
   } finally {
     submitting.value = false;
@@ -178,11 +204,11 @@ async function applyLabels() {
     @after-leave="closePicker()"
   >
     <NSpin :show="submitting || tagsLoading">
-      <div v-if="!focusedIssueId" class="picker-empty">无焦点问题</div>
+      <div v-if="!focusedIssueId" class="picker-empty">{{ $t('page.shell.hotkeyPicker.noFocusedIssue') }}</div>
       <template v-else-if="activePicker === 'status'">
         <NSpace vertical>
           <NButton
-            v-for="opt in issueStatusOptions"
+            v-for="opt in statusSelectOptions"
             :key="opt.value"
             block
             secondary
@@ -195,7 +221,7 @@ async function applyLabels() {
       <template v-else-if="activePicker === 'priority'">
         <NSpace vertical>
           <NButton
-            v-for="opt in issuePriorityOptions"
+            v-for="opt in prioritySelectOptions"
             :key="opt.value"
             block
             secondary
@@ -207,13 +233,17 @@ async function applyLabels() {
       </template>
       <template v-else-if="activePicker === 'assignee'">
         <NSpace vertical>
-          <UserSelect v-model="assigneeId" placeholder="选择负责人" clearable />
-          <NButton type="primary" block :loading="submitting" @click="applyAssignee">确认指派</NButton>
+          <UserSelect v-model="assigneeId" :placeholder="$t('page.shell.hotkeyPicker.selectOwner')" clearable />
+          <NButton type="primary" block :loading="submitting" @click="applyAssignee">
+            {{ $t('page.shell.hotkeyPicker.confirmAssign') }}
+          </NButton>
         </NSpace>
       </template>
       <template v-else-if="activePicker === 'labels'">
         <NSpace vertical>
-          <div v-if="!availableTags.length" class="picker-empty">暂无标签，请先到 Labels 设置页创建</div>
+          <div v-if="!availableTags.length" class="picker-empty">
+            {{ $t('page.shell.hotkeyPicker.noLabels') }}
+          </div>
           <div v-for="tag in availableTags" :key="tag.id" class="label-row">
             <NCheckbox
               :checked="selectedTagIds.includes(tag.id)"
@@ -224,15 +254,17 @@ async function applyLabels() {
               </NTag>
             </NCheckbox>
           </div>
-          <NButton type="primary" block :loading="submitting" @click="applyLabels">确认</NButton>
+          <NButton type="primary" block :loading="submitting" @click="applyLabels">{{ $t('common.confirm') }}</NButton>
         </NSpace>
       </template>
       <template v-else-if="activePicker === 'estimate'">
         <NSpace vertical>
           <NButton v-for="pts in estimateOptions" :key="pts" block secondary @click="applyEstimate(pts)">
-            {{ pts }} 点
+            {{ $t('page.shell.hotkeyPicker.points', { n: pts }) }}
           </NButton>
-          <NButton block quaternary @click="applyEstimate(null)">清除估点</NButton>
+          <NButton block quaternary @click="applyEstimate(null)">
+            {{ $t('page.shell.hotkeyPicker.clearEstimate') }}
+          </NButton>
         </NSpace>
       </template>
     </NSpin>

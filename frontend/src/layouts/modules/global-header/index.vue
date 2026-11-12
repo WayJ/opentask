@@ -4,6 +4,7 @@ import { GLOBAL_HEADER_MENU_ID } from '@/constants/app';
 import { useAppStore } from '@/store/modules/app';
 import { useThemeStore } from '@/store/modules/theme';
 import { useWorkspaceRealtime } from '@/composables/use-workspace-realtime';
+import { $t } from '@/locales';
 import GlobalLogo from '../global-logo/index.vue';
 import GlobalBreadcrumb from '../global-breadcrumb/index.vue';
 import GlobalSearch from '../global-search/index.vue';
@@ -45,7 +46,7 @@ const { connected: realtimeConnected } = useWorkspaceRealtime();
       <WorkspaceSwitcher />
       <span
         class="mx-4px text-12px"
-        :title="realtimeConnected ? '实时已连接' : '实时未连接（重连中）'"
+        :title="realtimeConnected ? $t('page.shell.realtime.connected') : $t('page.shell.realtime.disconnected')"
         :style="{ color: realtimeConnected ? '#27a644' : '#8a8f98' }"
       >
         ●

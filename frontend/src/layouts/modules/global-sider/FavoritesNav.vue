@@ -78,12 +78,12 @@ defineExpose({ reload: load });
 <template>
   <div class="favorites-nav" :class="{ collapsed }">
     <div v-if="!collapsed" class="favorites-nav__title">
-      <NText depth="3" style="font-size: 12px">收藏</NText>
+      <NText depth="3" style="font-size: 12px">{{ $t('page.shell.favorites.title') }}</NText>
     </div>
     <NSpin :show="loading" size="small">
       <NEmpty
         v-if="!loading && ordered.length === 0"
-        :description="collapsed ? '' : '暂无侧栏收藏'"
+        :description="collapsed ? '' : $t('page.shell.favorites.empty')"
         size="small"
         class="favorites-nav__empty"
       />

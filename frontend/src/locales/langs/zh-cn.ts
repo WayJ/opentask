@@ -69,7 +69,8 @@ const local: App.I18n.Schema = {
       navInitiatives: '举措',
       navTriage: '分诊',
       navSearch: '搜索…',
-      navInbox: '收件箱'
+      navInbox: '收件箱',
+      estimateTitle: '设置估点…'
     }
   },
   request: {
@@ -397,7 +398,46 @@ const local: App.I18n.Schema = {
       favoriteProject: '项目',
       favoriteView: '视图',
       labelsOr: '标签（或）',
-      defaultCycle: '默认当前冲刺'
+      defaultCycle: '默认当前冲刺',
+      favorites: {
+        title: '收藏',
+        empty: '暂无侧栏收藏'
+      },
+      realtime: {
+        connected: '实时已连接',
+        disconnected: '实时未连接（重连中）'
+      },
+      workspaceSwitcher: {
+        placeholder: '工作区',
+        createTitle: '创建工作区',
+        namePlaceholder: '工作区名称',
+        issueKeyPlaceholder: '问题单号（可选，2–6 位大写）',
+        issueKeyHint: '留空则从名称自动生成；创建后可在冲刺设置中修改。',
+        createFailed: '创建失败'
+      },
+      hotkeyPicker: {
+        changeStatus: '更改状态',
+        assignOwner: '指派负责人',
+        changePriority: '更改优先级',
+        setLabels: '设置标签',
+        setEstimate: '设置估点',
+        noFocusedIssue: '无焦点问题',
+        selectOwner: '选择负责人',
+        confirmAssign: '确认指派',
+        noLabels: '暂无标签，请先到 Labels 设置页创建',
+        points: '{n} 点',
+        clearEstimate: '清除估点',
+        updateStatusFailed: '更新状态失败',
+        statusUpdated: '状态已更新',
+        updateEstimateFailed: '更新估点失败',
+        estimateUpdated: '估点已更新',
+        updatePriorityFailed: '更新优先级失败',
+        priorityUpdated: '优先级已更新',
+        assignFailed: '指派失败',
+        ownerUpdated: '负责人已更新',
+        updateLabelsFailed: '更新标签失败',
+        labelsUpdated: '标签已更新'
+      }
     },
     issueList: {
       tabs: {
