@@ -184,7 +184,8 @@ const cycleOptions = computed(() => {
 });
 
 const cycleDisplayValue = computed(() => {
-  if (!issue.value?.cycle_id || !locale.value) return $t('page.issueForm.unassigned');
+  const unassigned = locale.value ? $t('page.issueForm.unassigned') : $t('page.issueForm.unassigned');
+  if (!issue.value?.cycle_id) return unassigned;
   const found = cycles.value.find(c => c.id === issue.value?.cycle_id);
   return found?.name || issue.value.cycle_id;
 });
@@ -198,7 +199,8 @@ const milestoneOptions = computed(() => {
 });
 
 const milestoneDisplayValue = computed(() => {
-  if (!issue.value?.milestone_id || !locale.value) return $t('page.issueForm.unassigned');
+  const unassigned = locale.value ? $t('page.issueForm.unassigned') : $t('page.issueForm.unassigned');
+  if (!issue.value?.milestone_id) return unassigned;
   const found = milestones.value.find(m => m.id === issue.value?.milestone_id);
   return found?.name || issue.value.milestone_id;
 });
