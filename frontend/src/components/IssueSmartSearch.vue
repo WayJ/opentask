@@ -2,14 +2,20 @@
 import { computed } from 'vue';
 import { NAutoComplete, NSpace, NText } from 'naive-ui';
 import { type ParsedQuery, generateSearchSuggestions, parseSearchString } from '@/utils/issueSearchParser';
+import { $t, i18n } from '@/locales';
 
 interface Props {
   modelValue: string;
   placeholder?: string;
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  placeholder: '搜索问题... (支持 is:open, field:key:value 等)'
+const props = defineProps<Props>();
+const locale = i18n.global.locale;
+const resolvedPlaceholder = computed(() => {
+  // eslint-disable-next-line no-void
+  void locale.value;
+  if (props.placeholder) return props.placeholder;
+  return $t('page.issueList.search.defaultPlaceholder');
 });
 
 const emit = defineEmits<{
@@ -46,21 +52,35 @@ const parsedQuery = computed(() => {
 
 // 当前应用的过滤器
 const activeFilters = computed(() => {
+  // eslint-disable-next-line no-void
+  void locale.value;
   const filters: string[] = [];
-  if (parsedQuery.value.status) filters.push(`状态: ${parsedQuery.value.status}`);
-  if (parsedQuery.value.type) filters.push(`类型: ${parsedQuery.value.type}`);
-  if (parsedQuery.value.priority) filters.push(`优先级: ${parsedQuery.value.priority}`);
-  if (parsedQuery.value.assignee_id) filters.push(`负责人: ${parsedQuery.value.assignee_id}`);
-  if (parsedQuery.value.reporter_id) filters.push(`报告人: ${parsedQuery.value.reporter_id}`);
-  if (parsedQuery.value.cycle_id) filters.push(`Cycle: ${parsedQuery.value.cycle_id}`);
-  if (parsedQuery.value.project_id) filters.push(`项目: ${parsedQuery.value.project_id}`);
-  if (parsedQuery.value.labels?.length) filters.push(`标签: ${parsedQuery.value.labels.join(',')}`);
+  if (parsedQuery.value.status) filters.push(`${$t('page.issueList.columns.status')}: ${parsedQuery.value.status}`);
+  if (parsedQuery.value.type) filters.push(`${$t('page.issueList.columns.type')}: ${parsedQuery.value.type}`);
+  if (parsedQuery.value.priority) {
+    filters.push(`${$t('page.issueList.columns.priority')}: ${parsedQuery.value.priority}`);
+  }
+  if (parsedQuery.value.assignee_id) {
+    filters.push(`${$t('page.issueList.columns.assignee')}: ${parsedQuery.value.assignee_id}`);
+  }
+  if (parsedQuery.value.reporter_id) {
+    filters.push(`${$t('page.issueList.columns.reporter')}: ${parsedQuery.value.reporter_id}`);
+  }
+  if (parsedQuery.value.cycle_id) {
+    filters.push(`${$t('page.issueList.displayOptions.fieldCycle')}: ${parsedQuery.value.cycle_id}`);
+  }
+  if (parsedQuery.value.project_id) {
+    filters.push(`${$t('page.issueList.filters.project')}: ${parsedQuery.value.project_id}`);
+  }
+  if (parsedQuery.value.labels?.length) {
+    filters.push(`${$t('page.issueList.groupBy.label')}: ${parsedQuery.value.labels.join(',')}`);
+  }
   if (parsedQuery.value.custom_fields?.length) {
     for (const cf of parsedQuery.value.custom_fields) {
-      filters.push(`字段 ${cf.key}: ${cf.value}`);
+      filters.push(`${$t('page.issueList.search.field')} ${cf.key}: ${cf.value}`);
     }
   }
-  if (parsedQuery.value.search) filters.push(`搜索: ${parsedQuery.value.search}`);
+  if (parsedQuery.value.search) filters.push(`${$t('common.search')}: ${parsedQuery.value.search}`);
   return filters;
 });
 
@@ -96,7 +116,7 @@ function handleClear() {
         <NAutoComplete
           v-model:value="searchValue"
           :options="suggestions"
-          :placeholder="props.placeholder"
+          :placeholder="resolvedPlaceholder"
           :clearable="true"
           size="medium"
           @select="handleSelect"
@@ -108,7 +128,7 @@ function handleClear() {
       <!-- 当前应用的过滤器 -->
       <div v-if="activeFilters.length > 0" class="active-filters">
         <NSpace :size="4">
-          <NText depth="3" style="font-size: 12px">应用过滤器:</NText>
+          <NText depth="3" style="font-size: 12px">{{ $t('page.issueList.search.appliedFilters') }}:</NText>
           <NText v-for="(filter, index) in activeFilters" :key="index" type="info" size="small" strong>
             {{ filter }}
           </NText>

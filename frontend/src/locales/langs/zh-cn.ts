@@ -541,7 +541,52 @@ const local: App.I18n.Schema = {
       },
       blockedBy: '被阻塞 {count}',
       blocks: '阻塞 {count}',
-      noneCycle: '无 Cycle'
+      noneCycle: '无 Cycle',
+      board: {
+        unassigned: '未指派',
+        due: '截止',
+        moveFailed: '看板移动失败',
+        groupedListHint: '列表分组为展示泳道；泳道内 depth-1 嵌套。跨泳道拖拽改字段不在本 Sprint 范围。'
+      },
+      displayOptions: {
+        title: '显示选项',
+        cardFields: '卡片字段',
+        customFieldColumns: '自定义字段列',
+        boardSwimlanes: '看板泳道',
+        hideEmptyLanes: '隐藏空泳道',
+        conditionalFormats: '条件格式（≤10）',
+        remove: '删',
+        addRule: '添加规则',
+        colorScales: '色阶（≤5）',
+        addColorScale: '添加色阶',
+        iconSets: '图标集（≤5）',
+        ruleCount: '{n} 条规则',
+        addIconSet: '添加图标集',
+        setPersonalDefault: '设为个人默认',
+        noSwimlane: '无泳道',
+        fieldCycle: 'Cycle'
+      },
+      bulk: {
+        selected: '已选 {n} 项',
+        apply: '应用',
+        selectFieldWarning: '请至少选择一项要修改的字段',
+        updateFailed: '批量更新失败',
+        updateSuccess: '批量更新成功'
+      },
+      search: {
+        defaultPlaceholder: '搜索问题... (支持 is:open, field:key:value 等)',
+        appliedFilters: '应用过滤器',
+        field: '字段'
+      },
+      searchSuggestions: {
+        labelBug: '只显示标签为 bug 的问题',
+        typeFeature: '只显示类型为功能的问题',
+        cycleNone: '无冲刺',
+        filterByProject: '按项目过滤',
+        customField: '自定义字段过滤（cf:key:value 亦可）',
+        formulaEquals: '公式字段按计算值等值过滤（只读）',
+        formulaRange: '公式/数字字段 range 过滤（E46）'
+      }
     },
     issueForm: {
       createTitle: '创建问题',

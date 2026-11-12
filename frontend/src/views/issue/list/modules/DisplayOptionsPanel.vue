@@ -3,7 +3,6 @@ import { computed } from 'vue';
 import { NButton, NCheckbox, NSelect, NSpace, NSwitch, NText } from 'naive-ui';
 import {
   DISPLAY_FIELD_KEYS,
-  DISPLAY_FIELD_LABELS,
   type ColorScaleRule,
   type ConditionalFormatRule,
   type ConditionalTint,
@@ -14,6 +13,7 @@ import {
   type SwimlaneBy,
   buildSwimlaneOptions
 } from '@/utils/display-prefs';
+import { $t, i18n } from '@/locales';
 
 defineOptions({ name: 'DisplayOptionsPanel' });
 
@@ -44,6 +44,48 @@ const emit = defineEmits<{
   reset: [];
 }>();
 
+const locale = i18n.global.locale;
+
+function displayFieldLabel(key: DisplayFieldKey): string {
+  switch (key) {
+    case 'issue_code':
+      return $t('page.issueList.columns.key');
+    case 'assignee':
+      return $t('page.issueList.columns.assignee');
+    case 'priority':
+      return $t('page.issueList.columns.priority');
+    case 'labels':
+      return $t('page.issueList.groupBy.label');
+    case 'type':
+      return $t('page.issueList.columns.type');
+    case 'estimate_points':
+      return $t('page.issueList.columns.estimate');
+    case 'due_date':
+      return $t('page.issueForm.dueDate');
+    case 'project':
+      return $t('page.issueList.filters.project');
+    case 'cycle':
+      return $t('page.issueList.displayOptions.fieldCycle');
+    default: {
+      const unreachable: never = key;
+      return unreachable;
+    }
+  }
+}
+
+function swimlaneOptionLabel(option: { label: string; value: string }): string {
+  if (option.value === 'none') return $t('page.issueList.displayOptions.noSwimlane');
+  if (option.value === 'assignee') return $t('page.issueList.groupBy.assignee');
+  if (option.value === 'priority') return $t('page.issueList.groupBy.priority');
+  if (option.value === 'type') return $t('page.issueList.groupBy.type');
+  if (option.value === 'label') return $t('page.issueList.groupBy.label');
+  if (option.label.endsWith('（计算值·只读）')) {
+    const suffix = '（计算值·只读）';
+    return `${option.label.slice(0, -suffix.length)}${$t('page.issueList.computedFieldSuffixReadonly')}`;
+  }
+  return option.label;
+}
+
 const swimlaneOptions = computed(() =>
   buildSwimlaneOptions(
     (props.customFieldOptions || []).map(o => ({
@@ -53,6 +95,21 @@ const swimlaneOptions = computed(() =>
     }))
   )
 );
+
+const fieldLabelByKey = computed(() => {
+  // eslint-disable-next-line no-void
+  void locale.value;
+  const labels = {} as Record<DisplayFieldKey, string>;
+  for (const key of DISPLAY_FIELD_KEYS) labels[key] = displayFieldLabel(key);
+  return labels;
+});
+
+const localizedSwimlaneOptions = computed(() => {
+  // eslint-disable-next-line no-void
+  void locale.value;
+  const source = swimlaneOptions.value.length ? swimlaneOptions.value : SWIMLANE_OPTIONS;
+  return source.map(option => ({ ...option, label: swimlaneOptionLabel(option) }));
+});
 
 function toggleField(key: DisplayFieldKey, checked: boolean) {
   emit('update:fields', { ...props.fields, [key]: checked });
@@ -124,9 +181,9 @@ function removeIconSet(idx: number) {
 
 <template>
   <div class="display-options-panel">
-    <NText strong>显示选项</NText>
+    <NText strong>{{ $t('page.issueList.displayOptions.title') }}</NText>
     <div class="section">
-      <NText depth="3" class="section-title">卡片字段</NText>
+      <NText depth="3" class="section-title">{{ $t('page.issueList.displayOptions.cardFields') }}</NText>
       <div class="field-grid">
         <NCheckbox
           v-for="key in DISPLAY_FIELD_KEYS"
@@ -134,12 +191,12 @@ function removeIconSet(idx: number) {
           :checked="fields[key]"
           @update:checked="(v: boolean) => toggleField(key, v)"
         >
-          {{ DISPLAY_FIELD_LABELS[key] }}
+          {{ fieldLabelByKey[key] }}
         </NCheckbox>
       </div>
     </div>
     <div v-if="customFieldOptions?.length" class="section">
-      <NText depth="3" class="section-title">自定义字段列</NText>
+      <NText depth="3" class="section-title">{{ $t('page.issueList.displayOptions.customFieldColumns') }}</NText>
       <div class="field-grid">
         <NCheckbox
           v-for="opt in customFieldOptions"
@@ -152,15 +209,15 @@ function removeIconSet(idx: number) {
       </div>
     </div>
     <div class="section">
-      <NText depth="3" class="section-title">看板泳道</NText>
+      <NText depth="3" class="section-title">{{ $t('page.issueList.displayOptions.boardSwimlanes') }}</NText>
       <NSelect
         :value="swimlaneBy"
-        :options="swimlaneOptions.length ? swimlaneOptions : SWIMLANE_OPTIONS"
+        :options="localizedSwimlaneOptions"
         size="small"
         @update:value="(v: SwimlaneBy) => emit('update:swimlaneBy', v)"
       />
       <div class="hide-empty">
-        <NText depth="3">隐藏空泳道</NText>
+        <NText depth="3">{{ $t('page.issueList.displayOptions.hideEmptyLanes') }}</NText>
         <NSwitch
           :value="hideEmptyLanes"
           size="small"
@@ -169,49 +226,53 @@ function removeIconSet(idx: number) {
       </div>
     </div>
     <div class="section">
-      <NText depth="3" class="section-title">条件格式（≤10）</NText>
+      <NText depth="3" class="section-title">{{ $t('page.issueList.displayOptions.conditionalFormats') }}</NText>
       <div v-for="(rule, idx) in conditionalFormats || []" :key="rule.id" class="cfmt-row">
         <NText depth="3" class="cfmt-summary">
           <span class="tint-dot" :data-tint="rule.style.rowTint" />
           {{ rule.when.field }} {{ rule.when.op }} {{ rule.when.value }}
         </NText>
-        <NButton size="tiny" quaternary @click="removeFormat(idx)">删</NButton>
+        <NButton size="tiny" quaternary @click="removeFormat(idx)">
+          {{ $t('page.issueList.displayOptions.remove') }}
+        </NButton>
       </div>
-      <NButton
-        size="tiny"
-        :disabled="(conditionalFormats || []).length >= 10"
-        @click="addFormat"
-      >
-        添加规则
+      <NButton size="tiny" :disabled="(conditionalFormats || []).length >= 10" @click="addFormat">
+        {{ $t('page.issueList.displayOptions.addRule') }}
       </NButton>
     </div>
     <div class="section">
-      <NText depth="3" class="section-title">色阶（≤5）</NText>
+      <NText depth="3" class="section-title">{{ $t('page.issueList.displayOptions.colorScales') }}</NText>
       <div v-for="(scale, idx) in colorScales || []" :key="scale.id" class="cfmt-row">
         <NText depth="3" class="cfmt-summary">
           {{ scale.field }} · {{ scale.palette }} · [{{ scale.domain.min }},{{ scale.domain.max }}]
         </NText>
-        <NButton size="tiny" quaternary @click="removeColorScale(idx)">删</NButton>
+        <NButton size="tiny" quaternary @click="removeColorScale(idx)">
+          {{ $t('page.issueList.displayOptions.remove') }}
+        </NButton>
       </div>
       <NButton size="tiny" :disabled="(colorScales || []).length >= 5" @click="addColorScale">
-        添加色阶
+        {{ $t('page.issueList.displayOptions.addColorScale') }}
       </NButton>
     </div>
     <div class="section">
-      <NText depth="3" class="section-title">图标集（≤5）</NText>
+      <NText depth="3" class="section-title">{{ $t('page.issueList.displayOptions.iconSets') }}</NText>
       <div v-for="(iset, idx) in iconSets || []" :key="iset.id" class="cfmt-row">
         <NText depth="3" class="cfmt-summary">
-          {{ iset.field }} · {{ iset.rules.length }} 条规则
+          {{ iset.field }} · {{ $t('page.issueList.displayOptions.ruleCount', { n: iset.rules.length }) }}
         </NText>
-        <NButton size="tiny" quaternary @click="removeIconSet(idx)">删</NButton>
+        <NButton size="tiny" quaternary @click="removeIconSet(idx)">
+          {{ $t('page.issueList.displayOptions.remove') }}
+        </NButton>
       </div>
       <NButton size="tiny" :disabled="(iconSets || []).length >= 5" @click="addIconSet">
-        添加图标集
+        {{ $t('page.issueList.displayOptions.addIconSet') }}
       </NButton>
     </div>
     <NSpace>
-      <NButton size="small" :loading="saving" @click="emit('set-personal-default')">设为个人默认</NButton>
-      <NButton size="small" quaternary @click="emit('reset')">重置</NButton>
+      <NButton size="small" :loading="saving" @click="emit('set-personal-default')">
+        {{ $t('page.issueList.displayOptions.setPersonalDefault') }}
+      </NButton>
+      <NButton size="small" quaternary @click="emit('reset')">{{ $t('common.reset') }}</NButton>
     </NSpace>
   </div>
 </template>
