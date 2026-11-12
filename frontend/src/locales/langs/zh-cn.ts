@@ -399,6 +399,149 @@ const local: App.I18n.Schema = {
       labelsOr: '标签（或）',
       defaultCycle: '默认当前冲刺'
     },
+    issueList: {
+      tabs: {
+        myTodos: '我的待办',
+        open: '开放中',
+        closed: '已关闭',
+        all: '全部'
+      },
+      toolbar: {
+        views: '视图',
+        saveView: '保存视图',
+        saveViewHint: '将当前筛选保存为个人或共享视图',
+        star: '星标',
+        starHint: '星标视图（列表顶栏 chips，≠ 侧栏收藏）',
+        pinToSidebar: '收藏到侧栏',
+        unpinFromSidebar: '取消侧栏',
+        pinToSidebarHint: '固定到左侧边栏 Favorites（独立于星标）',
+        saveAs: '另存为',
+        saveAsHint: '复制为个人视图（共享只读成员可用）',
+        filters: '筛选',
+        collapseFilters: '收起筛选面板',
+        expandFilters: '展开筛选面板',
+        syntaxHelp: '语法帮助',
+        syntaxHelpHint: '查看搜索语法帮助',
+        display: '显示',
+        sort: '排序',
+        group: '分组'
+      },
+      sortBy: {
+        createdAt: '创建时间',
+        updatedAt: '更新时间',
+        priority: '优先级',
+        status: '状态',
+        title: '标题',
+        dueDate: '截止日期'
+      },
+      sortOrder: {
+        desc: '降序',
+        asc: '升序'
+      },
+      groupBy: {
+        none: '不分组',
+        status: '状态',
+        assignee: '负责人',
+        priority: '优先级',
+        type: '类型',
+        label: '标签'
+      },
+      computedFieldSuffix: '（计算值）',
+      computedFieldSuffixReadonly: '（计算值·只读）',
+      columns: {
+        key: '编号',
+        title: '标题',
+        type: '类型',
+        status: '状态',
+        priority: '优先级',
+        estimate: '估点',
+        assignee: '负责人',
+        reporter: '报告人',
+        createdAt: '创建时间',
+        actions: '操作'
+      },
+      actions: {
+        view: '详情',
+        systemReporter: '系统'
+      },
+      filters: {
+        project: '项目',
+        cycle: '冲刺',
+        type: '类型',
+        priority: '优先级',
+        reset: '重置筛选'
+      },
+      syntax: {
+        title: '搜索语法帮助',
+        tipPrefix: '提示：可以组合使用多个过滤器，如',
+        assigneeMe: '显示分配给我的问题',
+        isOpen: '只显示待办中的问题',
+        isClosed: '只显示已完成的问题',
+        isInProgress: '只显示进行中的问题',
+        typeFeature: '只显示功能类型的问题',
+        typeBug: '只显示缺陷类型的问题',
+        priorityUrgent: '只显示紧急优先级的问题',
+        priorityHigh: '只显示高优先级的问题',
+        customField: '按自定义字段过滤（亦可用 cf:key:value）'
+      },
+      views: {
+        currentPrefix: '当前视图：',
+        favoriteViews: '收藏视图',
+        savePersonalTitle: '保存为个人视图',
+        saveSharedTitle: '保存为共享视图',
+        save: '保存',
+        namePlaceholder: '视图名称，例如：我的高优缺陷',
+        shareWithWorkspace: '共享给工作区'
+      },
+      scopeTitle: {
+        watching: '我关注的',
+        dueSoon: '即将到期',
+        assignedToMe: '指派给我',
+        createdByMe: '我创建的'
+      },
+      import: {
+        downloadTemplate: '下载模板 CSV',
+        helpBefore: '列需含 title；可选 issue_code（本工作区已存在则更新）。自定义字段用',
+        helpAfter: '列（模板已含当前工作区字段；multi 逗号分隔，boolean 用 true/false）。未知 key 不阻断主字段写入。'
+      },
+      messages: {
+        enterViewName: '请输入视图名称',
+        viewSaved: '视图已保存',
+        sharedViewSaved: '共享视图已保存',
+        saveViewFailed: '保存视图失败',
+        viewApplied: '已应用视图「{name}」',
+        viewNotFound: '未找到该视图',
+        applyViewFirst: '请先应用一个已保存视图',
+        sharedViewCantStar: '共享视图不支持收藏，可另存为个人视图后再收藏',
+        starred: '已收藏',
+        unstarred: '已取消收藏',
+        updateStarFailed: '更新收藏失败',
+        pinnedToSidebar: '已收藏到侧栏',
+        unpinnedFromSidebar: '已从侧栏移除',
+        updateSidebarPinFailed: '更新侧栏收藏失败',
+        savedAsPersonal: '已另存为个人视图',
+        saveAsFailed: '另存为失败',
+        copySuffix: '（副本）',
+        deleteTitle: '确认删除',
+        deleteConfirmContent: '确定要删除问题 "{title}" 吗？',
+        deleteSuccess: '问题删除成功',
+        deleteFailed: '问题删除失败',
+        personalDefaultSaved: '已设为个人默认显示',
+        personalDefaultFailed: '保存个人默认失败',
+        groupCfUnsupported: '该自定义字段类型不支持分组，已回退为不分组',
+        savedGroupCfUnsupported: '已保存的分组自定义字段类型不受支持，已回退为不分组',
+        swimlaneCfUnsupported: '该自定义字段类型不支持泳道，已回退为无泳道',
+        savedSwimlaneCfUnsupported: '已保存的泳道自定义字段类型不受支持，已回退为无泳道',
+        groupSyncFailed: '分组已切换，但同步到已保存视图失败',
+        exportedCsv: '已导出 CSV',
+        exportFailed: '导出失败',
+        templateDownloadFailed: '模板下载失败',
+        importFailed: '导入失败',
+        noneCycle: '无 Cycle'
+      },
+      blockedBy: '被阻塞 {count}',
+      blocks: '阻塞 {count}'
+    },
     issueType: {
       bug: '缺陷',
       feature: '功能',
