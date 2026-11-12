@@ -21,11 +21,12 @@ describe('detail edit button focus ring', () => {
     expect(block).toContain(`@click="router.push({ path: '/issue/edit', query: { id: issue.id } })"`);
   });
 
-  it('keeps the existing generic focus rule', () => {
+  it('uses the two-tier issue-focus token on the generic focus rule', () => {
     expect(detail).toContain(`*:focus-visible {
-  outline: 2px solid var(--color-accent-primary);
+  outline: var(--issue-focus);
   outline-offset: 2px;
 }`);
+    expect(detail).not.toContain('outline: 2px solid var(--color-accent-primary)');
   });
 
   it('adds one class and the two edit-page focus tiers', () => {
@@ -56,6 +57,10 @@ describe('detail edit button focus ring', () => {
       '.issue-detail-container .issue-actions .n-button.issue-action-edit[data-v-focus]:focus-visible'
     );
     expect(compiled.code).toContain('outline: var(--issue-focus);');
-    expect(compiled.code).toContain('outline: 2px solid var(--color-accent-primary);');
+    expect(compiled.code).toContain(`[data-v-focus]:focus-visible {
+  outline: var(--issue-focus);
+  outline-offset: 2px;
+}`);
+    expect(compiled.code).not.toContain('outline: 2px solid var(--color-accent-primary)');
   });
 });
