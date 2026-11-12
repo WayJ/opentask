@@ -2,6 +2,7 @@
 import { computed, reactive, watch } from 'vue';
 import { NButton, NCard, NFormItem, NInput, NSelect, NSpace, NText } from 'naive-ui';
 import { type IssueTemplate, generateTemplateContent } from '@/constants/issueTemplates';
+import { $t } from '@/locales';
 
 interface Props {
   visible: boolean;
@@ -136,10 +137,10 @@ function handleSubmit() {
             </NFormItem>
 
             <!-- 预览区域 -->
-            <NFormItem label="内容预览">
+            <NFormItem :label="$t('page.issueTemplate.contentPreview')">
               <div class="content-preview">
                 <NText depth="3" style="font-size: 12px; margin-bottom: 8px; display: block">
-                  以下内容将填充到问题描述中：
+                  {{ $t('page.issueTemplate.previewHint') }}
                 </NText>
                 <div class="preview-content">
                   <pre>{{ generateTemplateContent(template, formData) }}</pre>
@@ -151,8 +152,8 @@ function handleSubmit() {
 
         <template #footer>
           <NSpace justify="end">
-            <NButton @click="emit('close')">取消</NButton>
-            <NButton type="primary" @click="handleSubmit">创建问题</NButton>
+            <NButton @click="emit('close')">{{ $t('page.issueTemplate.cancel') }}</NButton>
+            <NButton type="primary" @click="handleSubmit">{{ $t('page.issueForm.createTitle') }}</NButton>
           </NSpace>
         </template>
       </NCard>

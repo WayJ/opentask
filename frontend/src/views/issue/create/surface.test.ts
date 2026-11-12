@@ -15,8 +15,10 @@ describe('issue create surface', () => {
     expect((source.match(/\$t\('page\.issueForm\.createTitle'\)/g) ?? []).length).toBe(2);
     expect(source).not.toContain('<NText strong style="font-size: 16px; margin-left: 12px">创建问题</NText>');
     expect(source).not.toMatch(/^\s+创建问题\s*$/m);
-    expect(source).toContain('使用模板');
-    expect(source).toContain('从模板创建问题');
+    expect(source).toContain("$t('page.issueComposer.useTemplate')");
+    expect(source).toContain("$t('page.issueComposer.useTemplateHint')");
+    expect(source).not.toMatch(/^\s+使用模板\s*$/m);
+    expect(source).not.toMatch(/从模板创建问题/);
     expect(source).toContain("$t('page.issueForm.advanced')");
     expect(source).toContain('const advancedExpanded = ref(false)');
     expect(source).toContain('请输入问题标题');

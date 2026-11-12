@@ -402,12 +402,14 @@ onBeforeRouteLeave((_to, _from, next) => {
               </template>
             </NButton>
           </template>
-          返回列表 (Esc)
+          {{ $t('page.issueComposer.backToList') }}
         </NTooltip>
 
         <NText strong style="font-size: 16px; margin-left: 12px">{{ $t('page.issueForm.createTitle') }}</NText>
 
-        <NTag v-if="hasUnsavedChanges" type="warning" size="small" style="margin-left: 12px">未保存</NTag>
+        <NTag v-if="hasUnsavedChanges" type="warning" size="small" style="margin-left: 12px">
+          {{ $t('page.issueComposer.unsaved') }}
+        </NTag>
       </div>
 
       <div class="header-right">
@@ -419,10 +421,10 @@ onBeforeRouteLeave((_to, _from, next) => {
                 <template #icon>
                   <icon-mdi-file-document-outline />
                 </template>
-                使用模板
+                {{ $t('page.issueComposer.useTemplate') }}
               </NButton>
             </template>
-            从模板创建问题
+            {{ $t('page.issueComposer.useTemplateHint') }}
           </NTooltip>
 
           <!-- 预览切换 -->
@@ -435,7 +437,7 @@ onBeforeRouteLeave((_to, _from, next) => {
                 </template>
               </NButton>
             </template>
-            {{ showPreview ? '编辑模式' : '预览模式' }}
+            {{ showPreview ? $t('page.issueComposer.editMode') : $t('page.issueComposer.previewMode') }}
           </NTooltip>
           <!-- 创建按钮 -->
           <NButton type="primary" :loading="loading" @click="handleCreate">
@@ -458,7 +460,7 @@ onBeforeRouteLeave((_to, _from, next) => {
             ref="titleInputRef"
             v-model="formData.title"
             class="title-input"
-            placeholder="输入问题标题..."
+            :placeholder="$t('page.issueComposer.titlePlaceholder')"
             maxlength="200"
           />
           <div class="title-hint">
@@ -469,12 +471,12 @@ onBeforeRouteLeave((_to, _from, next) => {
         <!-- 描述编辑器 -->
         <div v-show="!showPreview" class="description-section">
           <div class="section-header">
-            <NText strong>描述</NText>
-            <NText depth="3" style="font-size: 12px">支持 Markdown 语法，+ 引用其他资源</NText>
+            <NText strong>{{ $t('page.issueComposer.description') }}</NText>
+            <NText depth="3" style="font-size: 12px">{{ $t('page.issueComposer.markdownHint') }}</NText>
           </div>
           <MarkdownEditor
             v-model="formData.description"
-            placeholder="详细描述这个问题..."
+            :placeholder="$t('page.issueComposer.descriptionPlaceholder')"
             :max-height="400"
             @submit="handleCreate"
           />
@@ -494,7 +496,7 @@ onBeforeRouteLeave((_to, _from, next) => {
         <!-- 附件上传区域 -->
         <div class="attachment-section">
           <div class="section-header">
-            <NText strong>附件</NText>
+            <NText strong>{{ $t('page.issueComposer.attachments') }}</NText>
             <NText depth="3" style="font-size: 12px">{{ $t('page.shell.issueUploadHint') }}</NText>
           </div>
 
@@ -532,7 +534,7 @@ onBeforeRouteLeave((_to, _from, next) => {
               <template #icon>
                 <icon-mdi-paperclip />
               </template>
-              添加附件
+              {{ $t('page.issueComposer.addAttachment') }}
             </NButton>
           </NUpload>
         </div>
@@ -540,11 +542,11 @@ onBeforeRouteLeave((_to, _from, next) => {
         <!-- 预览模式 -->
         <div v-show="showPreview" class="preview-section">
           <div class="section-header">
-            <NText strong>预览</NText>
+            <NText strong>{{ $t('page.issueComposer.preview') }}</NText>
           </div>
           <div class="preview-content">
             <MarkdownRenderer v-if="formData.description" :content="formData.description" />
-            <NEmpty v-else description="暂无描述内容" />
+            <NEmpty v-else :description="$t('page.issueComposer.noDescription')" />
           </div>
         </div>
       </div>
@@ -697,10 +699,10 @@ onBeforeRouteLeave((_to, _from, next) => {
     <NModal
       v-model:show="showExitConfirm"
       preset="dialog"
-      title="确认退出"
-      content="你有未保存的更改，确定要退出吗？"
-      positive-text="放弃更改"
-      negative-text="继续编辑"
+      :title="$t('page.issueComposer.exitTitle')"
+      :content="$t('page.issueComposer.exitContent')"
+      :positive-text="$t('page.issueComposer.exitDiscard')"
+      :negative-text="$t('page.issueComposer.exitKeep')"
       @positive-click="confirmExit"
     />
   </div>
