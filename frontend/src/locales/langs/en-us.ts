@@ -686,7 +686,9 @@ const local: App.I18n.Schema = {
       exitTitle: 'Leave page',
       exitContent: 'You have unsaved changes. Leave anyway?',
       exitDiscard: 'Discard changes',
-      exitKeep: 'Keep editing'
+      exitKeep: 'Keep editing',
+      customFieldsOptional: 'Custom fields (optional)',
+      loading: 'Loading...'
     },
     issueDetail: {
       parentPrefix: 'Parent:',

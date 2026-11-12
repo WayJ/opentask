@@ -679,7 +679,9 @@ const local: App.I18n.Schema = {
       exitTitle: '确认退出',
       exitContent: '你有未保存的更改，确定要退出吗？',
       exitDiscard: '放弃更改',
-      exitKeep: '继续编辑'
+      exitKeep: '继续编辑',
+      customFieldsOptional: '自定义字段（可选）',
+      loading: '加载中...'
     },
     issueDetail: {
       parentPrefix: '父问题：',

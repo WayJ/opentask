@@ -276,7 +276,7 @@ onBeforeRouteLeave((_to, _from, next) => {
 <template>
   <div class="issue-edit-page">
     <!-- 页面加载状态 -->
-    <NSpin :show="pageLoading" description="加载中...">
+    <NSpin :show="pageLoading" :description="$t('page.issueComposer.loading')">
       <!-- 顶部工具栏 -->
       <div class="page-header">
         <div class="header-left">
