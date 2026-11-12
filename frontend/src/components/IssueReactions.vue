@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { NButton, NDropdown, NPopover, NSpace, NText } from 'naive-ui';
-import { useI18n } from 'vue-i18n';
-import { $t } from '@/locales';
+import { $t, i18n } from '@/locales';
 
 interface Reaction {
   emoji: string;
@@ -29,7 +28,7 @@ const emit = defineEmits<{
   unreact: [emoji: string];
 }>();
 
-const { locale } = useI18n();
+const locale = i18n.global.locale;
 
 const availableReactions = computed(() => {
   // eslint-disable-next-line no-void
