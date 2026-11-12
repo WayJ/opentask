@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue';
 import { type WorkspaceItem, fetchCreateWorkspace, fetchWorkspaceList } from '@/service/api';
 import { localStg } from '@/utils/storage';
 import { resolveWorkspaceSelection, usableWorkspaces } from '@/utils/workspace-selection';
+import { $t } from '@/locales';
 
 defineOptions({ name: 'WorkspaceSwitcher' });
 
@@ -45,7 +46,7 @@ async function createWorkspace(): Promise<boolean> {
   const issueKey = newIssueKey.value.trim().toUpperCase() || undefined;
   const { data, error } = await fetchCreateWorkspace({ name, issueKey });
   if (error || !data) {
-    window.$message?.error(error?.message || '创建失败');
+    window.$message?.error(error?.message || $t('page.shell.workspaceSwitcher.createFailed'));
     return false;
   }
   showCreate.value = false;
@@ -67,27 +68,27 @@ onMounted(load);
       :loading="loading"
       size="small"
       class="w-180px"
-      placeholder="工作区"
+      :placeholder="$t('page.shell.workspaceSwitcher.placeholder')"
       @update:value="onUpdate"
     />
     <NButton size="small" quaternary @click="showCreate = true">+</NButton>
     <NModal
       v-model:show="showCreate"
       preset="dialog"
-      title="创建工作区"
-      positive-text="创建"
+      :title="$t('page.shell.workspaceSwitcher.createTitle')"
+      :positive-text="$t('page.issueDetail.create')"
       @positive-click="createWorkspace"
     >
       <div class="flex-col gap-12px">
-        <NInput v-model:value="newName" placeholder="工作区名称" />
+        <NInput v-model:value="newName" :placeholder="$t('page.shell.workspaceSwitcher.namePlaceholder')" />
         <NInput
           v-model:value="newIssueKey"
-          placeholder="问题单号（可选，2–6 位大写）"
+          :placeholder="$t('page.shell.workspaceSwitcher.issueKeyPlaceholder')"
           maxlength="6"
           style="text-transform: uppercase"
           @update:value="v => (newIssueKey = (v || '').toUpperCase())"
         />
-        <p class="m-0 text-12px text-gray-400">留空则从名称自动生成；创建后可在冲刺设置中修改。</p>
+        <p class="m-0 text-12px text-gray-400">{{ $t('page.shell.workspaceSwitcher.issueKeyHint') }}</p>
       </div>
     </NModal>
   </div>

@@ -69,7 +69,8 @@ const local: App.I18n.Schema = {
       navInitiatives: 'Initiatives',
       navTriage: 'Triage',
       navSearch: 'Search…',
-      navInbox: 'Inbox'
+      navInbox: 'Inbox',
+      estimateTitle: 'Set estimate…'
     }
   },
   request: {
@@ -401,7 +402,46 @@ const local: App.I18n.Schema = {
       favoriteProject: 'Project',
       favoriteView: 'View',
       labelsOr: 'Labels (OR)',
-      defaultCycle: 'Default cycle'
+      defaultCycle: 'Default cycle',
+      favorites: {
+        title: 'Favorites',
+        empty: 'No sidebar favorites'
+      },
+      realtime: {
+        connected: 'Live connection on',
+        disconnected: 'Live connection off (reconnecting)'
+      },
+      workspaceSwitcher: {
+        placeholder: 'Workspace',
+        createTitle: 'Create workspace',
+        namePlaceholder: 'Workspace name',
+        issueKeyPlaceholder: 'Issue key (optional, 2–6 uppercase letters)',
+        issueKeyHint: 'Leave blank to generate from the name. You can change this later in cycle settings.',
+        createFailed: 'Couldn’t create the workspace'
+      },
+      hotkeyPicker: {
+        changeStatus: 'Change status',
+        assignOwner: 'Assign owner',
+        changePriority: 'Change priority',
+        setLabels: 'Set labels',
+        setEstimate: 'Set estimate',
+        noFocusedIssue: 'No focused issue',
+        selectOwner: 'Select owner',
+        confirmAssign: 'Confirm assignment',
+        noLabels: 'No labels yet. Create them on the Labels settings page.',
+        points: '{n} pts',
+        clearEstimate: 'Clear estimate',
+        updateStatusFailed: 'Couldn’t update the status',
+        statusUpdated: 'Status updated',
+        updateEstimateFailed: 'Couldn’t update the estimate',
+        estimateUpdated: 'Estimate updated',
+        updatePriorityFailed: 'Couldn’t update the priority',
+        priorityUpdated: 'Priority updated',
+        assignFailed: 'Couldn’t assign the owner',
+        ownerUpdated: 'Owner updated',
+        updateLabelsFailed: 'Couldn’t update the labels',
+        labelsUpdated: 'Labels updated'
+      }
     },
     issueList: {
       tabs: {

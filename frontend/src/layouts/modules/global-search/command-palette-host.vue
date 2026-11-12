@@ -21,7 +21,7 @@ import {
   resolveIssueSearchPlan,
   savedViewsToPaletteItems
 } from '@/utils/command-palette-entities';
-import { $t } from '@/locales';
+import { $t, locale } from '@/locales';
 import SearchModal from './components/search-modal.vue';
 import IssueHotkeyPickerHost from './issue-hotkey-picker-host.vue';
 
@@ -40,6 +40,9 @@ const navigate = (to: string | { path: string; query?: Record<string, string> })
 };
 
 watchEffect(() => {
+  // eslint-disable-next-line no-void
+  void locale.value;
+
   palette.setGroupLabels({
     actions: $t('common.commandPalette.groupActions'),
     menus: $t('common.commandPalette.groupMenus'),
@@ -67,7 +70,7 @@ watchEffect(() => {
     openLabels: () => pickers.openLabels(),
     openEstimate: () => pickers.openEstimate(),
     title: $t('common.commandPalette.actionAddLabel'),
-    estimateTitle: '设置估点…'
+    estimateTitle: $t('common.commandPalette.estimateTitle')
   });
   const actions = [...navActions, ...focusActions];
 
