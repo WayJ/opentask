@@ -45,6 +45,7 @@ import {
   validateTimezoneClient,
   weekdayPreset0918
 } from '@/utils/businessHours';
+import { $t } from '@/locales';
 import { labeledOptions, lookupLabel } from '@/locales/display-label';
 import { useLabelTable } from '@/locales/use-label-table';
 import { policyNameAfterLocaleChange } from './policy-name';
@@ -138,22 +139,32 @@ const packPreview = ref<HolidayPackMergeResult | null>(null);
 const packSourceNote = ref('');
 const packFilterRegion = ref<string | null>(null);
 const packFilterYear = ref<number | null>(null);
-const packRegionFilterOptions = computed(() => [
-  { label: '全部地区', value: null as string | null },
-  { label: t('page.sla.regionCN'), value: 'CN' },
-  { label: t('page.sla.regionUS'), value: 'US' },
-  { label: t('page.sla.regionEU'), value: 'EU' },
-  { label: t('page.sla.regionUK'), value: 'UK' }
-]);
+/* eslint-disable no-void -- derived chrome must read locale.value before $t */
+const packRegionFilterOptions = computed(() => {
+  void locale.value;
+  return [
+    { label: $t('page.sla.allRegions'), value: null as string | null },
+    { label: t('page.sla.regionCN'), value: 'CN' },
+    { label: t('page.sla.regionUS'), value: 'US' },
+    { label: t('page.sla.regionEU'), value: 'EU' },
+    { label: t('page.sla.regionUK'), value: 'UK' }
+  ];
+});
+/* eslint-enable no-void */
 const packTargetOptions = computed(() => [
   { label: t('page.sla.targetWorkspace'), value: 'workspace' as const },
   { label: t('page.sla.targetPolicy'), value: 'policy' as const }
 ]);
-const packYearFilterOptions = [
-  { label: '全部年份', value: null as number | null },
-  { label: '2026', value: 2026 },
-  { label: '2027', value: 2027 }
-];
+/* eslint-disable no-void -- derived chrome must read locale.value before $t */
+const packYearFilterOptions = computed(() => {
+  void locale.value;
+  return [
+    { label: $t('page.sla.allYears'), value: null as number | null },
+    { label: '2026', value: 2026 },
+    { label: '2027', value: 2027 }
+  ];
+});
+/* eslint-enable no-void */
 const packOptions = computed(() =>
   packRows.value.map(r => ({
     label: `${r.region} ${r.year} · ${r.name} (${r.count})`,
@@ -369,70 +380,78 @@ function removeException(date: string) {
 
 const metricOptions = computed(() => labeledOptions(SLA_METRICS, metricLabels.value));
 
-const columns: DataTableColumns<SlaPolicyRow> = [
-  {
-    title: '名称',
-    key: 'name',
-    render: row =>
-      h('div', [
-        h('div', { style: 'font-weight:500' }, row.name),
+/* eslint-disable no-void -- derived chrome must read locale.value before $t */
+const columns = computed<DataTableColumns<SlaPolicyRow>>(() => {
+  void locale.value;
+  return [
+    {
+      title: $t('page.sla.name'),
+      key: 'name',
+      render: row =>
+        h('div', [
+          h('div', { style: 'font-weight:500' }, row.name),
+          h(
+            NText,
+            { depth: 3, style: 'font-size:12px' },
+            {
+              default: () =>
+                `${$t('page.sla.minutes', { n: row.targetMinutes })} · ${lookupLabel(metricLabels.value, row.metric)}`
+            }
+          )
+        ])
+    },
+    {
+      title: $t('page.sla.startStopStatuses'),
+      key: 'statuses',
+      render: row =>
         h(
           NText,
           { depth: 3, style: 'font-size:12px' },
-          { default: () => `${row.targetMinutes} 分钟 · ${lookupLabel(metricLabels.value, row.metric)}` }
+          {
+            default: () =>
+              `${t('page.sla.startPrefix')}: ${(row.startStatuses || []).map(status => lookupLabel(statusLabels.value, status)).join(', ') || '—'} → ${t('page.sla.stopPrefix')}: ${(row.stopStatuses || []).map(status => lookupLabel(statusLabels.value, status)).join(', ') || t('page.sla.closingStatuses')} · ${t('page.sla.pausePrefix')}: ${(row.pauseStatuses || []).map(status => lookupLabel(statusLabels.value, status)).join(', ') || '—'}`
+          }
         )
-      ])
-  },
-  {
-    title: '启停状态',
-    key: 'statuses',
-    render: row =>
-      h(
-        NText,
-        { depth: 3, style: 'font-size:12px' },
-        {
-          default: () =>
-            `${t('page.sla.startPrefix')}: ${(row.startStatuses || []).map(status => lookupLabel(statusLabels.value, status)).join(', ') || '—'} → ${t('page.sla.stopPrefix')}: ${(row.stopStatuses || []).map(status => lookupLabel(statusLabels.value, status)).join(', ') || t('page.sla.closingStatuses')} · ${t('page.sla.pausePrefix')}: ${(row.pauseStatuses || []).map(status => lookupLabel(statusLabels.value, status)).join(', ') || '—'}`
-        }
-      )
-  },
-  {
-    title: '启用',
-    key: 'enabled',
-    width: 90,
-    render: row =>
-      h(NSwitch, {
-        value: row.enabled,
-        size: 'small',
-        onUpdateValue: (v: boolean) => toggle(row, v)
-      })
-  },
-  {
-    title: '操作',
-    key: 'actions',
-    width: 260,
-    render: row =>
-      h(NSpace, { size: 4 }, () => [
-        h(
-          NButton,
-          { size: 'tiny', tertiary: true, onClick: () => fillPolicyFromHolidayPack(row.id) },
-          { default: () => '假日包' }
-        ),
-        row.calendar
-          ? h(
-              NButton,
-              { size: 'tiny', tertiary: true, onClick: () => clearCalendar(row) },
-              { default: () => '清除覆盖' }
-            )
-          : null,
-        h(
-          NButton,
-          { size: 'tiny', tertiary: true, type: 'error', onClick: () => removeRow(row.id) },
-          { default: () => '删除' }
-        )
-      ])
-  }
-];
+    },
+    {
+      title: $t('page.sla.enabled'),
+      key: 'enabled',
+      width: 90,
+      render: row =>
+        h(NSwitch, {
+          value: row.enabled,
+          size: 'small',
+          onUpdateValue: (v: boolean) => toggle(row, v)
+        })
+    },
+    {
+      title: $t('page.sla.actions'),
+      key: 'actions',
+      width: 260,
+      render: row =>
+        h(NSpace, { size: 4 }, () => [
+          h(
+            NButton,
+            { size: 'tiny', tertiary: true, onClick: () => fillPolicyFromHolidayPack(row.id) },
+            { default: () => $t('page.sla.holidayPack') }
+          ),
+          row.calendar
+            ? h(
+                NButton,
+                { size: 'tiny', tertiary: true, onClick: () => clearCalendar(row) },
+                { default: () => $t('page.sla.clearOverride') }
+              )
+            : null,
+          h(
+            NButton,
+            { size: 'tiny', tertiary: true, type: 'error', onClick: () => removeRow(row.id) },
+            { default: () => $t('page.sla.delete') }
+          )
+        ])
+    }
+  ];
+});
+/* eslint-enable no-void */
 
 async function load() {
   loading.value = true;
@@ -564,11 +583,11 @@ onMounted(async () => {
 
 <template>
   <div class="p-4">
-    <NCard title="SLA 策略" :bordered="false">
+    <NCard :title="$t('page.sla.policies')" :bordered="false">
       <template #header-extra>
         <NSpace>
           <NButton size="small" :loading="running" @click="runDue">{{ $t('page.sla.runDue') }}</NButton>
-          <NButton size="small" @click="load">刷新</NButton>
+          <NButton size="small" @click="load">{{ $t('page.sla.refresh') }}</NButton>
         </NSpace>
       </template>
       <NText depth="3" style="display: block; margin-bottom: 12px; font-size: 12px">
@@ -577,9 +596,14 @@ onMounted(async () => {
       <NDataTable :columns="columns" :data="rows" :loading="loading" size="small" />
     </NCard>
 
-    <NCard title="新建策略" :bordered="false" style="margin-top: 16px">
+    <NCard :title="$t('page.sla.newPolicy')" :bordered="false" style="margin-top: 16px">
       <NSpace vertical>
-        <NInput :value="form.name" placeholder="名称" maxlength="80" @update:value="onPolicyNameInput" />
+        <NInput
+          :value="form.name"
+          :placeholder="$t('page.sla.name')"
+          maxlength="80"
+          @update:value="onPolicyNameInput"
+        />
         <NSelect v-model:value="form.metric" :options="metricOptions" :placeholder="$t('page.sla.metricPlaceholder')" />
         <NText depth="3" style="font-size: 12px">{{ $t('page.sla.firstResponseNote') }}</NText>
         <NSelect
@@ -610,23 +634,23 @@ onMounted(async () => {
           :placeholder="$t('page.sla.targetPlaceholder')"
         />
         <NSpace>
-          <span>通知负责人</span>
+          <span>{{ $t('page.sla.notifyAssignee') }}</span>
           <NSwitch v-model:value="form.notifyAssignee" />
-          <span>通知关注者</span>
+          <span>{{ $t('page.sla.notifyWatchers') }}</span>
           <NSwitch v-model:value="form.notifyWatchers" />
         </NSpace>
         <div style="border: 1px solid #eee; border-radius: 6px; padding: 12px">
           <NSpace align="center" style="margin-bottom: 8px">
-            <span style="font-weight: 500">日历覆盖</span>
+            <span style="font-weight: 500">{{ $t('page.sla.calendarOverride') }}</span>
             <NSwitch v-model:value="form.calendarEnabled" />
-            <NText depth="3" style="font-size: 12px">关闭=继承工作区；开启后仅填写字段覆盖，其余仍继承</NText>
+            <NText depth="3" style="font-size: 12px">{{ $t('page.sla.calendarOverrideHint') }}</NText>
           </NSpace>
           <template v-if="form.calendarEnabled">
             <NSpace align="center" style="margin-bottom: 8px">
-              <span>时区覆盖</span>
+              <span>{{ $t('page.sla.timezoneOverride') }}</span>
               <NSelect
                 v-model:value="form.calendarTimezone"
-                :options="[{ label: '（继承工作区）', value: '' }, ...timezoneOptions]"
+                :options="[{ label: $t('page.sla.inheritWorkspace'), value: '' }, ...timezoneOptions]"
                 style="width: 220px"
                 filterable
                 tag
@@ -634,7 +658,7 @@ onMounted(async () => {
               />
             </NSpace>
             <NText depth="3" style="display: block; margin-bottom: 6px; font-size: 12px">
-              例外覆盖（填写则整表替换 WS 例外；留空=继承）
+              {{ $t('page.sla.exceptionOverride') }}
             </NText>
             <div
               v-for="ex in form.calendarExceptions"
@@ -647,17 +671,17 @@ onMounted(async () => {
                 size="tiny"
                 @click="form.calendarExceptions = form.calendarExceptions.filter(e => e.date !== ex.date)"
               >
-                删
+                {{ $t('page.sla.removeException') }}
               </NButton>
             </div>
             <NSpace align="center">
               <NInput v-model:value="calExDraft.date" placeholder="YYYY-MM-DD" style="width: 140px" />
               <NSelect v-model:value="calExDraft.kind" :options="kindOptions" style="width: 180px" />
-              <NButton size="small" @click="addCalExceptionDraft">添加例外</NButton>
+              <NButton size="small" @click="addCalExceptionDraft">{{ $t('page.sla.addException') }}</NButton>
             </NSpace>
           </template>
         </div>
-        <NButton type="primary" :loading="creating" @click="create">创建</NButton>
+        <NButton type="primary" :loading="creating" @click="create">{{ $t('page.sla.create') }}</NButton>
       </NSpace>
     </NCard>
 
@@ -735,10 +759,10 @@ onMounted(async () => {
       </NSpace>
     </NCard>
 
-    <NCard title="假日包" :bordered="false" style="margin-top: 16px">
+    <NCard :title="$t('page.sla.holidayPacks')" :bordered="false" style="margin-top: 16px">
       <div style="margin-bottom: 8px">
         <span style="font-weight: 500; cursor: pointer" @click="packOpen = !packOpen">
-          {{ packOpen ? '▼' : '▶' }} 国家/地区假日包（一键合并例外日）
+          {{ packOpen ? '▼' : '▶' }} {{ $t('page.sla.packTitle') }}
         </span>
       </div>
       <template v-if="packOpen">
@@ -751,7 +775,7 @@ onMounted(async () => {
               :value="packFilterRegion"
               :options="packRegionFilterOptions"
               style="width: 120px"
-              placeholder="地区"
+              :placeholder="$t('page.sla.region')"
               @update:value="
                 (v: string | null) => {
                   packFilterRegion = v;
@@ -763,7 +787,7 @@ onMounted(async () => {
               :value="packFilterYear"
               :options="packYearFilterOptions"
               style="width: 120px"
-              placeholder="年份"
+              :placeholder="$t('page.sla.year')"
               @update:value="
                 (v: number | null) => {
                   packFilterYear = v;
@@ -790,16 +814,24 @@ onMounted(async () => {
           </NSpace>
           <NText depth="3" style="font-size: 12px">{{ packSourceNote || '—' }}</NText>
           <NSpace>
-            <NButton size="small" :loading="packLoading" @click="previewHolidayPack">预览</NButton>
+            <NButton size="small" :loading="packLoading" @click="previewHolidayPack">
+              {{ $t('page.sla.preview') }}
+            </NButton>
             <NButton type="primary" size="small" :loading="packApplying" :disabled="!isOwner" @click="applyHolidayPack">
-              确认应用
+              {{ $t('page.sla.applyPack') }}
             </NButton>
           </NSpace>
           <div v-if="packPreview" style="font-size: 12px">
             <div style="margin-bottom: 6px">
-              变更：+{{ (packPreview.added || []).length }} / 覆盖 {{ (packPreview.replaced || []).length }} / 保留
-              {{ (packPreview.unchanged || []).length }} （{{ packPreview.countBefore }} →
-              {{ packPreview.countAfter }}）
+              {{
+                $t('page.sla.packPreviewSummary', {
+                  added: (packPreview.added || []).length,
+                  replaced: (packPreview.replaced || []).length,
+                  kept: (packPreview.unchanged || []).length,
+                  before: packPreview.countBefore,
+                  after: packPreview.countAfter
+                })
+              }}
             </div>
             <div
               v-for="row in [
