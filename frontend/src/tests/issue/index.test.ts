@@ -9,6 +9,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ISSUE_TEMPLATES } from '@/constants/issueTemplates';
 import { generateSearchSuggestions, parseSearchString } from '@/utils/issueSearchParser';
+import { i18n } from '@/locales';
 import IssueSmartSearch from '@/components/IssueSmartSearch.vue';
 import IssueTemplateSelector from '@/components/IssueTemplateSelector.vue';
 import IssueReactions from '@/components/IssueReactions.vue';
@@ -183,7 +184,7 @@ describe('IssueTemplateSelector Component', () => {
         visible: true
       },
       global: {
-        plugins: [pinia],
+        plugins: [pinia, i18n],
         stubs: { Teleport: true, 'icon-mdi-close': true }
       }
     });
@@ -200,7 +201,7 @@ describe('IssueTemplateSelector Component', () => {
     setActivePinia(pinia);
     wrapper = mount(IssueTemplateSelector, {
       props: { visible: true },
-      global: { plugins: [pinia], stubs: { Teleport: true, 'icon-mdi-close': true } }
+      global: { plugins: [pinia, i18n], stubs: { Teleport: true, 'icon-mdi-close': true } }
     });
     const bug = ISSUE_TEMPLATES.find(t => t.id === 'bug_report')!;
     wrapper.vm.selectTemplate(bug);
@@ -214,7 +215,7 @@ describe('IssueTemplateSelector Component', () => {
     setActivePinia(pinia);
     wrapper = mount(IssueTemplateSelector, {
       props: { visible: true },
-      global: { plugins: [pinia], stubs: { Teleport: true, 'icon-mdi-close': true } }
+      global: { plugins: [pinia, i18n], stubs: { Teleport: true, 'icon-mdi-close': true } }
     });
 
     await wrapper.vm.close();

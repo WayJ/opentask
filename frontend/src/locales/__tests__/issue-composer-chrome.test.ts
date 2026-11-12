@@ -169,8 +169,9 @@ function schemaLeaves(name: string): string[] {
 }
 
 function countCalls(text: string, namespace: string, key: string): number {
-  const needle = `$t('${namespace}.${key}')`;
-  return text.split(needle).length - 1;
+  const plain = `$t('${namespace}.${key}')`;
+  const named = `$t('${namespace}.${key}',`;
+  return text.split(plain).length - 1 + text.split(named).length - 1;
 }
 
 describe('issue composer chrome copy', () => {
@@ -216,6 +217,8 @@ describe('issue composer chrome copy', () => {
     for (const [key, times] of Object.entries(editorCalls)) {
       expect(countCalls(editor, 'page.markdownEditor', key)).toBe(times);
     }
+    expect(editor).toContain("$t('page.markdownEditor.characters', { n: content.length })");
+    expect(editor).not.toContain(".replace('{n}'");
     expect(countCalls(selector, 'page.issueTemplate', 'intro')).toBe(1);
     expect(countCalls(selector, 'page.issueTemplate', 'empty')).toBe(1);
     expect(countCalls(selector, 'page.issueTemplate', 'footerHint')).toBe(1);

@@ -219,7 +219,7 @@ function insertTask() {
     <div class="editor-footer">
       <NSpace justify="space-between">
         <NText depth="3" style="font-size: 12px">
-          {{ $t('page.markdownEditor.characters').replace('{n}', String(content.length)) }}
+          {{ $t('page.markdownEditor.characters', { n: content.length }) }}
         </NText>
         <NText depth="3" style="font-size: 12px">{{ $t('page.markdownEditor.footerHint') }}</NText>
       </NSpace>
