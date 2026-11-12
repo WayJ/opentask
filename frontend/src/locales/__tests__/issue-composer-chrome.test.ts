@@ -32,7 +32,9 @@ const composer = [
   ['exitTitle', '确认退出', 'Leave page'],
   ['exitContent', '你有未保存的更改，确定要退出吗？', 'You have unsaved changes. Leave anyway?'],
   ['exitDiscard', '放弃更改', 'Discard changes'],
-  ['exitKeep', '继续编辑', 'Keep editing']
+  ['exitKeep', '继续编辑', 'Keep editing'],
+  ['customFieldsOptional', '自定义字段（可选）', 'Custom fields (optional)'],
+  ['loading', '加载中...', 'Loading...']
 ] as const;
 
 const templateCopy = [
@@ -94,7 +96,8 @@ const createCalls: Record<string, number> = {
   exitTitle: 1,
   exitContent: 1,
   exitDiscard: 1,
-  exitKeep: 1
+  exitKeep: 1,
+  customFieldsOptional: 1
 };
 const editCalls: Record<string, number> = {
   backToDetail: 1,
@@ -110,7 +113,8 @@ const editCalls: Record<string, number> = {
   exitTitle: 1,
   exitContent: 1,
   exitDiscard: 1,
-  exitKeep: 1
+  exitKeep: 1,
+  loading: 1
 };
 const editorCalls: Record<string, number> = {
   boldTitle: 1,
@@ -214,6 +218,8 @@ describe('issue composer chrome copy', () => {
     expect(countCalls(create, 'page.issueComposer', 'attachments')).toBe(1);
     expect(countCalls(edit, 'page.issueComposer', 'attachments')).toBe(0);
     expect(countCalls(edit, 'page.issueComposer', 'useTemplate')).toBe(0);
+    expect(countCalls(edit, 'page.issueComposer', 'customFieldsOptional')).toBe(0);
+    expect(countCalls(create, 'page.issueComposer', 'loading')).toBe(0);
     for (const [key, times] of Object.entries(editorCalls)) {
       expect(countCalls(editor, 'page.markdownEditor', key)).toBe(times);
     }
@@ -271,8 +277,10 @@ describe('issue composer chrome copy', () => {
     expect(create).toContain('请输入问题标题');
     expect(create).toContain('问题创建成功');
     expect(create).toContain('问题创建失败');
-    expect(create).toContain('自定义字段（可选）');
-    expect(edit).toContain('加载中...');
+    expect(create).toContain("$t('page.issueComposer.customFieldsOptional')");
+    expect(create).not.toContain('title="自定义字段（可选）"');
+    expect(edit).toContain("$t('page.issueComposer.loading')");
+    expect(edit).not.toContain('description="加载中..."');
     expect(editor).toContain("insertText('**', '**', '粗体文本')");
     expect(editor).toContain("insertText('*', '*', '斜体文本')");
     expect(editor).toContain("insertText('`', '`', '代码')");

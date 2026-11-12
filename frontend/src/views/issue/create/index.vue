@@ -485,7 +485,7 @@ onBeforeRouteLeave((_to, _from, next) => {
         <NCard
           v-if="customFieldDefs.length"
           id="create-custom-fields"
-          title="自定义字段（可选）"
+          :title="$t('page.issueComposer.customFieldsOptional')"
           size="small"
           :bordered="false"
           style="margin-bottom: 12px"

@@ -838,6 +838,8 @@ declare namespace App {
           exitContent: string;
           exitDiscard: string;
           exitKeep: string;
+          customFieldsOptional: string;
+          loading: string;
         };
         issueDetail: {
           parentPrefix: string;
