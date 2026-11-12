@@ -107,8 +107,10 @@ describe('issue form and property chrome copy', () => {
     expect((create.match(/\$t\('page\.issueForm\.createTitle'\)/g) ?? []).length).toBe(2);
     expect(create).toContain("$t('page.issueForm.propertySettings')");
     expect(create).toContain("useLabelTable('page.issuePriority')");
-    expect(create).toContain('使用模板');
-    expect(create).toContain('从模板创建问题');
+    expect(create).toContain("$t('page.issueComposer.useTemplate')");
+    expect(create).toContain("$t('page.issueComposer.useTemplateHint')");
+    expect(create).not.toMatch(/^\s+使用模板\s*$/m);
+    expect(create).not.toMatch(/从模板创建问题/);
     expect(create).not.toContain('<NText strong style="font-size: 16px; margin-left: 12px">创建问题</NText>');
     expect(create).not.toMatch(/^\s+创建问题\s*$/m);
     expect(edit).toContain("$t('page.issueForm.editTitle')");

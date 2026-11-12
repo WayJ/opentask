@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue';
 import { NButton, NCard, NEmpty, NGrid, NGridItem, NSpace, NSpin, NText } from 'naive-ui';
+import { useI18n } from 'vue-i18n';
 import { ISSUE_TEMPLATES, type IssueTemplate } from '@/constants/issueTemplates';
 import { type IssueTemplateRow, fetchIssueTemplates } from '@/service/api/issue-templates';
 import { $t } from '@/locales';
@@ -16,6 +17,7 @@ const emit = defineEmits<{
   close: [];
 }>();
 
+const { locale } = useI18n();
 const hoveredTemplate = ref<string | null>(null);
 const loading = ref(false);
 const templates = ref<IssueTemplate[]>([...ISSUE_TEMPLATES]);
@@ -27,14 +29,14 @@ function mapRow(row: IssueTemplateRow): IssueTemplate {
       : ISSUE_TEMPLATES.find(t => t.id === row.seedKey)?.fields || [
           {
             name: 'title',
-            label: '标题',
+            label: $t('page.issueTemplate.fieldTitle'),
             type: 'text',
             required: true,
-            placeholder: '标题'
+            placeholder: $t('page.issueTemplate.fieldTitle')
           },
           {
             name: 'description',
-            label: '描述',
+            label: $t('page.issueTemplate.fieldDescription'),
             type: 'textarea',
             required: false,
             placeholder: row.payload?.description || ''
@@ -76,6 +78,10 @@ watch(
   }
 );
 
+watch(locale, () => {
+  if (props.visible) load();
+});
+
 onMounted(() => {
   if (props.visible) load();
 });
@@ -101,12 +107,12 @@ function close() {
         </template>
 
         <div class="template-description">
-          <NText depth="3">选择一个模板来快速创建规范的问题（工作区模板）</NText>
+          <NText depth="3">{{ $t('page.issueTemplate.intro') }}</NText>
         </div>
 
         <NSpin :show="loading">
           <div v-if="!loading && templates.length === 0" class="template-empty">
-            <NEmpty description="暂无可用模板" size="large" />
+            <NEmpty :description="$t('page.issueTemplate.empty')" size="large" />
           </div>
 
           <NGrid v-else :x-gap="16" :y-gap="16" :cols="3" responsive="screen">
@@ -134,9 +140,9 @@ function close() {
 
         <div class="template-footer">
           <NSpace justify="space-between">
-            <NText depth="3" style="font-size: 12px">提示：你也可以不使用模板，直接创建空白问题</NText>
+            <NText depth="3" style="font-size: 12px">{{ $t('page.issueTemplate.footerHint') }}</NText>
             <NButton text @click="close">
-              <NText depth="3">取消</NText>
+              <NText depth="3">{{ $t('page.issueTemplate.cancel') }}</NText>
             </NButton>
           </NSpace>
         </div>

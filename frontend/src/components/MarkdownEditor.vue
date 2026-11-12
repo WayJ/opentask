@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { NButton, NButtonGroup, NSpace, NText } from 'naive-ui';
+import { NButton, NButtonGroup, NEmpty, NPopover, NSpace, NText } from 'naive-ui';
+import { useI18n } from 'vue-i18n';
+import { $t } from '@/locales';
 import MarkdownRenderer from './MarkdownRenderer.vue';
 
 interface Props {
@@ -11,7 +13,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  placeholder: '支持 Markdown 语法...',
+  placeholder: undefined,
   rows: 8,
   maxHeight: '500px'
 });
@@ -26,6 +28,13 @@ const content = computed({
 });
 
 const showPreview = ref(false);
+const { locale } = useI18n();
+const resolvedPlaceholder = computed(() => {
+  // eslint-disable-next-line no-void -- derived chrome must read locale.value before $t
+  void locale.value;
+  if (props.placeholder !== undefined) return props.placeholder;
+  return $t('page.markdownEditor.defaultPlaceholder');
+});
 
 // 工具栏操作
 function insertText(before: string, after: string = '', placeholder: string = '') {
@@ -88,34 +97,34 @@ function insertTask() {
     <div class="toolbar">
       <NSpace :size="4">
         <NButtonGroup size="small">
-          <NButton title="粗体 (Ctrl+B)" @click="insertBold">
+          <NButton :title="$t('page.markdownEditor.boldTitle')" @click="insertBold">
             <icon-mdi-format-bold />
           </NButton>
-          <NButton title="斜体 (Ctrl+I)" @click="insertItalic">
+          <NButton :title="$t('page.markdownEditor.italicTitle')" @click="insertItalic">
             <icon-mdi-format-italic />
           </NButton>
-          <NButton title="行内代码 (Ctrl+`)" @click="insertCode">
+          <NButton :title="$t('page.markdownEditor.inlineCodeTitle')" @click="insertCode">
             <icon-mdi-code-tags />
           </NButton>
-          <NButton title="代码块" @click="insertCodeBlock">
+          <NButton :title="$t('page.markdownEditor.codeBlockTitle')" @click="insertCodeBlock">
             <icon-mdi-file-code-outline />
           </NButton>
         </NButtonGroup>
 
         <NButtonGroup size="small">
-          <NButton title="链接" @click="insertLink">
+          <NButton :title="$t('page.markdownEditor.linkTitle')" @click="insertLink">
             <icon-mdi-link-variant />
           </NButton>
-          <NButton title="无序列表" @click="insertList">
+          <NButton :title="$t('page.markdownEditor.bulletListTitle')" @click="insertList">
             <icon-mdi-format-list-bulleted />
           </NButton>
-          <NButton title="引用" @click="insertQuote">
+          <NButton :title="$t('page.markdownEditor.quoteTitle')" @click="insertQuote">
             <icon-mdi-format-quote-close />
           </NButton>
-          <NButton title="标题" @click="insertHeader">
+          <NButton :title="$t('page.markdownEditor.headingTitle')" @click="insertHeader">
             <icon-mdi-format-header-1 />
           </NButton>
-          <NButton title="任务列表" @click="insertTask">
+          <NButton :title="$t('page.markdownEditor.taskListTitle')" @click="insertTask">
             <icon-mdi-checkbox-marked-outline />
           </NButton>
         </NButtonGroup>
@@ -124,7 +133,7 @@ function insertTask() {
           <NButton :type="showPreview ? 'default' : 'primary'" @click="showPreview = !showPreview">
             <icon-mdi-eye-outline v-if="!showPreview" />
             <icon-mdi-pencil-outline v-else />
-            {{ showPreview ? '编辑' : '预览' }}
+            {{ showPreview ? $t('page.markdownEditor.edit') : $t('page.markdownEditor.preview') }}
           </NButton>
         </NButtonGroup>
       </NSpace>
@@ -134,58 +143,58 @@ function insertTask() {
         <template #trigger>
           <NButton text size="small">
             <icon-mdi-help-circle-outline />
-            语法帮助
+            {{ $t('page.markdownEditor.syntaxHelp') }}
           </NButton>
         </template>
         <div class="syntax-help">
-          <h4>Markdown 语法</h4>
+          <h4>{{ $t('page.markdownEditor.syntaxTitle') }}</h4>
           <ul>
             <li>
               <code>**粗体**</code>
               -
-              <strong>粗体</strong>
+              <strong>{{ $t('page.markdownEditor.glossBold') }}</strong>
             </li>
             <li>
               <code>*斜体*</code>
               -
-              <em>斜体</em>
+              <em>{{ $t('page.markdownEditor.glossItalic') }}</em>
             </li>
             <li>
               <code>`代码`</code>
               -
-              <code>行内代码</code>
+              <code>{{ $t('page.markdownEditor.glossInlineCode') }}</code>
             </li>
             <li>
               <code>```代码块```</code>
-              - 代码块
+              - {{ $t('page.markdownEditor.codeBlockTitle') }}
             </li>
             <li>
               <code>[文本](url)</code>
-              - 链接
+              - {{ $t('page.markdownEditor.linkTitle') }}
             </li>
             <li>
               <code>- 列表项</code>
-              - 无序列表
+              - {{ $t('page.markdownEditor.bulletListTitle') }}
             </li>
             <li>
               <code># 标题</code>
-              - 标题
+              - {{ $t('page.markdownEditor.headingTitle') }}
             </li>
             <li>
               <code>> 引用</code>
-              - 引用块
+              - {{ $t('page.markdownEditor.glossQuote') }}
             </li>
             <li>
               <code>- [ ] 任务</code>
-              - 任务列表
+              - {{ $t('page.markdownEditor.taskListTitle') }}
             </li>
             <li>
               <code>@username</code>
-              - 提及用户
+              - {{ $t('page.markdownEditor.glossMention') }}
             </li>
             <li>
               <code>#OT-1</code>
-              - 引用问题
+              - {{ $t('page.markdownEditor.glossIssueRef') }}
             </li>
           </ul>
         </div>
@@ -196,21 +205,23 @@ function insertTask() {
     <div class="editor-container" :style="{ maxHeight: props.maxHeight }">
       <!-- 编辑模式 -->
       <div v-show="!showPreview" class="editor-pane">
-        <textarea v-model="content" class="markdown-textarea" :placeholder="props.placeholder" :rows="props.rows" />
+        <textarea v-model="content" class="markdown-textarea" :placeholder="resolvedPlaceholder" :rows="props.rows" />
       </div>
 
       <!-- 预览模式 -->
       <div v-show="showPreview" class="preview-pane">
         <MarkdownRenderer :content="content" />
-        <NEmpty v-if="!content" description="输入内容后预览" size="small" />
+        <NEmpty v-if="!content" :description="$t('page.markdownEditor.emptyPreview')" size="small" />
       </div>
     </div>
 
     <!-- 提示文本 -->
     <div class="editor-footer">
       <NSpace justify="space-between">
-        <NText depth="3" style="font-size: 12px">{{ content.length }} 字符</NText>
-        <NText depth="3" style="font-size: 12px">支持 Markdown 语法 • Ctrl+Enter 快速提交</NText>
+        <NText depth="3" style="font-size: 12px">
+          {{ $t('page.markdownEditor.characters', { n: content.length }) }}
+        </NText>
+        <NText depth="3" style="font-size: 12px">{{ $t('page.markdownEditor.footerHint') }}</NText>
       </NSpace>
     </div>
   </div>
