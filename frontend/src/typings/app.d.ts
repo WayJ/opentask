@@ -568,6 +568,138 @@ declare namespace App {
           labelsOr: string;
           defaultCycle: string;
         };
+        issueList: {
+          tabs: { myTodos: string; open: string; closed: string; all: string };
+          toolbar: {
+            views: string;
+            saveView: string;
+            saveViewHint: string;
+            star: string;
+            starHint: string;
+            pinToSidebar: string;
+            unpinFromSidebar: string;
+            pinToSidebarHint: string;
+            saveAs: string;
+            saveAsHint: string;
+            filters: string;
+            collapseFilters: string;
+            expandFilters: string;
+            syntaxHelp: string;
+            syntaxHelpHint: string;
+            display: string;
+            sort: string;
+            group: string;
+          };
+          sortBy: {
+            createdAt: string;
+            updatedAt: string;
+            priority: string;
+            status: string;
+            title: string;
+            dueDate: string;
+          };
+          sortOrder: { desc: string; asc: string };
+          groupBy: {
+            none: string;
+            status: string;
+            assignee: string;
+            priority: string;
+            type: string;
+            label: string;
+          };
+          computedFieldSuffix: string;
+          computedFieldSuffixReadonly: string;
+          columns: {
+            key: string;
+            title: string;
+            type: string;
+            status: string;
+            priority: string;
+            estimate: string;
+            assignee: string;
+            reporter: string;
+            createdAt: string;
+            actions: string;
+          };
+          actions: { view: string; systemReporter: string };
+          filters: {
+            project: string;
+            cycle: string;
+            type: string;
+            priority: string;
+            reset: string;
+          };
+          syntax: {
+            title: string;
+            tipPrefix: string;
+            assigneeMe: string;
+            isOpen: string;
+            isClosed: string;
+            isInProgress: string;
+            typeFeature: string;
+            typeBug: string;
+            priorityUrgent: string;
+            priorityHigh: string;
+            customField: string;
+          };
+          views: {
+            currentPrefix: string;
+            favoriteViews: string;
+            savePersonalTitle: string;
+            saveSharedTitle: string;
+            save: string;
+            namePlaceholder: string;
+            shareWithWorkspace: string;
+          };
+          scopeTitle: {
+            watching: string;
+            dueSoon: string;
+            assignedToMe: string;
+            createdByMe: string;
+          };
+          import: {
+            downloadTemplate: string;
+            helpBefore: string;
+            helpAfter: string;
+          };
+          messages: {
+            enterViewName: string;
+            viewSaved: string;
+            sharedViewSaved: string;
+            saveViewFailed: string;
+            viewApplied: string;
+            viewNotFound: string;
+            applyViewFirst: string;
+            sharedViewCantStar: string;
+            starred: string;
+            unstarred: string;
+            updateStarFailed: string;
+            pinnedToSidebar: string;
+            unpinnedFromSidebar: string;
+            updateSidebarPinFailed: string;
+            savedAsPersonal: string;
+            saveAsFailed: string;
+            copySuffix: string;
+            deleteTitle: string;
+            deleteConfirmContent: string;
+            deleteSuccess: string;
+            deleteFailed: string;
+            personalDefaultSaved: string;
+            personalDefaultFailed: string;
+            groupCfUnsupported: string;
+            savedGroupCfUnsupported: string;
+            swimlaneCfUnsupported: string;
+            savedSwimlaneCfUnsupported: string;
+            groupSyncFailed: string;
+            exportedCsv: string;
+            exportFailed: string;
+            templateDownloadFailed: string;
+            importFailed: string;
+            noneCycle: string;
+          };
+          blockedBy: string;
+          blocks: string;
+        };
         issueType: {
           bug: string;
           feature: string;

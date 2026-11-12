@@ -403,6 +403,151 @@ const local: App.I18n.Schema = {
       labelsOr: 'Labels (OR)',
       defaultCycle: 'Default cycle'
     },
+    issueList: {
+      tabs: {
+        myTodos: 'My to-dos',
+        open: 'Active',
+        closed: 'Closed',
+        all: 'All'
+      },
+      toolbar: {
+        views: 'Views',
+        saveView: 'Save view',
+        saveViewHint: 'Save the current filters as a personal or shared view',
+        star: 'Star',
+        starHint: 'Star a view (chips on the list toolbar, not the sidebar)',
+        pinToSidebar: 'Pin to sidebar',
+        unpinFromSidebar: 'Unpin from sidebar',
+        pinToSidebarHint: 'Pin to the sidebar favorites (separate from starring)',
+        saveAs: 'Save as',
+        saveAsHint: 'Duplicate as a personal view (for read-only members of a shared view)',
+        filters: 'Filters',
+        collapseFilters: 'Collapse filters',
+        expandFilters: 'Expand filters',
+        syntaxHelp: 'Syntax help',
+        syntaxHelpHint: 'View search syntax help',
+        display: 'Display',
+        sort: 'Sort',
+        group: 'Group'
+      },
+      sortBy: {
+        createdAt: 'Created',
+        updatedAt: 'Updated',
+        priority: 'Priority',
+        status: 'Status',
+        title: 'Title',
+        dueDate: 'Due date'
+      },
+      sortOrder: {
+        desc: 'Descending',
+        asc: 'Ascending'
+      },
+      groupBy: {
+        none: 'No grouping',
+        status: 'Status',
+        assignee: 'Assignee',
+        priority: 'Priority',
+        type: 'Type',
+        label: 'Label'
+      },
+      computedFieldSuffix: '(computed)',
+      computedFieldSuffixReadonly: '(computed, read-only)',
+      columns: {
+        key: 'Key',
+        title: 'Title',
+        type: 'Type',
+        status: 'Status',
+        priority: 'Priority',
+        estimate: 'Estimate',
+        assignee: 'Assignee',
+        reporter: 'Reporter',
+        createdAt: 'Created',
+        actions: 'Actions'
+      },
+      actions: {
+        view: 'View',
+        systemReporter: 'System'
+      },
+      filters: {
+        project: 'Project',
+        cycle: 'Cycle',
+        type: 'Type',
+        priority: 'Priority',
+        reset: 'Reset filters'
+      },
+      syntax: {
+        title: 'Search syntax help',
+        tipPrefix: 'Tip: you can combine filters, for example',
+        assigneeMe: 'Show issues assigned to me',
+        isOpen: 'Show only open issues',
+        isClosed: 'Show only completed issues',
+        isInProgress: 'Show only in-progress issues',
+        typeFeature: 'Show only feature issues',
+        typeBug: 'Show only bug issues',
+        priorityUrgent: 'Show only urgent-priority issues',
+        priorityHigh: 'Show only high-priority issues',
+        customField: 'Filter by a custom field (cf:key:value also works)'
+      },
+      views: {
+        currentPrefix: 'Current view:',
+        favoriteViews: 'Starred views',
+        savePersonalTitle: 'Save as personal view',
+        saveSharedTitle: 'Save as shared view',
+        save: 'Save',
+        namePlaceholder: 'View name, e.g. My high-priority bugs',
+        shareWithWorkspace: 'Share with the workspace'
+      },
+      scopeTitle: {
+        watching: 'Watching',
+        dueSoon: 'Due soon',
+        assignedToMe: 'Assigned to me',
+        createdByMe: 'Created by me'
+      },
+      import: {
+        downloadTemplate: 'Download template CSV',
+        helpBefore:
+          'Columns must include title; optional issue_code (updates when it already exists in this workspace). Custom fields use',
+        helpAfter:
+          'columns (the template already includes this workspace’s fields; separate multi values with commas, and use true/false for booleans). Unknown keys do not block writing the main fields.'
+      },
+      messages: {
+        enterViewName: 'Enter a view name',
+        viewSaved: 'View saved',
+        sharedViewSaved: 'Shared view saved',
+        saveViewFailed: 'Couldn’t save the view',
+        viewApplied: 'Applied view “{name}”',
+        viewNotFound: 'View not found',
+        applyViewFirst: 'Apply a saved view first',
+        sharedViewCantStar: 'Shared views can’t be starred. Save as a personal view first',
+        starred: 'Starred',
+        unstarred: 'Star removed',
+        updateStarFailed: 'Couldn’t update the star',
+        pinnedToSidebar: 'Pinned to the sidebar',
+        unpinnedFromSidebar: 'Unpinned from the sidebar',
+        updateSidebarPinFailed: 'Couldn’t update the sidebar pin',
+        savedAsPersonal: 'Saved as a personal view',
+        saveAsFailed: 'Couldn’t save a copy',
+        copySuffix: '(copy)',
+        deleteTitle: 'Delete issue',
+        deleteConfirmContent: 'Delete issue “{title}”?',
+        deleteSuccess: 'Issue deleted',
+        deleteFailed: 'Couldn’t delete the issue',
+        personalDefaultSaved: 'Saved as your personal default',
+        personalDefaultFailed: 'Couldn’t save the personal default',
+        groupCfUnsupported: 'This custom field type can’t be used for grouping, so grouping was cleared',
+        savedGroupCfUnsupported: 'The saved grouping field type isn’t supported, so grouping was cleared',
+        swimlaneCfUnsupported: 'This custom field type can’t be used for swimlanes, so swimlanes were cleared',
+        savedSwimlaneCfUnsupported: 'The saved swimlane field type isn’t supported, so swimlanes were cleared',
+        groupSyncFailed: 'Grouping changed, but saving it to the view failed',
+        exportedCsv: 'Exported CSV',
+        exportFailed: 'Couldn’t export',
+        templateDownloadFailed: 'Couldn’t download the template',
+        importFailed: 'Couldn’t import',
+        noneCycle: 'No cycle'
+      },
+      blockedBy: 'Blocked by {count}',
+      blocks: 'Blocks {count}'
+    },
     issueType: {
       bug: 'Bug',
       feature: 'Feature',

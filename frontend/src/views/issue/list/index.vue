@@ -79,7 +79,7 @@ import {
 } from '@/utils/issueSearchParser';
 import { useLabelTable } from '@/locales/use-label-table';
 import { labeledOptions } from '@/locales/display-label';
-import { $t } from '@/locales';
+import { $t, getLocale } from '@/locales';
 import IssueSmartSearch from '@/components/IssueSmartSearch.vue';
 import type { Api } from '@/typings/api';
 import IssueBulkBar from '@/components/IssueBulkBar.vue';
@@ -130,16 +130,39 @@ const filteredIssues = ref<Api.Issue.Issue[]>([]);
 
 /** E4-S2：列表分组依据（本地状态；可写入 Saved View display.group_by） */
 const groupBy = ref<GroupByKey>('none');
-const groupByOptions = computed(() =>
-  buildGroupByOptions(
+const builtinGroupLabels = {
+  none: 'page.issueList.groupBy.none',
+  status: 'page.issueList.groupBy.status',
+  assignee: 'page.issueList.groupBy.assignee',
+  priority: 'page.issueList.groupBy.priority',
+  type: 'page.issueList.groupBy.type',
+  label: 'page.issueList.groupBy.label'
+} as const satisfies Record<string, App.I18n.I18nKey>;
+
+const groupByOptions = computed(() => {
+  getLocale();
+  const readonlySuffix = '（计算值·只读）';
+  return buildGroupByOptions(
     customFieldDefs.value.map(f => ({
       key: f.key,
       name: f.name,
       type: f.type,
       formulaResultType: f.formulaResultType
     }))
-  )
-);
+  ).map(option => {
+    const builtin = builtinGroupLabels[option.value as keyof typeof builtinGroupLabels];
+    if (builtin) {
+      return { ...option, label: $t(builtin) };
+    }
+    if (option.label.endsWith(readonlySuffix)) {
+      return {
+        ...option,
+        label: `${option.label.slice(0, -readonlySuffix.length)}${$t('page.issueList.computedFieldSuffixReadonly')}`
+      };
+    }
+    return option;
+  });
+});
 
 const isGroupedList = computed(() => groupBy.value !== 'none');
 const activeGroupBy = computed(() => groupBy.value as Exclude<GroupByKey, 'none'>);
@@ -159,13 +182,14 @@ const displayPopoverShow = ref(false);
 const listSortBy = ref<string>('created_at');
 const listSortOrder = ref<'asc' | 'desc'>('desc');
 const sortByOptions = computed(() => {
+  getLocale();
   const base = [
-    { label: '创建时间', value: 'created_at' },
-    { label: '更新时间', value: 'updated_at' },
-    { label: '优先级', value: 'priority' },
-    { label: '状态', value: 'status' },
-    { label: '标题', value: 'title' },
-    { label: '截止日期', value: 'due_date' }
+    { label: $t('page.issueList.sortBy.createdAt'), value: 'created_at' },
+    { label: $t('page.issueList.sortBy.updatedAt'), value: 'updated_at' },
+    { label: $t('page.issueList.sortBy.priority'), value: 'priority' },
+    { label: $t('page.issueList.sortBy.status'), value: 'status' },
+    { label: $t('page.issueList.sortBy.title'), value: 'title' },
+    { label: $t('page.issueList.sortBy.dueDate'), value: 'due_date' }
   ];
   const extras = customFieldDefs.value
     .filter(f => {
@@ -178,10 +202,18 @@ const sortByOptions = computed(() => {
       return ['number', 'text', 'date', 'boolean'].includes(t);
     })
     .map(f => ({
-      label: f.type === 'formula' ? `${f.name}（计算值）` : f.name,
+      label: f.type === 'formula' ? `${f.name}${$t('page.issueList.computedFieldSuffix')}` : f.name,
       value: `cf:${f.key}`
     }));
   return [...base, ...extras];
+});
+
+const sortOrderOptions = computed(() => {
+  getLocale();
+  return [
+    { label: $t('page.issueList.sortOrder.desc'), value: 'desc' as const },
+    { label: $t('page.issueList.sortOrder.asc'), value: 'asc' as const }
+  ];
 });
 
 function sanitizeCfDim<T extends string>(dim: T, kind: 'group' | 'swimlane'): T | 'none' {
@@ -192,8 +224,8 @@ function sanitizeCfDim<T extends string>(dim: T, kind: 'group' | 'swimlane'): T 
   if (!isGroupingCfType(def.type, (def as any).formulaResultType)) {
     window.$message?.warning(
       kind === 'group'
-        ? '已保存的分组自定义字段类型不受支持，已回退为不分组'
-        : '已保存的泳道自定义字段类型不受支持，已回退为无泳道'
+        ? $t('page.issueList.messages.savedGroupCfUnsupported')
+        : $t('page.issueList.messages.savedSwimlaneCfUnsupported')
     );
     return 'none' as T | 'none';
   }
@@ -275,12 +307,12 @@ async function setPersonalDisplayDefault() {
   try {
     const { error } = await fetchPutIssueDisplayPrefs(currentDisplayJson() as any);
     if (error) {
-      window.$message?.error(error.message || '保存个人默认失败');
+      window.$message?.error(error.message || $t('page.issueList.messages.personalDefaultFailed'));
       return;
     }
-    window.$message?.success('已设为个人默认显示');
+    window.$message?.success($t('page.issueList.messages.personalDefaultSaved'));
   } catch {
-    window.$message?.error('保存个人默认失败');
+    window.$message?.error($t('page.issueList.messages.personalDefaultFailed'));
   } finally {
     displayPrefsSaving.value = false;
   }
@@ -300,7 +332,10 @@ function resetDisplayOptions() {
 /** E4-S3：当前页 depth-1 嵌套（父不在本页则子作顶层） */
 type IssueRow = Api.Issue.Issue & { nestDepth?: number };
 const nestedListIssues = computed<IssueRow[]>(() =>
-  nestIssuesDepth1(issues.value).map(r => ({ ...r.issue, nestDepth: r.depth }))
+  nestIssuesDepth1(issues.value).map(r => ({
+    ...r.issue,
+    nestDepth: r.depth
+  }))
 );
 
 // 筛选框展开状态（默认关闭）
@@ -323,10 +358,11 @@ const filters = reactive({
 });
 
 const scopeTitle = computed(() => {
-  if (filters.watching) return '我关注的';
-  if (filters.due_soon) return '即将到期';
-  if (filters.assignee_id === 'me') return '指派给我';
-  if (filters.reporter_id === 'me') return '我创建的';
+  getLocale();
+  if (filters.watching) return $t('page.issueList.scopeTitle.watching');
+  if (filters.due_soon) return $t('page.issueList.scopeTitle.dueSoon');
+  if (filters.assignee_id === 'me') return $t('page.issueList.scopeTitle.assignedToMe');
+  if (filters.reporter_id === 'me') return $t('page.issueList.scopeTitle.createdByMe');
   return null;
 });
 
@@ -432,7 +468,7 @@ function openSaveViewModal() {
 async function confirmSaveView() {
   const name = saveViewName.value.trim();
   if (!name) {
-    window.$message?.warning('请输入视图名称');
+    window.$message?.warning($t('page.issueList.messages.enterViewName'));
     return false;
   }
   saveViewSubmitting.value = true;
@@ -445,11 +481,13 @@ async function confirmSaveView() {
       is_favorite: false,
       is_shared: saveViewShared.value
     });
-    window.$message?.success(saveViewShared.value ? '共享视图已保存' : '视图已保存');
+    window.$message?.success(
+      saveViewShared.value ? $t('page.issueList.messages.sharedViewSaved') : $t('page.issueList.messages.viewSaved')
+    );
     await loadSavedViews();
     return true;
   } catch {
-    window.$message?.error('保存视图失败');
+    window.$message?.error($t('page.issueList.messages.saveViewFailed'));
     return false;
   } finally {
     saveViewSubmitting.value = false;
@@ -482,7 +520,7 @@ async function applySavedView(view: SavedView) {
   activeSavedViewId.value = state.activeSavedViewId;
   pagination.page = 1;
   await loadIssues();
-  window.$message?.success(`已应用视图「${view.name}」`);
+  window.$message?.success($t('page.issueList.messages.viewApplied', { name: view.name }));
 }
 
 async function applySavedViewById(viewId: string) {
@@ -493,7 +531,7 @@ async function applySavedViewById(viewId: string) {
     view = savedViews.value.find(v => v.id === viewId);
   }
   if (!view) {
-    window.$message?.warning('未找到该视图');
+    window.$message?.warning($t('page.issueList.messages.viewNotFound'));
     return;
   }
   await applySavedView(view);
@@ -507,21 +545,23 @@ async function applySavedViewById(viewId: string) {
 async function toggleActiveViewFavorite() {
   const id = activeSavedViewId.value;
   if (!id) {
-    window.$message?.info('请先应用一个已保存视图');
+    window.$message?.info($t('page.issueList.messages.applyViewFirst'));
     return;
   }
   const view = savedViews.value.find(v => v.id === id);
   if (!view) return;
   if (view.isShared) {
-    window.$message?.warning('共享视图不支持收藏，可另存为个人视图后再收藏');
+    window.$message?.warning($t('page.issueList.messages.sharedViewCantStar'));
     return;
   }
   try {
     await fetchSetSavedViewFavorite(view.id, !view.isFavorite);
     await loadSavedViews();
-    window.$message?.success(view.isFavorite ? '已取消收藏' : '已收藏');
+    window.$message?.success(
+      view.isFavorite ? $t('page.issueList.messages.unstarred') : $t('page.issueList.messages.starred')
+    );
   } catch {
-    window.$message?.error('更新收藏失败');
+    window.$message?.error($t('page.issueList.messages.updateStarFailed'));
   }
 }
 
@@ -551,7 +591,7 @@ watch(activeSavedViewId, () => {
 async function toggleActiveViewSidebarPin() {
   const id = activeSavedViewId.value;
   if (!id) {
-    window.$message?.info('请先应用一个已保存视图');
+    window.$message?.info($t('page.issueList.messages.applyViewFirst'));
     return;
   }
   sidebarPinLoading.value = true;
@@ -559,15 +599,18 @@ async function toggleActiveViewSidebarPin() {
     if (sidebarPinnedViewFavoriteId.value) {
       await fetchRemoveFavorite(sidebarPinnedViewFavoriteId.value);
       sidebarPinnedViewFavoriteId.value = null;
-      window.$message?.success('已从侧栏移除');
+      window.$message?.success($t('page.issueList.messages.unpinnedFromSidebar'));
     } else {
-      const res = await fetchAddFavorite({ target_type: 'saved_view', target_id: id });
+      const res = await fetchAddFavorite({
+        target_type: 'saved_view',
+        target_id: id
+      });
       sidebarPinnedViewFavoriteId.value = res.data?.id ?? null;
-      window.$message?.success('已收藏到侧栏');
+      window.$message?.success($t('page.issueList.messages.pinnedToSidebar'));
     }
     window.dispatchEvent(new CustomEvent('opentask:favorites-changed'));
   } catch {
-    window.$message?.error('更新侧栏收藏失败');
+    window.$message?.error($t('page.issueList.messages.updateSidebarPinFailed'));
   } finally {
     sidebarPinLoading.value = false;
   }
@@ -576,19 +619,19 @@ async function toggleActiveViewSidebarPin() {
 async function saveActiveViewAsPersonal() {
   const view = activeSavedView.value;
   if (!view) {
-    window.$message?.info('请先应用一个已保存视图');
+    window.$message?.info($t('page.issueList.messages.applyViewFirst'));
     return;
   }
   try {
-    const res = await fetchSaveAsSavedView(view.id, `${view.name}（副本）`);
-    window.$message?.success('已另存为个人视图');
+    const res = await fetchSaveAsSavedView(view.id, `${view.name}${$t('page.issueList.messages.copySuffix')}`);
+    window.$message?.success($t('page.issueList.messages.savedAsPersonal'));
     await loadSavedViews();
     const copy = res.data;
     if (copy?.id) {
       await applySavedView(copy);
     }
   } catch {
-    window.$message?.error('另存为失败');
+    window.$message?.error($t('page.issueList.messages.saveAsFailed'));
   }
 }
 
@@ -611,17 +654,26 @@ function handleSavedViewSelect(key: string | number) {
 const showSyntaxHelp = ref(false);
 
 // 语法说明示例
-const syntaxExamples = [
-  { text: 'assignee:@me', desc: '显示分配给我的问题' },
-  { text: 'is:open', desc: '只显示待办中的问题' },
-  { text: 'is:closed', desc: '只显示已完成的问题' },
-  { text: 'is:in_progress', desc: '只显示进行中的问题' },
-  { text: 'type:feature', desc: '只显示功能类型的问题' },
-  { text: 'type:bug', desc: '只显示缺陷类型的问题' },
-  { text: 'priority:urgent', desc: '只显示紧急优先级的问题' },
-  { text: 'priority:high', desc: '只显示高优先级的问题' },
-  { text: 'field:severity:s1', desc: '按自定义字段过滤（亦可用 cf:key:value）' }
-];
+const syntaxExamples = computed(() => {
+  getLocale();
+  return [
+    { text: 'assignee:@me', desc: $t('page.issueList.syntax.assigneeMe') },
+    { text: 'is:open', desc: $t('page.issueList.syntax.isOpen') },
+    { text: 'is:closed', desc: $t('page.issueList.syntax.isClosed') },
+    { text: 'is:in_progress', desc: $t('page.issueList.syntax.isInProgress') },
+    { text: 'type:feature', desc: $t('page.issueList.syntax.typeFeature') },
+    { text: 'type:bug', desc: $t('page.issueList.syntax.typeBug') },
+    {
+      text: 'priority:urgent',
+      desc: $t('page.issueList.syntax.priorityUrgent')
+    },
+    { text: 'priority:high', desc: $t('page.issueList.syntax.priorityHigh') },
+    {
+      text: 'field:severity:s1',
+      desc: $t('page.issueList.syntax.customField')
+    }
+  ];
+});
 
 // Load issues
 let unsubRealtime: (() => void) | null = null;
@@ -787,7 +839,9 @@ async function handleSmartSearch(query: ParsedQuery, raw?: string) {
   }
 
   const qRaw = raw !== undefined ? raw : smartSearchValue.value;
-  const nextQuery: Record<string, string | string[] | undefined | null> = { ...route.query };
+  const nextQuery: Record<string, string | string[] | undefined | null> = {
+    ...route.query
+  };
   if (qRaw && qRaw.trim()) {
     nextQuery.q = qRaw.trim();
   } else {
@@ -858,9 +912,15 @@ async function loadCycles() {
 }
 
 const cycleFilterOptions = computed(() => {
-  const opts: { label: string; value: string }[] = [{ label: '无 Cycle', value: '__none__' }];
+  getLocale();
+  const opts: { label: string; value: string }[] = [
+    { label: $t('page.issueList.messages.noneCycle'), value: '__none__' }
+  ];
   for (const c of cycles.value) {
-    opts.push({ label: `${c.name}${c.status === 'active' ? ' (active)' : ''}`, value: c.id });
+    opts.push({
+      label: `${c.name}${c.status === 'active' ? ' (active)' : ''}`,
+      value: c.id
+    });
   }
   return opts;
 });
@@ -907,17 +967,19 @@ const tabCounts = computed(() => {
 // Delete issue
 function handleDelete(issue: Api.Issue.Issue) {
   window.$dialog?.warning({
-    title: '确认删除',
-    content: `确定要删除问题 "${issue.title}" 吗？`,
-    positiveText: '删除',
-    negativeText: '取消',
+    title: $t('page.issueList.messages.deleteTitle'),
+    content: $t('page.issueList.messages.deleteConfirmContent', {
+      title: issue.title
+    }),
+    positiveText: $t('common.delete'),
+    negativeText: $t('common.cancel'),
     onPositiveClick: async () => {
       try {
         await issueStore.deleteIssue(issue.id);
         await loadIssues();
-        window.$message?.success('问题删除成功');
+        window.$message?.success($t('page.issueList.messages.deleteSuccess'));
       } catch {
-        window.$message?.error('问题删除失败');
+        window.$message?.error($t('page.issueList.messages.deleteFailed'));
       }
     }
   });
@@ -1038,7 +1100,7 @@ function relationBadgeNodes(row: Api.Issue.Issue) {
             viewIssue(row);
           }
         },
-        { default: () => `被阻塞 ${blocked}` }
+        { default: () => $t('page.issueList.blockedBy', { count: blocked }) }
       )
     );
   }
@@ -1056,7 +1118,7 @@ function relationBadgeNodes(row: Api.Issue.Issue) {
             viewIssue(row);
           }
         },
-        { default: () => `阻塞 ${blocks}` }
+        { default: () => $t('page.issueList.blocks', { count: blocks }) }
       )
     );
   }
@@ -1102,10 +1164,10 @@ async function exportIssuesCsv() {
     a.download = 'issues-export.csv';
     a.click();
     URL.revokeObjectURL(url);
-    window.$message?.success('已导出 CSV');
+    window.$message?.success($t('page.issueList.messages.exportedCsv'));
   } catch (e) {
     console.error(e);
-    window.$message?.error('导出失败');
+    window.$message?.error($t('page.issueList.messages.exportFailed'));
   }
 }
 
@@ -1120,7 +1182,7 @@ async function downloadImportTemplate() {
     URL.revokeObjectURL(url);
   } catch (e) {
     console.error(e);
-    window.$message?.error('模板下载失败');
+    window.$message?.error($t('page.issueList.messages.templateDownloadFailed'));
   }
 }
 
@@ -1142,7 +1204,7 @@ async function onImportFileChange(ev: Event) {
     await loadIssues();
   } catch (e) {
     console.error(e);
-    window.$message?.error('导入失败');
+    window.$message?.error($t('page.issueList.messages.importFailed'));
   } finally {
     importLoading.value = false;
     input.value = '';
@@ -1181,7 +1243,7 @@ async function handleGroupByChange(value: GroupByKey | null) {
   if (cfKey) {
     const def = customFieldDefs.value.find(f => f.key === cfKey);
     if (def && !isGroupingCfType(def.type)) {
-      window.$message?.warning('该自定义字段类型不支持分组，已回退为不分组');
+      window.$message?.warning($t('page.issueList.messages.groupCfUnsupported'));
       groupBy.value = 'none';
     } else {
       groupBy.value = next;
@@ -1201,7 +1263,7 @@ async function handleGroupByChange(value: GroupByKey | null) {
     });
     await loadSavedViews();
   } catch {
-    window.$message?.warning('分组已切换，但同步到已保存视图失败');
+    window.$message?.warning($t('page.issueList.messages.groupSyncFailed'));
   }
 }
 
@@ -1232,7 +1294,7 @@ function onSwimlaneByUpdate(next: SwimlaneBy) {
   if (cfKey) {
     const def = customFieldDefs.value.find(f => f.key === cfKey);
     if (def && !isGroupingCfType(def.type)) {
-      window.$message?.warning('该自定义字段类型不支持泳道，已回退为无泳道');
+      window.$message?.warning($t('page.issueList.messages.swimlaneCfUnsupported'));
       swimlaneBy.value = 'none';
       syncActiveViewDisplay();
       return;
@@ -1304,150 +1366,178 @@ function getPriorityLabel(priority: Api.Issue.IssuePriority): string {
 }
 
 // Table columns
-const baseColumns: DataTableColumns<Api.Issue.Issue> = [
-  {
-    title: '编号',
-    key: 'issue_code',
-    width: 120,
-    ellipsis: { tooltip: true }
-  },
-  {
-    title: '标题',
-    key: 'title',
-    width: 300,
-    render: (row: Api.Issue.Issue & { nestDepth?: number }) => {
-      const depth = row.nestDepth || 0;
-      return h(
-        'span',
-        {
-          class: 'issue-title-text',
-          style: {
-            display: 'inline-block',
-            paddingLeft: `${depth * 16}px`,
-            maxWidth: '100%',
-            whiteSpace: 'normal'
-          }
-        },
-        [
-          depth > 0
-            ? h(
+function buildBaseColumns(): DataTableColumns<Api.Issue.Issue> {
+  return [
+    {
+      title: $t('page.issueList.columns.key'),
+      key: 'issue_code',
+      width: 120,
+      ellipsis: { tooltip: true }
+    },
+    {
+      title: $t('page.issueList.columns.title'),
+      key: 'title',
+      width: 300,
+      render: (row: Api.Issue.Issue & { nestDepth?: number }) => {
+        const depth = row.nestDepth || 0;
+        return h(
+          'span',
+          {
+            class: 'issue-title-text',
+            style: {
+              display: 'inline-block',
+              paddingLeft: `${depth * 16}px`,
+              maxWidth: '100%',
+              whiteSpace: 'normal'
+            }
+          },
+          [
+            depth > 0
+              ? h(
+                  'span',
+                  {
+                    style: {
+                      marginRight: '4px',
+                      color: 'var(--vk-muted)'
+                    }
+                  },
+                  '↳'
+                )
+              : null,
+            iconPrefixFor(row) || null,
+            row.title,
+            ...relationBadgeNodes(row).map(n =>
+              h(
                 'span',
                 {
-                  style: {
-                    marginRight: '4px',
-                    color: 'var(--vk-muted)'
-                  }
+                  style: 'margin-left: 6px; display: inline-flex; vertical-align: middle;'
                 },
-                '↳'
+                [n]
               )
-            : null,
-          iconPrefixFor(row) || null,
-          row.title,
-          ...relationBadgeNodes(row).map(n =>
-            h('span', { style: 'margin-left: 6px; display: inline-flex; vertical-align: middle;' }, [n])
-          ),
-          ...(formatChildProgress(row.childProgress)
-            ? [
-                h('span', { style: 'margin-left: 6px; display: inline-flex; vertical-align: middle;' }, [
+            ),
+            ...(formatChildProgress(row.childProgress)
+              ? [
                   h(
-                    NTag,
-                    { size: 'tiny', type: 'info', bordered: false },
-                    { default: () => formatChildProgress(row.childProgress) }
+                    'span',
+                    {
+                      style: 'margin-left: 6px; display: inline-flex; vertical-align: middle;'
+                    },
+                    [
+                      h(
+                        NTag,
+                        { size: 'tiny', type: 'info', bordered: false },
+                        {
+                          default: () => formatChildProgress(row.childProgress)
+                        }
+                      )
+                    ]
                   )
-                ])
-              ]
-            : [])
-        ]
-      );
-    }
-  },
-  {
-    title: '类型',
-    key: 'type',
-    width: 100,
-    render: row => {
-      const label = typeOptions.value.find(t => t.value === row.type)?.label || row.type;
-      return h(NTag, { type: getTypeType(row.type), size: 'small' }, { default: () => label });
-    }
-  },
-  {
-    title: '状态',
-    key: 'status',
-    width: 120,
-    render: row => {
-      const label = statusOptions.value.find(s => s.value === row.status)?.label || row.status;
-      return h(NTag, { type: getStatusType(row.status), size: 'small' }, { default: () => label });
-    }
-  },
-  {
-    title: '优先级',
-    key: 'priority',
-    width: 100,
-    render: row => {
-      const label = priorityOptions.value.find(p => p.value === row.priority)?.label;
-      return h(NTag, { type: getPriorityType(row.priority), size: 'small' }, { default: () => label || '-' });
-    }
-  },
-  {
-    title: '估点',
-    key: 'estimate_points',
-    width: 72,
-    render: row => {
-      const prefix = iconPrefixFor(row, 'estimate_points');
-      const body = row.estimate_points != null ? String(row.estimate_points) : '—';
-      return prefix ? `${prefix}${body}` : body;
-    }
-  },
-  {
-    title: '负责人',
-    key: 'assignee_id',
-    width: 120,
-    render: row => {
-      if (row.assignee) {
-        return row.assignee.name || row.assignee.id;
+                ]
+              : [])
+          ]
+        );
       }
-      return '-';
-    }
-  },
-  {
-    title: '报告人',
-    key: 'reporter_id',
-    width: 120,
-    render: row => {
-      if (row.reporter) {
-        return row.reporter.name || row.reporter.id;
+    },
+    {
+      title: $t('page.issueList.columns.type'),
+      key: 'type',
+      width: 100,
+      render: row => {
+        const label = typeOptions.value.find(t => t.value === row.type)?.label || row.type;
+        return h(NTag, { type: getTypeType(row.type), size: 'small' }, { default: () => label });
       }
-      if (row.created_by === 'system') {
-        return '系统';
+    },
+    {
+      title: $t('page.issueList.columns.status'),
+      key: 'status',
+      width: 120,
+      render: row => {
+        const label = statusOptions.value.find(s => s.value === row.status)?.label || row.status;
+        return h(NTag, { type: getStatusType(row.status), size: 'small' }, { default: () => label });
       }
-      return '-';
+    },
+    {
+      title: $t('page.issueList.columns.priority'),
+      key: 'priority',
+      width: 100,
+      render: row => {
+        const label = priorityOptions.value.find(p => p.value === row.priority)?.label;
+        return h(NTag, { type: getPriorityType(row.priority), size: 'small' }, { default: () => label || '-' });
+      }
+    },
+    {
+      title: $t('page.issueList.columns.estimate'),
+      key: 'estimate_points',
+      width: 72,
+      render: row => {
+        const prefix = iconPrefixFor(row, 'estimate_points');
+        const body = row.estimate_points != null ? String(row.estimate_points) : '—';
+        return prefix ? `${prefix}${body}` : body;
+      }
+    },
+    {
+      title: $t('page.issueList.columns.assignee'),
+      key: 'assignee_id',
+      width: 120,
+      render: row => {
+        if (row.assignee) {
+          return row.assignee.name || row.assignee.id;
+        }
+        return '-';
+      }
+    },
+    {
+      title: $t('page.issueList.columns.reporter'),
+      key: 'reporter_id',
+      width: 120,
+      render: row => {
+        if (row.reporter) {
+          return row.reporter.name || row.reporter.id;
+        }
+        if (row.created_by === 'system') {
+          return $t('page.issueList.actions.systemReporter');
+        }
+        return '-';
+      }
+    },
+    {
+      title: $t('page.issueList.columns.createdAt'),
+      key: 'created_at',
+      width: 150,
+      render: row => {
+        const date = new Date(row.created_at);
+        const dateStr = date.toLocaleDateString();
+        const timeStr = date.toTimeString().slice(0, 5); // HH:MM，去掉秒
+        return h(NText, { depth: 3, style: { fontSize: '12px' } }, { default: () => `${dateStr} ${timeStr}` });
+      }
+    },
+    {
+      title: $t('page.issueList.columns.actions'),
+      key: 'actions',
+      width: 200,
+      fixed: 'right' as const,
+      render: row =>
+        h(NSpace, null, {
+          default: () => [
+            h(
+              NButton,
+              { size: 'small', onClick: () => viewIssue(row) },
+              { default: () => $t('page.issueList.actions.view') }
+            ),
+            h(
+              NButton,
+              {
+                size: 'small',
+                type: 'error',
+                onClick: () => handleDelete(row)
+              },
+              { default: () => $t('common.delete') }
+            )
+          ]
+        })
     }
-  },
-  {
-    title: '创建时间',
-    key: 'created_at',
-    width: 150,
-    render: row => {
-      const date = new Date(row.created_at);
-      const dateStr = date.toLocaleDateString();
-      const timeStr = date.toTimeString().slice(0, 5); // HH:MM，去掉秒
-      return h(NText, { depth: 3, style: { fontSize: '12px' } }, { default: () => `${dateStr} ${timeStr}` });
-    }
-  },
-  {
-    title: '操作',
-    key: 'actions',
-    width: 200,
-    fixed: 'right' as const,
-    render: row =>
-      h(NSpace, null, {
-        default: () => [
-          h(NButton, { size: 'small', onClick: () => viewIssue(row) }, { default: () => '详情' }),
-          h(NButton, { size: 'small', type: 'error', onClick: () => handleDelete(row) }, { default: () => '删除' })
-        ]
-      })
-  }
-];
+  ];
+}
 
 const issueListEl = ref<HTMLElement | null>(null);
 const tableWidth = ref(typeof window === 'undefined' ? 1280 : window.innerWidth);
@@ -1462,8 +1552,9 @@ function readTableWidth() {
 }
 
 const columns = computed<DataTableColumns<Api.Issue.Issue>>(() => {
+  getLocale();
   const { pinActions, titleWidth } = issueListColumnLayout(tableWidth.value);
-  const cols = baseColumns.map(col => {
+  const cols = buildBaseColumns().map(col => {
     if (col.key === 'title') return { ...col, width: titleWidth };
     if (col.key === 'actions' && !pinActions) {
       const { fixed: _fixed, ...rest } = col;
@@ -1587,7 +1678,7 @@ onUnmounted(() => {
   <div ref="issueListEl" class="issue-list-container">
     <NCard :bordered="false">
       <NAlert v-if="scopeTitle" type="info" :bordered="false" class="mb-12px" closable @close="clearScope">
-        当前视图：{{ scopeTitle }}
+        {{ $t('page.issueList.views.currentPrefix') }}{{ scopeTitle }}
       </NAlert>
       <template #header>
         <div class="issue-list-header">
@@ -1652,7 +1743,7 @@ onUnmounted(() => {
               <template #tab>
                 <div class="tab-content">
                   <icon-mdi-account-check class="tab-icon" />
-                  <span class="tab-label">我的待办</span>
+                  <span class="tab-label">{{ $t('page.issueList.tabs.myTodos') }}</span>
                   <span class="tab-count" :class="{ 'tab-count-active': activeTab === 'my_issues' }">
                     {{ tabCounts.my_issues }}
                   </span>
@@ -1663,7 +1754,7 @@ onUnmounted(() => {
               <template #tab>
                 <div class="tab-content">
                   <icon-mdi-lock-open class="tab-icon" />
-                  <span class="tab-label">开放中</span>
+                  <span class="tab-label">{{ $t('page.issueList.tabs.open') }}</span>
                   <span class="tab-count" :class="{ 'tab-count-active': activeTab === 'open' }">
                     {{ tabCounts.open }}
                   </span>
@@ -1674,7 +1765,7 @@ onUnmounted(() => {
               <template #tab>
                 <div class="tab-content">
                   <icon-mdi-check-circle class="tab-icon" />
-                  <span class="tab-label">已关闭</span>
+                  <span class="tab-label">{{ $t('page.issueList.tabs.closed') }}</span>
                   <span class="tab-count" :class="{ 'tab-count-active': activeTab === 'closed' }">
                     {{ tabCounts.closed }}
                   </span>
@@ -1685,7 +1776,7 @@ onUnmounted(() => {
               <template #tab>
                 <div class="tab-content">
                   <icon-mdi-format-list-bulleted class="tab-icon" />
-                  <span class="tab-label">全部</span>
+                  <span class="tab-label">{{ $t('page.issueList.tabs.all') }}</span>
                   <span class="tab-count" :class="{ 'tab-count-active': activeTab === 'all' }">
                     {{ tabCounts.all }}
                   </span>
@@ -1709,7 +1800,7 @@ onUnmounted(() => {
             <NDropdown trigger="click" :options="savedViewDropdownOptions" @select="handleSavedViewSelect">
               <NButton text size="small" class="action-btn">
                 <icon-mdi-bookmark-outline />
-                <span class="action-btn-text">视图</span>
+                <span class="action-btn-text">{{ $t('page.issueList.toolbar.views') }}</span>
                 <icon-mdi-chevron-down class="chevron-icon" />
               </NButton>
             </NDropdown>
@@ -1718,20 +1809,20 @@ onUnmounted(() => {
               <template #trigger>
                 <NButton text size="small" class="action-btn" @click="openSaveViewModal">
                   <icon-mdi-content-save-outline />
-                  <span class="action-btn-text">保存视图</span>
+                  <span class="action-btn-text">{{ $t('page.issueList.toolbar.saveView') }}</span>
                 </NButton>
               </template>
-              <div>将当前筛选保存为个人或共享视图</div>
+              <div>{{ $t('page.issueList.toolbar.saveViewHint') }}</div>
             </NTooltip>
 
             <NTooltip v-if="activeSavedViewId && activeSavedView && !activeSavedView.isShared">
               <template #trigger>
                 <NButton text size="small" class="action-btn" @click="toggleActiveViewFavorite">
                   <icon-mdi-star />
-                  <span class="action-btn-text">星标</span>
+                  <span class="action-btn-text">{{ $t('page.issueList.toolbar.star') }}</span>
                 </NButton>
               </template>
-              <div>星标视图（列表顶栏 chips，≠ 侧栏收藏）</div>
+              <div>{{ $t('page.issueList.toolbar.starHint') }}</div>
             </NTooltip>
 
             <NTooltip v-if="activeSavedViewId">
@@ -1744,48 +1835,60 @@ onUnmounted(() => {
                   @click="toggleActiveViewSidebarPin"
                 >
                   <icon-mdi-pin-outline />
-                  <span class="action-btn-text">{{ sidebarPinnedViewFavoriteId ? '取消侧栏' : '收藏到侧栏' }}</span>
+                  <span class="action-btn-text">
+                    {{
+                      sidebarPinnedViewFavoriteId
+                        ? $t('page.issueList.toolbar.unpinFromSidebar')
+                        : $t('page.issueList.toolbar.pinToSidebar')
+                    }}
+                  </span>
                 </NButton>
               </template>
-              <div>固定到左侧边栏 Favorites（独立于星标）</div>
+              <div>{{ $t('page.issueList.toolbar.pinToSidebarHint') }}</div>
             </NTooltip>
 
             <NTooltip v-if="activeSavedViewId">
               <template #trigger>
                 <NButton text size="small" class="action-btn" @click="saveActiveViewAsPersonal">
                   <icon-mdi-content-copy />
-                  <span class="action-btn-text">另存为</span>
+                  <span class="action-btn-text">{{ $t('page.issueList.toolbar.saveAs') }}</span>
                 </NButton>
               </template>
-              <div>复制为个人视图（共享只读成员可用）</div>
+              <div>{{ $t('page.issueList.toolbar.saveAsHint') }}</div>
             </NTooltip>
 
             <NTooltip>
               <template #trigger>
                 <NButton text size="small" class="action-btn" @click="filtersExpanded = !filtersExpanded">
                   <icon-mdi-filter-variant />
-                  <span class="action-btn-text">筛选</span>
+                  <span class="action-btn-text">{{ $t('page.issueList.toolbar.filters') }}</span>
                   <icon-mdi-chevron-down :class="{ 'icon-rotated': filtersExpanded }" class="chevron-icon" />
                 </NButton>
               </template>
-              <div>{{ filtersExpanded ? '收起' : '展开' }}筛选面板</div>
+              <div>
+                {{
+                  filtersExpanded
+                    ? $t('page.issueList.toolbar.collapseFilters')
+                    : $t('page.issueList.toolbar.expandFilters')
+                }}
+              </div>
             </NTooltip>
 
             <NTooltip>
               <template #trigger>
                 <NButton text size="small" class="action-btn" @click="showSyntaxHelp = !showSyntaxHelp">
                   <icon-mdi-help-circle-outline />
-                  <span class="action-btn-text">语法帮助</span>
+                  <span class="action-btn-text">{{ $t('page.issueList.toolbar.syntaxHelp') }}</span>
                 </NButton>
               </template>
-              <div>查看搜索语法帮助</div>
+              <div>{{ $t('page.issueList.toolbar.syntaxHelpHint') }}</div>
             </NTooltip>
 
             <NPopover v-model:show="displayPopoverShow" trigger="click" placement="bottom-end">
               <template #trigger>
                 <NButton text size="small" class="action-btn">
                   <icon-mdi-eye-outline />
-                  <span class="action-btn-text">显示</span>
+                  <span class="action-btn-text">{{ $t('page.issueList.toolbar.display') }}</span>
                 </NButton>
               </template>
               <DisplayOptionsPanel
@@ -1818,7 +1921,7 @@ onUnmounted(() => {
             </NPopover>
 
             <div class="group-by-select">
-              <NText depth="3" class="group-by-label">排序</NText>
+              <NText depth="3" class="group-by-label">{{ $t('page.issueList.toolbar.sort') }}</NText>
               <NSelect
                 :value="listSortBy"
                 :options="sortByOptions"
@@ -1828,17 +1931,14 @@ onUnmounted(() => {
               />
               <NSelect
                 :value="listSortOrder"
-                :options="[
-                  { label: '降序', value: 'desc' },
-                  { label: '升序', value: 'asc' }
-                ]"
+                :options="sortOrderOptions"
                 size="small"
                 style="width: 90px"
                 @update:value="onListSortOrderUpdate"
               />
             </div>
             <div class="group-by-select">
-              <NText depth="3" class="group-by-label">分组</NText>
+              <NText depth="3" class="group-by-label">{{ $t('page.issueList.toolbar.group') }}</NText>
               <NSelect
                 :value="groupBy"
                 :options="groupByOptions"
@@ -1856,7 +1956,7 @@ onUnmounted(() => {
             <NSelect
               v-model:value="filters.project_id"
               :options="projectOptions"
-              placeholder="项目"
+              :placeholder="$t('page.issueList.filters.project')"
               clearable
               :loading="projectsLoading"
               size="small"
@@ -1865,7 +1965,7 @@ onUnmounted(() => {
             <NSelect
               v-model:value="filters.cycle_id"
               :options="cycleFilterOptions"
-              placeholder="冲刺"
+              :placeholder="$t('page.issueList.filters.cycle')"
               clearable
               :loading="cyclesLoading"
               size="small"
@@ -1874,7 +1974,7 @@ onUnmounted(() => {
             <NSelect
               v-model:value="filters.type"
               :options="typeOptions"
-              placeholder="类型"
+              :placeholder="$t('page.issueList.filters.type')"
               clearable
               size="small"
               @update:value="handleFilterChange"
@@ -1882,7 +1982,7 @@ onUnmounted(() => {
             <NSelect
               v-model:value="filters.priority"
               :options="priorityOptions"
-              placeholder="优先级"
+              :placeholder="$t('page.issueList.filters.priority')"
               clearable
               size="small"
               @update:value="handleFilterChange"
@@ -1892,7 +1992,7 @@ onUnmounted(() => {
               <template #icon>
                 <icon-mdi-close-circle />
               </template>
-              重置筛选
+              {{ $t('page.issueList.filters.reset') }}
             </NButton>
           </div>
         </div>
@@ -1903,7 +2003,7 @@ onUnmounted(() => {
             <template #header>
               <div class="syntax-help-header">
                 <icon-mdi-help-circle class="syntax-icon" />
-                <NText strong>搜索语法帮助</NText>
+                <NText strong>{{ $t('page.issueList.syntax.title') }}</NText>
               </div>
             </template>
 
@@ -1917,7 +2017,7 @@ onUnmounted(() => {
             <div class="syntax-tip">
               <icon-mdi-lightbulb class="tip-icon" />
               <NText depth="3" style="font-size: 12px">
-                提示：可以组合使用多个过滤器，如
+                {{ $t('page.issueList.syntax.tipPrefix') }}
                 <code>is:open type:bug</code>
               </NText>
             </div>
@@ -1928,7 +2028,7 @@ onUnmounted(() => {
       <!-- Saved View favorites -->
       <div v-if="favoriteSavedViews.length" class="saved-view-favorites">
         <NSpace :size="6" align="center">
-          <NText depth="3" style="font-size: 12px">收藏视图</NText>
+          <NText depth="3" style="font-size: 12px">{{ $t('page.issueList.views.favoriteViews') }}</NText>
           <NTag
             v-for="v in favoriteSavedViews"
             :key="v.id"
@@ -2041,11 +2141,13 @@ onUnmounted(() => {
     >
       <NSpace vertical>
         <NText depth="3">
-          列需含 title；可选 issue_code（本工作区已存在则更新）。自定义字段用
+          {{ $t('page.issueList.import.helpBefore') }}
           <code>cf.&lt;key&gt;</code>
-          列（模板已含当前工作区字段；multi 逗号分隔，boolean 用 true/false）。未知 key 不阻断主字段写入。
+          {{ $t('page.issueList.import.helpAfter') }}
         </NText>
-        <NButton size="small" secondary @click="downloadImportTemplate">下载模板 CSV</NButton>
+        <NButton size="small" secondary @click="downloadImportTemplate">
+          {{ $t('page.issueList.import.downloadTemplate') }}
+        </NButton>
         <input ref="importFileInput" type="file" accept=".csv,text/csv" @change="onImportFileChange" />
         <NText v-if="importSummary" type="success">{{ importSummary }}</NText>
       </NSpace>
@@ -2054,15 +2156,21 @@ onUnmounted(() => {
     <NModal
       v-model:show="saveViewModalVisible"
       preset="dialog"
-      :title="saveViewShared ? '保存为共享视图' : '保存为个人视图'"
-      positive-text="保存"
-      negative-text="取消"
+      :title="
+        saveViewShared ? $t('page.issueList.views.saveSharedTitle') : $t('page.issueList.views.savePersonalTitle')
+      "
+      :positive-text="$t('page.issueList.views.save')"
+      :negative-text="$t('common.cancel')"
       :loading="saveViewSubmitting"
       @positive-click="confirmSaveView"
     >
       <NSpace vertical :size="12">
-        <NInput v-model:value="saveViewName" placeholder="视图名称，例如：我的高优缺陷" maxlength="128" />
-        <NCheckbox v-model:checked="saveViewShared">共享给工作区</NCheckbox>
+        <NInput
+          v-model:value="saveViewName"
+          :placeholder="$t('page.issueList.views.namePlaceholder')"
+          maxlength="128"
+        />
+        <NCheckbox v-model:checked="saveViewShared">{{ $t('page.issueList.views.shareWithWorkspace') }}</NCheckbox>
       </NSpace>
     </NModal>
   </div>
