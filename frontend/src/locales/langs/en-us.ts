@@ -547,7 +547,53 @@ const local: App.I18n.Schema = {
       },
       blockedBy: 'Blocked by {count}',
       blocks: 'Blocks {count}',
-      noneCycle: 'No cycle'
+      noneCycle: 'No cycle',
+      board: {
+        unassigned: 'Unassigned',
+        due: 'Due',
+        moveFailed: 'Couldn’t move the issue',
+        groupedListHint:
+          'Grouped list is a display swimlane; issues nest at depth-1 inside a lane. Dragging across lanes to change a field is out of scope for this Sprint.'
+      },
+      displayOptions: {
+        title: 'Display options',
+        cardFields: 'Card fields',
+        customFieldColumns: 'Custom field columns',
+        boardSwimlanes: 'Board swimlanes',
+        hideEmptyLanes: 'Hide empty swimlanes',
+        conditionalFormats: 'Conditional formats (≤10)',
+        remove: 'Delete',
+        addRule: 'Add a rule',
+        colorScales: 'Color scales (≤5)',
+        addColorScale: 'Add a color scale',
+        iconSets: 'Icon sets (≤5)',
+        ruleCount: '{n} rules',
+        addIconSet: 'Add an icon set',
+        setPersonalDefault: 'Set as your personal default',
+        noSwimlane: 'No swimlane',
+        fieldCycle: 'Cycle'
+      },
+      bulk: {
+        selected: 'Selected {n} items',
+        apply: 'Apply',
+        selectFieldWarning: 'Select at least one field to change',
+        updateFailed: 'Couldn’t update in bulk',
+        updateSuccess: 'Updated in bulk'
+      },
+      search: {
+        defaultPlaceholder: 'Search issues... (supports is:open, field:key:value, and similar)',
+        appliedFilters: 'Applied filters',
+        field: 'Field'
+      },
+      searchSuggestions: {
+        labelBug: 'Show only issues labeled bug',
+        typeFeature: 'Show only issues whose type is feature',
+        cycleNone: 'No cycle',
+        filterByProject: 'Filter by project',
+        customField: 'Custom field filter (cf:key:value also works)',
+        formulaEquals: 'Filter a formula field by exact computed value (read-only)',
+        formulaRange: 'Formula/number field range filter (E46)'
+      }
     },
     issueForm: {
       createTitle: 'Create issue',

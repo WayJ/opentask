@@ -8,6 +8,9 @@ import { type TagItem, tagApi } from '@/service/api/tag';
 import { fetchWorkspaceMembers } from '@/service/api/workspace';
 import { useIssueSelection } from '@/composables/use-issue-selection';
 import { localStg } from '@/utils/storage';
+import { $t, i18n } from '@/locales';
+import { lookupLabel } from '@/locales/display-label';
+import { useLabelTable } from '@/locales/use-label-table';
 import type { Api } from '@/typings/api';
 
 defineOptions({ name: 'IssueBulkBar' });
@@ -26,8 +29,32 @@ const cycles = ref<CycleItem[]>([]);
 const tags = ref<TagItem[]>([]);
 const users = ref<Array<{ label: string; value: string }>>([]);
 
+const locale = i18n.global.locale;
+const statusLabels = useLabelTable('page.issueStatus');
+const priorityLabels = useLabelTable('page.issuePriority');
+
 const visible = computed(() => selection.hasSelection.value);
-const countLabel = computed(() => `已选 ${selection.count.value} 项`);
+const countLabel = computed(() => {
+  // eslint-disable-next-line no-void
+  void locale.value;
+  return $t('page.issueList.bulk.selected', { n: selection.count.value });
+});
+const statusSelectOptions = computed(() => {
+  // eslint-disable-next-line no-void
+  void locale.value;
+  return issueStatusOptions.map(option => ({
+    ...option,
+    label: lookupLabel(statusLabels.value, option.value)
+  }));
+});
+const prioritySelectOptions = computed(() => {
+  // eslint-disable-next-line no-void
+  void locale.value;
+  return issuePriorityOptions.map(option => ({
+    ...option,
+    label: lookupLabel(priorityLabels.value, option.value)
+  }));
+});
 
 onMounted(async () => {
   try {
@@ -62,7 +89,7 @@ async function apply() {
   if (tagIds.value.length) payload.tag_ids = [...tagIds.value];
 
   if (!payload.status && !payload.priority && !payload.assignee_id && !payload.cycle_id && !payload.tag_ids) {
-    window.$message?.warning?.('请至少选择一项要修改的字段');
+    window.$message?.warning?.($t('page.issueList.bulk.selectFieldWarning'));
     return;
   }
 
@@ -70,10 +97,10 @@ async function apply() {
   try {
     const { error } = await issueApi.bulkUpdateIssues(payload);
     if (error) {
-      window.$message?.error?.(error.message || '批量更新失败');
+      window.$message?.error?.(error.message || $t('page.issueList.bulk.updateFailed'));
       return;
     }
-    window.$message?.success?.('批量更新成功');
+    window.$message?.success?.($t('page.issueList.bulk.updateSuccess'));
     selection.clear();
     status.value = null;
     priority.value = null;
@@ -82,7 +109,7 @@ async function apply() {
     tagIds.value = [];
     emit('done');
   } catch {
-    window.$message?.error?.('批量更新失败');
+    window.$message?.error?.($t('page.issueList.bulk.updateFailed'));
   } finally {
     busy.value = false;
   }
@@ -95,16 +122,16 @@ async function apply() {
     <NSpace align="center" :size="8" wrap>
       <NSelect
         v-model:value="status"
-        :options="issueStatusOptions"
-        placeholder="状态"
+        :options="statusSelectOptions"
+        :placeholder="$t('page.issueForm.status')"
         clearable
         size="small"
         style="width: 120px"
       />
       <NSelect
         v-model:value="priority"
-        :options="issuePriorityOptions"
-        placeholder="优先级"
+        :options="prioritySelectOptions"
+        :placeholder="$t('page.issueForm.priority')"
         clearable
         size="small"
         style="width: 110px"
@@ -112,7 +139,7 @@ async function apply() {
       <NSelect
         v-model:value="assigneeId"
         :options="users"
-        placeholder="负责人"
+        :placeholder="$t('page.issueList.columns.assignee')"
         clearable
         filterable
         size="small"
@@ -121,7 +148,7 @@ async function apply() {
       <NSelect
         v-model:value="cycleId"
         :options="cycles.map(c => ({ label: c.name, value: c.id }))"
-        placeholder="冲刺"
+        :placeholder="$t('page.issueForm.cycle')"
         clearable
         size="small"
         style="width: 130px"
@@ -136,8 +163,10 @@ async function apply() {
         size="small"
         style="min-width: 160px"
       />
-      <NButton type="primary" size="small" :loading="busy" @click="apply">应用</NButton>
-      <NButton size="small" quaternary @click="selection.clear()">取消 (Esc)</NButton>
+      <NButton type="primary" size="small" :loading="busy" @click="apply">
+        {{ $t('page.issueList.bulk.apply') }}
+      </NButton>
+      <NButton size="small" quaternary @click="selection.clear()">{{ $t('common.cancel') }} (Esc)</NButton>
     </NSpace>
   </div>
 </template>

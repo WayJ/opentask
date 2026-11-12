@@ -3,12 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { NAvatar, NCard, NEmpty, NTag, NText, useMessage } from 'naive-ui';
 import { VueDraggable } from 'vue-draggable-plus';
-import {
-  getIssuePriorityLabel,
-  getIssuePriorityTagType,
-  getIssueStatusTagType,
-  getIssueTypeTagType
-} from '@/constants/issue';
+import { getIssuePriorityTagType, getIssueStatusTagType, getIssueTypeTagType } from '@/constants/issue';
 import { issueApi } from '@/service/api/issue';
 import { useIssueFocus } from '@/composables/use-issue-focus';
 import { useIssueSelection } from '@/composables/use-issue-selection';
@@ -24,6 +19,7 @@ import type {
 import { resolveCellIcon, resolveRowBackground } from '@/utils/display-prefs';
 import { formatChildProgress } from '@/utils/childProgress';
 import type { Api } from '@/typings/api';
+import { $t } from '@/locales';
 import { useLabelTable } from '@/locales/use-label-table';
 import { lookupLabel } from '@/locales/display-label';
 
@@ -185,7 +181,7 @@ function assigneeLabel(issue: Api.Issue.Issue): string {
   if (issue.assignee?.name) return issue.assignee.name;
   if (issue.assignee?.sso_name) return issue.assignee.sso_name;
   if (issue.assignee_id) return issue.assignee_id.slice(0, 8);
-  return '未指派';
+  return $t('page.issueList.board.unassigned');
 }
 
 function tagNames(issue: Api.Issue.Issue): string {
@@ -211,7 +207,7 @@ async function persistColumn(laneKey: string, status: Api.Issue.IssueStatus, mov
       ordered_ids: list.map(i => i.id)
     });
     if (error) {
-      message.error(error.message || '看板移动失败');
+      message.error(error.message || $t('page.issueList.board.moveFailed'));
       rebuild(props.issues);
       return;
     }
@@ -221,7 +217,7 @@ async function persistColumn(laneKey: string, status: Api.Issue.IssueStatus, mov
     });
     emit('changed');
   } catch (e: any) {
-    message.error(e?.message || '看板移动失败');
+    message.error(e?.message || $t('page.issueList.board.moveFailed'));
     rebuild(props.issues);
   } finally {
     moving.value = false;
@@ -244,7 +240,7 @@ function showField(key: keyof IssueDisplayFields): boolean {
 <template>
   <div class="issue-board" :class="{ 'is-moving': moving }">
     <div v-if="totalCards === 0" class="board-empty">
-      <NEmpty description="暂无问题" size="large" />
+      <NEmpty :description="$t('page.shell.noIssues')" size="large" />
     </div>
     <div v-else class="board-lanes">
       <div v-for="lane in lanes" :key="lane.key" class="board-lane">
@@ -296,7 +292,7 @@ function showField(key: keyof IssueDisplayFields): boolean {
                     :type="getIssuePriorityTagType(issue.priority)"
                     :bordered="false"
                   >
-                    {{ getIssuePriorityLabel(issue.priority) }}
+                    {{ lookupLabel(priorityLabels.value, issue.priority) }}
                   </NTag>
                 </div>
                 <div class="board-card-title">{{ cardIconPrefix(issue) }}{{ issue.title }}</div>
@@ -309,7 +305,7 @@ function showField(key: keyof IssueDisplayFields): boolean {
                     style="cursor: pointer"
                     @click.stop="openDetail(issue)"
                   >
-                    被阻塞 {{ issue.blocked_by_count }}
+                    {{ $t('page.issueList.blockedBy', { count: issue.blocked_by_count }) }}
                   </NTag>
                   <NTag
                     v-if="(issue.blocks_count || 0) > 0"
@@ -319,7 +315,7 @@ function showField(key: keyof IssueDisplayFields): boolean {
                     style="cursor: pointer; margin-left: 4px"
                     @click.stop="openDetail(issue)"
                   >
-                    阻塞 {{ issue.blocks_count }}
+                    {{ $t('page.issueList.blocks', { count: issue.blocks_count }) }}
                   </NTag>
                 </div>
                 <div v-if="formatChildProgress(issue.childProgress)" class="board-card-meta">
@@ -341,16 +337,22 @@ function showField(key: keyof IssueDisplayFields): boolean {
                   <NText depth="3" class="text-12px">{{ tagNames(issue) }}</NText>
                 </div>
                 <div v-if="showField('estimate_points') && issue.estimate_points != null" class="board-card-meta">
-                  <NText depth="3" class="text-12px">估点 {{ issue.estimate_points }}</NText>
+                  <NText depth="3" class="text-12px">
+                    {{ $t('page.issueList.columns.estimate') }} {{ issue.estimate_points }}
+                  </NText>
                 </div>
                 <div v-if="showField('due_date') && issue.due_date" class="board-card-meta">
-                  <NText depth="3" class="text-12px">截止 {{ issue.due_date }}</NText>
+                  <NText depth="3" class="text-12px">{{ $t('page.issueList.board.due') }} {{ issue.due_date }}</NText>
                 </div>
                 <div v-if="showField('project') && issue.project_id" class="board-card-meta">
-                  <NText depth="3" class="text-12px">项目 {{ String(issue.project_id).slice(0, 8) }}</NText>
+                  <NText depth="3" class="text-12px">
+                    {{ $t('page.issueList.filters.project') }} {{ String(issue.project_id).slice(0, 8) }}
+                  </NText>
                 </div>
                 <div v-if="showField('cycle') && issue.cycle_id" class="board-card-meta">
-                  <NText depth="3" class="text-12px">冲刺 {{ String(issue.cycle_id).slice(0, 8) }}</NText>
+                  <NText depth="3" class="text-12px">
+                    {{ $t('page.issueForm.cycle') }} {{ String(issue.cycle_id).slice(0, 8) }}
+                  </NText>
                 </div>
               </NCard>
             </VueDraggable>

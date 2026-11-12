@@ -700,6 +700,51 @@ declare namespace App {
           blockedBy: string;
           blocks: string;
           noneCycle: string;
+          board: {
+            unassigned: string;
+            due: string;
+            moveFailed: string;
+            groupedListHint: string;
+          };
+          displayOptions: {
+            title: string;
+            cardFields: string;
+            customFieldColumns: string;
+            boardSwimlanes: string;
+            hideEmptyLanes: string;
+            conditionalFormats: string;
+            remove: string;
+            addRule: string;
+            colorScales: string;
+            addColorScale: string;
+            iconSets: string;
+            ruleCount: string;
+            addIconSet: string;
+            setPersonalDefault: string;
+            noSwimlane: string;
+            fieldCycle: string;
+          };
+          bulk: {
+            selected: string;
+            apply: string;
+            selectFieldWarning: string;
+            updateFailed: string;
+            updateSuccess: string;
+          };
+          search: {
+            defaultPlaceholder: string;
+            appliedFilters: string;
+            field: string;
+          };
+          searchSuggestions: {
+            labelBug: string;
+            typeFeature: string;
+            cycleNone: string;
+            filterByProject: string;
+            customField: string;
+            formulaEquals: string;
+            formulaRange: string;
+          };
         };
         issueForm: {
           createTitle: string;

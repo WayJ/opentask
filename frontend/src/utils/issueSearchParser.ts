@@ -1,3 +1,7 @@
+import { $t, i18n } from '@/locales';
+
+const locale = i18n.global.locale;
+
 /**
  * Issue 搜索语法解析器（E21：真正驱动 list API）
  * - is:open / is:closed / is:in_progress …
@@ -305,19 +309,21 @@ export function isIssueCodeToken(value: string): boolean {
  * 生成搜索建议文本
  */
 export function generateSearchSuggestions(): string[] {
+  // eslint-disable-next-line no-void
+  void locale.value;
   return [
-    'is:open - 只显示待办中的问题',
-    'is:closed - 只显示已完成的问题',
-    'is:in_progress - 只显示进行中的问题',
-    'assignee:@me - 指派给我',
-    'label:bug - 只显示标签为 bug 的问题',
-    'type:feature - 只显示类型为功能的问题',
-    'priority:urgent - 只显示紧急优先级的问题',
-    'cycle:__none__ - 无冲刺',
-    'project:<id> - 按项目过滤',
-    'field:severity:s1 - 自定义字段过滤（cf:key:value 亦可）',
-    'field:score:10 - 公式字段按计算值等值过滤（只读）',
-    'cf:score>=8 - 公式/数字字段 range 过滤（E46）'
+    `is:open - ${$t('page.issueList.syntax.isOpen')}`,
+    `is:closed - ${$t('page.issueList.syntax.isClosed')}`,
+    `is:in_progress - ${$t('page.issueList.syntax.isInProgress')}`,
+    `assignee:@me - ${$t('page.issueList.scopeTitle.assignedToMe')}`,
+    `label:bug - ${$t('page.issueList.searchSuggestions.labelBug')}`,
+    `type:feature - ${$t('page.issueList.searchSuggestions.typeFeature')}`,
+    `priority:urgent - ${$t('page.issueList.syntax.priorityUrgent')}`,
+    `cycle:__none__ - ${$t('page.issueList.searchSuggestions.cycleNone')}`,
+    `project:<id> - ${$t('page.issueList.searchSuggestions.filterByProject')}`,
+    `field:severity:s1 - ${$t('page.issueList.searchSuggestions.customField')}`,
+    `field:score:10 - ${$t('page.issueList.searchSuggestions.formulaEquals')}`,
+    `cf:score>=8 - ${$t('page.issueList.searchSuggestions.formulaRange')}`
   ];
 }
 

@@ -4,6 +4,7 @@ import { NCollapse, NCollapseItem, NDataTable, NEmpty, NTag, NText } from 'naive
 import type { DataTableColumns } from 'naive-ui';
 import { type GroupByKey, type IssueGroupBucket, groupIssuesBy } from '@/utils/groupIssuesBy';
 import { nestIssuesDepth1 } from '@/utils/nestIssuesDepth1';
+import { $t } from '@/locales';
 import { useLabelTable } from '@/locales/use-label-table';
 import type { Api } from '@/typings/api';
 
@@ -45,7 +46,7 @@ watch(
 
 <template>
   <div class="issue-list-grouped">
-    <NEmpty v-if="buckets.length === 0" description="暂无问题" size="large" />
+    <NEmpty v-if="buckets.length === 0" :description="$t('page.shell.noIssues')" size="large" />
     <NCollapse v-else v-model:expanded-names="expandedNames" display-directive="show">
       <NCollapseItem v-for="bucket in buckets" :key="bucket.key" :name="bucket.key">
         <template #header>
@@ -68,7 +69,7 @@ watch(
       </NCollapseItem>
     </NCollapse>
     <NText depth="3" class="lane-hint">
-      列表分组为展示泳道；泳道内 depth-1 嵌套。跨泳道拖拽改字段不在本 Sprint 范围。
+      {{ $t('page.issueList.board.groupedListHint') }}
     </NText>
   </div>
 </template>
