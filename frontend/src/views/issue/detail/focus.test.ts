@@ -8,8 +8,10 @@ const detail = readFileSync(resolve(process.cwd(), 'src/views/issue/detail/index
 
 function editButtonBlock(source: string): string {
   const start = source.indexOf('<div v-if="!issue.is_deleted" class="issue-actions">');
-  const end = source.indexOf('复制问题', start);
-  if (start < 0 || end < 0) return '';
+  const marker = source.indexOf('class="issue-action-edit"', start);
+  if (start < 0 || marker < 0) return '';
+  const end = source.indexOf('</NButton>', marker);
+  if (end < 0) return '';
   return source.slice(start, end);
 }
 
@@ -17,7 +19,7 @@ describe('detail edit button focus ring', () => {
   it('keeps the edit label, visibility, and route', () => {
     const block = editButtonBlock(detail);
     expect(block).toContain('v-if="!issue.is_deleted"');
-    expect(block).toContain('编辑');
+    expect(block).toContain("$t('common.edit')");
     expect(block).toContain(`@click="router.push({ path: '/issue/edit', query: { id: issue.id } })"`);
   });
 

@@ -127,13 +127,17 @@ const showAddRelation = ref(false);
 const pendingRelationTarget = ref('');
 const pendingRelationType = ref<Api.Issue.RelationType>('blocks');
 const relationBusy = ref(false);
-const relationTypeOptions = [
-  { label: '阻塞', value: 'blocks' },
-  { label: '被阻塞', value: 'is_blocked_by' },
-  { label: '关联', value: 'relates_to' },
-  { label: '重复', value: 'duplicates' },
-  { label: '依赖', value: 'depends_on' }
-];
+const relationTypeOptions = computed(() => {
+  // eslint-disable-next-line no-void
+  void locale.value;
+  return [
+    { label: $t('page.issueDetail.relationBlocks'), value: 'blocks' as const },
+    { label: $t('page.issueDetail.relationBlockedBy'), value: 'is_blocked_by' as const },
+    { label: $t('page.issueDetail.relationRelated'), value: 'relates_to' as const },
+    { label: $t('page.issueDetail.relationDuplicates'), value: 'duplicates' as const },
+    { label: $t('page.issueDetail.relationDependsOn'), value: 'depends_on' as const }
+  ];
+});
 
 // E4-S3 父子
 const parentIssue = ref<Api.Issue.Issue | null>(null);
@@ -191,7 +195,9 @@ const cycleDisplayValue = computed(() => {
 });
 
 const milestoneOptions = computed(() => {
-  const opts: { label: string; value: string | null }[] = [{ label: '无 Milestone', value: null }];
+  // eslint-disable-next-line no-void
+  void locale.value;
+  const opts: { label: string; value: string | null }[] = [{ label: $t('page.issueDetail.noMilestone'), value: null }];
   for (const m of milestones.value) {
     opts.push({ label: m.name, value: m.id });
   }
@@ -391,7 +397,7 @@ async function refreshData() {
   window.$message?.success('数据已刷新');
 }
 
-// 快速操作：获取 Agent 指令
+// quick action: open the agent prompt modal
 function showAgentPrompt() {
   showAgentPromptModal.value = true;
 }
@@ -1272,16 +1278,24 @@ function goBack() {
 
 // Get relation label
 function getRelationLabel(type: string): string {
-  const labels: Record<string, string> = {
-    blocks: '阻塞',
-    is_blocked_by: '被阻塞',
-    relates_to: '关联',
-    duplicates: '重复',
-    is_duplicated_by: '被重复',
-    depends_on: '依赖',
-    is_depended_by: '被依赖'
-  };
-  return labels[type] || type;
+  switch (type) {
+    case 'blocks':
+      return $t('page.issueDetail.relationBlocks');
+    case 'is_blocked_by':
+      return $t('page.issueDetail.relationBlockedBy');
+    case 'relates_to':
+      return $t('page.issueDetail.relationRelated');
+    case 'duplicates':
+      return $t('page.issueDetail.relationDuplicates');
+    case 'is_duplicated_by':
+      return $t('page.issueDetail.relationDuplicatedBy');
+    case 'depends_on':
+      return $t('page.issueDetail.relationDependsOn');
+    case 'is_depended_by':
+      return $t('page.issueDetail.relationDependedOnBy');
+    default:
+      return type;
+  }
 }
 
 watch(
@@ -1465,7 +1479,7 @@ onUnmounted(() => {
                 <div class="issue-code">{{ issue.issue_code }}</div>
                 <h1 class="issue-title">{{ issue.title }}</h1>
                 <div v-if="parentIssue || issue.parent_issue_id" class="parent-issue-link">
-                  <NText depth="3" style="font-size: 12px">父问题：</NText>
+                  <NText depth="3" style="font-size: 12px">{{ $t('page.issueDetail.parentPrefix') }}</NText>
                   <NButton
                     text
                     size="tiny"
@@ -1488,7 +1502,7 @@ onUnmounted(() => {
               <div class="flex items-center justify-between gap-3">
                 <span>{{ deletedReadonlyBanner() }}</span>
                 <NButton size="small" type="primary" :loading="restoreLoading" @click="handleRestoreFromTrash">
-                  恢复
+                  {{ $t('page.issueTrash.restore') }}
                 </NButton>
               </div>
             </NAlert>
@@ -1504,19 +1518,19 @@ onUnmounted(() => {
                   <template #icon>
                     <icon-mdi-pencil />
                   </template>
-                  编辑
+                  {{ $t('common.edit') }}
                 </NButton>
                 <NButton size="small" :loading="duplicateLoading" @click="handleDuplicateIssue">
                   <template #icon>
                     <icon-mdi-content-copy />
                   </template>
-                  复制问题
+                  {{ $t('page.issueDetail.copyIssue') }}
                 </NButton>
                 <NButton size="small" @click="openSetParentModal(issue.parent_issue_id ? 'change' : 'set')">
                   <template #icon>
                     <icon-mdi-file-tree />
                   </template>
-                  {{ issue.parent_issue_id ? '更换父' : '设为子项…' }}
+                  {{ issue.parent_issue_id ? $t('page.issueDetail.changeParent') : $t('page.issueDetail.setAsChild') }}
                 </NButton>
                 <NButton
                   v-if="canPromoteToRoot(issue.parent_issue_id)"
@@ -1527,31 +1541,35 @@ onUnmounted(() => {
                   <template #icon>
                     <icon-mdi-arrow-up-bold />
                   </template>
-                  提升为根
+                  {{ $t('page.issueDetail.promoteToRoot') }}
                 </NButton>
                 <NButton size="small" @click="startEdit('status', issue.status)">
                   <template #icon>
                     <icon-mdi:swap-horizontal />
                   </template>
-                  状态
+                  {{ $t('page.issueForm.status') }}
                 </NButton>
                 <NButton size="small" @click="handleDeleteIssue">
                   <template #icon>
                     <icon-mdi-delete />
                   </template>
-                  删除
+                  {{ $t('common.delete') }}
                 </NButton>
                 <NButton size="small" :loading="watchLoading" @click="toggleWatch">
-                  {{ watching ? '取消关注' : '关注' }}
+                  {{ watching ? $t('page.issueDetail.unwatch') : $t('page.issueDetail.watch') }}
                 </NButton>
                 <NButton size="small" :loading="pinLoading" @click="toggleSidebarPin">
-                  {{ pinnedFavoriteId ? '取消侧栏收藏' : '收藏到侧栏' }}
+                  {{
+                    pinnedFavoriteId
+                      ? $t('page.issueList.toolbar.unpinFromSidebar')
+                      : $t('page.issueList.toolbar.pinToSidebar')
+                  }}
                 </NButton>
                 <NButton size="small" :loading="copyBranchLoading" @click="copyGitBranchName">
                   <template #icon>
                     <icon-mdi-source-branch />
                   </template>
-                  复制分支名
+                  {{ $t('page.issueDetail.copyBranchName') }}
                 </NButton>
               </NButtonGroup>
             </div>
@@ -1560,10 +1578,10 @@ onUnmounted(() => {
           <!-- Description -->
           <div class="issue-description">
             <div class="section-header">
-              <NText strong>描述</NText>
+              <NText strong>{{ $t('page.issueComposer.description') }}</NText>
             </div>
             <div class="description-content">
-              <NEmpty v-if="!issue.description" description="暂无描述" size="small" />
+              <NEmpty v-if="!issue.description" :description="$t('page.issueDetail.noDescription')" size="small" />
               <MarkdownRenderer v-else :content="issue.description" />
             </div>
 
@@ -1577,7 +1595,7 @@ onUnmounted(() => {
           </div>
 
           <!-- Attachments -->
-          <NCard class="attachment-card-compact" size="small" title="附件">
+          <NCard class="attachment-card-compact" size="small" :title="$t('page.issueComposer.attachments')">
             <NSpin :show="attachmentsLoading">
               <AttachmentList :issue-id="issueId" :attachments="attachments" @refresh="loadAttachments" />
             </NSpin>
@@ -1598,8 +1616,8 @@ onUnmounted(() => {
                 class="card-header"
                 style="display: flex; align-items: center; justify-content: space-between; width: 100%"
               >
-                <span>子问题</span>
-                <NButton text size="tiny" @click="showAddSubIssue = true">+ 添加</NButton>
+                <span>{{ $t('page.issueDetail.subIssues') }}</span>
+                <NButton text size="tiny" @click="showAddSubIssue = true">{{ $t('page.issueDetail.add') }}</NButton>
               </div>
             </template>
             <div v-if="(issue.childProgress?.total || 0) > 0" class="mb-8px">
@@ -1615,7 +1633,7 @@ onUnmounted(() => {
                 </NText>
               </NSpace>
             </div>
-            <NEmpty v-if="!childSummaries.length" description="暂无子问题" size="small" />
+            <NEmpty v-if="!childSummaries.length" :description="$t('page.issueDetail.noSubIssues')" size="small" />
             <NSpace v-else vertical :size="4">
               <div v-for="c in childSummaries" :key="c.id" class="linked-issue">
                 <NButton
@@ -1641,7 +1659,7 @@ onUnmounted(() => {
               class="section-header"
               style="display: flex; align-items: center; justify-content: space-between; gap: 8px"
             >
-              <NText strong>活动 ({{ timeline.length }})</NText>
+              <NText strong>{{ $t('page.issueDetail.activity', { n: timeline.length }) }}</NText>
               <NButton
                 size="tiny"
                 secondary
@@ -1649,7 +1667,7 @@ onUnmounted(() => {
                 :disabled="!issueId"
                 @click="exportTimelineCsv"
               >
-                导出 CSV
+                {{ $t('page.insights.exportCsv') }}
               </NButton>
             </div>
 
@@ -1675,14 +1693,16 @@ onUnmounted(() => {
                           </NText>
                         </NSpace>
                         <NSpace :size="4">
-                          <NButton text size="tiny" @click="startReply(node.comment)">回复</NButton>
+                          <NButton text size="tiny" @click="startReply(node.comment)">
+                            {{ $t('page.issueDetail.reply') }}
+                          </NButton>
                           <NButton
                             v-if="node.comment.user_id === 'admin'"
                             text
                             size="tiny"
                             @click="handleDeleteComment(node.comment.id)"
                           >
-                            删除
+                            {{ $t('common.delete') }}
                           </NButton>
                         </NSpace>
                       </div>
@@ -1734,7 +1754,7 @@ onUnmounted(() => {
                           size="tiny"
                           @click="handleDeleteComment(reply.id)"
                         >
-                          删除
+                          {{ $t('common.delete') }}
                         </NButton>
                       </div>
                       <div class="comment-text">
@@ -1779,28 +1799,26 @@ onUnmounted(() => {
                   </div>
                 </div>
               </div>
-              <NEmpty v-else description="暂无活动" size="small" />
+              <NEmpty v-else :description="$t('page.issueDetail.noActivity')" size="small" />
             </NSpin>
 
             <!-- Add Comment -->
             <div class="add-comment">
               <div v-if="replyToId" class="reply-banner" style="margin-bottom: 8px">
                 <NText depth="3" style="font-size: 12px">{{ replyToPreview }}</NText>
-                <NButton text size="tiny" @click="cancelReply">取消</NButton>
+                <NButton text size="tiny" @click="cancelReply">{{ $t('common.cancel') }}</NButton>
               </div>
               <MarkdownEditor
                 v-model="newComment"
                 :placeholder="
-                  replyToId
-                    ? '写下回复...支持 Markdown'
-                    : '添加评论...支持 Markdown 语法。使用 @提及用户，+ISSUE-xxx 引用问题、+PROJECT-xxx 引用项目、+REQUIREMENT-xxx 引用需求等'
+                  replyToId ? $t('page.issueDetail.replyPlaceholder') : $t('page.issueDetail.commentPlaceholder')
                 "
                 :rows="4"
                 @submit="handleAddComment"
               />
               <div class="comment-actions">
                 <NButton type="primary" size="small" :disabled="!newComment.trim()" @click="handleAddComment">
-                  {{ replyToId ? '发表回复' : '发表评论' }}
+                  {{ replyToId ? $t('page.issueDetail.postReply') : $t('page.issueDetail.postComment') }}
                 </NButton>
               </div>
             </div>
@@ -1941,7 +1959,7 @@ onUnmounted(() => {
                 <NSelect
                   v-model:value="tempMilestone"
                   :options="milestoneOptions"
-                  placeholder="选择 Milestone"
+                  :placeholder="$t('page.issueDetail.chooseMilestone')"
                   size="small"
                   clearable
                 />
@@ -2023,7 +2041,7 @@ onUnmounted(() => {
                     :loading="watchLoading"
                     @click="toggleWatch"
                   >
-                    取消
+                    {{ $t('page.issueDetail.unwatchInline') }}
                   </NButton>
                 </div>
               </NSpace>
@@ -2063,10 +2081,10 @@ onUnmounted(() => {
             <EditableField
               v-model="tempProject"
               v-model:editing="editingProject"
-              label="项目"
+              :label="$t('page.issueDetail.project')"
               :display-value="issue.project?.name || ''"
               :options="projectOptions"
-              placeholder="未设置"
+              :placeholder="$t('page.issueForm.unset')"
               select-width="140px"
               :clearable="true"
               @save="saveProject"
@@ -2082,10 +2100,10 @@ onUnmounted(() => {
             <EditableField
               v-model="tempEstimate"
               v-model:editing="editingEstimate"
-              label="估点"
+              :label="$t('page.issueList.columns.estimate')"
               :display-value="issue.estimate_points != null ? String(issue.estimate_points) : ''"
               :options="estimateOptions"
-              placeholder="未设置"
+              :placeholder="$t('page.issueForm.unset')"
               select-width="100px"
               :clearable="true"
               @save="saveEstimate"
@@ -2101,11 +2119,15 @@ onUnmounted(() => {
             <div v-if="issue.estimated_hours || issue.actual_hours" class="sidebar-field">
               <div class="field-label">
                 <icon-mdi-clock-outline />
-                工时
+                {{ $t('page.issueDetail.timeTracking') }}
               </div>
               <div class="field-value">
-                <NText v-if="issue.estimated_hours">预估: {{ issue.estimated_hours }}h</NText>
-                <NText v-if="issue.actual_hours" style="margin-left: 8px">实际: {{ issue.actual_hours }}h</NText>
+                <NText v-if="issue.estimated_hours">
+                  {{ $t('page.issueDetail.estimated') }} {{ issue.estimated_hours }}h
+                </NText>
+                <NText v-if="issue.actual_hours" style="margin-left: 8px">
+                  {{ $t('page.issueDetail.actual') }} {{ issue.actual_hours }}h
+                </NText>
               </div>
             </div>
 
@@ -2115,7 +2137,7 @@ onUnmounted(() => {
               <div v-for="c in slaClocks" :key="c.id" style="margin-bottom: 6px">
                 <NTag size="small" :type="slaBadgeType(c.status)" :bordered="false">
                   {{ slaMetricBadgePrefix(c.metric) }} · {{ c.policyName || c.policyId.slice(0, 8) }} ·
-                  {{ c.status === 'paused' ? '已暂停' : c.status }}
+                  {{ c.status === 'paused' ? $t('page.issueDetail.slaPaused') : c.status }}
                 </NTag>
                 <NText v-if="c.status === 'running'" depth="3" style="font-size: 12px; margin-left: 6px">
                   {{ formatSlaRemaining(c.deadlineAt) }}
@@ -2128,7 +2150,7 @@ onUnmounted(() => {
 
             <div id="issue-custom-fields" class="sidebar-section">
               <div class="sidebar-section-title">
-                <span>自定义字段</span>
+                <span>{{ $t('page.issueDetail.customFields') }}</span>
               </div>
               <IssueCustomFieldsEditor :issue-id="issueId" :values="customFields" @updated="onCustomFieldsUpdated" />
             </div>
@@ -2136,7 +2158,7 @@ onUnmounted(() => {
             <!-- Customer requests (E22) — only when linked -->
             <div v-if="linkedCustomerRequests.length" id="issue-customer-requests" class="sidebar-section">
               <div class="sidebar-section-title">
-                <span>客户需求</span>
+                <span>{{ $t('page.issueDetail.customerRequests') }}</span>
                 <NTag size="tiny" :bordered="false">{{ linkedCustomerRequests.length }}</NTag>
               </div>
               <NSpace vertical :size="4">
@@ -2157,8 +2179,10 @@ onUnmounted(() => {
             <!-- Linked Issues / Relations CRUD (E20) -->
             <div id="issue-relations" class="sidebar-section">
               <div class="sidebar-section-title">
-                <span>关联问题</span>
-                <NButton text size="tiny" @click="showAddRelation = !showAddRelation">+ 添加</NButton>
+                <span>{{ $t('page.issueDetail.linkedIssues') }}</span>
+                <NButton text size="tiny" @click="showAddRelation = !showAddRelation">
+                  {{ $t('page.issueDetail.add') }}
+                </NButton>
               </div>
               <div class="linked-issues">
                 <div
@@ -2180,7 +2204,7 @@ onUnmounted(() => {
                     type="error"
                     @click="handleRemoveRelation(rel.target_id, rel.relation_type)"
                   >
-                    移除
+                    {{ $t('page.issueDetail.remove') }}
                   </NButton>
                 </div>
                 <div
@@ -2202,14 +2226,14 @@ onUnmounted(() => {
                   depth="3"
                   style="font-size: 12px"
                 >
-                  暂无关联
+                  {{ $t('page.issueDetail.noLinks') }}
                 </NText>
               </div>
               <div v-if="showAddRelation" class="mt-2">
                 <NInput
                   v-model:value="pendingRelationTarget"
                   size="small"
-                  placeholder="目标问题 ID 或 KEY-N"
+                  :placeholder="$t('page.issueDetail.targetIssuePlaceholder')"
                   class="mb-2"
                 />
                 <NSelect v-model:value="pendingRelationType" :options="relationTypeOptions" size="small" class="mb-2" />
@@ -2220,7 +2244,7 @@ onUnmounted(() => {
                   :disabled="!pendingRelationTarget.trim()"
                   @click="handleAddRelation"
                 >
-                  确认添加
+                  {{ $t('page.issueDetail.confirmAdd') }}
                 </NButton>
               </div>
             </div>
@@ -2228,8 +2252,8 @@ onUnmounted(() => {
             <!-- Tags -->
             <div class="sidebar-section">
               <div class="sidebar-section-title">
-                <span>标签</span>
-                <NButton text size="tiny" @click="showAddTag = !showAddTag">+ 添加</NButton>
+                <span>{{ $t('page.issueDetail.tags') }}</span>
+                <NButton text size="tiny" @click="showAddTag = !showAddTag">{{ $t('page.issueDetail.add') }}</NButton>
               </div>
               <div class="tags-list">
                 <NTag
@@ -2243,13 +2267,13 @@ onUnmounted(() => {
                 >
                   {{ tagDisplayName(tag) }}
                 </NTag>
-                <NText v-if="!tags.length" depth="3" style="font-size: 12px">暂无标签</NText>
+                <NText v-if="!tags.length" depth="3" style="font-size: 12px">{{ $t('page.issueDetail.noTags') }}</NText>
               </div>
               <div v-if="showAddTag" class="mt-2">
                 <NSelect
                   v-model:value="pendingTagId"
                   :options="availableTags.map(t => ({ label: t.name, value: t.id }))"
-                  placeholder="选择标签"
+                  :placeholder="$t('page.issueDetail.chooseTag')"
                   size="small"
                   filterable
                   clearable
@@ -2261,7 +2285,7 @@ onUnmounted(() => {
                   :disabled="pendingTagId === null"
                   @click="handleAddTag"
                 >
-                  确认添加
+                  {{ $t('page.issueDetail.confirmAdd') }}
                 </NButton>
               </div>
             </div>
@@ -2269,13 +2293,19 @@ onUnmounted(() => {
             <!-- Metadata -->
             <div class="sidebar-section metadata">
               <div class="metadata-item">
-                <NText depth="3" style="font-size: 11px">创建于 {{ formatDateTime(issue.created_at) }}</NText>
+                <NText depth="3" style="font-size: 11px">
+                  {{ $t('page.issueDetail.createdAt') }} {{ formatDateTime(issue.created_at) }}
+                </NText>
               </div>
               <div class="metadata-item">
-                <NText depth="3" style="font-size: 11px">更新于 {{ formatDateTime(issue.updated_at) }}</NText>
+                <NText depth="3" style="font-size: 11px">
+                  {{ $t('page.issueDetail.updatedAt') }} {{ formatDateTime(issue.updated_at) }}
+                </NText>
               </div>
               <div class="metadata-item">
-                <NText depth="3" style="font-size: 11px">浏览 {{ issue.view_count }} 次</NText>
+                <NText depth="3" style="font-size: 11px">
+                  {{ $t('page.issueDetail.viewedNTimes', { n: issue.view_count }) }}
+                </NText>
               </div>
             </div>
           </NCard>
@@ -2285,19 +2315,19 @@ onUnmounted(() => {
             <template #header>
               <div class="card-header">
                 <span class="card-icon">⚡</span>
-                <span>快速操作</span>
+                <span>{{ $t('page.issueDetail.quickActions') }}</span>
               </div>
             </template>
 
             <NSpace vertical :size="8">
               <NButton block secondary type="info" @click="showAgentPrompt">
                 <span class="action-icon">📋</span>
-                获取 Agent 指令
+                {{ $t('page.issueDetail.getAgentInstructions') }}
               </NButton>
 
               <NButton block secondary @click="refreshData">
                 <span class="action-icon">🔄</span>
-                刷新数据
+                {{ $t('page.issueDetail.refresh') }}
               </NButton>
             </NSpace>
           </NCard>
@@ -2311,24 +2341,26 @@ onUnmounted(() => {
     <NModal
       v-model:show="showSetParentModal"
       preset="card"
-      :title="setParentMode === 'change' ? '更换父问题' : '设为子项'"
+      :title="
+        setParentMode === 'change' ? $t('page.issueDetail.changeParentTitle') : $t('page.issueDetail.setAsChildTitle')
+      "
       style="width: 480px"
     >
       <NSpace vertical>
-        <NText depth="3">选择同工作区的父问题（排除自身；环由服务端校验）。</NText>
+        <NText depth="3">{{ $t('page.issueDetail.changeParentHint') }}</NText>
         <NSelect
           v-model:value="pendingParentId"
           filterable
           clearable
           :loading="parentPickerLoading"
           :options="parentPickerOptions"
-          placeholder="搜索问题…"
+          :placeholder="$t('page.issueDetail.searchIssues')"
           @search="loadParentPickerOptions"
         />
         <NSpace justify="end">
-          <NButton @click="showSetParentModal = false">取消</NButton>
+          <NButton @click="showSetParentModal = false">{{ $t('common.cancel') }}</NButton>
           <NButton type="primary" :loading="setParentLoading" :disabled="!pendingParentId" @click="confirmSetParent">
-            确认
+            {{ $t('common.confirm') }}
           </NButton>
         </NSpace>
       </NSpace>
@@ -2343,11 +2375,17 @@ onUnmounted(() => {
       style="width: 480px"
     >
       <NSpace vertical>
-        <NText depth="3">将创建挂在当前问题下的子项（parent_issue_id）。</NText>
-        <NInput v-model:value="newSubIssueTitle" placeholder="子问题标题" @keyup.enter="createSubIssue" />
+        <NText depth="3">{{ $t('page.issueDetail.addSubIssueHint') }}</NText>
+        <NInput
+          v-model:value="newSubIssueTitle"
+          :placeholder="$t('page.issueDetail.subIssueTitle')"
+          @keyup.enter="createSubIssue"
+        />
         <NSpace justify="end">
-          <NButton @click="showAddSubIssue = false">取消</NButton>
-          <NButton type="primary" :loading="addingSubIssue" @click="createSubIssue">创建</NButton>
+          <NButton @click="showAddSubIssue = false">{{ $t('common.cancel') }}</NButton>
+          <NButton type="primary" :loading="addingSubIssue" @click="createSubIssue">
+            {{ $t('page.issueDetail.create') }}
+          </NButton>
         </NSpace>
       </NSpace>
     </NModal>

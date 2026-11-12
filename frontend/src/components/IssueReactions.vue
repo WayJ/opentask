@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { NButton, NDropdown, NPopover, NSpace, NText } from 'naive-ui';
+import { useI18n } from 'vue-i18n';
+import { $t } from '@/locales';
 
 interface Reaction {
   emoji: string;
@@ -27,24 +29,29 @@ const emit = defineEmits<{
   unreact: [emoji: string];
 }>();
 
-// 可用的表情
-const availableReactions = [
-  { emoji: '👍', name: '赞成' },
-  { emoji: '👎', name: '反对' },
-  { emoji: '❤️', name: '喜欢' },
-  { emoji: '🎉', name: '庆祝' },
-  { emoji: '🚀', name: '火箭' },
-  { emoji: '👀', name: '关注' },
-  { emoji: '😕', name: '困惑' },
-  { emoji: '😄', name: '开心' }
-];
+const { locale } = useI18n();
+
+const availableReactions = computed(() => {
+  // eslint-disable-next-line no-void
+  void locale.value;
+  return [
+    { emoji: '👍', name: $t('page.issueReaction.thumbsUp') },
+    { emoji: '👎', name: $t('page.issueReaction.thumbsDown') },
+    { emoji: '❤️', name: $t('page.issueReaction.heart') },
+    { emoji: '🎉', name: $t('page.issueReaction.tada') },
+    { emoji: '🚀', name: $t('page.issueReaction.rocket') },
+    { emoji: '👀', name: $t('page.issueReaction.eyes') },
+    { emoji: '😕', name: $t('page.issueReaction.confused') },
+    { emoji: '😄', name: $t('page.issueReaction.smile') }
+  ];
+});
 
 // 计算反应列表
 const reactions = ref<Reaction[]>([]);
 
 // 更新反应列表
 function updateReactions() {
-  reactions.value = availableReactions.map(reaction => {
+  reactions.value = availableReactions.value.map(reaction => {
     const users = props.modelValue[reaction.emoji] || [];
     return {
       emoji: reaction.emoji,
@@ -97,11 +104,17 @@ function handleReactionClick(emoji: string) {
 
 // 获取反应用户的显示文本
 function getReactionUsersText(reaction: Reaction): string {
+  // eslint-disable-next-line no-void
+  void locale.value;
   if (reaction.count === 0) return '';
   if (reaction.count <= 2) {
     return reaction.users.join(', ');
   }
-  return `${reaction.users[0]}, ${reaction.users[1]} 和其他 ${reaction.count - 2} 人`;
+  return $t('page.issueReaction.others', {
+    a: reaction.users[0],
+    b: reaction.users[1],
+    n: reaction.count - 2
+  });
 }
 </script>
 
@@ -132,7 +145,7 @@ function getReactionUsersText(reaction: Reaction): string {
           <template #icon>
             <icon-mdi-emoticon-happy-outline />
           </template>
-          添加反应
+          {{ $t('page.issueReaction.add') }}
         </NButton>
       </NDropdown>
 

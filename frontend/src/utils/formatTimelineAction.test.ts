@@ -1,7 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { setLocale } from '@/locales';
 import { formatTimelineAction } from './formatTimelineAction';
 
 describe('formatTimelineAction', () => {
+  beforeEach(() => setLocale('zh-CN'));
+  afterEach(() => setLocale('zh-CN'));
+
   it('formats custom_field_changed', () => {
     expect(
       formatTimelineAction({
@@ -55,5 +59,44 @@ describe('formatTimelineAction', () => {
         action_data: { policyName: 'TIS', metric: 'time_in_status' }
       })
     ).toBe('恢复了状态 SLA（TIS）');
+  });
+
+  it('uses page.issueStatus for open, so Chinese is 待办', () => {
+    setLocale('zh-CN');
+    expect(
+      formatTimelineAction({
+        action_type: 'status_changed',
+        action_data: { from: 'open', to: 'in_progress' }
+      })
+    ).toBe('将状态从 "待办" 改为 "进行中"');
+  });
+
+  it('switches timeline verbs and status labels with the real en-US locale', () => {
+    setLocale('en-US');
+    expect(formatTimelineAction({ action_type: 'created' })).toBe('Created this issue');
+    expect(
+      formatTimelineAction({
+        action_type: 'status_changed',
+        action_data: { from: 'open', to: 'in_progress' }
+      })
+    ).toBe('Changed status from "Open" to "In progress"');
+    expect(
+      formatTimelineAction({
+        action_type: 'priority_changed',
+        action_data: { from: 'low', to: 'high' }
+      })
+    ).toBe('Changed priority from "Low" to "High"');
+    expect(
+      formatTimelineAction({
+        action_type: 'sla_paused',
+        action_data: { policyName: 'FR', metric: 'first_response' }
+      })
+    ).toBe('Paused first-response SLA (FR)');
+    expect(
+      formatTimelineAction({
+        action_type: 'cycle_changed',
+        action_data: { from: null, to: 'c1' }
+      })
+    ).toBe('Changed cycle from Empty to c1');
   });
 });

@@ -283,10 +283,12 @@ describe('issue composer chrome copy', () => {
     expect(editor).toContain("insertText('\\n## ', '', '标题')");
     expect(editor).toContain("insertText('\\n- [ ] ', '', '待办事项')");
     const statusBtnStart = detail.indexOf("startEdit('status'");
-    expect(detail.slice(statusBtnStart, detail.indexOf('</NButton>', statusBtnStart))).toContain('状态');
+    expect(detail.slice(statusBtnStart, detail.indexOf('</NButton>', statusBtnStart))).toContain(
+      "$t('page.issueForm.status')"
+    );
     const deleteIcon = detail.indexOf('icon-mdi-delete');
     expect(deleteIcon).toBeGreaterThan(-1);
-    expect(detail.slice(deleteIcon, detail.indexOf('</NButton>', deleteIcon))).toContain('删除');
-    expect(detail).toContain('取消\n                  </NButton>');
+    expect(detail.slice(deleteIcon, detail.indexOf('</NButton>', deleteIcon))).toContain("$t('common.delete')");
+    expect(detail).toContain(`@click="cancelReply">{{ $t('common.cancel') }}</NButton>`);
   });
 });
