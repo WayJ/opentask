@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { NButton, NDropdown, NPopover, NSpace, NText } from 'naive-ui';
-import { $t, i18n } from '@/locales';
+import { useI18n } from 'vue-i18n';
+import { $t } from '@/locales';
 
 interface Reaction {
   emoji: string;
@@ -28,7 +29,7 @@ const emit = defineEmits<{
   unreact: [emoji: string];
 }>();
 
-const locale = i18n.global.locale;
+const { locale } = useI18n();
 
 const availableReactions = computed(() => {
   // eslint-disable-next-line no-void
@@ -62,10 +63,8 @@ function updateReactions() {
   });
 }
 
-// 监听 modelValue 变化
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 watch(
-  () => props.modelValue,
+  [() => props.modelValue, availableReactions],
   () => {
     updateReactions();
   },
@@ -158,6 +157,7 @@ function getReactionUsersText(reaction: Reaction): string {
         <div class="reaction-users-list">
           <div v-for="reaction in reactions.filter(r => r.count > 0)" :key="reaction.emoji" class="reaction-user-item">
             <span class="reaction-emoji">{{ reaction.emoji }}</span>
+            <span class="reaction-name">{{ reaction.name }}</span>
             <NText>{{ getReactionUsersText(reaction) }}</NText>
           </div>
         </div>

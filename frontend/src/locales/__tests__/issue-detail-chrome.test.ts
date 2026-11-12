@@ -504,4 +504,21 @@ describe('issue detail English chrome', () => {
     expect(wrapper.text()).toContain('and 1 others');
     wrapper.unmount();
   });
+
+  it('refreshes rendered reaction names when the locale changes and modelValue does not', async () => {
+    setLocale('zh-CN');
+    const modelValue = { '👍': ['u1'] };
+    const wrapper = mount(IssueReactions, {
+      props: { modelValue, currentUserId: 'u1' },
+      global: { plugins: [i18n], stubs: reactionStubs }
+    });
+    expect(wrapper.text()).toContain('赞成');
+    expect(wrapper.text()).not.toContain('Thumbs up');
+    setLocale('en-US');
+    await nextTick();
+    expect(wrapper.text()).toContain('Thumbs up');
+    expect(wrapper.text()).not.toContain('赞成');
+    expect(wrapper.props('modelValue')).toEqual(modelValue);
+    wrapper.unmount();
+  });
 });
