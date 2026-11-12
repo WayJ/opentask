@@ -17,6 +17,7 @@ import {
   NTag,
   NText
 } from 'naive-ui';
+import { useI18n } from 'vue-i18n';
 import {
   getIssuePriorityTagType,
   getIssueStatusTagType,
@@ -75,6 +76,7 @@ const route = useRoute();
 const router = useRouter();
 const issueStore = useIssueStore();
 const authStore = useAuthStore();
+const { locale } = useI18n();
 const issueFocus = useIssueFocus();
 
 const issueId = computed(() => (route.query.id as string) || '');
@@ -172,7 +174,9 @@ const projectOptions = computed(() => {
 });
 
 const cycleOptions = computed(() => {
-  const opts: { label: string; value: string | null }[] = [{ label: '无 Cycle', value: null }];
+  const opts: { label: string; value: string | null }[] = [
+    { label: locale.value ? $t('page.issueList.noneCycle') : $t('page.issueList.noneCycle'), value: null }
+  ];
   for (const c of cycles.value) {
     opts.push({ label: c.name, value: c.id });
   }
@@ -180,7 +184,7 @@ const cycleOptions = computed(() => {
 });
 
 const cycleDisplayValue = computed(() => {
-  if (!issue.value?.cycle_id) return '未分配';
+  if (!issue.value?.cycle_id || !locale.value) return $t('page.issueForm.unassigned');
   const found = cycles.value.find(c => c.id === issue.value?.cycle_id);
   return found?.name || issue.value.cycle_id;
 });
@@ -194,7 +198,7 @@ const milestoneOptions = computed(() => {
 });
 
 const milestoneDisplayValue = computed(() => {
-  if (!issue.value?.milestone_id) return '未分配';
+  if (!issue.value?.milestone_id || !locale.value) return $t('page.issueForm.unassigned');
   const found = milestones.value.find(m => m.id === issue.value?.milestone_id);
   return found?.name || issue.value.milestone_id;
 });
@@ -229,8 +233,20 @@ const tempEstimate = ref<number | null>(null);
 const getTypeType = getIssueTypeTagType;
 const getStatusType = getIssueStatusTagType;
 const getPriorityType = getIssuePriorityTagType;
-const statusOptions = issueStatusOptions;
-const priorityOptions = issuePriorityOptions;
+const statusLabels = useLabelTable('page.issueStatus');
+const statusOptions = computed(() =>
+  labeledOptions(
+    issueStatusOptions.map(option => option.value),
+    statusLabels.value
+  )
+);
+const priorityLabels = useLabelTable('page.issuePriority');
+const priorityOptions = computed(() =>
+  labeledOptions(
+    issuePriorityOptions.map(option => option.value),
+    priorityLabels.value
+  )
+);
 const typeLabels = useLabelTable('page.issueType');
 const typeOptions = computed(() =>
   labeledOptions(
@@ -932,11 +948,12 @@ function cancelAssignee() {
 }
 
 function assigneesDisplayValue(): string {
+  const unassigned = locale.value ? $t('page.issueForm.unassigned') : $t('page.issueForm.unassigned');
   const list = issue.value?.assignees;
   if (Array.isArray(list) && list.length) {
     return list.map(a => a.sso_name || a.name || a.id.slice(0, 8)).join(', ');
   }
-  return issue.value?.assignee?.sso_name || issue.value?.assignee?.name || issue.value?.assignee_id || '未分配';
+  return issue.value?.assignee?.sso_name || issue.value?.assignee?.name || issue.value?.assignee_id || unassigned;
 }
 
 async function saveReporter() {
@@ -1795,7 +1812,7 @@ onUnmounted(() => {
             <EditableField
               v-model="tempStatus"
               v-model:editing="editingStatus"
-              label="状态"
+              :label="$t('page.issueForm.status')"
               :display-value="statusOptions.find(s => s.value === issue.status)?.label || issue.status"
               :options="statusOptions"
               :tag-type="getStatusType(issue.status)"
@@ -1812,9 +1829,9 @@ onUnmounted(() => {
             <EditableField
               v-model="tempAssignee"
               v-model:editing="editingAssignee"
-              label="指派人"
+              :label="$t('page.issueForm.assignee')"
               :display-value="assigneesDisplayValue()"
-              placeholder="未分配"
+              :placeholder="$t('page.issueForm.unassigned')"
               @save="saveAssignee"
               @cancel="cancelAssignee"
               @start-edit="
@@ -1851,7 +1868,7 @@ onUnmounted(() => {
                   :model-value="tempAssignee"
                   multiple
                   :max="10"
-                  placeholder="选择指派人（首位=负责人）"
+                  :placeholder="$t('page.issueForm.selectAssignees')"
                   size="small"
                   @update:model-value="
                     value => {
@@ -1866,7 +1883,7 @@ onUnmounted(() => {
             <EditableField
               v-model="tempPriority"
               v-model:editing="editingPriority"
-              label="优先级"
+              :label="$t('page.issueForm.priority')"
               :display-value="priorityOptions.find(p => p.value === issue.priority)?.label || issue.priority"
               :options="priorityOptions"
               :tag-type="getPriorityType(issue.priority)"
@@ -1883,9 +1900,9 @@ onUnmounted(() => {
             <EditableField
               v-model="tempCycle"
               v-model:editing="editingCycle"
-              label="冲刺"
+              :label="$t('page.issueForm.cycle')"
               :display-value="cycleDisplayValue"
-              placeholder="未分配"
+              :placeholder="$t('page.issueForm.unassigned')"
               @save="saveCycle"
               @cancel="cancelCycle"
               @start-edit="tempCycle = issue.cycle_id || null"
@@ -1897,7 +1914,7 @@ onUnmounted(() => {
                 <NSelect
                   v-model:value="tempCycle"
                   :options="cycleOptions"
-                  placeholder="选择冲刺"
+                  :placeholder="$t('page.issueForm.selectCycle')"
                   size="small"
                   clearable
                 />
@@ -1910,7 +1927,7 @@ onUnmounted(() => {
               v-model:editing="editingMilestone"
               label="Milestone"
               :display-value="milestoneDisplayValue"
-              placeholder="未分配"
+              :placeholder="$t('page.issueForm.unassigned')"
               @save="saveMilestone"
               @cancel="cancelMilestone"
               @start-edit="tempMilestone = issue.milestone_id || null"
@@ -1933,7 +1950,7 @@ onUnmounted(() => {
             <EditableField
               v-model="tempType"
               v-model:editing="editingType"
-              label="类型"
+              :label="$t('page.issueForm.type')"
               :display-value="typeOptions.find(t => t.value === issue.type)?.label || issue.type"
               :options="typeOptions"
               :tag-type="getTypeType(issue.type)"
@@ -1950,7 +1967,7 @@ onUnmounted(() => {
             <EditableField
               v-model="tempStartDate"
               v-model:editing="editingStartDate"
-              label="开始"
+              :label="$t('page.issueForm.start')"
               :display-value="formatDate(issue.start_date)"
               placeholder="-"
               @save="saveStartDate"
@@ -1971,7 +1988,7 @@ onUnmounted(() => {
             <EditableField
               v-model="tempDueDate"
               v-model:editing="editingDueDate"
-              label="截止日期"
+              :label="$t('page.issueForm.dueDate')"
               :display-value="formatDate(issue.due_date)"
               placeholder="-"
               @save="saveDueDate"
@@ -1988,8 +2005,8 @@ onUnmounted(() => {
 
             <!-- Watchers (E19) -->
             <div class="sidebar-section watchers-block">
-              <div class="sidebar-section-title">关注者</div>
-              <NEmpty v-if="!watchers.length" description="暂无关注者" size="small" />
+              <div class="sidebar-section-title">{{ $t('page.issueForm.watchers') }}</div>
+              <NEmpty v-if="!watchers.length" :description="$t('page.issueForm.noWatchers')" size="small" />
               <NSpace v-else vertical :size="4">
                 <div v-for="w in watchers" :key="w.user_id" class="watcher-row">
                   <NAvatar round size="small" class="watcher-avatar">
@@ -2014,9 +2031,11 @@ onUnmounted(() => {
             <EditableField
               v-model="tempReporter"
               v-model:editing="editingReporter"
-              label="报告人"
-              :display-value="issue.reporter?.sso_name || issue.reporter?.name || issue.reporter_id || '未设置'"
-              placeholder="未设置"
+              :label="$t('page.issueForm.reporter')"
+              :display-value="
+                issue.reporter?.sso_name || issue.reporter?.name || issue.reporter_id || $t('page.issueForm.unset')
+              "
+              :placeholder="$t('page.issueForm.unset')"
               @save="saveReporter"
               @cancel="cancelReporter"
               @start-edit="tempReporter = issue.reporter_id || ''"
@@ -2027,7 +2046,7 @@ onUnmounted(() => {
               <template #editor>
                 <UserSelect
                   :model-value="tempReporter"
-                  placeholder="选择报告人"
+                  :placeholder="$t('page.issueForm.selectReporter')"
                   size="small"
                   @update:model-value="
                     value => {

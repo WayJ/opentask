@@ -20,6 +20,7 @@ import { fetchProjectList } from '@/service/api';
 import { useIssueStore } from '@/store/modules/issue';
 import { labeledOptions } from '@/locales/display-label';
 import { useLabelTable } from '@/locales/use-label-table';
+import { $t } from '@/locales';
 import MarkdownEditor from '@/components/MarkdownEditor.vue';
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
 import type { Api } from '@/typings/api';
@@ -36,6 +37,13 @@ const typeOptions = computed(() =>
   labeledOptions(
     issueTypeOptions.map(option => option.value),
     typeLabels.value
+  )
+);
+const priorityLabels = useLabelTable('page.issuePriority');
+const priorityOptions = computed(() =>
+  labeledOptions(
+    issuePriorityOptions.map(option => option.value),
+    priorityLabels.value
   )
 );
 
@@ -283,7 +291,7 @@ onBeforeRouteLeave((_to, _from, next) => {
             返回详情 (Esc)
           </NTooltip>
 
-          <NText strong style="font-size: 16px; margin-left: 12px">编辑问题</NText>
+          <NText strong style="font-size: 16px; margin-left: 12px">{{ $t('page.issueForm.editTitle') }}</NText>
 
           <NTag v-if="hasUnsavedChanges" type="warning" size="small" style="margin-left: 12px">未保存</NTag>
         </div>
@@ -308,7 +316,7 @@ onBeforeRouteLeave((_to, _from, next) => {
               <template #icon>
                 <icon-mdi-check />
               </template>
-              保存更改
+              {{ $t('page.issueForm.saveChanges') }}
             </NButton>
           </NSpace>
         </div>
@@ -364,16 +372,21 @@ onBeforeRouteLeave((_to, _from, next) => {
             <template #header>
               <NSpace align="center">
                 <icon-mdi-cog />
-                <NText strong>属性设置</NText>
+                <NText strong>{{ $t('page.issueForm.propertySettings') }}</NText>
               </NSpace>
             </template>
 
             <!-- 类型选择 -->
             <div class="property-item">
               <div class="property-label">
-                <NText depth="3" style="font-size: 12px">类型</NText>
+                <NText depth="3" style="font-size: 12px">{{ $t('page.issueForm.type') }}</NText>
               </div>
-              <NSelect v-model:value="formData.type" :options="typeOptions" size="small" placeholder="选择类型">
+              <NSelect
+                v-model:value="formData.type"
+                :options="typeOptions"
+                size="small"
+                :placeholder="$t('page.issueForm.selectType')"
+              >
                 <template #label="{ option }">
                   <NSpace :size="8" align="center">
                     <icon-mdi v-if="option?.value" :name="typeIconMap[option.value as Api.Issue.IssueType]" />
@@ -386,13 +399,13 @@ onBeforeRouteLeave((_to, _from, next) => {
             <!-- 优先级选择 -->
             <div class="property-item">
               <div class="property-label">
-                <NText depth="3" style="font-size: 12px">优先级</NText>
+                <NText depth="3" style="font-size: 12px">{{ $t('page.issueForm.priority') }}</NText>
               </div>
               <NSelect
                 v-model:value="formData.priority"
-                :options="issuePriorityOptions"
+                :options="priorityOptions"
                 size="small"
-                placeholder="选择优先级"
+                :placeholder="$t('page.issueForm.selectPriority')"
               >
                 <template #label="{ option }">
                   <NSpace :size="8" align="center">
@@ -412,13 +425,13 @@ onBeforeRouteLeave((_to, _from, next) => {
             <!-- 关联项目 -->
             <div class="property-item">
               <div class="property-label">
-                <NText depth="3" style="font-size: 12px">关联项目</NText>
+                <NText depth="3" style="font-size: 12px">{{ $t('page.issueForm.linkedProject') }}</NText>
               </div>
               <NSelect
                 v-model:value="formData.project_id"
                 :options="projectOptions"
                 size="small"
-                placeholder="选择项目（可选）"
+                :placeholder="$t('page.issueForm.selectProjectOptional')"
                 :loading="projectsLoading"
                 clearable
                 filterable
@@ -433,7 +446,7 @@ onBeforeRouteLeave((_to, _from, next) => {
                 style="width: 100%; justify-content: space-between; padding: 8px 0"
                 @click="advancedExpanded = !advancedExpanded"
               >
-                <NText depth="3" style="font-size: 12px">高级选项</NText>
+                <NText depth="3" style="font-size: 12px">{{ $t('page.issueForm.advanced') }}</NText>
                 <icon-mdi-chevron-down :class="{ expanded: advancedExpanded }" />
               </NButton>
             </div>
@@ -442,25 +455,40 @@ onBeforeRouteLeave((_to, _from, next) => {
               <!-- 关联任务 -->
               <div class="property-item">
                 <div class="property-label">
-                  <NText depth="3" style="font-size: 12px">关联任务 ID</NText>
+                  <NText depth="3" style="font-size: 12px">{{ $t('page.issueForm.linkedTaskId') }}</NText>
                 </div>
-                <NInput v-model:value="formData.task_id" size="small" placeholder="输入任务 ID" clearable />
+                <NInput
+                  v-model:value="formData.task_id"
+                  size="small"
+                  :placeholder="$t('page.issueForm.enterTaskId')"
+                  clearable
+                />
               </div>
 
               <!-- 关联需求 -->
               <div class="property-item">
                 <div class="property-label">
-                  <NText depth="3" style="font-size: 12px">关联需求 ID</NText>
+                  <NText depth="3" style="font-size: 12px">{{ $t('page.issueForm.linkedRequirementId') }}</NText>
                 </div>
-                <NInput v-model:value="formData.requirement_id" size="small" placeholder="输入需求 ID" clearable />
+                <NInput
+                  v-model:value="formData.requirement_id"
+                  size="small"
+                  :placeholder="$t('page.issueForm.enterRequirementId')"
+                  clearable
+                />
               </div>
 
               <!-- 负责人 -->
               <div class="property-item">
                 <div class="property-label">
-                  <NText depth="3" style="font-size: 12px">负责人 ID</NText>
+                  <NText depth="3" style="font-size: 12px">{{ $t('page.issueForm.assigneeId') }}</NText>
                 </div>
-                <NInput v-model:value="formData.assignee_id" size="small" placeholder="输入负责人 ID" clearable />
+                <NInput
+                  v-model:value="formData.assignee_id"
+                  size="small"
+                  :placeholder="$t('page.issueForm.enterAssigneeId')"
+                  clearable
+                />
               </div>
             </template>
           </NCard>
