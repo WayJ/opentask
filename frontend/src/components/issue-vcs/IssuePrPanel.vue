@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { NButton, NCard, NEmpty, NInput, NSpace, NSpin, NTag, NText } from 'naive-ui';
 import { type IssueVcsLink, createIssueVcsLink, deleteIssueVcsLink, fetchIssueVcsLinks } from '@/service/api/issue-vcs';
+import { $t } from '@/locales';
 
 const props = defineProps<{
   issueId: string;
@@ -43,7 +44,7 @@ async function load() {
   try {
     const { data, error } = await fetchIssueVcsLinks(props.issueId);
     if (error || !data) {
-      window.$message?.error(error?.message || '加载 PR 关联失败');
+      window.$message?.error(error?.message || $t('page.issuePr.loadFailed'));
       return;
     }
     rows.value = data.rows || [];
@@ -55,7 +56,7 @@ async function load() {
 async function onAdd() {
   const url = prUrl.value.trim();
   if (!url) {
-    window.$message?.warning('请输入 PR URL');
+    window.$message?.warning($t('page.issuePr.urlRequired'));
     return;
   }
   saving.value = true;
@@ -68,10 +69,10 @@ async function onAdd() {
       title: title.value.trim() || undefined
     });
     if (error) {
-      window.$message?.error(error.message || '关联失败');
+      window.$message?.error(error.message || $t('page.issuePr.linkFailed'));
       return;
     }
-    window.$message?.success('已关联 PR');
+    window.$message?.success($t('page.issuePr.linked'));
     prUrl.value = '';
     title.value = '';
     await load();
@@ -83,10 +84,10 @@ async function onAdd() {
 async function onUnlink(row: IssueVcsLink) {
   const { error } = await deleteIssueVcsLink(props.issueId, row.id);
   if (error) {
-    window.$message?.error(error.message || '解除关联失败');
+    window.$message?.error(error.message || $t('page.issuePr.unlinkFailed'));
     return;
   }
-  window.$message?.success('已解除关联');
+  window.$message?.success($t('page.issuePr.unlinked'));
   await load();
 }
 
@@ -101,9 +102,9 @@ onMounted(load);
 </script>
 
 <template>
-  <NCard size="small" title="关联的 PR" class="issue-pr-panel">
+  <NCard size="small" :title="$t('page.issuePr.title')" class="issue-pr-panel">
     <NSpin :show="loading">
-      <NEmpty v-if="empty" description="暂无关联的 Pull Request" size="small" />
+      <NEmpty v-if="empty" :description="$t('page.issuePr.empty')" size="small" />
       <div v-else class="pr-list">
         <div v-for="row in prRows" :key="row.id" class="pr-row">
           <div class="pr-main">
@@ -115,15 +116,16 @@ onMounted(load);
             </a>
             <NText v-else depth="3">{{ row.title || row.externalId || row.id }}</NText>
           </div>
-          <NButton size="tiny" quaternary type="error" @click="onUnlink(row)">解除关联</NButton>
+          <NButton size="tiny" quaternary type="error" @click="onUnlink(row)">{{ $t('page.issuePr.unlink') }}</NButton>
         </div>
       </div>
 
       <div class="pr-add">
         <NSpace vertical :size="8" style="width: 100%">
-          <NInput v-model:value="prUrl" size="small" placeholder="PR URL（如 https://github.com/org/repo/pull/1）" />
-          <NInput v-model:value="title" size="small" placeholder="标题（可选）" />
-          <NButton size="small" type="primary" :loading="saving" @click="onAdd">关联 PR</NButton>
+          <!-- https://github.com/org/repo/pull/1 -->
+          <NInput v-model:value="prUrl" size="small" :placeholder="$t('page.issuePr.urlPlaceholder')" />
+          <NInput v-model:value="title" size="small" :placeholder="$t('page.issueLink.titleOptional')" />
+          <NButton size="small" type="primary" :loading="saving" @click="onAdd">{{ $t('page.issuePr.add') }}</NButton>
         </NSpace>
       </div>
     </NSpin>

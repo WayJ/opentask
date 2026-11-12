@@ -129,15 +129,19 @@ describe('issue form and property chrome copy', () => {
     const statusBtnStart = detail.indexOf("startEdit('status'");
     expect(statusBtnStart).toBeGreaterThan(-1);
     const statusBtnEnd = detail.indexOf('</NButton>', statusBtnStart);
-    expect(detail.slice(statusBtnStart, statusBtnEnd)).toContain('状态');
+    expect(detail.slice(statusBtnStart, statusBtnEnd)).toContain("$t('page.issueForm.status')");
     expect(detail).toMatch(
       /assigneeInfo = issueData\.assignee\s*\?\s*issueData\.assignee\.sso_name \|\| issueData\.assignee\.sso_account \|\| issueData\.assignee\.id\s*:\s*'未分配'/
     );
     expect(detail).toContain('label="Milestone"');
-    expect(detail).toContain("'无 Milestone'");
-    expect(detail).toContain('选择 Milestone');
-    expect(detail).toMatch(/label="项目"[\s\S]*?placeholder="未设置"/);
-    expect(detail).toMatch(/label="估点"[\s\S]*?placeholder="未设置"/);
+    expect(detail).toContain("$t('page.issueDetail.noMilestone')");
+    expect(detail).toContain("$t('page.issueDetail.chooseMilestone')");
+    expect(detail).toMatch(
+      /:label="\$t\('page\.issueDetail\.project'\)"[\s\S]*?:placeholder="\$t\('page\.issueForm\.unset'\)"/
+    );
+    expect(detail).toMatch(
+      /:label="\$t\('page\.issueList\.columns\.estimate'\)"[\s\S]*?:placeholder="\$t\('page\.issueForm\.unset'\)"/
+    );
     expect(constants).toContain("label: '待办'");
     expect(constants).toContain("label: '紧急'");
   });

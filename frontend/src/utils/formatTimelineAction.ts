@@ -1,44 +1,78 @@
-/** E41：Issue timeline action 文案（纯函数，便于 vitest） */
+/** E41：Issue timeline action 文案（随当前 locale 读取 $t） */
+
+import { $t } from '@/locales';
 
 export type TimelineActionItem = {
   action_type: string;
   action_data?: Record<string, any> | null;
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  open: '待处理',
-  in_progress: '进行中',
-  feedback: '等待反馈',
-  resolved: '已解决',
-  closed: '已关闭',
-  rejected: '已拒绝'
-};
-
-const PRIORITY_LABELS: Record<string, string> = {
-  low: '低',
-  medium: '中',
-  high: '高',
-  critical: '紧急'
-};
-
-function getStatusLabel(status: string) {
-  return STATUS_LABELS[status] || status;
+function getStatusLabel(status: string): string {
+  switch (status) {
+    case 'open':
+      return $t('page.issueStatus.open');
+    case 'in_progress':
+      return $t('page.issueStatus.in_progress');
+    case 'feedback':
+      return $t('page.issueStatus.feedback');
+    case 'resolved':
+      return $t('page.issueStatus.resolved');
+    case 'closed':
+      return $t('page.issueStatus.closed');
+    case 'rejected':
+      return $t('page.issueStatus.rejected');
+    default:
+      return status;
+  }
 }
 
-function getPriorityLabel(priority: string) {
-  return PRIORITY_LABELS[priority] || priority;
+function getPriorityLabel(priority: string): string {
+  switch (priority) {
+    case 'low':
+      return $t('page.issuePriority.low');
+    case 'medium':
+      return $t('page.issuePriority.medium');
+    case 'high':
+      return $t('page.issuePriority.high');
+    case 'critical':
+      return $t('page.issuePriority.critical');
+    default:
+      return priority;
+  }
+}
+
+function relationTypeLabel(type: unknown): string {
+  switch (type) {
+    case 'blocks':
+      return $t('page.issueDetail.relationBlocks');
+    case 'is_blocked_by':
+      return $t('page.issueDetail.relationBlockedBy');
+    case 'relates_to':
+      return $t('page.issueDetail.relationRelated');
+    case 'duplicates':
+      return $t('page.issueDetail.relationDuplicates');
+    case 'is_duplicated_by':
+      return $t('page.issueDetail.relationDuplicatedBy');
+    case 'depends_on':
+      return $t('page.issueDetail.relationDependsOn');
+    case 'is_depended_by':
+      return $t('page.issueDetail.relationDependedOnBy');
+    default:
+      if (type === null || type === undefined || type === '') return '';
+      return String(type);
+  }
 }
 
 function formatUserInfo(user: any) {
-  if (!user) return '未分配';
+  if (!user) return $t('page.issueDetail.timelineUnassigned');
   if (typeof user === 'object') {
-    return user.sso_name || user.name || user.sso_account || user.id || '未分配';
+    return user.sso_name || user.name || user.sso_account || user.id || $t('page.issueDetail.timelineUnassigned');
   }
   return String(user);
 }
 
 function displayVal(v: unknown): string {
-  if (v === null || v === undefined || v === '') return '空';
+  if (v === null || v === undefined || v === '') return $t('page.issueDetail.timelineEmpty');
   if (typeof v === 'object') return JSON.stringify(v);
   return String(v);
 }
@@ -49,64 +83,92 @@ export function formatTimelineAction(item: TimelineActionItem): string {
 
   switch (action_type) {
     case 'created':
-      return '创建了此问题';
+      return $t('page.issueDetail.timelineCreated');
     case 'restored':
-      return '从回收站恢复了此问题';
+      return $t('page.issueDetail.timelineRestored');
     case 'updated':
-      return '更新了问题';
+      return $t('page.issueDetail.timelineUpdated');
     case 'commented':
-      return '添加了评论';
+      return $t('page.issueDetail.timelineCommented');
     case 'status_changed':
-      return `将状态从 "${getStatusLabel(ad?.from || '')}" 改为 "${getStatusLabel(ad?.to || '')}"`;
+      return $t('page.issueDetail.timelineStatusChanged', {
+        from: getStatusLabel(ad?.from || ''),
+        to: getStatusLabel(ad?.to || '')
+      });
     case 'assigned':
-      return `将负责人从 "${formatUserInfo(ad?.from)}" 改为 "${formatUserInfo(ad?.to)}"`;
+      return $t('page.issueDetail.timelineAssigneeChanged', {
+        from: formatUserInfo(ad?.from),
+        to: formatUserInfo(ad?.to)
+      });
     case 'priority_changed':
-      return `将优先级从 "${getPriorityLabel(ad?.from || '')}" 改为 "${getPriorityLabel(ad?.to || '')}"`;
+      return $t('page.issueDetail.timelinePriorityChanged', {
+        from: getPriorityLabel(ad?.from || ''),
+        to: getPriorityLabel(ad?.to || '')
+      });
     case 'due_date_changed':
-      return '修改了截止日期';
+      return $t('page.issueDetail.timelineDueDateChanged');
     case 'start_date_changed':
-      return '修改了计划开始日';
+      return $t('page.issueDetail.timelineStartDateChanged');
     case 'relation_added':
-      return `添加了关联: ${ad?.relation_type}`;
+      return $t('page.issueDetail.timelineRelationAdded', { type: relationTypeLabel(ad?.relation_type) });
     case 'relation_removed':
-      return '移除了关联';
+      return $t('page.issueDetail.timelineRelationRemoved');
     case 'attachment_added':
-      return '添加了附件';
+      return $t('page.issueDetail.timelineAttachmentAdded');
     case 'attachment_removed':
-      return '移除了附件';
+      return $t('page.issueDetail.timelineAttachmentRemoved');
     case 'label_added':
-      return '添加了标签';
+      return $t('page.issueDetail.timelineTagAdded');
     case 'label_removed':
-      return '移除了标签';
+      return $t('page.issueDetail.timelineTagRemoved');
     case 'reaction_added':
-      return `添加了反应 ${ad?.emoji || ''}`;
+      return $t('page.issueDetail.timelineReactionAdded', { emoji: ad?.emoji || '' });
     case 'reaction_removed':
-      return `移除了反应 ${ad?.emoji || ''}`;
+      return $t('page.issueDetail.timelineReactionRemoved', { emoji: ad?.emoji || '' });
     case 'resolved':
-      return '标记为已解决';
+      return $t('page.issueDetail.timelineMarkedResolved');
     case 'closed':
-      return '关闭了此问题';
+      return $t('page.issueDetail.timelineClosed');
     case 'reopened':
-      return '重新打开此问题';
+      return $t('page.issueDetail.timelineReopened');
     case 'custom_field_changed': {
       const key = ad.fieldKey || ad.field_key || '';
-      return `将自定义字段 ${key} 从 ${displayVal(ad.from)} 改为 ${displayVal(ad.to)}`;
+      return $t('page.issueDetail.timelineCustomFieldChanged', {
+        key,
+        from: displayVal(ad.from),
+        to: displayVal(ad.to)
+      });
     }
     case 'cycle_changed':
-      return `将冲刺从 ${displayVal(ad.from)} 改为 ${displayVal(ad.to)}`;
+      return $t('page.issueDetail.timelineCycleChanged', {
+        from: displayVal(ad.from),
+        to: displayVal(ad.to)
+      });
     case 'estimate_changed':
-      return `将估分从 ${displayVal(ad.from)} 改为 ${displayVal(ad.to)}`;
+      return $t('page.issueDetail.timelineEstimateChanged', {
+        from: displayVal(ad.from),
+        to: displayVal(ad.to)
+      });
     case 'project_changed':
-      return `将项目从 ${displayVal(ad.from)} 改为 ${displayVal(ad.to)}`;
+      return $t('page.issueDetail.timelineProjectChanged', {
+        from: displayVal(ad.from),
+        to: displayVal(ad.to)
+      });
     case 'sla_paused': {
       const name = ad.policyName || ad.policyId || 'SLA';
-      const metric = ad.metric === 'first_response' ? '首响' : '状态';
-      return `暂停了${metric} SLA（${name}）`;
+      const metric =
+        ad.metric === 'first_response'
+          ? $t('page.issueDetail.timelineSlaMetricFirstResponse')
+          : $t('page.issueDetail.timelineSlaMetricStatus');
+      return $t('page.issueDetail.timelineSlaPaused', { metric, name });
     }
     case 'sla_resumed': {
       const name = ad.policyName || ad.policyId || 'SLA';
-      const metric = ad.metric === 'first_response' ? '首响' : '状态';
-      return `恢复了${metric} SLA（${name}）`;
+      const metric =
+        ad.metric === 'first_response'
+          ? $t('page.issueDetail.timelineSlaMetricFirstResponse')
+          : $t('page.issueDetail.timelineSlaMetricStatus');
+      return $t('page.issueDetail.timelineSlaResumed', { metric, name });
     }
     default:
       return action_type;

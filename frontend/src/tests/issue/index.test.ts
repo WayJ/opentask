@@ -243,7 +243,7 @@ describe('IssueReactions Component', () => {
         currentUserId: 'admin'
       },
       global: {
-        plugins: [pinia],
+        plugins: [pinia, i18n],
         stubs: {
           'icon-mdi-emoticon-happy-outline': true,
           'icon-mdi-account-multiple-outline': true
@@ -268,7 +268,7 @@ describe('IssueReactions Component', () => {
         currentUserId: 'admin'
       },
       global: {
-        plugins: [pinia],
+        plugins: [pinia, i18n],
         stubs: {
           'icon-mdi-emoticon-happy-outline': true,
           'icon-mdi-account-multiple-outline': true
@@ -292,7 +292,7 @@ describe('IssueReactions Component', () => {
         currentUserId: 'u1'
       },
       global: {
-        plugins: [pinia],
+        plugins: [pinia, i18n],
         stubs: {
           'icon-mdi-emoticon-happy-outline': true,
           'icon-mdi-account-multiple-outline': true

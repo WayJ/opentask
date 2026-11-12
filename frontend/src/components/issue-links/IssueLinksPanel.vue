@@ -9,6 +9,7 @@ import {
   patchIssueLink
 } from '@/service/api/issue-links';
 import { hostnameFromUrl, isHttpUrl } from '@/utils/issueLinkUrl';
+import { $t } from '@/locales';
 
 const props = defineProps<{
   issueId: string;
@@ -43,7 +44,7 @@ async function load() {
   try {
     const { data, error } = await fetchIssueLinks(props.issueId);
     if (error || !data) {
-      window.$message?.error(error?.message || '加载外链失败');
+      window.$message?.error(error?.message || $t('page.issueLink.loadFailed'));
       return;
     }
     rows.value = data.rows || [];
@@ -55,11 +56,11 @@ async function load() {
 async function onAdd() {
   const url = newUrl.value.trim();
   if (!url) {
-    window.$message?.warning('请输入链接 URL');
+    window.$message?.warning($t('page.issueLink.urlRequired'));
     return;
   }
   if (!isHttpUrl(url)) {
-    window.$message?.warning('仅支持 http:// 或 https:// 链接');
+    window.$message?.warning($t('page.issueLink.httpOnly'));
     return;
   }
   saving.value = true;
@@ -69,10 +70,10 @@ async function onAdd() {
       title: newTitle.value.trim() || undefined
     });
     if (error) {
-      window.$message?.error(error.message || '添加失败');
+      window.$message?.error(error.message || $t('page.issueLink.addFailed'));
       return;
     }
-    window.$message?.success('已添加链接');
+    window.$message?.success($t('page.issueLink.added'));
     newUrl.value = '';
     newTitle.value = '';
     await load();
@@ -96,7 +97,7 @@ function cancelEdit() {
 async function saveEdit(row: IssueLink) {
   const url = editUrl.value.trim();
   if (!url || !isHttpUrl(url)) {
-    window.$message?.warning('仅支持 http:// 或 https:// 链接');
+    window.$message?.warning($t('page.issueLink.httpOnly'));
     return;
   }
   saving.value = true;
@@ -106,10 +107,10 @@ async function saveEdit(row: IssueLink) {
       title: editTitle.value.trim() || ''
     });
     if (error) {
-      window.$message?.error(error.message || '更新失败');
+      window.$message?.error(error.message || $t('page.issueLink.updateFailed'));
       return;
     }
-    window.$message?.success('已更新');
+    window.$message?.success($t('page.issueLink.updated'));
     cancelEdit();
     await load();
   } finally {
@@ -120,10 +121,10 @@ async function saveEdit(row: IssueLink) {
 async function onDelete(row: IssueLink) {
   const { error } = await deleteIssueLink(props.issueId, row.id);
   if (error) {
-    window.$message?.error(error.message || '删除失败');
+    window.$message?.error(error.message || $t('page.issueLink.deleteFailed'));
     return;
   }
-  window.$message?.success('已删除');
+  window.$message?.success($t('page.issueLink.deleted'));
   await load();
 }
 
@@ -138,18 +139,20 @@ onMounted(load);
 </script>
 
 <template>
-  <NCard size="small" title="链接" class="issue-links-panel">
+  <NCard size="small" :title="$t('page.issueLink.title')" class="issue-links-panel">
     <NSpin :show="loading">
-      <NEmpty v-if="empty" description="添加设计稿、文档或仪表盘链接" size="small" />
+      <NEmpty v-if="empty" :description="$t('page.issueLink.empty')" size="small" />
       <div v-else class="link-list">
         <div v-for="row in rows" :key="row.id" class="link-row">
           <template v-if="editingId === row.id">
             <NSpace vertical :size="6" style="width: 100%">
               <NInput v-model:value="editUrl" size="small" placeholder="https://…" />
-              <NInput v-model:value="editTitle" size="small" placeholder="标题（可选）" />
+              <NInput v-model:value="editTitle" size="small" :placeholder="$t('page.issueLink.titleOptional')" />
               <NSpace :size="6">
-                <NButton size="tiny" type="primary" :loading="saving" @click="saveEdit(row)">保存</NButton>
-                <NButton size="tiny" quaternary @click="cancelEdit">取消</NButton>
+                <NButton size="tiny" type="primary" :loading="saving" @click="saveEdit(row)">
+                  {{ $t('page.issueLink.save') }}
+                </NButton>
+                <NButton size="tiny" quaternary @click="cancelEdit">{{ $t('common.cancel') }}</NButton>
               </NSpace>
             </NSpace>
           </template>
@@ -163,8 +166,8 @@ onMounted(load);
               </NText>
             </div>
             <NSpace :size="4">
-              <NButton size="tiny" quaternary @click="startEdit(row)">编辑</NButton>
-              <NButton size="tiny" quaternary type="error" @click="onDelete(row)">删除</NButton>
+              <NButton size="tiny" quaternary @click="startEdit(row)">{{ $t('common.edit') }}</NButton>
+              <NButton size="tiny" quaternary type="error" @click="onDelete(row)">{{ $t('common.delete') }}</NButton>
             </NSpace>
           </template>
         </div>
@@ -173,8 +176,10 @@ onMounted(load);
       <div class="link-add mt-8px">
         <NSpace vertical :size="6" style="width: 100%">
           <NInput v-model:value="newUrl" size="small" placeholder="https://…" />
-          <NInput v-model:value="newTitle" size="small" placeholder="标题（可选）" />
-          <NButton size="small" type="primary" :loading="saving" @click="onAdd">添加链接</NButton>
+          <NInput v-model:value="newTitle" size="small" :placeholder="$t('page.issueLink.titleOptional')" />
+          <NButton size="small" type="primary" :loading="saving" @click="onAdd">
+            {{ $t('page.issueLink.addLink') }}
+          </NButton>
         </NSpace>
       </div>
     </NSpin>
