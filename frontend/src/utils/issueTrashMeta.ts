@@ -1,7 +1,8 @@
-/** E77: trash/restore copy helpers (pure; vitest). */
+import { $t } from '@/locales';
 
+/** E77: trash/restore copy helpers; empty hint follows the active locale. */
 export function trashEmptyHint(): string {
-  return '回收站为空';
+  return $t('page.issueTrash.empty');
 }
 
 export function restoreSuccessMessage(code: string): string {

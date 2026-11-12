@@ -1,16 +1,29 @@
 <script setup lang="ts">
-import { h, onMounted, reactive, ref } from 'vue';
+import { computed, h, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { NButton, NCard, NDataTable, NEmpty, NPagination, NSpace, NTag } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
+import { NButton, NCard, NDataTable, NEmpty, NPagination, NSpace, NTag } from 'naive-ui';
+import { useI18n } from 'vue-i18n';
 import { getIssuePriorityTagType, getIssueStatusTagType } from '@/constants/issue';
 import { issueApi } from '@/service/api/issue';
 import { restoreSuccessMessage, trashEmptyHint } from '@/utils/issueTrashMeta';
+import { $t } from '@/locales';
+import { lookupLabel } from '@/locales/display-label';
+import { useLabelTable } from '@/locales/use-label-table';
 import type { Api } from '@/typings/api';
 
 defineOptions({ name: 'IssueTrash' });
 
 const router = useRouter();
+const { locale } = useI18n();
+const statusLabels = useLabelTable('page.issueStatus');
+const priorityLabels = useLabelTable('page.issuePriority');
+/* eslint-disable no-void -- derived chrome must read locale.value before $t */
+const emptyHint = computed(() => {
+  void locale.value;
+  return trashEmptyHint();
+});
+/* eslint-enable no-void */
 const loading = ref(false);
 const restoringId = ref<string | null>(null);
 const rows = ref<Api.Issue.Issue[]>([]);
@@ -51,66 +64,80 @@ function openDetail(row: Api.Issue.Issue) {
   router.push({ path: '/issue/detail', query: { id: row.id, trash: '1' } });
 }
 
-const columns: DataTableColumns<Api.Issue.Issue> = [
-  {
-    title: '编号',
-    key: 'issue_code',
-    width: 120,
-    render: row =>
-      h(
-        NButton,
-        { text: true, type: 'primary', onClick: () => openDetail(row) },
-        { default: () => row.issue_code || (row as any).issueCode }
-      )
-  },
-  { title: '标题', key: 'title', ellipsis: { tooltip: true } },
-  {
-    title: '状态',
-    key: 'status',
-    width: 100,
-    render: row => h(NTag, { type: getIssueStatusTagType(row.status), size: 'small' }, { default: () => row.status })
-  },
-  {
-    title: '优先级',
-    key: 'priority',
-    width: 100,
-    render: row =>
-      h(NTag, { type: getIssuePriorityTagType(row.priority), size: 'small' }, { default: () => row.priority })
-  },
-  {
-    title: '更新时间',
-    key: 'updated_at',
-    width: 180,
-    render: row => (row as any).updated_at || (row as any).updatedAt || '—'
-  },
-  {
-    title: '操作',
-    key: 'actions',
-    width: 120,
-    render: row =>
-      h(
-        NButton,
-        {
-          size: 'small',
-          type: 'primary',
-          loading: restoringId.value === row.id,
-          onClick: () => handleRestore(row)
-        },
-        { default: () => '恢复' }
-      )
-  }
-];
+/* eslint-disable no-void -- derived chrome must read locale.value before $t */
+const columns = computed<DataTableColumns<Api.Issue.Issue>>(() => {
+  void locale.value;
+  return [
+    {
+      title: $t('page.issueTrash.key'),
+      key: 'issue_code',
+      width: 120,
+      render: row =>
+        h(
+          NButton,
+          { text: true, type: 'primary', onClick: () => openDetail(row) },
+          { default: () => row.issue_code || (row as any).issueCode }
+        )
+    },
+    { title: $t('page.issueTrash.issueTitle'), key: 'title', ellipsis: { tooltip: true } },
+    {
+      title: $t('page.issueTrash.status'),
+      key: 'status',
+      width: 100,
+      render: row =>
+        h(
+          NTag,
+          { type: getIssueStatusTagType(row.status), size: 'small' },
+          { default: () => lookupLabel(statusLabels.value, row.status) }
+        )
+    },
+    {
+      title: $t('page.issueTrash.priority'),
+      key: 'priority',
+      width: 100,
+      render: row =>
+        h(
+          NTag,
+          { type: getIssuePriorityTagType(row.priority), size: 'small' },
+          { default: () => lookupLabel(priorityLabels.value, row.priority) }
+        )
+    },
+    {
+      title: $t('page.issueTrash.updatedAt'),
+      key: 'updated_at',
+      width: 180,
+      render: row => (row as any).updated_at || (row as any).updatedAt || '—'
+    },
+    {
+      title: $t('page.issueTrash.actions'),
+      key: 'actions',
+      width: 120,
+      render: row =>
+        h(
+          NButton,
+          {
+            size: 'small',
+            type: 'primary',
+            loading: restoringId.value === row.id,
+            onClick: () => handleRestore(row)
+          },
+          { default: () => $t('page.issueTrash.restore') }
+        )
+    }
+  ];
+});
+/* eslint-enable no-void */
 
 onMounted(loadTrash);
 </script>
 
 <template>
   <div class="issue-trash-page">
-    <NCard title="回收站" :bordered="false">
+    <NCard :title="$t('page.issueTrash.title')" :bordered="false">
       <template #header-extra>
         <NSpace>
-          <NButton secondary @click="router.push('/issue/list')">返回列表</NButton>
-          <NButton secondary :loading="loading" @click="loadTrash">刷新</NButton>
+          <NButton secondary @click="router.push('/issue/list')">{{ $t('page.issueTrash.backToList') }}</NButton>
+          <NButton secondary :loading="loading" @click="loadTrash">{{ $t('page.issueTrash.refresh') }}</NButton>
         </NSpace>
       </template>
 
@@ -122,7 +149,7 @@ onMounted(loadTrash);
         :bordered="false"
         :single-line="false"
       />
-      <NEmpty v-else :description="trashEmptyHint()" class="py-12" />
+      <NEmpty v-else :description="emptyHint" class="py-12" />
 
       <div v-if="pagination.total > pagination.pageSize" class="mt-4 flex justify-end">
         <NPagination

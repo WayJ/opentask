@@ -90,7 +90,10 @@ describe('SLA settings labels', () => {
     expect(wrapper.text()).not.toContain('SLA deadline');
     expect(wrapper.text()).not.toContain('running/paused');
     expect(wrapper.text()).not.toContain('forced_open');
-    expect(wrapper.get('input[placeholder="名称"]').element).toHaveProperty('value', '进行中停留');
+    expect(wrapper.get(`input[placeholder="${i18n.global.t('page.sla.name')}"]`).element).toHaveProperty(
+      'value',
+      '进行中停留'
+    );
 
     const source = readFileSync(resolve('src/views/settings/sla/index.vue'), 'utf8');
     expect(source).toContain('lookupLabel(metricLabels.value, row.metric)');
@@ -116,14 +119,23 @@ describe('SLA settings labels', () => {
     expect(wrapper.text()).toContain('09:00-12:00,13:00-18:00');
     expect(wrapper.text()).not.toContain('forced_open');
     expect(wrapper.text()).not.toContain('SLA deadline');
-    expect(wrapper.get('input[placeholder="名称"]').element).toHaveProperty('value', 'Time in progress');
+    expect(wrapper.get(`input[placeholder="${i18n.global.t('page.sla.name')}"]`).element).toHaveProperty(
+      'value',
+      'Time in progress'
+    );
 
     const onName = wrapper.getComponent(NInput).props('onUpdate:value') as (value: string) => void;
     onName('My policy');
     await flushPromises();
-    expect(wrapper.get('input[placeholder="名称"]').element).toHaveProperty('value', 'My policy');
+    expect(wrapper.get(`input[placeholder="${i18n.global.t('page.sla.name')}"]`).element).toHaveProperty(
+      'value',
+      'My policy'
+    );
     setLocale('zh-CN');
     await flushPromises();
-    expect(wrapper.get('input[placeholder="名称"]').element).toHaveProperty('value', 'My policy');
+    expect(wrapper.get(`input[placeholder="${i18n.global.t('page.sla.name')}"]`).element).toHaveProperty(
+      'value',
+      'My policy'
+    );
   });
 });
